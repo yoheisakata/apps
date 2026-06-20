@@ -184,6 +184,9 @@ const STONES=[
   {id:'tigers_eye',name:'タイガーアイ',en:"Tiger's Eye",rarity:'rare',hits:5,
    desc:'クロシドライト（青石綿）が石英に置換されてできた宝石。光の反射で虎の眼のように金色に輝くシャトヤンシー効果を持つ。',
    outer:[125,92,48],outerVar:[88,65,32],crossDesc:'金色の繊維が波打つシルク模様',outerRough:.68,crossRough:.2},
+  {id:'diamond',name:'ダイヤモンド',en:'Diamond',rarity:'legendary',hits:8,
+   desc:'地下150km以上のマントルで高温・超高圧により炭素が結晶化した、地球上で最も硬い天然鉱物。モース硬度10。原石はキンバーライトという火山岩の中に埋まっている。',
+   outer:[160,165,175],outerVar:[120,125,140],crossDesc:'虹色に輝くプリズム結晶の内部',outerRough:.65,crossRough:.02},
 ];
 
 /* ═══════════════════════════════════════════
@@ -542,13 +545,50 @@ function renderTigersEye(x,y,dist,angle,px,py){
   return[r,g,b];
 }
 
+function renderDiamond(x,y,dist,angle,px,py){
+  const v=voronoi(x*5+20,y*5+20);
+  const facetEdge=smoothstep(.02,.07,v.d2-v.d1);
+  const cellN=noise2D(v.cx*100,v.cy*100);
+
+  const prismAngle=angle*2+dist*8+fbm(x*2+30,y*2+30,4)*3;
+  const spectrum=Math.sin(prismAngle)*.5+.5;
+  const fireIntensity=smoothstep(.3,.8,cellN)*smoothstep(.9,.5,dist)*.6;
+
+  let r=lerp(225,248,fbm(px*.008+10,py*.008+10,4));
+  let g=lerp(230,250,fbm(px*.008+40,py*.008+40,4));
+  let b=lerp(240,255,fbm(px*.008+70,py*.008+70,4));
+
+  const hue=prismAngle*57.3%360;
+  const hr=hue<60?255:hue<120?lerp(255,0,(hue-60)/60):hue<240?0:hue<300?lerp(0,255,(hue-240)/60):255;
+  const hg=hue<60?lerp(0,255,hue/60):hue<180?255:hue<240?lerp(255,0,(hue-180)/60):0;
+  const hb=hue<120?0:hue<180?lerp(0,255,(hue-120)/60):hue<300?255:lerp(255,0,(hue-300)/60);
+  r=lerp(r,hr,fireIntensity);
+  g=lerp(g,hg,fireIntensity);
+  b=lerp(b,hb,fireIntensity);
+
+  const edgeDark=(1-facetEdge)*18;
+  r-=edgeDark;g-=edgeDark;b-=edgeDark;
+
+  const brilliance=noise2D(px*.05+150,py*.05+150);
+  if(brilliance>.78){const t=(brilliance-.78)/.22;r=lerp(r,255,t*.5);g=lerp(g,255,t*.5);b=lerp(b,255,t*.5);}
+
+  const inclusion=domainWarp(x*6+80,y*6+80,.3,3);
+  if(inclusion>.72){const t=(inclusion-.72)/.28*.06;r-=t*30;g-=t*25;b-=t*15;}
+
+  const sparkle=noise2D(px*.12+300,py*.12+300);
+  if(sparkle>.92){r=Math.min(255,r+40);g=Math.min(255,g+40);b=Math.min(255,b+45);}
+
+  return[clamp(r,0,255),clamp(g,0,255),clamp(b,0,255)];
+}
+
 function generateCrossSection(stoneId,size=768){
   const c=document.createElement('canvas');c.width=c.height=size;
   const ctx=c.getContext('2d');
   const img=ctx.createImageData(size,size);const d=img.data;
   const cx=size/2,cy=size/2;
   const renderers={amethyst:renderAmethyst,agate:renderAgate,granite:renderGranite,marble:renderMarble,
-    obsidian:renderObsidian,lapis:renderLapis,rose_quartz:renderRoseQuartz,tigers_eye:renderTigersEye};
+    obsidian:renderObsidian,lapis:renderLapis,rose_quartz:renderRoseQuartz,tigers_eye:renderTigersEye,
+    diamond:renderDiamond};
   const render=renderers[stoneId];
 
   for(let py=0;py<size;py++)for(let px=0;px<size;px++){
@@ -673,7 +713,7 @@ function loadStone(stone){
     map:outerTex,normalMap:normalTex,
     normalScale:new THREE.Vector2(.9,.9),
     roughness:stone.outerRough,metalness:.04,
-    side:THREE.DoubleSide,
+    side:THREE.FrontSide,
   });
 
   stoneMesh=new THREE.Mesh(geo,mat);
@@ -703,39 +743,49 @@ function breakStone(){
   const cutNormal=new THREE.Vector3(1,0,0);
   const plane=new THREE.Plane(cutNormal,0);
   const negPlane=plane.clone().negate();
-
+  const geo=stoneMesh.geometry;
   const outerMat=stoneMesh.material;
-  const leftMat=outerMat.clone();leftMat.clippingPlanes=[plane];
-  const rightMat=outerMat.clone();rightMat.clippingPlanes=[negPlane];
 
-  const leftStone=new THREE.Mesh(stoneMesh.geometry,leftMat);
-  const rightStone=new THREE.Mesh(stoneMesh.geometry,rightMat);
+  const innerColor=new THREE.Color(
+    currentStone.outer[0]/255*.35,
+    currentStone.outer[1]/255*.35,
+    currentStone.outer[2]/255*.35);
 
-  const crossCanvas=generateCrossSection(currentStone.id,768);
-  const crossTex=new THREE.CanvasTexture(crossCanvas);
-  crossTex.colorSpace=THREE.SRGBColorSpace;
+  function makeHalf(clipPlane,capRotY,capX){
+    const front=outerMat.clone();
+    front.side=THREE.FrontSide;
+    front.clippingPlanes=[clipPlane];
+    const frontMesh=new THREE.Mesh(geo,front);
 
-  const crossMat=new THREE.MeshPhysicalMaterial({
-    map:crossTex,
-    roughness:currentStone.crossRough,
-    metalness:currentStone.id==='obsidian'?.12:.02,
-    clearcoat:currentStone.crossRough<.2?.9:.35,
-    clearcoatRoughness:.1,
-    side:THREE.DoubleSide,
-  });
+    const back=new THREE.MeshStandardMaterial({
+      color:innerColor,roughness:.95,metalness:0,
+      side:THREE.BackSide,clippingPlanes:[clipPlane],
+    });
+    const backMesh=new THREE.Mesh(geo,back);
 
-  const capGeo=new THREE.CircleGeometry(1.9,64);
+    const crossCanvas=generateCrossSection(currentStone.id,768);
+    const crossTex=new THREE.CanvasTexture(crossCanvas);
+    crossTex.colorSpace=THREE.SRGBColorSpace;
+    const crossMat=new THREE.MeshPhysicalMaterial({
+      map:crossTex,
+      roughness:currentStone.crossRough,
+      metalness:currentStone.id==='obsidian'?.12:currentStone.id==='diamond'?.08:.02,
+      clearcoat:currentStone.crossRough<.2?.9:.35,
+      clearcoatRoughness:.1,
+      side:THREE.FrontSide,
+    });
+    const capGeo=new THREE.CircleGeometry(1.9,64);
+    const cap=new THREE.Mesh(capGeo,crossMat);
+    cap.rotation.y=capRotY;
+    cap.position.set(capX,0,0);
 
-  const leftCap=new THREE.Mesh(capGeo,crossMat);
-  leftCap.rotation.y=Math.PI/2;
-  leftCap.position.set(.002,0,0);
+    const grp=new THREE.Group();
+    grp.add(frontMesh,backMesh,cap);
+    return grp;
+  }
 
-  const rightCap=new THREE.Mesh(capGeo.clone(),crossMat.clone());
-  rightCap.rotation.y=-Math.PI/2;
-  rightCap.position.set(-.002,0,0);
-
-  leftGroup=new THREE.Group();leftGroup.add(leftStone,leftCap);
-  rightGroup=new THREE.Group();rightGroup.add(rightStone,rightCap);
+  leftGroup=makeHalf(plane,Math.PI/2,.003);
+  rightGroup=makeHalf(negPlane,-Math.PI/2,-.003);
 
   scene.remove(stoneGroup);stoneGroup=null;stoneMesh=null;
   scene.add(leftGroup,rightGroup);
