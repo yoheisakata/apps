@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新幹線マップ 🚄</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', 'Meiryo', sans-serif;
+  background: #0a0f1e;
+  color: #eee;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  background: rgba(10,15,30,0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1000;
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+header p {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+#map {
+  flex: 1;
+  background: #1a2035;
+}
+
+/* sidebar */
+.sidebar {
+  width: 260px;
+  background: rgba(10,15,30,0.97);
+  border-left: 1px solid rgba(255,255,255,0.07);
+  overflow-y: auto;
+  flex-shrink: 0;
+  padding: 16px 12px;
+}
+
+.sidebar h2 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 14px;
+}
+
+.line-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 4px;
+  user-select: none;
+}
+.line-item:hover { background: rgba(255,255,255,0.06); }
+.line-item.active { background: rgba(255,255,255,0.1); }
+
+.line-swatch {
+  width: 16px; height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.line-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.line-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ddd;
+}
+
+.line-km {
+  font-size: 0.68rem;
+  color: #666;
+  margin-top: 1px;
+}
+
+/* info panel (station popup) */
+.info-panel {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10,15,30,0.95);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 14px 20px;
+  min-width: 220px;
+  max-width: 360px;
+  z-index: 2000;
+  display: none;
+  backdrop-filter: blur(8px);
+}
+.info-panel.visible { display: block; }
+.info-panel h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.info-panel p  { font-size: 0.78rem; color: #aaa; line-height: 1.6; }
+.info-panel .close-btn {
+  position: absolute; top: 8px; right: 12px;
+  background: none; border: none; color: #666;
+  font-size: 1.1rem; cursor: pointer;
+}
+
+/* mobile */
+@media (max-width: 600px) {
+  .sidebar { width: 100%; border-left: none; border-top: 1px solid rgba(255,255,255,0.07); max-height: 38vh; }
+  .main { flex-direction: column; }
+  #map { min-height: 55vh; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🚄 新幹線マップ</h1>
+    <p>路線をタップして詳細を見る</p>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+
+  <aside class="sidebar">
+    <h2>路線一覧</h2>
+    <div id="line-list"></div>
+  </aside>
+</div>
+
+<div class="info-panel" id="info-panel">
+  <button class="close-btn" id="close-info">✕</button>
+  <h3 id="info-title"></h3>
+  <p id="info-body"></p>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── 路線データ ──────────────────────────────────────────────────────────────
+const LINES = [
+  {
+    id: 'tokaido',
+    name: '東海道新幹線',
+    color: '#f97316',
+    km: '515 km',
+    operator: 'JR東海',
+    stations: [
+      { name: '東京',     lat: 35.6812, lng: 139.7671, desc: '東海道・山陽・東北など全路線の起点' },
+      { name: '品川',     lat: 35.6284, lng: 139.7387 },
+      { name: '新横浜',   lat: 35.5068, lng: 139.6163 },
+      { name: '小田原',   lat: 35.2557, lng: 139.1545 },
+      { name: '熱海',     lat: 35.0988, lng: 139.0834 },
+      { name: '三島',     lat: 35.1179, lng: 138.9104 },
+      { name: '新富士',   lat: 35.1542, lng: 138.6787 },
+      { name: '静岡',     lat: 34.9712, lng: 138.3886 },
+      { name: '掛川',     lat: 34.7524, lng: 137.9988 },
+      { name: '浜松',     lat: 34.7033, lng: 137.7340 },
+      { name: '豊橋',     lat: 34.7700, lng: 137.3913 },
+      { name: '三河安城', lat: 34.9680, lng: 137.0814 },
+      { name: '名古屋',   lat: 35.1709, lng: 136.8815, desc: 'JR東海の主要ターミナル駅' },
+      { name: '岐阜羽島', lat: 35.3368, lng: 136.7218 },
+      { name: '米原',     lat: 35.3203, lng: 136.2896 },
+      { name: '京都',     lat: 34.9855, lng: 135.7588 },
+      { name: '新大阪',   lat: 34.7330, lng: 135.5000, desc: '東海道新幹線の終点・山陽新幹線の起点' },
+    ]
+  },
+  {
+    id: 'sanyo',
+    name: '山陽新幹線',
+    color: '#3b82f6',
+    km: '554 km',
+    operator: 'JR西日本',
+    stations: [
+      { name: '新大阪',   lat: 34.7330, lng: 135.5000 },
+      { name: '新神戸',   lat: 34.6946, lng: 135.1956 },
+      { name: '西明石',   lat: 34.6530, lng: 134.9804 },
+      { name: '姫路',     lat: 34.8278, lng: 134.6932 },
+      { name: '相生',     lat: 34.8042, lng: 134.4674 },
+      { name: '岡山',     lat: 34.6551, lng: 133.9185, desc: '山陽新幹線・瀬戸大橋線の結節点' },
+      { name: '新倉敷',   lat: 34.5844, lng: 133.7713 },
+      { name: '福山',     lat: 34.4875, lng: 133.3629 },
+      { name: '新尾道',   lat: 34.4147, lng: 133.2790 },
+      { name: '三原',     lat: 34.3970, lng: 133.0812 },
+      { name: '東広島',   lat: 34.3937, lng: 132.7412 },
+      { name: '広島',     lat: 34.3965, lng: 132.4758, desc: '中国地方最大の都市' },
+      { name: '新岩国',   lat: 34.1617, lng: 132.2280 },
+      { name: '徳山',     lat: 34.0548, lng: 131.8095 },
+      { name: '新山口',   lat: 34.1601, lng: 131.4691 },
+      { name: '厚狭',     lat: 34.0476, lng: 131.2027 },
+      { name: '新下関',   lat: 34.0036, lng: 130.9463 },
+      { name: '小倉',     lat: 33.8795, lng: 130.8753 },
+      { name: '博多',     lat: 33.5902, lng: 130.4207, desc: '山陽・九州新幹線の終着駅' },
+    ]
+  },
+  {
+    id: 'tohoku',
+    name: '東北新幹線',
+    color: '#22c55e',
+    km: '674 km',
+    operator: 'JR東日本',
+    stations: [
+      { name: '東京',     lat: 35.6812, lng: 139.7671 },
+      { name: '上野',     lat: 35.7136, lng: 139.7773 },
+      { name: '大宮',     lat: 35.9065, lng: 139.6238 },
+      { name: '小山',     lat: 36.3130, lng: 139.7963 },
+      { name: '宇都宮',   lat: 36.5499, lng: 139.8870 },
+      { name: '那須塩原', lat: 36.9242, lng: 139.9909 },
+      { name: '新白河',   lat: 37.1267, lng: 140.2163 },
+      { name: '郡山',     lat: 37.3944, lng: 140.3875 },
+      { name: '福島',     lat: 37.7569, lng: 140.4740 },
+      { name: '白石蔵王', lat: 38.0012, lng: 140.6218 },
+      { name: '仙台',     lat: 38.2598, lng: 140.8821, desc: '東北最大の都市。「杜の都」とも呼ばれる' },
+      { name: '古川',     lat: 38.5701, lng: 140.9463 },
+      { name: 'くりこま高原', lat: 38.7416, lng: 141.0019 },
+      { name: '一ノ関',   lat: 38.9347, lng: 141.1263 },
+      { name: '水沢江刺', lat: 39.1239, lng: 141.1373 },
+      { name: '北上',     lat: 39.2905, lng: 141.1141 },
+      { name: '新花巻',   lat: 39.4048, lng: 141.1277 },
+      { name: '盛岡',     lat: 39.7033, lng: 141.1540, desc: '秋田新幹線・岩手山が見える拠点駅' },
+      { name: 'いわて沼宮内', lat: 39.9326, lng: 141.1005 },
+      { name: '二戸',     lat: 40.2732, lng: 141.3033 },
+      { name: '八戸',     lat: 40.5130, lng: 141.4880 },
+      { name: '七戸十和田', lat: 40.7285, lng: 141.2139 },
+      { name: '新青森',   lat: 40.8240, lng: 140.7365, desc: '東北新幹線の終点。北海道新幹線と接続' },
+    ]
+  },
+  {
+    id: 'hokkaido',
+    name: '北海道新幹線',
+    color: '#06b6d4',
+    km: '149 km',
+    operator: 'JR北海道',
+    stations: [
+      { name: '新青森',   lat: 40.8240, lng: 140.7365 },
+      { name: '奥津軽いまべつ', lat: 41.2286, lng: 140.4394 },
+      { name: '木古内',   lat: 41.6758, lng: 140.4347 },
+      { name: '新函館北斗', lat: 41.8947, lng: 140.6514, desc: '北海道新幹線の現在の終点（延伸工事中）' },
+    ]
+  },
+  {
+    id: 'joetsu',
+    name: '上越新幹線',
+    color: '#a855f7',
+    km: '270 km',
+    operator: 'JR東日本',
+    stations: [
+      { name: '東京',     lat: 35.6812, lng: 139.7671 },
+      { name: '上野',     lat: 35.7136, lng: 139.7773 },
+      { name: '大宮',     lat: 35.9065, lng: 139.6238 },
+      { name: '熊谷',     lat: 36.1469, lng: 139.3886 },
+      { name: '本庄早稲田', lat: 36.2233, lng: 139.1848 },
+      { name: '高崎',     lat: 36.3226, lng: 139.0048 },
+      { name: '上毛高原', lat: 36.6686, lng: 138.9388 },
+      { name: '越後湯沢', lat: 36.9334, lng: 138.8144, desc: 'スキーリゾートへのアクセス拠点' },
+      { name: 'ガーラ湯沢', lat: 36.9213, lng: 138.8296 },
+      { name: '浦佐',     lat: 37.1636, lng: 138.9944 },
+      { name: '長岡',     lat: 37.4471, lng: 138.8515 },
+      { name: '燕三条',   lat: 37.6555, lng: 138.8730 },
+      { name: '新潟',     lat: 37.9122, lng: 139.0590, desc: '日本海側の拠点都市' },
+    ]
+  },
+  {
+    id: 'hokuriku',
+    name: '北陸新幹線',
+    color: '#eab308',
+    km: '615 km',
+    operator: 'JR東日本・JR西日本',
+    stations: [
+      { name: '東京',     lat: 35.6812, lng: 139.7671 },
+      { name: '上野',     lat: 35.7136, lng: 139.7773 },
+      { name: '大宮',     lat: 35.9065, lng: 139.6238 },
+      { name: '熊谷',     lat: 36.1469, lng: 139.3886 },
+      { name: '本庄早稲田', lat: 36.2233, lng: 139.1848 },
+      { name: '高崎',     lat: 36.3226, lng: 139.0048 },
+      { name: '安中榛名', lat: 36.3505, lng: 138.8523 },
+      { name: '軽井沢',   lat: 36.3489, lng: 138.6289 },
+      { name: '佐久平',   lat: 36.2531, lng: 138.4776 },
+      { name: '上田',     lat: 36.4007, lng: 138.2492 },
+      { name: '長野',     lat: 36.6448, lng: 138.1881, desc: '1998年長野五輪の開催地' },
+      { name: '飯山',     lat: 36.8497, lng: 138.3683 },
+      { name: '上越妙高', lat: 37.1282, lng: 138.2396 },
+      { name: '糸魚川',   lat: 37.0368, lng: 137.8606 },
+      { name: '黒部宇奈月温泉', lat: 36.8683, lng: 137.5427 },
+      { name: '富山',     lat: 36.7024, lng: 137.2133, desc: 'アルペンルートの玄関口' },
+      { name: '新高岡',   lat: 36.5783, lng: 136.9974 },
+      { name: '金沢',     lat: 36.5786, lng: 136.6480, desc: '北陸の中心都市。兼六園が有名' },
+      { name: '小松',     lat: 36.4060, lng: 136.4390 },
+      { name: '加賀温泉', lat: 36.2933, lng: 136.3349 },
+      { name: '芦原温泉', lat: 36.2090, lng: 136.2260 },
+      { name: '福井',     lat: 36.0638, lng: 136.2196, desc: '2024年延伸開業。恐竜博物館が有名' },
+      { name: '越前たけふ', lat: 35.9167, lng: 136.1746 },
+      { name: '敦賀',     lat: 35.6456, lng: 136.0569, desc: '2024年3月開業の現在の終点' },
+    ]
+  },
+  {
+    id: 'akita',
+    name: '秋田新幹線',
+    color: '#ec4899',
+    km: '127 km',
+    operator: 'JR東日本',
+    note: '（ミニ新幹線）',
+    stations: [
+      { name: '盛岡',     lat: 39.7033, lng: 141.1540 },
+      { name: '雫石',     lat: 39.6951, lng: 140.9572 },
+      { name: '田沢湖',   lat: 39.6971, lng: 140.7333 },
+      { name: '角館',     lat: 39.5946, lng: 140.5608, desc: '「みちのくの小京都」と呼ばれる武家屋敷の町' },
+      { name: '大曲',     lat: 39.4604, lng: 140.4791 },
+      { name: '秋田',     lat: 39.7178, lng: 140.1023, desc: '竿燈まつりで有名な東北の都市' },
+    ]
+  },
+  {
+    id: 'yamagata',
+    name: '山形新幹線',
+    color: '#14b8a6',
+    km: '148 km',
+    operator: 'JR東日本',
+    note: '（ミニ新幹線）',
+    stations: [
+      { name: '福島',     lat: 37.7569, lng: 140.4740 },
+      { name: '米沢',     lat: 37.9154, lng: 140.1169 },
+      { name: '高畠',     lat: 38.0041, lng: 140.1905 },
+      { name: '赤湯',     lat: 38.0793, lng: 140.2311 },
+      { name: 'かみのやま温泉', lat: 38.1506, lng: 140.2784 },
+      { name: '山形',     lat: 38.2404, lng: 140.3634, desc: '蔵王温泉・さくらんぼで有名' },
+      { name: '天童',     lat: 38.3621, lng: 140.3793 },
+      { name: 'さくらんぼ東根', lat: 38.4293, lng: 140.3896 },
+      { name: '村山',     lat: 38.4924, lng: 140.3782 },
+      { name: '大石田',   lat: 38.5841, lng: 140.3766 },
+      { name: '新庄',     lat: 38.7618, lng: 140.3047, desc: '山形新幹線の終点' },
+    ]
+  },
+  {
+    id: 'kyushu',
+    name: '九州新幹線',
+    color: '#f43f5e',
+    km: '257 km',
+    operator: 'JR九州',
+    stations: [
+      { name: '博多',     lat: 33.5902, lng: 130.4207 },
+      { name: '新鳥栖',   lat: 33.3758, lng: 130.4984 },
+      { name: '久留米',   lat: 33.3146, lng: 130.5077 },
+      { name: '筑後船小屋', lat: 33.2083, lng: 130.5245 },
+      { name: '新大牟田',  lat: 33.0726, lng: 130.4665 },
+      { name: '新玉名',   lat: 32.9188, lng: 130.5347 },
+      { name: '熊本',     lat: 32.7898, lng: 130.7418, desc: '熊本城・阿蘇山への拠点' },
+      { name: '新八代',   lat: 32.5143, lng: 130.5947 },
+      { name: '新水俣',   lat: 32.2093, lng: 130.4174 },
+      { name: '出水',     lat: 32.0881, lng: 130.3607 },
+      { name: '川内',     lat: 31.8107, lng: 130.3011 },
+      { name: '鹿児島中央', lat: 31.5783, lng: 130.5381, desc: '九州新幹線の終点。指宿・霧島への玄関口' },
+    ]
+  },
+  {
+    id: 'nishi-kyushu',
+    name: '西九州新幹線',
+    color: '#fb923c',
+    km: '66 km',
+    operator: 'JR九州',
+    stations: [
+      { name: '武雄温泉',  lat: 33.1944, lng: 129.9933, desc: '西九州新幹線の起点。在来線リレー列車と乗換' },
+      { name: '嬉野温泉',  lat: 33.1162, lng: 130.0924 },
+      { name: '新大村',    lat: 32.9336, lng: 129.9621 },
+      { name: '諫早',      lat: 32.8415, lng: 130.0534 },
+      { name: '長崎',      lat: 32.7505, lng: 129.8770, desc: '西九州新幹線の終点。2022年開業' },
+    ]
+  },
+];
+
+// ── 地図初期化 ────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [36.5, 137.5],
+  zoom: 6,
+  zoomControl: true,
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  maxZoom: 14,
+}).addTo(map);
+
+// ── 状態 ──────────────────────────────────────────────────────────────────────
+const layerGroups = {};
+let activeLine = null;
+
+// ── 路線・駅描画 ──────────────────────────────────────────────────────────────
+function drawLine(line) {
+  const group = L.layerGroup().addTo(map);
+
+  const coords = line.stations.map(s => [s.lat, s.lng]);
+  const polyline = L.polyline(coords, {
+    color: line.color,
+    weight: 4,
+    opacity: 0.85,
+    lineJoin: 'round',
+  }).addTo(group);
+
+  polyline.on('click', () => selectLine(line.id));
+
+  line.stations.forEach(station => {
+    const marker = L.circleMarker([station.lat, station.lng], {
+      radius: 5,
+      fillColor: line.color,
+      color: '#fff',
+      weight: 1.5,
+      opacity: 1,
+      fillOpacity: 0.9,
+    }).addTo(group);
+
+    marker.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      showInfo(station.name, line, station.desc);
+    });
+  });
+
+  layerGroups[line.id] = group;
+}
+
+LINES.forEach(drawLine);
+
+// ── サイドバー ────────────────────────────────────────────────────────────────
+const lineList = document.getElementById('line-list');
+
+LINES.forEach(line => {
+  const item = document.createElement('div');
+  item.className = 'line-item';
+  item.dataset.id = line.id;
+  item.innerHTML = `
+    <div class="line-swatch" style="background:${line.color}"></div>
+    <div>
+      <div class="line-name">${line.name}${line.note ? `<span style="font-size:0.65rem;color:#888;margin-left:4px">${line.note}</span>` : ''}</div>
+      <div class="line-km">${line.operator} · ${line.km}</div>
+    </div>
+  `;
+  item.addEventListener('click', () => selectLine(line.id));
+  lineList.appendChild(item);
+});
+
+// ── 路線選択 ──────────────────────────────────────────────────────────────────
+function selectLine(id) {
+  // reset all
+  LINES.forEach(l => {
+    const group = layerGroups[l.id];
+    group.eachLayer(layer => {
+      if (layer instanceof L.Polyline) layer.setStyle({ opacity: id === l.id ? 1 : 0.25, weight: id === l.id ? 5 : 3 });
+      if (layer instanceof L.CircleMarker) layer.setStyle({ fillOpacity: id === l.id ? 1 : 0.2, opacity: id === l.id ? 1 : 0.2 });
+    });
+  });
+
+  document.querySelectorAll('.line-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+
+  activeLine = id;
+
+  // fit map to line
+  const line = LINES.find(l => l.id === id);
+  if (line) {
+    const coords = line.stations.map(s => [s.lat, s.lng]);
+    map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
+    showInfo(line.name, line, `${line.operator} / ${line.km}　駅数：${line.stations.length}駅`);
+  }
+}
+
+// ── 情報パネル ────────────────────────────────────────────────────────────────
+function showInfo(title, line, desc) {
+  const panel = document.getElementById('info-panel');
+  document.getElementById('info-title').textContent = title;
+  document.getElementById('info-body').innerHTML =
+    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${line.color};margin-right:6px;vertical-align:middle"></span>${line.name}` +
+    (desc ? `<br>${desc}` : '');
+  panel.classList.add('visible');
+}
+
+document.getElementById('close-info').addEventListener('click', () => {
+  document.getElementById('info-panel').classList.remove('visible');
+});
+
+// map click resets selection
+map.on('click', () => {
+  LINES.forEach(l => {
+    layerGroups[l.id].eachLayer(layer => {
+      if (layer instanceof L.Polyline) layer.setStyle({ opacity: 0.85, weight: 4 });
+      if (layer instanceof L.CircleMarker) layer.setStyle({ fillOpacity: 0.9, opacity: 1 });
+    });
+  });
+  document.querySelectorAll('.line-item').forEach(el => el.classList.remove('active'));
+  activeLine = null;
+  document.getElementById('info-panel').classList.remove('visible');
+});
+</script>
+</body>
+</html>
