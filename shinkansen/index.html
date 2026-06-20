@@ -482,8 +482,10 @@ fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
   .then(geojson => {
     japanLayer = L.geoJSON(geojson, { style: JAPAN_STYLE }).addTo(map);
 
-    // 日本全体にフィット（Shinkansen路線の範囲でなく日本地図の範囲）
-    map.fitBounds(japanLayer.getBounds(), { padding: [12, 12] });
+    // 新幹線ネットワークが収まる範囲にフィット（沖縄など離島は除外）
+    // 鹿児島中央(31.5N)〜新函館北斗(41.9N)、長崎(129.8E)〜八戸(141.5E)
+    const SHINKANSEN_BOUNDS = [[30.8, 129.0], [42.5, 142.5]];
+    map.fitBounds(SHINKANSEN_BOUNDS, { padding: [20, 20] });
     ALL_CENTER = map.getCenter();
     ALL_ZOOM   = map.getZoom();
 
@@ -494,7 +496,7 @@ fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
   })
   .catch(() => {
     // GeoJSON取得失敗時のフォールバック
-    map.setView([36.5, 136.5], 5);
+    map.fitBounds([[30.8, 129.0], [42.5, 142.5]], { padding: [20, 20] });
     ALL_CENTER = map.getCenter();
     ALL_ZOOM   = map.getZoom();
     LINES.forEach(l => overviewLayers[l.id].addTo(map));
