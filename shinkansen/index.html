@@ -40,19 +40,16 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 #back-btn:hover { background: rgba(255,255,255,0.14); }
 #back-btn.visible { display: flex; }
 
-/* ── メイン：地図＋サイドバー ── */
+/* ── メイン ── */
 .main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
 
-#map {
-  flex: 1;
-  background: #07111f;
-}
+#map { flex: 1; background: #07111f; }
 .leaflet-control-attribution { font-size: 0.5rem !important; }
 
 /* ── サイドバー ── */
 .sidebar {
   display: none;
-  width: 220px; min-width: 220px;
+  width: 230px; min-width: 230px;
   background: #0b1728;
   border-left: 2px solid #1a2e48;
   overflow-y: auto; flex-shrink: 0; flex-direction: column;
@@ -74,18 +71,54 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .sidebar-line-kana { font-size: 0.68rem; color: #5a7090; margin-bottom: 7px; }
 .sidebar-nickname-badge {
   display: inline-block; padding: 3px 12px; border-radius: 20px;
-  font-size: 0.74rem; font-weight: 700; color: #fff; margin-bottom: 14px;
+  font-size: 0.74rem; font-weight: 700; color: #fff; margin-bottom: 12px;
 }
+
+/* ── 列車種別セレクター ── */
+.service-section { margin-bottom: 14px; }
+.service-label {
+  font-size: 0.62rem; font-weight: 900; letter-spacing: 0.1em;
+  color: #3a5070; margin-bottom: 7px;
+}
+.service-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.service-chip {
+  padding: 5px 11px; border-radius: 16px;
+  border: 1.5px solid var(--sc);
+  background: transparent;
+  font-size: 0.73rem; font-weight: 900; color: var(--sc);
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.service-chip:hover { background: color-mix(in srgb, var(--sc) 20%, transparent); }
+.service-chip.active { background: var(--sc); color: #fff; }
+.service-chip.all-btn { border-color: #4a6080; color: #7a9080; --sc: #4a6080; }
+.service-chip.all-btn.active { background: #2a3a50; color: #ccc; }
+
+/* 停車駅の説明 */
+.service-desc {
+  font-size: 0.63rem; color: #4a6080; margin-top: 6px; line-height: 1.5;
+  padding: 5px 8px; background: rgba(255,255,255,0.03); border-radius: 6px;
+}
+
 .station-list { list-style: none; }
 .station-list li {
-  padding: 5px 7px; border-left: 2px solid var(--c);
+  padding: 5px 7px; border-left: 3px solid var(--c);
   margin-bottom: 3px; background: rgba(255,255,255,0.03);
   border-radius: 0 6px 6px 0;
+  transition: opacity 0.2s, background 0.2s;
+}
+.station-list li.dimmed {
+  opacity: 0.22;
+  border-left-color: #2a3a50 !important;
+}
+.station-list li.active-stop {
+  background: color-mix(in srgb, var(--sc,var(--c)) 15%, transparent);
+  border-left-color: var(--sc, var(--c)) !important;
 }
 .station-list .s-name { font-size: 0.78rem; font-weight: 700; color: #ddd; }
 .station-list .s-kana { font-size: 0.6rem; color: #5a7090; }
 
-/* ── 下部路線バー（常に表示） ── */
+/* ── 下部路線バー ── */
 #line-bar {
   background: #0b1728;
   border-top: 2px solid #1a2e48;
@@ -119,26 +152,20 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
   padding: 2px 8px; border-radius: 10px; white-space: nowrap; color: #fff;
   box-shadow: 0 1px 5px rgba(0,0,0,0.7);
 }
-.route-label-kana {
-  font-size: 0.52rem; color: rgba(255,255,255,0.82);
-  text-shadow: 0 0 3px #000, 0 1px 3px #000;
-  white-space: nowrap; margin-top: 1px;
-}
+.route-label-kana { font-size: 0.52rem; color: rgba(255,255,255,0.82); text-shadow: 0 0 3px #000, 0 1px 3px #000; white-space: nowrap; margin-top: 1px; }
 
 /* ── 駅ラベル ── */
 .station-label { background: none !important; border: none !important; box-shadow: none !important; }
 .station-label-inner { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
 .station-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid #fff; margin-bottom: 2px; }
-.station-name {
-  font-size: 0.68rem; font-weight: 700; color: #fff;
-  text-shadow: 0 0 4px #000, 0 1px 4px #000, -1px 0 3px #000, 1px 0 3px #000;
-  white-space: nowrap; text-align: center;
-}
-.station-kana {
-  font-size: 0.55rem; color: rgba(255,255,255,0.85);
-  text-shadow: 0 0 3px #000, 0 1px 3px #000;
-  white-space: nowrap; text-align: center;
-}
+.station-name { font-size: 0.68rem; font-weight: 700; color: #fff; text-shadow: 0 0 4px #000, 0 1px 4px #000, -1px 0 3px #000, 1px 0 3px #000; white-space: nowrap; text-align: center; }
+.station-kana { font-size: 0.55rem; color: rgba(255,255,255,0.85); text-shadow: 0 0 3px #000, 0 1px 3px #000; white-space: nowrap; text-align: center; }
+
+/* dimmed station on map */
+.station-label.dimmed .station-dot { opacity: 0.15; }
+.station-label.dimmed .station-name { opacity: 0.15; }
+.station-label.dimmed .station-kana { opacity: 0.15; }
+.station-label.highlighted .station-dot { border-color: #fff; width: 9px; height: 9px; }
 
 /* ── ローディング ── */
 #loading {
@@ -184,11 +211,29 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// ── 路線データ ────────────────────────────────────────────────────────────────
 const LINES = [
   {
     id: 'tokaido', name: '東海道新幹線', kana: 'とうかいどうしんかんせん',
     nickname: 'のぞみ・ひかり・こだま', color: '#f97316', wikiTitle: 'N700S系新幹線',
     labelPos: [34.97, 138.15],
+    services: [
+      {
+        name: 'のぞみ', color: '#dc2626',
+        desc: '一番はやい！大きなまちにしかとまらないよ',
+        stops: ['東京','品川','新横浜','名古屋','京都','新大阪']
+      },
+      {
+        name: 'ひかり', color: '#f97316',
+        desc: 'のぞみよりちょっとおおくのえきにとまるよ',
+        stops: ['東京','品川','新横浜','小田原','熱海','三島','新富士','静岡','掛川','浜松','豊橋','名古屋','米原','京都','新大阪']
+      },
+      {
+        name: 'こだま', color: '#eab308',
+        desc: 'ぜんぶのえきにとまるよ。いちばんたくさんとまる！',
+        stops: null // null = all stations
+      },
+    ],
     stations: [
       { name: '東京',      kana: 'とうきょう',       lat: 35.6812, lng: 139.7671 },
       { name: '品川',      kana: 'しながわ',         lat: 35.6284, lng: 139.7387 },
@@ -211,8 +256,30 @@ const LINES = [
   },
   {
     id: 'sanyo', name: '山陽新幹線', kana: 'さんようしんかんせん',
-    nickname: 'みずほ・さくら', color: '#3b82f6', wikiTitle: '500系新幹線',
+    nickname: 'みずほ・さくら・ひかり・こだま', color: '#3b82f6', wikiTitle: '500系新幹線',
     labelPos: [34.15, 132.05],
+    services: [
+      {
+        name: 'みずほ', color: '#7c3aed',
+        desc: '一番はやい！すくないえきにとまるよ',
+        stops: ['新大阪','新神戸','岡山','広島','小倉','博多']
+      },
+      {
+        name: 'さくら', color: '#ec4899',
+        desc: 'みずほよりすこしおおくとまるよ',
+        stops: ['新大阪','新神戸','西明石','姫路','岡山','福山','広島','新山口','小倉','博多']
+      },
+      {
+        name: 'ひかり', color: '#3b82f6',
+        desc: 'もっとたくさんのえきにとまるよ',
+        stops: ['新大阪','新神戸','西明石','姫路','相生','岡山','新倉敷','福山','三原','東広島','広島','新岩国','徳山','新山口','厚狭','新下関','小倉','博多']
+      },
+      {
+        name: 'こだま', color: '#22c55e',
+        desc: 'ぜんぶのえきにとまるよ',
+        stops: null
+      },
+    ],
     stations: [
       { name: '新大阪',  kana: 'しんおおさか',   lat: 34.7330, lng: 135.5000 },
       { name: '新神戸',  kana: 'しんこうべ',     lat: 34.6946, lng: 135.1956 },
@@ -298,8 +365,25 @@ const LINES = [
   },
   {
     id: 'hokuriku', name: '北陸新幹線', kana: 'ほくりくしんかんせん',
-    nickname: 'かがやき・はくたか', color: '#eab308', wikiTitle: 'W7系新幹線',
+    nickname: 'かがやき・はくたか・つるぎ', color: '#eab308', wikiTitle: 'W7系新幹線',
     labelPos: [36.72, 136.82],
+    services: [
+      {
+        name: 'かがやき', color: '#f59e0b',
+        desc: '一番はやい！大きなまちだけにとまるよ',
+        stops: ['東京','大宮','長野','富山','金沢','福井','敦賀']
+      },
+      {
+        name: 'はくたか', color: '#eab308',
+        desc: 'かがやきよりたくさんとまるよ',
+        stops: ['東京','上野','大宮','熊谷','本庄早稲田','高崎','安中榛名','軽井沢','佐久平','上田','長野','飯山','上越妙高','糸魚川','黒部宇奈月温泉','富山','新高岡','金沢','小松','加賀温泉','芦原温泉','福井','越前たけふ','敦賀']
+      },
+      {
+        name: 'つるぎ', color: '#a16207',
+        desc: 'とやま〜つるがのあいだをはしるよ',
+        stops: ['富山','新高岡','金沢','小松','加賀温泉','芦原温泉','福井','越前たけふ','敦賀']
+      },
+    ],
     stations: [
       { name: '東京',          kana: 'とうきょう',            lat: 35.6812, lng: 139.7671 },
       { name: '上野',          kana: 'うえの',                lat: 35.7136, lng: 139.7773 },
@@ -362,6 +446,18 @@ const LINES = [
     id: 'kyushu', name: '九州新幹線', kana: 'きゅうしゅうしんかんせん',
     nickname: 'さくら・つばめ', color: '#f43f5e', wikiTitle: '800系新幹線',
     labelPos: [32.30, 131.10],
+    services: [
+      {
+        name: 'さくら', color: '#f43f5e',
+        desc: 'はやい！おおきなまちにとまるよ',
+        stops: ['博多','新鳥栖','久留米','新大牟田','新玉名','熊本','新八代','川内','鹿児島中央']
+      },
+      {
+        name: 'つばめ', color: '#fb923c',
+        desc: 'ぜんぶのえきにとまるよ',
+        stops: null
+      },
+    ],
     stations: [
       { name: '博多',       kana: 'はかた',            lat: 33.5902, lng: 130.4207 },
       { name: '新鳥栖',     kana: 'しんとす',          lat: 33.3758, lng: 130.4984 },
@@ -398,7 +494,6 @@ const map = L.map('map', {
   center: [36, 136], zoom: 5,
 });
 
-// 透明タイル（日本GeoJSONのみ表示するため）
 L.tileLayer('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
@@ -424,6 +519,7 @@ function makeStationIcon(s, color) {
 
 // ── レイヤー ──────────────────────────────────────────────────────────────────
 const overviewLayers = {};
+// detailLayers[id] = { group, markers: [{marker, name}] }
 const detailLayers   = {};
 
 LINES.forEach(line => {
@@ -434,12 +530,15 @@ LINES.forEach(line => {
   L.marker(line.labelPos, { icon: makeRouteLabelIcon(line), interactive: false }).addTo(ov);
   overviewLayers[line.id] = ov;
 
-  const dt = L.layerGroup();
-  L.polyline(coords, { color: line.color, weight: 5, opacity: 0.95 }).addTo(dt);
-  line.stations.forEach(s =>
-    L.marker([s.lat, s.lng], { icon: makeStationIcon(s, line.color) }).addTo(dt)
-  );
-  detailLayers[line.id] = dt;
+  const group = L.layerGroup();
+  L.polyline(coords, { color: line.color, weight: 5, opacity: 0.95 }).addTo(group);
+  const markers = [];
+  line.stations.forEach(s => {
+    const m = L.marker([s.lat, s.lng], { icon: makeStationIcon(s, line.color) });
+    m.addTo(group);
+    markers.push({ marker: m, name: s.name });
+  });
+  detailLayers[line.id] = { group, markers };
 });
 
 // ── 日本GeoJSON ───────────────────────────────────────────────────────────────
@@ -452,7 +551,6 @@ fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
     L.geoJSON(geojson, {
       style: { fillColor: '#1e3d5c', fillOpacity: 1, color: '#2d6090', weight: 1 }
     }).addTo(map);
-
     map.fitBounds(BOUNDS, { padding: [10, 10] });
     ALL_CENTER = map.getCenter();
     ALL_ZOOM   = map.getZoom();
@@ -480,16 +578,88 @@ LINES.forEach(line => {
   chipsEl.appendChild(chip);
 });
 
+// ── 列車種別フィルター ────────────────────────────────────────────────────────
+let activeService = null; // { lineId, serviceIdx }
+
+function applyServiceFilter(lineId, serviceIdx) {
+  const line = LINES.find(l => l.id === lineId);
+  const { markers } = detailLayers[lineId];
+  const svc = line.services ? line.services[serviceIdx] : null;
+  const stopSet = (svc && svc.stops) ? new Set(svc.stops) : null;
+
+  markers.forEach(({ marker, name }) => {
+    const el = marker.getElement();
+    if (!el) return;
+    if (!stopSet) {
+      // 全停車（こだま/つばめ）
+      el.classList.remove('dimmed');
+      el.classList.add('highlighted');
+    } else if (stopSet.has(name)) {
+      el.classList.remove('dimmed');
+      el.classList.add('highlighted');
+    } else {
+      el.classList.add('dimmed');
+      el.classList.remove('highlighted');
+    }
+  });
+
+  // サイドバーの駅リストも更新
+  const lis = document.querySelectorAll('#station-list li');
+  lis.forEach(li => {
+    const n = li.dataset.name;
+    if (!stopSet) {
+      li.classList.remove('dimmed');
+      li.classList.add('active-stop');
+    } else if (stopSet.has(n)) {
+      li.classList.remove('dimmed');
+      li.classList.add('active-stop');
+    } else {
+      li.classList.add('dimmed');
+      li.classList.remove('active-stop');
+    }
+  });
+
+  // service-chip の active 更新
+  document.querySelectorAll('.service-chip').forEach((c, i) => {
+    c.classList.toggle('active', i === serviceIdx);
+  });
+
+  // サービス説明更新
+  const descEl = document.getElementById('service-desc');
+  if (descEl && svc) descEl.textContent = svc.desc;
+
+  activeService = { lineId, serviceIdx };
+}
+
+function clearServiceFilter(lineId) {
+  const { markers } = detailLayers[lineId];
+  markers.forEach(({ marker }) => {
+    const el = marker.getElement();
+    if (el) { el.classList.remove('dimmed', 'highlighted'); }
+  });
+  document.querySelectorAll('#station-list li').forEach(li => {
+    li.classList.remove('dimmed', 'active-stop');
+  });
+  document.querySelectorAll('.service-chip').forEach(c => c.classList.remove('active'));
+  const descEl = document.getElementById('service-desc');
+  if (descEl) descEl.textContent = '';
+  activeService = null;
+}
+
 // ── 路線選択 ──────────────────────────────────────────────────────────────────
 let currentId = null;
 const photoCache = {};
 
 function selectLine(id) {
   currentId = id;
+  activeService = null;
   const line = LINES.find(l => l.id === id);
 
-  LINES.forEach(l => { map.removeLayer(overviewLayers[l.id]); map.removeLayer(detailLayers[l.id]); });
-  detailLayers[id].addTo(map);
+  LINES.forEach(l => {
+    map.removeLayer(overviewLayers[l.id]);
+    map.removeLayer(detailLayers[l.id].group);
+  });
+  detailLayers[id].group.addTo(map);
 
   map.invalidateSize();
   map.fitBounds(L.latLngBounds(line.stations.map(s => [s.lat, s.lng])), { padding: [48, 48], animate: true });
@@ -499,22 +669,50 @@ function selectLine(id) {
   document.getElementById('back-btn').classList.add('visible');
   document.getElementById('header-sub').textContent = `${line.name}（${line.nickname}）`;
 
+  // ── サービスセレクター HTML
+  let serviceHtml = '';
+  if (line.services) {
+    const chips = line.services.map((s, i) =>
+      `<div class="service-chip" style="--sc:${s.color}" onclick="applyServiceFilter('${id}',${i})">${s.name}</div>`
+    ).join('');
+    serviceHtml = `
+      <div class="service-section">
+        <div class="service-label">🚅 のりものをえらんでね</div>
+        <div class="service-chips">
+          <div class="service-chip all-btn" onclick="clearServiceFilter('${id}')">ぜんぶ</div>
+          ${chips}
+        </div>
+        <div class="service-desc" id="service-desc"></div>
+      </div>`;
+  }
+
+  // ── 駅リスト HTML
+  const stationItems = line.stations.map(s =>
+    `<li data-name="${s.name}" style="--c:${line.color}">
+      <div class="s-name">${s.name}</div>
+      <div class="s-kana">${s.kana}</div>
+    </li>`
+  ).join('');
+
   const inner = document.getElementById('sidebar-inner');
   inner.innerHTML = `
     <div class="sidebar-line-name" style="color:${line.color}">${line.name}</div>
     <div class="sidebar-line-kana">${line.kana}</div>
     <div class="sidebar-nickname-badge" style="background:${line.color}">${line.nickname}</div>
-    <ul class="station-list" style="--c:${line.color}">
-      ${line.stations.map(s=>`<li><div class="s-name">${s.name}</div><div class="s-kana">${s.kana}</div></li>`).join('')}
-    </ul>`;
+    ${serviceHtml}
+    <ul class="station-list" id="station-list" style="--c:${line.color}">${stationItems}</ul>`;
 
   fetchPhoto(line);
 }
 
 // ── 全線に戻る ────────────────────────────────────────────────────────────────
 function resetToAll() {
-  if (currentId) map.removeLayer(detailLayers[currentId]);
+  if (currentId) {
+    map.removeLayer(detailLayers[currentId].group);
+    clearServiceFilter(currentId);
+  }
   currentId = null;
+  activeService = null;
 
   document.getElementById('sidebar').classList.remove('visible');
   setTimeout(() => {
