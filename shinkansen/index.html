@@ -107,6 +107,37 @@ header p {
   margin-top: 1px;
 }
 
+/* 路線写真エリア（サイドバー内） */
+.line-photo-wrap {
+  margin-bottom: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #111827;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.line-photo-wrap img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  max-height: 180px;
+  border-radius: 12px;
+}
+.line-photo-wrap .photo-placeholder {
+  color: #333;
+  font-size: 2.4rem;
+}
+.line-photo-caption {
+  font-size: 0.62rem;
+  color: #444;
+  text-align: right;
+  margin-top: 3px;
+  margin-bottom: 10px;
+}
+.line-photo-caption a { color: #555; text-decoration: none; }
+
 /* info panel (station popup) */
 .info-panel {
   position: absolute;
@@ -153,6 +184,10 @@ header p {
   <div id="map"></div>
 
   <aside class="sidebar">
+    <div class="line-photo-wrap" id="photo-wrap">
+      <span class="photo-placeholder">🚄</span>
+    </div>
+    <div class="line-photo-caption" id="photo-caption"></div>
     <h2>路線一覧</h2>
     <div id="line-list"></div>
   </aside>
@@ -174,6 +209,7 @@ const LINES = [
     color: '#f97316',
     km: '515 km',
     operator: 'JR東海',
+    wikiTitle: 'N700S系新幹線',
     stations: [
       { name: '東京',     lat: 35.6812, lng: 139.7671, desc: '東海道・山陽・東北など全路線の起点' },
       { name: '品川',     lat: 35.6284, lng: 139.7387 },
@@ -200,6 +236,7 @@ const LINES = [
     color: '#3b82f6',
     km: '554 km',
     operator: 'JR西日本',
+    wikiTitle: '500系新幹線',
     stations: [
       { name: '新大阪',   lat: 34.7330, lng: 135.5000 },
       { name: '新神戸',   lat: 34.6946, lng: 135.1956 },
@@ -227,6 +264,7 @@ const LINES = [
     name: '東北新幹線',
     color: '#22c55e',
     km: '674 km',
+    wikiTitle: 'E5系新幹線',
     operator: 'JR東日本',
     stations: [
       { name: '東京',     lat: 35.6812, lng: 139.7671 },
@@ -260,6 +298,7 @@ const LINES = [
     color: '#06b6d4',
     km: '149 km',
     operator: 'JR北海道',
+    wikiTitle: 'H5系新幹線',
     stations: [
       { name: '新青森',   lat: 40.8240, lng: 140.7365 },
       { name: '奥津軽いまべつ', lat: 41.2286, lng: 140.4394 },
@@ -273,6 +312,7 @@ const LINES = [
     color: '#a855f7',
     km: '270 km',
     operator: 'JR東日本',
+    wikiTitle: 'E7系新幹線',
     stations: [
       { name: '東京',     lat: 35.6812, lng: 139.7671 },
       { name: '上野',     lat: 35.7136, lng: 139.7773 },
@@ -295,6 +335,7 @@ const LINES = [
     color: '#eab308',
     km: '615 km',
     operator: 'JR東日本・JR西日本',
+    wikiTitle: 'W7系新幹線',
     stations: [
       { name: '東京',     lat: 35.6812, lng: 139.7671 },
       { name: '上野',     lat: 35.7136, lng: 139.7773 },
@@ -329,6 +370,7 @@ const LINES = [
     km: '127 km',
     operator: 'JR東日本',
     note: '（ミニ新幹線）',
+    wikiTitle: 'E6系新幹線',
     stations: [
       { name: '盛岡',     lat: 39.7033, lng: 141.1540 },
       { name: '雫石',     lat: 39.6951, lng: 140.9572 },
@@ -345,6 +387,7 @@ const LINES = [
     km: '148 km',
     operator: 'JR東日本',
     note: '（ミニ新幹線）',
+    wikiTitle: 'E8系新幹線',
     stations: [
       { name: '福島',     lat: 37.7569, lng: 140.4740 },
       { name: '米沢',     lat: 37.9154, lng: 140.1169 },
@@ -365,6 +408,7 @@ const LINES = [
     color: '#f43f5e',
     km: '257 km',
     operator: 'JR九州',
+    wikiTitle: '800系新幹線',
     stations: [
       { name: '博多',     lat: 33.5902, lng: 130.4207 },
       { name: '新鳥栖',   lat: 33.3758, lng: 130.4984 },
@@ -386,6 +430,7 @@ const LINES = [
     color: '#fb923c',
     km: '66 km',
     operator: 'JR九州',
+    wikiTitle: 'N700S系新幹線 (西九州新幹線)',
     stations: [
       { name: '武雄温泉',  lat: 33.1944, lng: 129.9933, desc: '西九州新幹線の起点。在来線リレー列車と乗換' },
       { name: '嬉野温泉',  lat: 33.1162, lng: 130.0924 },
@@ -465,6 +510,51 @@ LINES.forEach(line => {
   lineList.appendChild(item);
 });
 
+// ── 車両写真取得（Wikipedia API） ─────────────────────────────────────────────
+const photoCache = {};
+
+async function fetchLinePhoto(line) {
+  const wrap = document.getElementById('photo-wrap');
+  const caption = document.getElementById('photo-caption');
+
+  if (photoCache[line.id]) {
+    renderPhoto(photoCache[line.id], wrap, caption, line);
+    return;
+  }
+
+  wrap.innerHTML = '<span class="photo-placeholder" style="opacity:0.3">⏳</span>';
+  caption.innerHTML = '';
+
+  const titles = [line.wikiTitle, line.name].filter(Boolean);
+  for (const title of titles) {
+    const url = `https://ja.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&pithumbsize=500&format=json&origin=*`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      const page = Object.values(data.query.pages)[0];
+      if (page.thumbnail) {
+        const info = { src: page.thumbnail.source, pageTitle: title };
+        photoCache[line.id] = info;
+        renderPhoto(info, wrap, caption, line);
+        return;
+      }
+    } catch (_) {}
+  }
+
+  wrap.innerHTML = '<span class="photo-placeholder">🚄</span>';
+  caption.innerHTML = '';
+}
+
+function renderPhoto(info, wrap, caption, line) {
+  const img = document.createElement('img');
+  img.src = info.src;
+  img.alt = line.name;
+  img.onerror = () => { wrap.innerHTML = '<span class="photo-placeholder">🚄</span>'; };
+  wrap.innerHTML = '';
+  wrap.appendChild(img);
+  caption.innerHTML = `© <a href="https://ja.wikipedia.org/wiki/${encodeURIComponent(info.pageTitle)}" target="_blank" rel="noopener">Wikipedia</a>`;
+}
+
 // ── 路線選択 ──────────────────────────────────────────────────────────────────
 function selectLine(id) {
   // reset all
@@ -488,6 +578,7 @@ function selectLine(id) {
     const coords = line.stations.map(s => [s.lat, s.lng]);
     map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
     showInfo(line.name, line, `${line.operator} / ${line.km}　駅数：${line.stations.length}駅`);
+    fetchLinePhoto(line);
   }
 }
 
