@@ -542,11 +542,7 @@ LINES.forEach(line => {
   const coords = line.stations.map(s => [s.lat, s.lng]);
 
   const ov = L.layerGroup();
-  const ovLine = L.polyline(coords, { color: line.color, weight: 8, opacity: 0.7 });
-  ovLine.on('click', () => selectLine(line.id));
-  ovLine.on('mouseover', () => ovLine.setStyle({ weight: 12, opacity: 1 }));
-  ovLine.on('mouseout',  () => ovLine.setStyle({ weight: 8,  opacity: 0.7 }));
-  ovLine.addTo(ov);
+  L.polyline(coords, { color: line.color, weight: 3.5, opacity: 0.9 }).addTo(ov);
   const ovLabel = L.marker(line.labelPos, { icon: makeRouteLabelIcon(line) });
   ovLabel.on('click', () => selectLine(line.id));
   ovLabel.addTo(ov);
