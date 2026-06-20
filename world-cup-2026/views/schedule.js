@@ -75,10 +75,16 @@ export function createSchedule({ container, data }) {
     return `<span class="team-link" data-team="${code}" role="button" tabindex="0"><span class="flag">${t.flag}</span><span class="tname">${t.name}</span></span>`;
   }
 
+  function flagNamePlain(code) {
+    const t = data.byCode[code];
+    if (!t) return "";
+    return `<span class="flag">${t.flag}</span><span class="tname">${t.name}</span>`;
+  }
+
   // Render one side of a match card: a real team, a predicted team, or a label.
   function side(code, label, { predicted } = {}) {
     if (code) {
-      return `<div class="m-team${predicted ? " predicted" : ""}">${flagName(code)}${
+      return `<div class="m-team${predicted ? " predicted" : ""}">${flagNamePlain(code)}${
         predicted ? '<span class="pred-badge">予想</span>' : ""
       }</div>`;
     }
@@ -202,8 +208,8 @@ export function createSchedule({ container, data }) {
         render();
       })
     );
-    // Clicking a team (in cards or standings) opens its country page.
-    container.querySelectorAll(".team-link").forEach((el) => {
+    // Clicking a team in the standings table opens its country page.
+    container.querySelectorAll(".group-card .team-link").forEach((el) => {
       el.addEventListener("click", () => openCountry(el.dataset.team));
       el.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
