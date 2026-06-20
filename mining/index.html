@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>鉱石マイニング</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --accent: #e94560;
+  --gold: #f5c518;
+  --text: #eee;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.header {
+  width: 100%;
+  max-width: 480px;
+  padding: 12px 16px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.header h1 {
+  font-size: 1.1rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--gold), #e94560);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.08);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.depth-bar {
+  width: 100%;
+  max-width: 480px;
+  padding: 0 16px 8px;
+  z-index: 10;
+}
+
+.depth-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.depth-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.depth-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6);
+  transition: width 0.3s;
+}
+
+.game-area {
+  flex: 1;
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mine-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+  padding: 8px;
+  width: 100%;
+}
+
+.cell {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.1s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cell:active {
+  transform: scale(0.9);
+}
+
+.cell.rock {
+  background: linear-gradient(145deg, #4a3728, #2d2015);
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.cell.rock::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.cell.cracked {
+  background: linear-gradient(145deg, #3a2a1a, #1d1008);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.cell.cracked::before {
+  content: '';
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 2px;
+  transform: rotate(15deg);
+  pointer-events: none;
+}
+
+.cell.broken {
+  background: linear-gradient(145deg, #1a1210, #0d0a08);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+  cursor: default;
+  animation: breakAnim 0.3s ease-out;
+}
+
+.cell.ore-reveal {
+  animation: oreReveal 0.5s ease-out;
+  cursor: default;
+}
+
+@keyframes breakAnim {
+  0% { transform: scale(1.1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes oreReveal {
+  0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.cell.broken .crack-lines {
+  display: none;
+}
+
+.hp-bar {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 3px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.hp-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #10b981;
+  transition: width 0.15s;
+}
+
+.hp-fill.mid { background: #f59e0b; }
+.hp-fill.low { background: #ef4444; }
+
+.pickaxe-info {
+  width: 100%;
+  max-width: 480px;
+  padding: 8px 16px;
+  z-index: 10;
+}
+
+.pickaxe-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+
+.pickaxe-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.pickaxe-power {
+  font-size: 0.65rem;
+  color: #888;
+}
+
+.upgrade-btn {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--gold), #d4a017);
+  color: #1a1a2e;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.upgrade-btn:active { transform: scale(0.93); }
+.upgrade-btn:disabled { opacity: 0.4; cursor: default; }
+
+.collection {
+  width: 100%;
+  max-width: 480px;
+  padding: 8px 16px 16px;
+  z-index: 10;
+}
+
+.collection-title {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.collection-grid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.col-item {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  position: relative;
+  border: 2px solid transparent;
+  transition: border-color 0.3s, background 0.3s;
+}
+
+.col-item.found {
+  border-color: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
+}
+
+.col-item.not-found {
+  filter: grayscale(1) brightness(0.3);
+}
+
+.col-count {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 900;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+.float-text {
+  position: fixed;
+  font-size: 1.2rem;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 100;
+  animation: floatUp 1s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
+}
+
+.particle {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99;
+  animation: particleAnim 0.6s ease-out forwards;
+}
+
+@keyframes particleAnim {
+  0% { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+}
+
+.dig-deeper-btn {
+  width: 100%;
+  max-width: 480px;
+  padding: 0 16px;
+  z-index: 10;
+}
+
+.dig-deeper-btn button {
+  font-family: 'Nunito', sans-serif;
+  width: 100%;
+  padding: 12px;
+  font-size: 0.85rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s;
+  margin-bottom: 8px;
+}
+
+.dig-deeper-btn button:active { transform: scale(0.97); }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 28px 24px;
+  max-width: 340px;
+  width: 90%;
+  text-align: center;
+  transform: scale(0.9);
+  transition: transform 0.3s;
+}
+
+.modal-overlay.show .modal {
+  transform: scale(1);
+}
+
+.modal h2 {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+}
+
+.modal p {
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
+.modal .ore-display {
+  font-size: 2.5rem;
+  margin: 16px 0;
+}
+
+.modal .rarity-label {
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 12px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+.rarity-common { background: rgba(156,163,175,0.2); color: #9ca3af; }
+.rarity-uncommon { background: rgba(34,197,94,0.2); color: #22c55e; }
+.rarity-rare { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.rarity-epic { background: rgba(168,85,247,0.2); color: #a855f7; }
+.rarity-legendary { background: rgba(245,197,24,0.2); color: #f5c518; }
+
+.modal button {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--accent), #c41850);
+  color: #fff;
+  border: none;
+  padding: 10px 30px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.modal button:active { transform: scale(0.93); }
+
+.back-btn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  font-size: 1.4rem;
+  text-decoration: none;
+  color: rgba(255,255,255,0.4);
+  z-index: 20;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.back-btn:active {
+  background: rgba(255,255,255,0.1);
+}
+</style>
+</head>
+<body>
+
+<a href="../" class="back-btn">&#8592;</a>
+
+<div class="header">
+  <h1>&#9935; 鉱石マイニング</h1>
+  <div class="stats">
+    <div class="stat"><span id="coin-icon">&#128176;</span> <span id="coins">0</span></div>
+    <div class="stat"><span>&#128142;</span> <span id="ore-count">0</span></div>
+  </div>
+</div>
+
+<div class="depth-bar">
+  <div class="depth-info">
+    <span>&#127747; 深さ: <span id="depth-label">地表</span></span>
+    <span id="depth-num">0m</span>
+  </div>
+  <div class="depth-track"><div class="depth-fill" id="depth-fill"></div></div>
+</div>
+
+<div class="game-area">
+  <div class="mine-grid" id="mine-grid"></div>
+</div>
+
+<div class="pickaxe-info">
+  <div class="pickaxe-bar">
+    <span id="pick-icon">&#9935;</span>
+    <span class="pickaxe-name" id="pick-name">木のつるはし</span>
+    <span class="pickaxe-power" id="pick-power">ATK: 1</span>
+    <button class="upgrade-btn" id="upgrade-btn" onclick="upgradePickaxe()">
+      &#11014; <span id="upgrade-cost">10</span>&#128176;
+    </button>
+  </div>
+</div>
+
+<div class="dig-deeper-btn">
+  <button onclick="digDeeper()">&#128071; もっと深く掘る</button>
+</div>
+
+<div class="collection">
+  <div class="collection-title">&#128302; コレクション (<span id="col-found">0</span>/<span id="col-total">0</span>)</div>
+  <div class="collection-grid" id="collection-grid"></div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h2 id="modal-title">鉱石発見!</h2>
+    <div class="ore-display" id="modal-ore"></div>
+    <p id="modal-name"></p>
+    <div class="rarity-label" id="modal-rarity"></div>
+    <p id="modal-value"></p>
+    <button onclick="closeModal()">OK</button>
+  </div>
+</div>
+
+<script>
+const ORES = [
+  { emoji: '&#129704;', name: '石炭',       rarity: 'common',    value: 2,   minDepth: 0,  weight: 40 },
+  { emoji: '&#129695;', name: '銅鉱石',     rarity: 'common',    value: 5,   minDepth: 0,  weight: 35 },
+  { emoji: '&#9898;',   name: '鉄鉱石',     rarity: 'common',    value: 8,   minDepth: 10, weight: 30 },
+  { emoji: '&#128308;', name: 'ルビー',     rarity: 'uncommon',  value: 15,  minDepth: 20, weight: 18 },
+  { emoji: '&#128154;', name: 'エメラルド', rarity: 'uncommon',  value: 20,  minDepth: 30, weight: 14 },
+  { emoji: '&#128309;', name: 'サファイア', rarity: 'rare',      value: 35,  minDepth: 40, weight: 10 },
+  { emoji: '&#128156;', name: 'アメジスト', rarity: 'rare',      value: 45,  minDepth: 50, weight: 8  },
+  { emoji: '&#128171;', name: 'ダイヤモンド', rarity: 'epic',    value: 80,  minDepth: 60, weight: 4  },
+  { emoji: '&#11088;',  name: 'スターサファイア', rarity: 'epic', value: 120, minDepth: 80, weight: 2 },
+  { emoji: '&#127775;', name: '伝説のオリハルコン', rarity: 'legendary', value: 300, minDepth: 100, weight: 1 },
+];
+
+const PICKAXES = [
+  { name: '木のつるはし',     icon: '&#9935;',   power: 1,  cost: 0    },
+  { name: '石のつるはし',     icon: '&#9935;',   power: 2,  cost: 30   },
+  { name: '鉄のつるはし',     icon: '&#9935;',   power: 3,  cost: 80   },
+  { name: '銀のつるはし',     icon: '&#9935;',   power: 5,  cost: 200  },
+  { name: '金のつるはし',     icon: '&#9935;',   power: 8,  cost: 500  },
+  { name: 'ダイヤのつるはし', icon: '&#128142;', power: 12, cost: 1200 },
+  { name: '伝説のつるはし',   icon: '&#10024;',  power: 20, cost: 3000 },
+];
+
+const DEPTH_NAMES = [
+  { depth: 0,   name: '地表' },
+  { depth: 10,  name: '浅い地層' },
+  { depth: 30,  name: '岩盤層' },
+  { depth: 50,  name: '深層' },
+  { depth: 70,  name: 'マグマ層' },
+  { depth: 100, name: '地核' },
+];
+
+const COLS = 6;
+const ROWS = 7;
+
+let coins = 0;
+let totalOres = 0;
+let depth = 0;
+let pickaxeLevel = 0;
+let collection = {};
+let cells = [];
+
+function getDepthName(d) {
+  let name = '地表';
+  for (const dn of DEPTH_NAMES) {
+    if (d >= dn.depth) name = dn.name;
+  }
+  return name;
+}
+
+function getAvailableOres() {
+  return ORES.filter(o => depth >= o.minDepth);
+}
+
+function pickRandomOre() {
+  const available = getAvailableOres();
+  const totalWeight = available.reduce((s, o) => s + o.weight, 0);
+  let r = Math.random() * totalWeight;
+  for (const ore of available) {
+    r -= ore.weight;
+    if (r <= 0) return ore;
+  }
+  return available[available.length - 1];
+}
+
+function getCellHP() {
+  return 2 + Math.floor(depth / 15);
+}
+
+function generateGrid() {
+  const grid = document.getElementById('mine-grid');
+  grid.innerHTML = '';
+  cells = [];
+
+  for (let i = 0; i < COLS * ROWS; i++) {
+    const hasOre = Math.random() < (0.2 + depth * 0.001);
+    const ore = hasOre ? pickRandomOre() : null;
+    const hp = getCellHP();
+
+    const cell = {
+      el: null,
+      hp,
+      maxHp: hp,
+      ore,
+      broken: false,
+    };
+
+    const div = document.createElement('div');
+    div.className = 'cell rock';
+    div.innerHTML = `<div class="hp-bar"><div class="hp-fill" style="width:100%"></div></div>`;
+    div.addEventListener('click', () => hitCell(i));
+    div.addEventListener('touchstart', (e) => { e.preventDefault(); hitCell(i); }, { passive: false });
+
+    cell.el = div;
+    cells.push(cell);
+    grid.appendChild(div);
+  }
+}
+
+function hitCell(idx) {
+  const cell = cells[idx];
+  if (cell.broken) return;
+
+  const power = PICKAXES[pickaxeLevel].power;
+  cell.hp -= power;
+
+  const rect = cell.el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  spawnParticles(cx, cy, '#8B7355', 4);
+
+  if (cell.hp <= 0) {
+    cell.broken = true;
+    cell.el.className = 'cell broken';
+
+    if (cell.ore) {
+      cell.el.classList.add('ore-reveal');
+      cell.el.innerHTML = cell.ore.emoji;
+
+      coins += cell.ore.value;
+      totalOres++;
+      collection[cell.ore.name] = (collection[cell.ore.name] || 0) + 1;
+
+      showFloatText(cx, cy, `${cell.ore.emoji} +${cell.ore.value}`);
+      spawnParticles(cx, cy, getRarityColor(cell.ore.rarity), 10);
+
+      updateStats();
+      updateCollection();
+      showOreModal(cell.ore);
+    } else {
+      cell.el.innerHTML = '';
+      showFloatText(cx, cy, '&#128168;');
+    }
+  } else {
+    const pct = cell.hp / cell.maxHp;
+    const hpFill = cell.el.querySelector('.hp-fill');
+    if (hpFill) {
+      hpFill.style.width = (pct * 100) + '%';
+      hpFill.className = 'hp-fill' + (pct < 0.3 ? ' low' : pct < 0.6 ? ' mid' : '');
+    }
+
+    if (pct < 0.5 && !cell.el.classList.contains('cracked')) {
+      cell.el.classList.remove('rock');
+      cell.el.classList.add('cracked');
+    }
+
+    cell.el.style.transform = 'scale(0.92)';
+    setTimeout(() => { cell.el.style.transform = ''; }, 100);
+  }
+
+  checkAllBroken();
+}
+
+function checkAllBroken() {
+  if (cells.every(c => c.broken)) {
+    setTimeout(() => digDeeper(), 500);
+  }
+}
+
+function digDeeper() {
+  depth += 10;
+  updateDepth();
+  generateGrid();
+}
+
+function updateStats() {
+  document.getElementById('coins').textContent = coins;
+  document.getElementById('ore-count').textContent = totalOres;
+  updateUpgradeBtn();
+}
+
+function updateDepth() {
+  document.getElementById('depth-label').textContent = getDepthName(depth);
+  document.getElementById('depth-num').textContent = depth + 'm';
+  const maxDepth = 120;
+  const pct = Math.min(depth / maxDepth * 100, 100);
+  document.getElementById('depth-fill').style.width = pct + '%';
+}
+
+function updateUpgradeBtn() {
+  const btn = document.getElementById('upgrade-btn');
+  const costSpan = document.getElementById('upgrade-cost');
+  if (pickaxeLevel >= PICKAXES.length - 1) {
+    btn.disabled = true;
+    btn.textContent = 'MAX';
+    return;
+  }
+  const next = PICKAXES[pickaxeLevel + 1];
+  costSpan.textContent = next.cost;
+  btn.disabled = coins < next.cost;
+}
+
+function upgradePickaxe() {
+  if (pickaxeLevel >= PICKAXES.length - 1) return;
+  const next = PICKAXES[pickaxeLevel + 1];
+  if (coins < next.cost) return;
+
+  coins -= next.cost;
+  pickaxeLevel++;
+
+  const pick = PICKAXES[pickaxeLevel];
+  document.getElementById('pick-icon').innerHTML = pick.icon;
+  document.getElementById('pick-name').textContent = pick.name;
+  document.getElementById('pick-power').textContent = 'ATK: ' + pick.power;
+
+  updateStats();
+}
+
+function updateCollection() {
+  const grid = document.getElementById('collection-grid');
+  grid.innerHTML = '';
+
+  let found = 0;
+  for (const ore of ORES) {
+    const count = collection[ore.name] || 0;
+    if (count > 0) found++;
+
+    const div = document.createElement('div');
+    div.className = 'col-item ' + (count > 0 ? 'found' : 'not-found');
+    div.innerHTML = ore.emoji;
+    div.title = ore.name;
+
+    if (count > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'col-count';
+      badge.textContent = count;
+      div.appendChild(badge);
+    }
+    grid.appendChild(div);
+  }
+
+  document.getElementById('col-found').textContent = found;
+  document.getElementById('col-total').textContent = ORES.length;
+}
+
+function showOreModal(ore) {
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-ore').innerHTML = ore.emoji;
+  document.getElementById('modal-name').textContent = ore.name;
+
+  const rarityEl = document.getElementById('modal-rarity');
+  const rarityNames = {
+    common: 'コモン',
+    uncommon: 'アンコモン',
+    rare: 'レア',
+    epic: 'エピック',
+    legendary: 'レジェンダリー'
+  };
+  rarityEl.textContent = rarityNames[ore.rarity];
+  rarityEl.className = 'rarity-label rarity-' + ore.rarity;
+
+  document.getElementById('modal-value').textContent = `売値: ${ore.value} コイン`;
+
+  if (ore.rarity === 'legendary') {
+    document.getElementById('modal-title').textContent = '&#10024; 超激レア発見!! &#10024;';
+  } else if (ore.rarity === 'epic') {
+    document.getElementById('modal-title').textContent = '&#128165; レア鉱石発見!';
+  } else {
+    document.getElementById('modal-title').textContent = '鉱石発見!';
+  }
+
+  overlay.classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+function getRarityColor(rarity) {
+  const colors = {
+    common: '#9ca3af',
+    uncommon: '#22c55e',
+    rare: '#3b82f6',
+    epic: '#a855f7',
+    legendary: '#f5c518'
+  };
+  return colors[rarity] || '#fff';
+}
+
+function showFloatText(x, y, text) {
+  const el = document.createElement('div');
+  el.className = 'float-text';
+  el.innerHTML = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    p.style.background = color;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 20 + Math.random() * 30;
+    p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 600);
+  }
+}
+
+generateGrid();
+updateStats();
+updateDepth();
+updateCollection();
+</script>
+</body>
+</html>
