@@ -586,7 +586,7 @@ function initThree(){
   scene.background=new THREE.Color(0x0a0a14);
 
   camera=new THREE.PerspectiveCamera(42,1,.1,100);
-  camera.position.set(0,.5,4.8);
+  camera.position.set(0,.3,3.8);
 
   renderer=new THREE.WebGLRenderer({antialias:true});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
@@ -683,7 +683,7 @@ function loadStone(stone){
 
   updateHP();
   controls.autoRotate=true;
-  camera.position.set(0,.5,4.8);
+  camera.position.set(0,.3,3.8);
   controls.target.set(0,0,0);
 }
 
@@ -700,8 +700,7 @@ function breakStone(){
   state='broken';isAnimating=true;
   controls.autoRotate=false;
 
-  const ang=(Math.random()-.5)*.25;
-  const cutNormal=new THREE.Vector3(Math.cos(ang),Math.sin(ang)*.15,Math.sin(ang)*.1).normalize();
+  const cutNormal=new THREE.Vector3(1,0,0);
   const plane=new THREE.Plane(cutNormal,0);
   const negPlane=plane.clone().negate();
 
@@ -726,14 +725,14 @@ function breakStone(){
   });
 
   const capGeo=new THREE.CircleGeometry(1.9,64);
-  const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1),cutNormal);
 
   const leftCap=new THREE.Mesh(capGeo,crossMat);
-  leftCap.quaternion.copy(q);leftCap.position.copy(cutNormal.clone().multiplyScalar(.002));
+  leftCap.rotation.y=Math.PI/2;
+  leftCap.position.set(.002,0,0);
 
   const rightCap=new THREE.Mesh(capGeo.clone(),crossMat.clone());
-  rightCap.quaternion.copy(q);rightCap.rotateY(Math.PI);
-  rightCap.position.copy(cutNormal.clone().multiplyScalar(-.002));
+  rightCap.rotation.y=-Math.PI/2;
+  rightCap.position.set(-.002,0,0);
 
   leftGroup=new THREE.Group();leftGroup.add(leftStone,leftCap);
   rightGroup=new THREE.Group();rightGroup.add(rightStone,rightCap);
@@ -741,21 +740,30 @@ function breakStone(){
   scene.remove(stoneGroup);stoneGroup=null;stoneMesh=null;
   scene.add(leftGroup,rightGroup);
 
-  const targetDist=.95;
-  const start=performance.now(),dur=650;
+  const targetSlide=0.6;
+  const targetRotY=0.55;
+  const start=performance.now(),dur=800;
   function step(){
     const el=performance.now()-start;
     const t=Math.min(el/dur,1);
     const ease=1-Math.pow(1-t,3);
-    leftGroup.position.copy(cutNormal.clone().multiplyScalar(-targetDist*ease));
-    rightGroup.position.copy(cutNormal.clone().multiplyScalar(targetDist*ease));
-    const shake=(1-t)*.04;
+
+    leftGroup.position.set(-targetSlide*ease,0,0);
+    rightGroup.position.set(targetSlide*ease,0,0);
+    leftGroup.rotation.y=targetRotY*ease;
+    rightGroup.rotation.y=-targetRotY*ease;
+
+    const shake=(1-t)*.03;
     leftGroup.rotation.z=(Math.random()-.5)*shake;
     rightGroup.rotation.z=(Math.random()-.5)*shake;
+
     if(t<1)requestAnimationFrame(step);
     else{leftGroup.rotation.z=0;rightGroup.rotation.z=0;isAnimating=false;}
   }
   step();
+
+  camera.position.set(0,.2,4.5);
+
   spawnBreakParticles();playCrackSound();updateUI();
 }
 
