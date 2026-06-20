@@ -698,8 +698,153 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   vertical-align: middle;
 }
 
+/* ---- Japan spotlight page ---- */
+.japan-page { max-width: 1200px; }
+.japan-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.japan-flag { font-size: 48px; line-height: 1; }
+.japan-title { font-size: 24px; font-weight: 700; margin: 0; }
+.japan-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.japan-stats {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+}
+.japan-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 16px;
+  min-width: 54px;
+}
+.japan-stat.win .js-num { color: var(--win); }
+.japan-stat.draw .js-num { color: var(--muted); }
+.japan-stat.loss .js-num { color: var(--can); }
+.js-num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.js-label { font-size: 11px; color: var(--muted); }
+
+/* Countdown */
+.japan-countdown {
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #b71c1c 100%);
+  border-radius: 12px;
+  padding: 20px 24px;
+  text-align: center;
+  margin-bottom: 20px;
+  color: #fff;
+}
+.jc-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  opacity: .8;
+  margin-bottom: 4px;
+}
+.jc-timer {
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.jc-match {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.jc-vs { opacity: .6; font-size: 13px; }
+.jc-info { font-size: 11px; opacity: .65; margin-top: 6px; }
+
+.japan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 18px;
+  align-items: start;
+}
+.japan-col { display: flex; flex-direction: column; gap: 18px; }
+.japan-section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.japan-section h3 { margin: 0 0 12px; font-size: 15px; }
+.japan-group-card { margin-bottom: 0; }
+.japan-matches h3 { font-size: 15px; margin: 0 0 12px; }
+
+/* Match cards in Japan page */
+.japan-match-list { display: flex; flex-direction: column; gap: 8px; }
+.japan-match-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.japan-match-card.win { border-left-color: var(--win); }
+.japan-match-card.loss { border-left-color: var(--can); }
+.japan-match-card.draw { border-left-color: var(--muted); }
+.japan-match-card.upcoming { border-left-color: var(--accent2); }
+.jm-date { font-size: 12px; color: var(--muted); }
+.jm-teams { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.jm-team { font-weight: 600; white-space: nowrap; }
+.jm-vs { font-size: 12px; color: var(--muted); }
+.jm-score { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.jm-venue { font-size: 11px; color: var(--muted); }
+.jm-status {
+  font-size: 11px;
+  color: var(--accent2);
+  font-weight: 600;
+  text-align: right;
+}
+.jm-result-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+.jm-result-label.win { color: var(--win); }
+.jm-result-label.loss { color: var(--can); }
+.jm-result-label.draw { color: var(--muted); }
+
+/* Japan row highlight in standings */
+tr.japan-row { background: rgba(0,212,160,.06); }
+tr.japan-row td { font-weight: 700; }
+
+/* ---- Global countdown (header) ---- */
+.countdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--accent2);
+  white-space: nowrap;
+}
+.cd-label { color: var(--muted); }
+.cd-timer { font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* ---- Mobile ---- */
 @media (max-width: 760px) {
+  .japan-grid { grid-template-columns: 1fr; }
+  .japan-header { gap: 10px; }
+  .japan-stats { margin-left: 0; }
+  .japan-flag { font-size: 36px; }
+  .jc-timer { font-size: 24px; }
+  .japan-match-card { grid-template-columns: 60px 1fr auto; }
+  .countdown-wrap { display: none; }
   .country-grid { grid-template-columns: 1fr; }
   .result-row { grid-template-columns: 20px 56px 1fr auto; }
   .result-row .r-date { display: none; }
