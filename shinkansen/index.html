@@ -542,8 +542,14 @@ LINES.forEach(line => {
   const coords = line.stations.map(s => [s.lat, s.lng]);
 
   const ov = L.layerGroup();
-  L.polyline(coords, { color: line.color, weight: 3.5, opacity: 0.9 }).addTo(ov);
-  L.marker(line.labelPos, { icon: makeRouteLabelIcon(line), interactive: false }).addTo(ov);
+  const ovLine = L.polyline(coords, { color: line.color, weight: 8, opacity: 0.7 });
+  ovLine.on('click', () => selectLine(line.id));
+  ovLine.on('mouseover', () => ovLine.setStyle({ weight: 12, opacity: 1 }));
+  ovLine.on('mouseout',  () => ovLine.setStyle({ weight: 8,  opacity: 0.7 }));
+  ovLine.addTo(ov);
+  const ovLabel = L.marker(line.labelPos, { icon: makeRouteLabelIcon(line) });
+  ovLabel.on('click', () => selectLine(line.id));
+  ovLabel.addTo(ov);
   overviewLayers[line.id] = ov;
 
   const group = L.layerGroup();
