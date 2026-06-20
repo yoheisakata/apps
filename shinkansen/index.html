@@ -187,6 +187,84 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .station-label.dimmed .station-kana { opacity: 0.15; }
 .station-label.highlighted .station-dot { border-color: #fff; width: 9px; height: 9px; }
 
+/* ── 駅ポップアップ ── */
+#station-popup-backdrop {
+  display: none;
+  position: fixed; inset: 0; z-index: 8000;
+  background: rgba(0,0,0,0.55);
+  align-items: center; justify-content: center;
+}
+#station-popup-backdrop.open { display: flex; }
+
+#station-popup {
+  background: #0d1f33;
+  border: 2px solid var(--popup-color, #3b82f6);
+  border-radius: 18px;
+  width: min(380px, 92vw);
+  max-height: 80dvh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  animation: popIn 0.18s ease;
+}
+@keyframes popIn { from { transform: scale(0.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.popup-header {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+}
+.popup-station-name {
+  font-size: 1.7rem; font-weight: 900; color: #fff; line-height: 1.1;
+}
+.popup-station-kana {
+  font-size: 0.75rem; color: #5a7090; margin-top: 3px;
+}
+.popup-line-badge {
+  padding: 3px 10px; border-radius: 20px;
+  font-size: 0.65rem; font-weight: 900; color: #fff;
+  white-space: nowrap; flex-shrink: 0; margin-top: 4px;
+}
+.popup-close {
+  background: rgba(255,255,255,0.08); border: none;
+  border-radius: 50%; width: 30px; height: 30px; flex-shrink: 0;
+  font-size: 1rem; color: #aaa; cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.popup-close:hover { background: rgba(255,255,255,0.16); color: #fff; }
+
+.popup-body { padding: 14px 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+
+.popup-pref {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.82rem; color: #9ab; font-weight: 700;
+}
+.popup-pref-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--popup-color, #3b82f6); flex-shrink: 0;
+}
+
+.popup-note {
+  background: rgba(255,255,255,0.04);
+  border-left: 3px solid var(--popup-color, #3b82f6);
+  border-radius: 0 8px 8px 0;
+  padding: 9px 12px;
+  font-size: 0.82rem; color: #cdd; line-height: 1.6;
+}
+
+.popup-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.popup-fact {
+  background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px;
+}
+.popup-fact-label { font-size: 0.6rem; color: #4a6080; margin-bottom: 3px; }
+.popup-fact-value { font-size: 0.8rem; font-weight: 700; color: #ddd; }
+
+.popup-transfers { display: flex; flex-wrap: wrap; gap: 5px; }
+.popup-transfer-chip {
+  padding: 3px 9px; border-radius: 10px;
+  font-size: 0.65rem; font-weight: 700; color: #fff;
+  border: 1.5px solid var(--tc);
+}
+
 /* ── ローディング ── */
 #loading {
   position: absolute; inset: 0;
@@ -215,6 +293,28 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 </header>
 
 <div class="main" style="position:relative">
+  <!-- 駅ポップアップ -->
+  <div id="station-popup-backdrop" onclick="closeStationPopup(event)">
+    <div id="station-popup">
+      <div class="popup-header">
+        <div>
+          <div class="popup-station-name" id="popup-name"></div>
+          <div class="popup-station-kana" id="popup-kana"></div>
+          <span class="popup-line-badge" id="popup-line-badge"></span>
+        </div>
+        <button class="popup-close" onclick="closeStationPopup()">✕</button>
+      </div>
+      <div class="popup-body">
+        <div class="popup-pref"><div class="popup-pref-dot"></div><span id="popup-pref"></span></div>
+        <div class="popup-note" id="popup-note" style="display:none"></div>
+        <div class="popup-facts" id="popup-facts"></div>
+        <div id="popup-transfers-wrap" style="display:none">
+          <div style="font-size:0.6rem;color:#4a6080;margin-bottom:5px">🔁 のりかえ</div>
+          <div class="popup-transfers" id="popup-transfers"></div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="loading"><div class="spin">🗾</div>ちずをよみこみちゅう…</div>
   <div id="map"></div>
   <aside class="sidebar" id="sidebar">
@@ -232,6 +332,129 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ── 路線データ ────────────────────────────────────────────────────────────────
+// ── 駅情報データ ──────────────────────────────────────────────────────────────
+const STATION_INFO = {
+  '東京':         { pref: '東京都',   note: '日本のしゅと！6ほんの新幹線がのりいれるすごいえきだよ🗼', transfers: [{ name: '東海道・山陽', color: '#f97316' }, { name: '東北・北海道', color: '#22c55e' }, { name: '上越', color: '#a855f7' }, { name: '北陸', color: '#eab308' }, { name: '秋田', color: '#ec4899' }, { name: '山形', color: '#14b8a6' }] },
+  '品川':         { pref: '東京都',   note: 'のぞみがとまるえき。ホテルやおみせがたくさんあるよ🏙️' },
+  '新横浜':       { pref: '神奈川県', note: 'ラーメンはくぶつかんがあるよ🍜 よこはまのしんかんせんえきだよ' },
+  '小田原':       { pref: '神奈川県', note: 'おだわらじょうがあるまち🏯 かまぼこが有名！' },
+  '熱海':         { pref: '静岡県',   note: 'おんせんで有名なまち♨️ うみもきれいだよ' },
+  '三島':         { pref: '静岡県',   note: 'みしまたいしゃがあるまち。みずがきれいで有名！' },
+  '新富士':       { pref: '静岡県',   note: 'ふじさんがいちばんよくみえるえきだよ🗻 晴れた日はきれい！' },
+  '静岡':         { pref: '静岡県',   note: 'おちゃとみかんが有名なまち🍵🍊 ふじさんもちかいよ' },
+  '掛川':         { pref: '静岡県',   note: 'かけがわじょうがあるまち🏯 おちゃも有名だよ' },
+  '浜松':         { pref: '静岡県',   note: 'ピアノやがっきのまち🎹 うなぎも有名！' },
+  '豊橋':         { pref: '愛知県',   note: 'なごやとおおさかのあいだにある大きなまち🚃' },
+  '三河安城':     { pref: '愛知県',   note: 'こだまだけがとまるえき。とよたじどうしゃがちかいよ🚗' },
+  '名古屋':       { pref: '愛知県',   note: 'きしめん・みそかつ・あんかけパスタが有名🍜 なごやじょうもあるよ🏯', transfers: [{ name: '東海道・山陽', color: '#f97316' }] },
+  '岐阜羽島':     { pref: '岐阜県',   note: 'こだまだけがとまるえき。まわりにたんぼがひろがっているよ🌾' },
+  '米原':         { pref: '滋賀県',   note: 'びわこのそばにあるえき🏞️ おうみぎゅうも有名！' },
+  '京都':         { pref: '京都府',   note: 'せんねんのみやこ！おてらやじんじゃが2000けんいじょうあるよ⛩️✨', transfers: [{ name: '東海道・山陽', color: '#f97316' }] },
+  '新大阪':       { pref: '大阪府',   note: 'とうかいどうと山陽をつなぐえき🔗 たこやきが有名なまちだよ🐙', transfers: [{ name: '東海道', color: '#f97316' }, { name: '山陽', color: '#3b82f6' }] },
+  '新神戸':       { pref: '兵庫県',   note: 'こうべぎゅうが有名なまち🥩 ポートタワーもきれいだよ' },
+  '西明石':       { pref: '兵庫県',   note: 'あかしかいきょうおおはしがちかいえき🌉 あかしたいやきも有名！' },
+  '姫路':         { pref: '兵庫県',   note: '白いお城「姫路城」は世界遺産🏯✨ しろさぎじょうともよばれるよ' },
+  '相生':         { pref: '兵庫県',   note: 'カキ（かき）が有名なまち🦪' },
+  '岡山':         { pref: '岡山県',   note: 'ももたろうのまち🍑 こうらくえんというきれいなにわがあるよ' },
+  '新倉敷':       { pref: '岡山県',   note: 'くらしきびかんちくがあるうつくしいまち' },
+  '福山':         { pref: '広島県',   note: 'ばらの花が有名なまち🌹 ふくやまじょうもあるよ' },
+  '新尾道':       { pref: '広島県',   note: 'みかんとポップカルチャーで有名なまち🍊' },
+  '三原':         { pref: '広島県',   note: 'たこが有名なまち🐙 タコのまちとしてしられているよ' },
+  '東広島':       { pref: '広島県',   note: 'ひろしまだいがくがあるまち。さけどころとしても有名🍶' },
+  '広島':         { pref: '広島県',   note: 'へいわきねんこうえんがある大切なまち🕊️ もみじまんじゅうが有名！' },
+  '新岩国':       { pref: '山口県',   note: 'にほんさんめいきょうのひとつ「錦帯橋」がちかいよ🌉' },
+  '徳山':         { pref: '山口県',   note: 'とくやまどうぶつえんがあるまち🦁' },
+  '新山口':       { pref: '山口県',   note: 'やまぐちけんでいちばん大きなえき。ふぐが有名🐡' },
+  '厚狭':         { pref: '山口県',   note: 'こだまだけがとまるえき' },
+  '新下関':       { pref: '山口県',   note: 'かんもんかいきょうのちかく🌊 ふぐのまちとして有名！' },
+  '小倉':         { pref: '福岡県',   note: 'きたきゅうしゅうのちゅうしんえき。やきうどんが有名🍜', transfers: [{ name: '山陽', color: '#3b82f6' }, { name: '九州', color: '#f43f5e' }] },
+  '博多':         { pref: '福岡県',   note: 'とんこつラーメンのふるさと🍜 やたいぶんかも有名！', transfers: [{ name: '山陽', color: '#3b82f6' }, { name: '九州', color: '#f43f5e' }] },
+  '上野':         { pref: '東京都',   note: 'うえのどうぶつえんやびじゅつかんがあるよ🐼🎨' },
+  '大宮':         { pref: '埼玉県',   note: 'とうほく・じょうえつ・ほくりく新幹線がわかれるえき🚅', transfers: [{ name: '東北・北海道', color: '#22c55e' }, { name: '上越', color: '#a855f7' }, { name: '北陸', color: '#eab308' }] },
+  '小山':         { pref: '栃木県',   note: 'いちごの産地・とちぎのげーとうぇい🍓' },
+  '宇都宮':       { pref: '栃木県',   note: 'ぎょうざがとっても有名なまち🥟 にっこうもちかいよ！' },
+  '那須塩原':     { pref: '栃木県',   note: 'なすこうげんでスキーやハイキングが楽しめるよ⛷️' },
+  '新白河':       { pref: '福島県',   note: 'しらかわのせきがある歴史のあるまち' },
+  '郡山':         { pref: '福島県',   note: 'ふくしまけんのまんなかにある大きなまち🌸' },
+  '福島':         { pref: '福島県',   note: '山形新幹線がここでわかれるよ🔀 ももが有名！🍑', transfers: [{ name: '東北', color: '#22c55e' }, { name: '山形', color: '#14b8a6' }] },
+  '白石蔵王':     { pref: '宮城県',   note: 'ざおうのおかまというふしぎな色の湖がちかいよ🌋' },
+  '仙台':         { pref: '宮城県',   note: 'たなばたまつりが有名！ずんだもちとうしおたんが大人気🌟', transfers: [{ name: '東北', color: '#22c55e' }] },
+  '古川':         { pref: '宮城県',   note: 'みやぎのコメどころ。だてまきも有名！' },
+  'くりこま高原': { pref: '宮城県',   note: '新幹線えきのなかでもとくにのどかなかんきょうにあるえきだよ🌿' },
+  '一ノ関':       { pref: '岩手県',   note: 'げいびけいというきれいなけいこくがちかいよ🏞️' },
+  '水沢江刺':     { pref: '岩手県',   note: 'みずさわにはてんもんだいがあるよ🔭' },
+  '北上':         { pref: '岩手県',   note: 'てんしょうじがありさくらが有名なまち🌸' },
+  '新花巻':       { pref: '岩手県',   note: 'みやざわけんじのふるさと📖 わんこそばもちかいよ！' },
+  '盛岡':         { pref: '岩手県',   note: 'わんこそばのまち🍜 東北新幹線と秋田新幹線がわかれるよ', transfers: [{ name: '東北・北海道', color: '#22c55e' }, { name: '秋田', color: '#ec4899' }] },
+  'いわて沼宮内': { pref: '岩手県',   note: 'こだまだけがとまる、いわてけんほくぶうのしずかなえき' },
+  '二戸':         { pref: '岩手県',   note: 'くりのたかさご2せかいいちをほこるくりのまち🌰' },
+  '八戸':         { pref: '青森県',   note: 'せんべいじるが有名な漁師のまち🦑 みなとには新鮮なさかながいっぱい！' },
+  '七戸十和田':   { pref: '青森県',   note: 'とわだこというきれいな湖がちかいよ🏞️' },
+  '新青森':       { pref: '青森県',   note: 'りんごとねぶたまつりで有名🍎🏮 北海道新幹線もここからでるよ！', transfers: [{ name: '東北', color: '#22c55e' }, { name: '北海道', color: '#06b6d4' }] },
+  '奥津軽いまべつ': { pref: '青森県', note: 'つがるかいきょうのしたをトンネルでくぐるよ🚇' },
+  '木古内':       { pref: '北海道',   note: 'ほっかいどうのいりぐち。かいきょうをわたったよ！' },
+  '新函館北斗':   { pref: '北海道',   note: 'ほっかいどうの入り口のえき❄️ いかめしやうにが有名！', transfers: [{ name: '北海道', color: '#06b6d4' }] },
+  '熊谷':         { pref: '埼玉県',   note: 'にほんいちあついまちとしてゆうめい🌡️ あついけどあついぞ熊谷！' },
+  '本庄早稲田':   { pref: '埼玉県',   note: 'わせだだいがくのキャンパスがあるまち📚' },
+  '高崎':         { pref: '群馬県',   note: 'だるまのまち🎎 じょうえつと北陸新幹線がわかれるえきだよ', transfers: [{ name: '上越', color: '#a855f7' }, { name: '北陸', color: '#eab308' }] },
+  '上毛高原':     { pref: '群馬県',   note: 'たにがわだけのふもとにある自然ゆたかなえき🏔️' },
+  '越後湯沢':     { pref: '新潟県',   note: 'スキーリゾートで有名！冬は雪がいっぱい⛷️❄️' },
+  'ガーラ湯沢':   { pref: '新潟県',   note: 'ふゆだけひらくスキー場えき⛷️ なつはやすみだよ' },
+  '浦佐':         { pref: '新潟県',   note: 'だいぐうじというおすもうさんのおまつりで有名なえき' },
+  '長岡':         { pref: '新潟県',   note: 'ながおかはなびたいかいが有名🎆 日本三大花火のひとつ！' },
+  '燕三条':       { pref: '新潟県',   note: 'ナイフやフォークなど金属のまちとして有名🔪 ラーメンも有名！' },
+  '新潟':         { pref: '新潟県',   note: 'おいしいおこめのまち🍚 へぎそばやコシヒカリが有名！' },
+  '安中榛名':     { pref: '群馬県',   note: 'はるなさんのふもとにある、こだまだけのえき⛰️' },
+  '軽井沢':       { pref: '長野県',   note: 'おしゃれなリゾートちで有名🌲 夏はすずしくてきもちいい！' },
+  '佐久平':       { pref: '長野県',   note: 'さくのうちというちいさなこころのまち。ほしぞらがきれい✨' },
+  '上田':         { pref: '長野県',   note: 'うえだじょうがある歴史のあるまち🏯 戦国時代に有名！' },
+  '長野':         { pref: '長野県',   note: 'ぜんこうじというお寺が有名⛩️ りんごやスキーもたのしいよ🍎⛷️' },
+  '飯山':         { pref: '長野県',   note: 'なつはかわくだり、冬はスキーが楽しいまち🛶⛷️' },
+  '上越妙高':     { pref: '新潟県',   note: 'みょうこうさんのふもと。スキーが有名な雪のまち⛰️❄️' },
+  '糸魚川':       { pref: '新潟県',   note: 'ひすい（きれいなみどりのいし）のさんちとして世界的に有名💚' },
+  '黒部宇奈月温泉': { pref: '富山県', note: 'くろべきょうこくというきれいな谷がちかいよ🏞️ おんせんも有名♨️' },
+  '富山':         { pref: '富山県',   note: 'ます寿しとホタルイカが有名🦑🍣 たてやまくろべアルペンルートもちかいよ！' },
+  '新高岡':       { pref: '富山県',   note: 'どらえもんのふるさとタカオカのえき！銅像がいっぱい🤖' },
+  '金沢':         { pref: '石川県',   note: 'けんろくえんという美しい庭園が有名🌸 かにもとってもおいしい！🦀' },
+  '小松':         { pref: '石川県',   note: 'こまつじんじゃとこうくうはくぶつかんが有名✈️' },
+  '加賀温泉':     { pref: '石川県',   note: 'かがおんせんきょうというおんせんのまち♨️ 山代・山中・片山津温泉があるよ' },
+  '芦原温泉':     { pref: '福井県',   note: 'えちぜんがにやふぐが有名なおんせんまち♨️🦀' },
+  '福井':         { pref: '福井県',   note: 'きょうりゅうはくぶつかんが世界レベル！🦕 めがねのさんちとしても有名' },
+  '越前たけふ':   { pref: '福井県',   note: 'えちぜんしっきといっとうちょうしょく「越前そば」が有名🍜' },
+  '敦賀':         { pref: '福井県',   note: 'にほんかいとわかさわんにかこまれた港まち⚓ かにの水揚げが有名🦀' },
+  '雫石':         { pref: '岩手県',   note: 'スキーリゾートで有名！冬はとっても楽しいよ⛷️' },
+  '田沢湖':       { pref: '秋田県',   note: 'にほんでいちばんふかい湖「田沢湖」がちかいよ💧 水がきれいな青色！' },
+  '角館':         { pref: '秋田県',   note: 'さむらいやしきと桜並木で有名な「みちのくの小京都」🌸🏯' },
+  '大曲':         { pref: '秋田県',   note: 'おおまがりはなびたいかいが有名🎆 日本三大花火のひとつ！' },
+  '秋田':         { pref: '秋田県',   note: 'なまはげとあきたいぬが有名🐕 きりたんぽもおいしいよ！🍢' },
+  '米沢':         { pref: '山形県',   note: 'よねざわぎゅうが有名な高級ぎゅうにくのまち🥩 上杉家のお城もあるよ' },
+  '高畠':         { pref: '山形県',   note: 'ぶどうやラ・フランスが有名なくだもののまち🍇' },
+  '赤湯':         { pref: '山形県',   note: 'あかゆおんせんというおんせんのまち♨️ ぶどうの産地でもあるよ🍇' },
+  'かみのやま温泉': { pref: '山形県', note: 'あたたかいおんせんのまち♨️ くだものも有名だよ🍑' },
+  '山形':         { pref: '山形県',   note: 'さくらんぼのおうこく👑🍒 花笠まつりも有名！' },
+  '天童':         { pref: '山形県',   note: 'しょうぎのまち！しょうぎのこまをつくっているよ♟️ さくらんぼも有名🍒' },
+  'さくらんぼ東根': { pref: '山形県', note: 'なまえのとおり、さくらんぼがいっぱい！🍒 日本一のさくらんぼのまち' },
+  '村山':         { pref: '山形県',   note: 'でわさんざんというれいじょうがちかいまち⛰️' },
+  '大石田':       { pref: '山形県',   note: 'もがみがわのそばにあるのどかなまち🌊' },
+  '新庄':         { pref: '山形県',   note: 'やまがた新幹線のしゅうてんえき🏁 ゆきがたくさんふるまちだよ❄️' },
+  '新鳥栖':       { pref: '佐賀県',   note: 'さがけんのげーとうぇい。にしきゅうしゅうへののりかえもできるよ' },
+  '久留米':       { pref: '福岡県',   note: 'とんこつラーメンのはっしょうのまちといわれているよ🍜' },
+  '筑後船小屋':   { pref: '福岡県',   note: 'ちくごかわのちかくにあるのどかなえき🌾' },
+  '新大牟田':     { pref: '福岡県',   note: 'せかいいさんのみいけたんこうがちかいよ⛏️' },
+  '新玉名':       { pref: '熊本県',   note: 'たまなおんせんというおんせんのまち♨️ かんきつるいも有名🍊' },
+  '熊本':         { pref: '熊本県',   note: 'くまモンのふるさと🐻 くまもとじょうと阿蘇山がちかいよ！🌋' },
+  '新八代':       { pref: '熊本県',   note: 'いぐさのさんちとして有名。たたみのざいりょうだよ🌿' },
+  '新水俣':       { pref: '熊本県',   note: 'みなまたびょうのれきしをつたえる大切なまち' },
+  '出水':         { pref: '鹿児島県', note: 'まいとしツルがやってくるまち🦢 10000わいじょうのツルがくるよ！' },
+  '川内':         { pref: '鹿児島県', note: 'せんだい大花火たいかいが有名🎆 おんせんも楽しめるよ♨️' },
+  '鹿児島中央':   { pref: '鹿児島県', note: 'さくらじまが目の前にみえるまち🌋 しろくまアイスとしょちゅうが有名！' },
+  '武雄温泉':     { pref: '佐賀県',   note: 'たけおおんせんのとうろうが有名♨️ にしきゅうしゅう新幹線のかいし駅！', transfers: [{ name: '西九州', color: '#fb923c' }] },
+  '嬉野温泉':     { pref: '佐賀県',   note: 'うれしのちゃというおちゃと、とうふが有名♨️🍵 日本三大美肌の湯のひとつ！' },
+  '新大村':       { pref: '長崎県',   note: 'おおむらわんがちかく、くだものが有名なまち🍓' },
+  '諫早':         { pref: '長崎県',   note: 'いさはやわんのしぜんがゆたかなまち🌊' },
+  '長崎':         { pref: '長崎県',   note: 'ちゃんぽんとカステラが有名🍜🍰 グラバーていえんもうつくしいよ✨' },
+};
+
 const LINES = [
   {
     id: 'tokaido', name: '東海道新幹線', kana: 'とうかいどうしんかんせん',
@@ -584,6 +807,7 @@ LINES.forEach(line => {
   line.stations.forEach((s, i) => {
     const side = i % 2 === 0 ? 'right' : 'left';
     const m = L.marker([s.lat, s.lng], { icon: makeStationIcon(s, line.color, side) });
+    m.on('click', () => showStationPopup(s, line));
     m.addTo(group);
     markers.push({ marker: m, name: s.name });
   });
@@ -778,6 +1002,62 @@ function selectLine(id) {
     <ul class="station-list" id="station-list" style="--c:${line.color}">${stationItems}</ul>`;
 
   fetchPhoto(line);
+}
+
+// ── 駅ポップアップ ────────────────────────────────────────────────────────────
+function showStationPopup(s, line) {
+  const info = STATION_INFO[s.name] || {};
+  const popup = document.getElementById('station-popup');
+
+  popup.style.setProperty('--popup-color', line.color);
+  document.getElementById('popup-name').textContent = s.name;
+  document.getElementById('popup-kana').textContent = s.kana;
+
+  const badge = document.getElementById('popup-line-badge');
+  badge.textContent = line.name;
+  badge.style.background = line.color;
+
+  document.getElementById('popup-pref').textContent =
+    info.pref ? `📍 ${info.pref}` : '📍 日本';
+
+  const noteEl = document.getElementById('popup-note');
+  if (info.note) {
+    noteEl.textContent = info.note;
+    noteEl.style.display = '';
+  } else {
+    noteEl.style.display = 'none';
+  }
+
+  // 乗換え情報
+  const txWrap = document.getElementById('popup-transfers-wrap');
+  const txEl   = document.getElementById('popup-transfers');
+  const transfers = info.transfers || [];
+  if (transfers.length) {
+    txEl.innerHTML = transfers.map(t =>
+      `<span class="popup-transfer-chip" style="--tc:${t.color}">${t.name}</span>`
+    ).join('');
+    txWrap.style.display = '';
+  } else {
+    txWrap.style.display = 'none';
+  }
+
+  // ファクト（路線色・路線名）
+  document.getElementById('popup-facts').innerHTML = `
+    <div class="popup-fact">
+      <div class="popup-fact-label">🚄 しんかんせん</div>
+      <div class="popup-fact-value">${line.name}</div>
+    </div>
+    <div class="popup-fact">
+      <div class="popup-fact-label">🎨 ろせんカラー</div>
+      <div class="popup-fact-value" style="color:${line.color}">■ ${line.nickname.split('・')[0]}</div>
+    </div>`;
+
+  document.getElementById('station-popup-backdrop').classList.add('open');
+}
+
+function closeStationPopup(e) {
+  if (e && e.target !== document.getElementById('station-popup-backdrop')) return;
+  document.getElementById('station-popup-backdrop').classList.remove('open');
 }
 
 // ── 全線に戻る ────────────────────────────────────────────────────────────────
