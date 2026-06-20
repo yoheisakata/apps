@@ -233,8 +233,6 @@ function bind() {
   document.addEventListener("click", (e) => {
     const card = e.target.closest("[data-match-id]");
     if (!card) return;
-    // Don't open modal when clicking a team link inside a card.
-    if (e.target.closest(".team-link")) return;
     const id = card.dataset.matchId;
     const m = data.matches.find((mm) => mm.id === id);
     if (m) matchModal.open(m, data);
