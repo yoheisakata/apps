@@ -509,13 +509,28 @@ function makeRouteLabelIcon(line) {
   return L.divIcon({ className: 'route-label', html, iconAnchor: [0,0] });
 }
 
-function makeStationIcon(s, color) {
-  const html = `<div class="station-label-inner">
-    <div class="station-dot" style="background:${color}"></div>
-    <div class="station-name">${s.name}</div>
-    <div class="station-kana">${s.kana}</div>
-  </div>`;
-  return L.divIcon({ className: 'station-label', html, iconAnchor: [0,8] });
+function makeStationIcon(s, color, side = 'right') {
+  const dot = `width:7px;height:7px;border-radius:50%;background:${color};border:1.5px solid #fff;position:absolute;top:4px`;
+  const name = `font-size:0.68rem;font-weight:700;color:#fff;text-shadow:0 0 4px #000,0 1px 4px #000,-1px 0 3px #000,1px 0 3px #000;white-space:nowrap;position:absolute;top:0`;
+  const kana = `font-size:0.55rem;color:rgba(255,255,255,0.85);text-shadow:0 0 3px #000,0 1px 3px #000;white-space:nowrap;position:absolute;top:14px`;
+  const W = 110;
+  let html, anchor;
+  if (side === 'right') {
+    html = `<div style="position:relative;width:${W}px;height:28px;pointer-events:none">
+      <div style="${dot};left:0"></div>
+      <div style="${name};left:11px">${s.name}</div>
+      <div style="${kana};left:11px">${s.kana}</div>
+    </div>`;
+    anchor = [3, 6];
+  } else {
+    html = `<div style="position:relative;width:${W}px;height:28px;pointer-events:none">
+      <div style="${dot};right:0"></div>
+      <div style="${name};right:11px;text-align:right">${s.name}</div>
+      <div style="${kana};right:11px;text-align:right">${s.kana}</div>
+    </div>`;
+    anchor = [W - 3, 6];
+  }
+  return L.divIcon({ className: 'station-label', html, iconAnchor: anchor, iconSize: [W, 28] });
 }
 
 // ── レイヤー ──────────────────────────────────────────────────────────────────
@@ -534,8 +549,9 @@ LINES.forEach(line => {
   const group = L.layerGroup();
   L.polyline(coords, { color: line.color, weight: 5, opacity: 0.95 }).addTo(group);
   const markers = [];
-  line.stations.forEach(s => {
-    const m = L.marker([s.lat, s.lng], { icon: makeStationIcon(s, line.color) });
+  line.stations.forEach((s, i) => {
+    const side = i % 2 === 0 ? 'right' : 'left';
+    const m = L.marker([s.lat, s.lng], { icon: makeStationIcon(s, line.color, side) });
     m.addTo(group);
     markers.push({ marker: m, name: s.name });
   });
@@ -664,7 +680,7 @@ function selectLine(id) {
   detailLayers[id].group.addTo(map);
 
   map.invalidateSize();
-  map.fitBounds(L.latLngBounds(line.stations.map(s => [s.lat, s.lng])), { padding: [48, 48], animate: true });
+  map.fitBounds(L.latLngBounds(line.stations.map(s => [s.lat, s.lng])), { padding: [20, 20], animate: true });
 
   document.querySelectorAll('.line-chip').forEach(c => c.classList.toggle('active', c.dataset.id === id));
   document.getElementById('sidebar').classList.add('visible');
