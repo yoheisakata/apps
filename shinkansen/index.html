@@ -144,6 +144,26 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .line-chip-nick { color: var(--c); font-weight: 900; }
 .line-chip.active .line-chip-nick { color: #fff; }
 
+/* ── 情報カード ── */
+.info-cards {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; margin-bottom: 14px;
+}
+.info-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 7px 8px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.info-card-icon { font-size: 1rem; line-height: 1; }
+.info-card-value {
+  font-size: 0.85rem; font-weight: 900; color: #fff; line-height: 1.1;
+}
+.info-card-unit { font-size: 0.6rem; font-weight: 700; color: #4a6080; }
+.info-card-label { font-size: 0.6rem; color: #4a6080; }
+.info-card-note { font-size: 0.58rem; color: #f97316; margin-top: 1px; }
+.info-card.speed-highlight { border-color: var(--line-color, #4a6080); }
+
 /* ── 地図ラベル ── */
 .route-label { background: none !important; border: none !important; box-shadow: none !important; }
 .route-label-inner { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
@@ -217,6 +237,7 @@ const LINES = [
     id: 'tokaido', name: '東海道新幹線', kana: 'とうかいどうしんかんせん',
     nickname: 'のぞみ・ひかり・こだま', color: '#f97316', wikiTitle: 'N700S系新幹線',
     labelPos: [34.97, 138.15],
+    info: { distance: 552.6, route: '東京〜新大阪', duration: '2じかん22ふん', maxSpeed: 285, vehicle: 'N700S系' },
     services: [
       {
         name: 'のぞみ', color: '#dc2626',
@@ -258,6 +279,7 @@ const LINES = [
     id: 'sanyo', name: '山陽新幹線', kana: 'さんようしんかんせん',
     nickname: 'みずほ・さくら・ひかり・こだま', color: '#3b82f6', wikiTitle: '500系新幹線',
     labelPos: [34.15, 132.05],
+    info: { distance: 553.7, route: '新大阪〜博多', duration: '2じかん17ふん', maxSpeed: 300, vehicle: 'N700系' },
     services: [
       {
         name: 'みずほ', color: '#7c3aed',
@@ -306,6 +328,7 @@ const LINES = [
     id: 'tohoku', name: '東北新幹線', kana: 'とうほくしんかんせん',
     nickname: 'はやぶさ・やまびこ', color: '#22c55e', wikiTitle: 'E5系新幹線',
     labelPos: [38.93, 141.9],
+    info: { distance: 713.7, route: '東京〜新青森', duration: '2じかん59ふん', maxSpeed: 320, vehicle: 'E5系・H5系', speedNote: '日本いちはやい！' },
     stations: [
       { name: '東京',         kana: 'とうきょう',       lat: 35.6812, lng: 139.7671 },
       { name: '上野',         kana: 'うえの',           lat: 35.7136, lng: 139.7773 },
@@ -336,6 +359,7 @@ const LINES = [
     id: 'hokkaido', name: '北海道新幹線', kana: 'ほっかいどうしんかんせん',
     nickname: 'はやぶさ', color: '#06b6d4', wikiTitle: 'H5系新幹線',
     labelPos: [41.75, 139.85],
+    info: { distance: 148.8, route: '新青森〜新函館北斗', duration: '49ふん', maxSpeed: 260, vehicle: 'H5系' },
     stations: [
       { name: '新青森',        kana: 'しんあおもり',       lat: 40.8240, lng: 140.7365 },
       { name: '奥津軽いまべつ',kana: 'おくつがるいまべつ', lat: 41.2286, lng: 140.4394 },
@@ -347,6 +371,7 @@ const LINES = [
     id: 'joetsu', name: '上越新幹線', kana: 'じょうえつしんかんせん',
     nickname: 'とき・たにがわ', color: '#a855f7', wikiTitle: 'E7系新幹線',
     labelPos: [37.45, 138.35],
+    info: { distance: 269.5, route: '東京〜新潟', duration: '1じかん25ふん', maxSpeed: 275, vehicle: 'E7系' },
     stations: [
       { name: '東京',       kana: 'とうきょう',        lat: 35.6812, lng: 139.7671 },
       { name: '上野',       kana: 'うえの',            lat: 35.7136, lng: 139.7773 },
@@ -367,6 +392,7 @@ const LINES = [
     id: 'hokuriku', name: '北陸新幹線', kana: 'ほくりくしんかんせん',
     nickname: 'かがやき・はくたか・つるぎ', color: '#eab308', wikiTitle: 'W7系新幹線',
     labelPos: [36.72, 136.82],
+    info: { distance: 576.0, route: '東京〜敦賀', duration: '2じかん28ふん', maxSpeed: 275, vehicle: 'E7系・W7系' },
     services: [
       {
         name: 'かがやき', color: '#f59e0b',
@@ -415,6 +441,7 @@ const LINES = [
     id: 'akita', name: '秋田新幹線', kana: 'あきたしんかんせん',
     nickname: 'こまち', color: '#ec4899', wikiTitle: 'E6系新幹線',
     labelPos: [39.62, 140.22],
+    info: { distance: 127.3, route: '盛岡〜秋田', duration: '3じかん37ふん', durationNote: '東京から', maxSpeed: 130, vehicle: 'E6系', speedNote: 'ざいらいせんをはしるよ' },
     stations: [
       { name: '盛岡',   kana: 'もりおか',   lat: 39.7033, lng: 141.1540 },
       { name: '雫石',   kana: 'しずくいし', lat: 39.6951, lng: 140.9572 },
@@ -428,6 +455,7 @@ const LINES = [
     id: 'yamagata', name: '山形新幹線', kana: 'やまがたしんかんせん',
     nickname: 'つばさ', color: '#14b8a6', wikiTitle: 'E8系新幹線',
     labelPos: [38.60, 139.93],
+    info: { distance: 148.6, route: '福島〜新庄', duration: '2じかん27ふん', durationNote: '東京から', maxSpeed: 130, vehicle: 'E8系', speedNote: 'ざいらいせんをはしるよ' },
     stations: [
       { name: '福島',          kana: 'ふくしま',          lat: 37.7569, lng: 140.4740 },
       { name: '米沢',          kana: 'よねざわ',          lat: 37.9154, lng: 140.1169 },
@@ -446,6 +474,7 @@ const LINES = [
     id: 'kyushu', name: '九州新幹線', kana: 'きゅうしゅうしんかんせん',
     nickname: 'さくら・つばめ', color: '#f43f5e', wikiTitle: '800系新幹線',
     labelPos: [32.30, 131.10],
+    info: { distance: 256.8, route: '博多〜鹿児島中央', duration: '1じかん16ふん', maxSpeed: 260, vehicle: '800系・N700系' },
     services: [
       {
         name: 'さくら', color: '#f43f5e',
@@ -477,6 +506,7 @@ const LINES = [
     id: 'nishi-kyushu', name: '西九州新幹線', kana: 'にしきゅうしゅうしんかんせん',
     nickname: 'かもめ', color: '#fb923c', wikiTitle: 'N700S系新幹線',
     labelPos: [32.95, 129.50],
+    info: { distance: 66.0, route: '武雄温泉〜長崎', duration: '23ふん', maxSpeed: 260, vehicle: 'N700S系' },
     stations: [
       { name: '武雄温泉', kana: 'たけおおんせん',  lat: 33.1944, lng: 129.9933 },
       { name: '嬉野温泉', kana: 'うれしのおんせん',lat: 33.1162, lng: 130.0924 },
@@ -715,10 +745,35 @@ function selectLine(id) {
   ).join('');
 
   const inner = document.getElementById('sidebar-inner');
+  // ── 情報カード HTML
+  let infoHtml = '';
+  if (line.info) {
+    const v = line.info;
+    infoHtml = `<div class="info-cards" style="--line-color:${line.color}">
+      <div class="info-card">
+        <div class="info-card-icon">📏</div>
+        <div class="info-card-value">${v.distance}<span class="info-card-unit"> km</span></div>
+        <div class="info-card-label">${v.route}</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-icon">⏱️</div>
+        <div class="info-card-value">${v.duration}</div>
+        <div class="info-card-label">${v.durationNote || 'さいたんじかん'}</div>
+      </div>
+      <div class="info-card speed-highlight" style="grid-column:1/-1">
+        <div class="info-card-icon">⚡</div>
+        <div class="info-card-value">${v.maxSpeed}<span class="info-card-unit"> km/h</span></div>
+        <div class="info-card-label">さいこうそくど　🚃 ${v.vehicle}</div>
+        ${v.speedNote ? `<div class="info-card-note">✨ ${v.speedNote}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
   inner.innerHTML = `
     <div class="sidebar-line-name" style="color:${line.color}">${line.name}</div>
     <div class="sidebar-line-kana">${line.kana}</div>
     <div class="sidebar-nickname-badge" style="background:${line.color}">${line.nickname}</div>
+    ${infoHtml}
     ${serviceHtml}
     <ul class="station-list" id="station-list" style="--c:${line.color}">${stationItems}</ul>`;
 
