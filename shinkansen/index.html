@@ -500,10 +500,11 @@ L.tileLayer('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICT
 
 // ── アイコン ──────────────────────────────────────────────────────────────────
 function makeRouteLabelIcon(line) {
-  const nick = line.nickname.split('・')[0];
+  const shortName = line.name.replace('新幹線', '');
+  const shortKana = line.kana.replace('しんかんせん', '');
   const html = `<div class="route-label-inner">
-    <div class="route-label-nick" style="background:${line.color}">${nick}</div>
-    <div class="route-label-kana">${line.kana.slice(0,7)}</div>
+    <div class="route-label-nick" style="background:${line.color}">${shortName}</div>
+    <div class="route-label-kana">${shortKana}</div>
   </div>`;
   return L.divIcon({ className: 'route-label', html, iconAnchor: [0,0] });
 }
@@ -572,8 +573,9 @@ LINES.forEach(line => {
   chip.className = 'line-chip';
   chip.dataset.id = line.id;
   chip.style.setProperty('--c', line.color);
-  const nick = line.nickname.split('・')[0];
-  chip.innerHTML = `<div class="line-chip-dot"></div><span class="line-chip-nick">${nick}</span><span style="color:#778;font-size:0.62rem">${line.name.replace('新幹線','')}</span>`;
+  const shortName = line.name.replace('新幹線', '');
+  const shortKana = line.kana.replace('しんかんせん', '');
+  chip.innerHTML = `<div class="line-chip-dot"></div><span class="line-chip-nick">${shortName}</span><span style="color:#778;font-size:0.62rem">${shortKana}</span>`;
   chip.addEventListener('click', () => selectLine(line.id));
   chipsEl.appendChild(chip);
 });
