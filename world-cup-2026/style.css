@@ -698,8 +698,297 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   vertical-align: middle;
 }
 
+/* ---- Japan spotlight page ---- */
+.japan-page { max-width: 1200px; }
+.japan-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.japan-flag { font-size: 48px; line-height: 1; }
+.japan-title { font-size: 24px; font-weight: 700; margin: 0; }
+.japan-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.japan-stats {
+  display: flex;
+  gap: 12px;
+  margin-left: auto;
+}
+.japan-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 16px;
+  min-width: 54px;
+}
+.japan-stat.win .js-num { color: var(--win); }
+.japan-stat.draw .js-num { color: var(--muted); }
+.japan-stat.loss .js-num { color: var(--can); }
+.js-num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.js-label { font-size: 11px; color: var(--muted); }
+
+/* Countdown */
+.japan-countdown {
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #b71c1c 100%);
+  border-radius: 12px;
+  padding: 20px 24px;
+  text-align: center;
+  margin-bottom: 20px;
+  color: #fff;
+}
+.jc-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  opacity: .8;
+  margin-bottom: 4px;
+}
+.jc-timer {
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.jc-match {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.jc-vs { opacity: .6; font-size: 13px; }
+.jc-info { font-size: 11px; opacity: .65; margin-top: 6px; }
+
+.japan-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 18px;
+  align-items: start;
+}
+.japan-col { display: flex; flex-direction: column; gap: 18px; }
+.japan-section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.japan-section h3 { margin: 0 0 12px; font-size: 15px; }
+.japan-group-card { margin-bottom: 0; }
+.japan-matches h3 { font-size: 15px; margin: 0 0 12px; }
+
+/* Match cards in Japan page */
+.japan-match-list { display: flex; flex-direction: column; gap: 8px; }
+.japan-match-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.japan-match-card.win { border-left-color: var(--win); }
+.japan-match-card.loss { border-left-color: var(--can); }
+.japan-match-card.draw { border-left-color: var(--muted); }
+.japan-match-card.upcoming { border-left-color: var(--accent2); }
+.jm-date { font-size: 12px; color: var(--muted); }
+.jm-teams { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.jm-team { font-weight: 600; white-space: nowrap; }
+.jm-vs { font-size: 12px; color: var(--muted); }
+.jm-score { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.jm-venue { font-size: 11px; color: var(--muted); }
+.jm-status {
+  font-size: 11px;
+  color: var(--accent2);
+  font-weight: 600;
+  text-align: right;
+}
+.jm-result-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+.jm-result-label.win { color: var(--win); }
+.jm-result-label.loss { color: var(--can); }
+.jm-result-label.draw { color: var(--muted); }
+
+/* Japan row highlight in standings */
+tr.japan-row { background: rgba(0,212,160,.06); }
+tr.japan-row td { font-weight: 700; }
+
+/* ---- Match detail modal ---- */
+#match-modal {
+  position: fixed;
+  z-index: 3000;
+}
+.mm-card {
+  width: 500px;
+  max-width: 94%;
+}
+.mm-body { padding: 20px 24px 24px; }
+.mm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.mm-stage {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.mm-match-id {
+  font-size: 11px;
+  color: var(--muted);
+}
+.mm-status {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  padding: 4px 0;
+}
+.mm-status.finished { color: var(--win); }
+.mm-status.upcoming { color: var(--accent2); }
+
+.mm-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.mm-team-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+.mm-team-block:first-child { justify-self: end; }
+.mm-team-block:last-child { justify-self: start; }
+.mm-flag { font-size: 40px; line-height: 1; }
+.mm-tname { font-size: 15px; font-weight: 700; }
+.mm-tmeta { font-size: 10px; color: var(--muted); }
+.mm-team-block.tbd .mm-tname { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+.mm-score-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mm-score-num {
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.mm-score-sep {
+  font-size: 24px;
+  color: var(--muted);
+  font-weight: 300;
+}
+.mm-vs-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+
+/* Scorers */
+.mm-scorers {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: var(--panel2);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.mm-scorers-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mm-scorers-side.home { align-items: flex-end; text-align: right; }
+.mm-scorers-side.away { align-items: flex-start; text-align: left; }
+.mm-scorers-divider {
+  width: 1px;
+  background: var(--line);
+  align-self: stretch;
+}
+.mm-scorer {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mm-no-goal {
+  font-size: 12px;
+  color: var(--muted);
+}
+.mm-scorers-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Venue details */
+.mm-details {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.mm-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.mm-dk { color: var(--muted); }
+.mm-dv { font-weight: 500; text-align: right; }
+
+/* Make match cards look clickable */
+.m-card[data-match-id] { cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.m-card[data-match-id]:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,212,160,.12); }
+.japan-match-card[data-match-id] { cursor: pointer; transition: border-color .12s; }
+.japan-match-card[data-match-id]:hover { border-color: var(--accent); }
+.result-row[data-match-id] { cursor: pointer; transition: background .12s; }
+.result-row[data-match-id]:hover { background: var(--panel); }
+
+/* ---- Global countdown (header) ---- */
+.countdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--accent2);
+  white-space: nowrap;
+}
+.cd-label { color: var(--muted); }
+.cd-timer { font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* ---- Mobile ---- */
 @media (max-width: 760px) {
+  .japan-grid { grid-template-columns: 1fr; }
+  .japan-header { gap: 10px; }
+  .japan-stats { margin-left: 0; }
+  .japan-flag { font-size: 36px; }
+  .jc-timer { font-size: 24px; }
+  .japan-match-card { grid-template-columns: 60px 1fr auto; }
+  .countdown-wrap { display: none; }
   .country-grid { grid-template-columns: 1fr; }
   .result-row { grid-template-columns: 20px 56px 1fr auto; }
   .result-row .r-date { display: none; }

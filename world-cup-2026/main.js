@@ -13,6 +13,8 @@ import { createWorld } from "./views/world.js";
 import { createRankings } from "./views/rankings.js";
 import { createStandings } from "./views/standingstab.js";
 import { createTeamList } from "./views/teamlist.js";
+import { createJapan } from "./views/japan.js";
+import { createMatchModal } from "./views/matchmodal.js";
 import { fetchLiveData } from "./views/livedata.js";
 
 const $ = (id) => document.getElementById(id);
@@ -107,6 +109,8 @@ function ensureView(name) {
     views[name] = createStandings({ container, data, onTeam: (c) => goToCountry(c, "standings") });
   else if (name === "teams")
     views[name] = createTeamList({ container, data, onTeam: (c) => goToCountry(c, "teams") });
+  else if (name === "japan")
+    views[name] = createJapan({ container, data });
   views[name].render();
 }
 
@@ -141,6 +145,7 @@ async function refreshLive({ silent } = {}) {
     } catch (_) {}
     const played = live.matches.filter((m) => m.result).length;
     setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
+    startGlobalCountdown();
     rerenderAll();
   } catch (e) {
     setStatus("更新失敗 — 保存データを表示中", "err");
@@ -165,6 +170,37 @@ function loadCache() {
   return false;
 }
 
+// ---- global countdown timer (next match across all teams) ----
+let _cdInterval = null;
+function startGlobalCountdown() {
+  if (_cdInterval) clearInterval(_cdInterval);
+  const next = data.matches.find((m) => !m.result && m.date);
+  const wrap = $("global-countdown");
+  const el = $("cd-timer");
+  if (!next || !el) { if (wrap) wrap.classList.add("hidden"); return; }
+  if (wrap) wrap.classList.remove("hidden");
+  const target = new Date(next.date + "T00:00:00Z");
+  const homeTeam = data.byCode[next.home];
+  const awayTeam = data.byCode[next.away];
+  const label = wrap?.querySelector(".cd-label");
+  if (label) {
+    const names = [homeTeam, awayTeam].filter(Boolean).map((t) => t.flag).join(" vs ");
+    label.textContent = names ? `${names}` : "次の試合:";
+  }
+  function tick() {
+    const diff = target - new Date();
+    if (diff <= 0) { el.textContent = "試合日！"; clearInterval(_cdInterval); return; }
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const min = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const p = (n) => String(n).padStart(2, "0");
+    el.textContent = d > 0 ? `${d}日 ${p(h)}:${p(min)}:${p(s)}` : `${p(h)}:${p(min)}:${p(s)}`;
+  }
+  tick();
+  _cdInterval = setInterval(tick, 1000);
+}
+
 function applyThemeButton() {
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
   const btn = $("theme-btn");
@@ -182,15 +218,27 @@ function toggleTheme() {
   applyThemeButton();
 }
 
+const matchModal = createMatchModal();
+
 function bind() {
   document.querySelectorAll(".tab").forEach((b) =>
     b.addEventListener("click", () => setTab(b.dataset.tab))
   );
-  // Clicking the brand returns to the first tab (schedule).
   document.querySelector(".brand")?.addEventListener("click", () => setTab("schedule"));
   $("refresh-btn")?.addEventListener("click", () => refreshLive({}));
   $("theme-btn")?.addEventListener("click", toggleTheme);
   applyThemeButton();
+
+  // Global delegated handler: clicking any match card opens its detail modal.
+  document.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-match-id]");
+    if (!card) return;
+    // Don't open modal when clicking a team link inside a card.
+    if (e.target.closest(".team-link")) return;
+    const id = card.dataset.matchId;
+    const m = data.matches.find((mm) => mm.id === id);
+    if (m) matchModal.open(m, data);
+  });
 }
 
 (async function boot() {
@@ -204,5 +252,6 @@ function bind() {
   bind();
   setTab("schedule");
   $("loading").classList.add("hidden");
+  startGlobalCountdown();
   refreshLive({ silent: false }); // then refresh from Wikipedia in the background
 })();

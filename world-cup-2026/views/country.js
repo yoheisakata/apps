@@ -68,7 +68,7 @@ export function createCountry({ container, data, onBack }) {
         const outcome = my > opGoals ? "win" : my < opGoals ? "loss" : "draw";
         const mark = outcome === "win" ? "○" : outcome === "loss" ? "●" : "△";
         const venue = data.venueById[m.venue];
-        return `<div class="result-row ${outcome}">
+        return `<div class="result-row ${outcome}" data-match-id="${m.id}" role="button" tabindex="0">
           <span class="r-mark">${mark}</span>
           <span class="r-stage">${STAGE_LABEL[m.stage] || ""}${m.group ? " " + m.group : ""}</span>
           <span class="r-opp">vs ${esc(teamName(opp))}</span>
