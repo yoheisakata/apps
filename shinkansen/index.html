@@ -23,11 +23,8 @@ header {
   background: #0b1728;
   border-bottom: 2px solid #1a2e48;
   padding: 8px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  gap: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; gap: 10px;
 }
 header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowrap; }
 #header-sub { font-size: 0.68rem; color: #4a6080; }
@@ -46,32 +43,51 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 #back-btn.visible { display: flex; }
 
 /* ── メイン ── */
-.main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.main { display: flex; flex: 1; overflow: hidden; min-height: 0; position: relative; }
 
-/* ── 地図 ── */
-#map {
+/* ── 地図コンテナ（クリップ用） ── */
+#map-clip {
   flex: 1;
-  /* タイル非表示のため背景色がそのまま海の色になる */
-  background: #07111f;
+  overflow: hidden;
+  position: relative;
+  /* アイソメ時の上部はみ出しをクリップしない（奥行きが見えるよう） */
+  overflow: visible;
 }
-/* Leaflet帰属表示を小さく */
-.leaflet-control-attribution { font-size: 0.5rem !important; }
 
-/* ── サイドバー（路線選択時のみ表示） ── */
+/* ── 地図本体 ── */
+#map {
+  position: absolute;
+  /* 通常時は親いっぱい */
+  inset: 0;
+  background: #07111f;
+  /* アイソメ→フラットのトランジション */
+  transition: transform 0.7s cubic-bezier(0.4,0,0.2,1), inset 0.7s ease;
+  transform-origin: 50% 52%;
+}
+
+/* アイソメビュー（overview時） */
+#map.iso {
+  /* 地図を大きめに取ってから傾ける */
+  inset: -18% -12%;
+  transform:
+    perspective(1100px)
+    rotateX(50deg)
+    rotateZ(-20deg)
+    scale(0.88);
+}
+
+/* ── サイドバー ── */
 .sidebar {
   display: none;
-  width: 210px;
+  width: 210px; min-width: 210px;
   background: #0b1728;
   border-left: 2px solid #1a2e48;
-  overflow-y: auto;
-  flex-shrink: 0;
-  flex-direction: column;
+  overflow-y: auto; flex-shrink: 0; flex-direction: column;
 }
 .sidebar.visible { display: flex; }
 
 .photo-wrap {
-  width: 100%; height: 118px;
-  background: #0f1e30;
+  width: 100%; height: 118px; background: #0f1e30;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; overflow: hidden;
 }
@@ -100,21 +116,14 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 #line-bar {
   background: #0b1728;
   border-top: 2px solid #1a2e48;
-  padding: 8px 12px 10px;
-  flex-shrink: 0;
+  padding: 8px 12px 10px; flex-shrink: 0;
 }
-.line-bar-title {
-  font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em;
-  color: #3a5070; margin-bottom: 7px;
-}
-.line-chips {
-  display: flex; gap: 7px; flex-wrap: wrap;
-}
+.line-bar-title { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em; color: #3a5070; margin-bottom: 7px; }
+.line-chips { display: flex; gap: 7px; flex-wrap: wrap; }
 .line-chip {
   display: flex; align-items: center; gap: 5px;
   padding: 4px 9px; border-radius: 20px;
-  border: 1.5px solid var(--c);
-  background: rgba(0,0,0,0.25);
+  border: 1.5px solid var(--c); background: rgba(0,0,0,0.25);
   cursor: pointer; font-size: 0.7rem; font-weight: 700;
   color: #ccc; white-space: nowrap;
   transition: background 0.12s, transform 0.1s;
@@ -126,17 +135,16 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .line-chip-nick { color: var(--c); font-weight: 900; }
 .line-chip.active .line-chip-nick { color: #fff; }
 
-/* ── 地図上ラベル ── */
+/* ── 地図ラベル ── */
 .route-label { background: none !important; border: none !important; box-shadow: none !important; }
 .route-label-inner { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
 .route-label-nick {
-  font-size: 0.68rem; font-weight: 900;
-  padding: 2px 7px; border-radius: 10px;
-  white-space: nowrap; color: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  font-size: 0.7rem; font-weight: 900;
+  padding: 2px 8px; border-radius: 10px; white-space: nowrap; color: #fff;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.7);
 }
 .route-label-kana {
-  font-size: 0.52rem; color: rgba(255,255,255,0.8);
+  font-size: 0.5rem; color: rgba(255,255,255,0.85);
   text-shadow: 0 0 3px #000, 0 1px 3px #000;
   white-space: nowrap; margin-top: 1px;
 }
@@ -166,10 +174,13 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 #loading .spin { font-size: 2.4rem; animation: spin 1.2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.leaflet-control-attribution { font-size: 0.5rem !important; }
+
 @media (max-width: 600px) {
   .sidebar { display: none !important; }
   .line-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
   #line-bar { padding: 6px 10px 8px; }
+  #map.iso { inset: -10% -5%; transform: perspective(900px) rotateX(44deg) rotateZ(-18deg) scale(0.9); }
 }
 </style>
 </head>
@@ -183,9 +194,11 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
   <button id="back-btn" onclick="resetToAll()">◀ もどる</button>
 </header>
 
-<div class="main" style="position:relative">
-  <div id="loading"><div class="spin">🗾</div>ちずをよみこみちゅう…</div>
-  <div id="map"></div>
+<div class="main">
+  <div id="map-clip">
+    <div id="loading"><div class="spin">🗾</div>ちずをよみこみちゅう…</div>
+    <div id="map"></div>
+  </div>
   <aside class="sidebar" id="sidebar">
     <div class="photo-wrap" id="photo-wrap"><span class="emoji">🚄</span></div>
     <div class="photo-caption" id="photo-caption"></div>
@@ -193,7 +206,6 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
   </aside>
 </div>
 
-<!-- 下部バー：常に表示 -->
 <div id="line-bar">
   <div class="line-bar-title">🚄 ろせんをえらぼう（ぜんぶで10ほん！）</div>
   <div class="line-chips" id="line-chips"></div>
@@ -201,12 +213,11 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── 路線データ ────────────────────────────────────────────────────────────────
 const LINES = [
   {
     id: 'tokaido', name: '東海道新幹線', kana: 'とうかいどうしんかんせん',
     nickname: 'のぞみ・ひかり・こだま', color: '#f97316', wikiTitle: 'N700S系新幹線',
-    labelPos: [34.97, 138.15],  // 静岡付近
+    labelPos: [34.97, 138.15],
     stations: [
       { name: '東京',      kana: 'とうきょう',       lat: 35.6812, lng: 139.7671 },
       { name: '品川',      kana: 'しながわ',         lat: 35.6284, lng: 139.7387 },
@@ -230,7 +241,7 @@ const LINES = [
   {
     id: 'sanyo', name: '山陽新幹線', kana: 'さんようしんかんせん',
     nickname: 'みずほ・さくら', color: '#3b82f6', wikiTitle: '500系新幹線',
-    labelPos: [34.15, 132.05],  // 広島西
+    labelPos: [34.15, 132.05],
     stations: [
       { name: '新大阪',    kana: 'しんおおさか',     lat: 34.7330, lng: 135.5000 },
       { name: '新神戸',    kana: 'しんこうべ',       lat: 34.6946, lng: 135.1956 },
@@ -256,37 +267,37 @@ const LINES = [
   {
     id: 'tohoku', name: '東北新幹線', kana: 'とうほくしんかんせん',
     nickname: 'はやぶさ・やまびこ', color: '#22c55e', wikiTitle: 'E5系新幹線',
-    labelPos: [38.93, 141.8],   // 一ノ関東
+    labelPos: [38.93, 141.9],
     stations: [
-      { name: '東京',          kana: 'とうきょう',       lat: 35.6812, lng: 139.7671 },
-      { name: '上野',          kana: 'うえの',           lat: 35.7136, lng: 139.7773 },
-      { name: '大宮',          kana: 'おおみや',         lat: 35.9065, lng: 139.6238 },
-      { name: '小山',          kana: 'おやま',           lat: 36.3130, lng: 139.7963 },
-      { name: '宇都宮',        kana: 'うつのみや',       lat: 36.5499, lng: 139.8870 },
-      { name: '那須塩原',      kana: 'なすしおばら',     lat: 36.9242, lng: 139.9909 },
-      { name: '新白河',        kana: 'しんしらかわ',     lat: 37.1267, lng: 140.2163 },
-      { name: '郡山',          kana: 'こおりやま',       lat: 37.3944, lng: 140.3875 },
-      { name: '福島',          kana: 'ふくしま',         lat: 37.7569, lng: 140.4740 },
-      { name: '白石蔵王',      kana: 'しろいしざおう',   lat: 38.0012, lng: 140.6218 },
-      { name: '仙台',          kana: 'せんだい',         lat: 38.2598, lng: 140.8821 },
-      { name: '古川',          kana: 'ふるかわ',         lat: 38.5701, lng: 140.9463 },
-      { name: 'くりこま高原',  kana: 'くりこまこうげん', lat: 38.7416, lng: 141.0019 },
-      { name: '一ノ関',        kana: 'いちのせき',       lat: 38.9347, lng: 141.1263 },
-      { name: '水沢江刺',      kana: 'みずさわえさし',   lat: 39.1239, lng: 141.1373 },
-      { name: '北上',          kana: 'きたかみ',         lat: 39.2905, lng: 141.1141 },
-      { name: '新花巻',        kana: 'しんはなまき',     lat: 39.4048, lng: 141.1277 },
-      { name: '盛岡',          kana: 'もりおか',         lat: 39.7033, lng: 141.1540 },
-      { name: 'いわて沼宮内',  kana: 'いわてぬまくない', lat: 39.9326, lng: 141.1005 },
-      { name: '二戸',          kana: 'にのへ',           lat: 40.2732, lng: 141.3033 },
-      { name: '八戸',          kana: 'はちのへ',         lat: 40.5130, lng: 141.4880 },
-      { name: '七戸十和田',    kana: 'しちのへとわだ',   lat: 40.7285, lng: 141.2139 },
-      { name: '新青森',        kana: 'しんあおもり',     lat: 40.8240, lng: 140.7365 },
+      { name: '東京',         kana: 'とうきょう',       lat: 35.6812, lng: 139.7671 },
+      { name: '上野',         kana: 'うえの',           lat: 35.7136, lng: 139.7773 },
+      { name: '大宮',         kana: 'おおみや',         lat: 35.9065, lng: 139.6238 },
+      { name: '小山',         kana: 'おやま',           lat: 36.3130, lng: 139.7963 },
+      { name: '宇都宮',       kana: 'うつのみや',       lat: 36.5499, lng: 139.8870 },
+      { name: '那須塩原',     kana: 'なすしおばら',     lat: 36.9242, lng: 139.9909 },
+      { name: '新白河',       kana: 'しんしらかわ',     lat: 37.1267, lng: 140.2163 },
+      { name: '郡山',         kana: 'こおりやま',       lat: 37.3944, lng: 140.3875 },
+      { name: '福島',         kana: 'ふくしま',         lat: 37.7569, lng: 140.4740 },
+      { name: '白石蔵王',     kana: 'しろいしざおう',   lat: 38.0012, lng: 140.6218 },
+      { name: '仙台',         kana: 'せんだい',         lat: 38.2598, lng: 140.8821 },
+      { name: '古川',         kana: 'ふるかわ',         lat: 38.5701, lng: 140.9463 },
+      { name: 'くりこま高原', kana: 'くりこまこうげん', lat: 38.7416, lng: 141.0019 },
+      { name: '一ノ関',       kana: 'いちのせき',       lat: 38.9347, lng: 141.1263 },
+      { name: '水沢江刺',     kana: 'みずさわえさし',   lat: 39.1239, lng: 141.1373 },
+      { name: '北上',         kana: 'きたかみ',         lat: 39.2905, lng: 141.1141 },
+      { name: '新花巻',       kana: 'しんはなまき',     lat: 39.4048, lng: 141.1277 },
+      { name: '盛岡',         kana: 'もりおか',         lat: 39.7033, lng: 141.1540 },
+      { name: 'いわて沼宮内', kana: 'いわてぬまくない', lat: 39.9326, lng: 141.1005 },
+      { name: '二戸',         kana: 'にのへ',           lat: 40.2732, lng: 141.3033 },
+      { name: '八戸',         kana: 'はちのへ',         lat: 40.5130, lng: 141.4880 },
+      { name: '七戸十和田',   kana: 'しちのへとわだ',   lat: 40.7285, lng: 141.2139 },
+      { name: '新青森',       kana: 'しんあおもり',     lat: 40.8240, lng: 140.7365 },
     ]
   },
   {
     id: 'hokkaido', name: '北海道新幹線', kana: 'ほっかいどうしんかんせん',
     nickname: 'はやぶさ', color: '#06b6d4', wikiTitle: 'H5系新幹線',
-    labelPos: [41.75, 139.9],   // 木古内西
+    labelPos: [41.75, 139.85],
     stations: [
       { name: '新青森',        kana: 'しんあおもり',       lat: 40.8240, lng: 140.7365 },
       { name: '奥津軽いまべつ',kana: 'おくつがるいまべつ', lat: 41.2286, lng: 140.4394 },
@@ -297,58 +308,58 @@ const LINES = [
   {
     id: 'joetsu', name: '上越新幹線', kana: 'じょうえつしんかんせん',
     nickname: 'とき・たにがわ', color: '#a855f7', wikiTitle: 'E7系新幹線',
-    labelPos: [37.45, 138.45],  // 長岡西
+    labelPos: [37.45, 138.35],
     stations: [
-      { name: '東京',       kana: 'とうきょう',       lat: 35.6812, lng: 139.7671 },
-      { name: '上野',       kana: 'うえの',           lat: 35.7136, lng: 139.7773 },
-      { name: '大宮',       kana: 'おおみや',         lat: 35.9065, lng: 139.6238 },
-      { name: '熊谷',       kana: 'くまがや',         lat: 36.1469, lng: 139.3886 },
-      { name: '本庄早稲田', kana: 'ほんじょうわせだ', lat: 36.2233, lng: 139.1848 },
-      { name: '高崎',       kana: 'たかさき',         lat: 36.3226, lng: 139.0048 },
+      { name: '東京',       kana: 'とうきょう',        lat: 35.6812, lng: 139.7671 },
+      { name: '上野',       kana: 'うえの',            lat: 35.7136, lng: 139.7773 },
+      { name: '大宮',       kana: 'おおみや',          lat: 35.9065, lng: 139.6238 },
+      { name: '熊谷',       kana: 'くまがや',          lat: 36.1469, lng: 139.3886 },
+      { name: '本庄早稲田', kana: 'ほんじょうわせだ',  lat: 36.2233, lng: 139.1848 },
+      { name: '高崎',       kana: 'たかさき',          lat: 36.3226, lng: 139.0048 },
       { name: '上毛高原',   kana: 'じょうもうこうげん',lat: 36.6686, lng: 138.9388 },
-      { name: '越後湯沢',   kana: 'えちごゆざわ',     lat: 36.9334, lng: 138.8144 },
-      { name: 'ガーラ湯沢', kana: 'がーらゆざわ',     lat: 36.9213, lng: 138.8296 },
-      { name: '浦佐',       kana: 'うらさ',           lat: 37.1636, lng: 138.9944 },
-      { name: '長岡',       kana: 'ながおか',         lat: 37.4471, lng: 138.8515 },
-      { name: '燕三条',     kana: 'つばめさんじょう', lat: 37.6555, lng: 138.8730 },
-      { name: '新潟',       kana: 'にいがた',         lat: 37.9122, lng: 139.0590 },
+      { name: '越後湯沢',   kana: 'えちごゆざわ',      lat: 36.9334, lng: 138.8144 },
+      { name: 'ガーラ湯沢', kana: 'がーらゆざわ',      lat: 36.9213, lng: 138.8296 },
+      { name: '浦佐',       kana: 'うらさ',            lat: 37.1636, lng: 138.9944 },
+      { name: '長岡',       kana: 'ながおか',          lat: 37.4471, lng: 138.8515 },
+      { name: '燕三条',     kana: 'つばめさんじょう',  lat: 37.6555, lng: 138.8730 },
+      { name: '新潟',       kana: 'にいがた',          lat: 37.9122, lng: 139.0590 },
     ]
   },
   {
     id: 'hokuriku', name: '北陸新幹線', kana: 'ほくりくしんかんせん',
     nickname: 'かがやき・はくたか', color: '#eab308', wikiTitle: 'W7系新幹線',
-    labelPos: [36.70, 136.85],  // 富山付近
+    labelPos: [36.72, 136.82],
     stations: [
-      { name: '東京',          kana: 'とうきょう',          lat: 35.6812, lng: 139.7671 },
-      { name: '上野',          kana: 'うえの',              lat: 35.7136, lng: 139.7773 },
-      { name: '大宮',          kana: 'おおみや',            lat: 35.9065, lng: 139.6238 },
-      { name: '熊谷',          kana: 'くまがや',            lat: 36.1469, lng: 139.3886 },
-      { name: '本庄早稲田',    kana: 'ほんじょうわせだ',    lat: 36.2233, lng: 139.1848 },
-      { name: '高崎',          kana: 'たかさき',            lat: 36.3226, lng: 139.0048 },
-      { name: '安中榛名',      kana: 'あんなかはるな',      lat: 36.3505, lng: 138.8523 },
-      { name: '軽井沢',        kana: 'かるいざわ',          lat: 36.3489, lng: 138.6289 },
-      { name: '佐久平',        kana: 'さくだいら',          lat: 36.2531, lng: 138.4776 },
-      { name: '上田',          kana: 'うえだ',              lat: 36.4007, lng: 138.2492 },
-      { name: '長野',          kana: 'ながの',              lat: 36.6448, lng: 138.1881 },
-      { name: '飯山',          kana: 'いいやま',            lat: 36.8497, lng: 138.3683 },
-      { name: '上越妙高',      kana: 'じょうえつみょうこう',lat: 37.1282, lng: 138.2396 },
-      { name: '糸魚川',        kana: 'いといがわ',          lat: 37.0368, lng: 137.8606 },
+      { name: '東京',          kana: 'とうきょう',           lat: 35.6812, lng: 139.7671 },
+      { name: '上野',          kana: 'うえの',               lat: 35.7136, lng: 139.7773 },
+      { name: '大宮',          kana: 'おおみや',             lat: 35.9065, lng: 139.6238 },
+      { name: '熊谷',          kana: 'くまがや',             lat: 36.1469, lng: 139.3886 },
+      { name: '本庄早稲田',    kana: 'ほんじょうわせだ',     lat: 36.2233, lng: 139.1848 },
+      { name: '高崎',          kana: 'たかさき',             lat: 36.3226, lng: 139.0048 },
+      { name: '安中榛名',      kana: 'あんなかはるな',       lat: 36.3505, lng: 138.8523 },
+      { name: '軽井沢',        kana: 'かるいざわ',           lat: 36.3489, lng: 138.6289 },
+      { name: '佐久平',        kana: 'さくだいら',           lat: 36.2531, lng: 138.4776 },
+      { name: '上田',          kana: 'うえだ',               lat: 36.4007, lng: 138.2492 },
+      { name: '長野',          kana: 'ながの',               lat: 36.6448, lng: 138.1881 },
+      { name: '飯山',          kana: 'いいやま',             lat: 36.8497, lng: 138.3683 },
+      { name: '上越妙高',      kana: 'じょうえつみょうこう', lat: 37.1282, lng: 138.2396 },
+      { name: '糸魚川',        kana: 'いといがわ',           lat: 37.0368, lng: 137.8606 },
       { name: '黒部宇奈月温泉',kana: 'くろべうなづきおんせん',lat: 36.8683, lng: 137.5427 },
-      { name: '富山',          kana: 'とやま',              lat: 36.7024, lng: 137.2133 },
-      { name: '新高岡',        kana: 'しんたかおか',        lat: 36.5783, lng: 136.9974 },
-      { name: '金沢',          kana: 'かなざわ',            lat: 36.5786, lng: 136.6480 },
-      { name: '小松',          kana: 'こまつ',              lat: 36.4060, lng: 136.4390 },
-      { name: '加賀温泉',      kana: 'かがおんせん',        lat: 36.2933, lng: 136.3349 },
-      { name: '芦原温泉',      kana: 'あわらおんせん',      lat: 36.2090, lng: 136.2260 },
-      { name: '福井',          kana: 'ふくい',              lat: 36.0638, lng: 136.2196 },
-      { name: '越前たけふ',    kana: 'えちぜんたけふ',      lat: 35.9167, lng: 136.1746 },
-      { name: '敦賀',          kana: 'つるが',              lat: 35.6456, lng: 136.0569 },
+      { name: '富山',          kana: 'とやま',               lat: 36.7024, lng: 137.2133 },
+      { name: '新高岡',        kana: 'しんたかおか',         lat: 36.5783, lng: 136.9974 },
+      { name: '金沢',          kana: 'かなざわ',             lat: 36.5786, lng: 136.6480 },
+      { name: '小松',          kana: 'こまつ',               lat: 36.4060, lng: 136.4390 },
+      { name: '加賀温泉',      kana: 'かがおんせん',         lat: 36.2933, lng: 136.3349 },
+      { name: '芦原温泉',      kana: 'あわらおんせん',       lat: 36.2090, lng: 136.2260 },
+      { name: '福井',          kana: 'ふくい',               lat: 36.0638, lng: 136.2196 },
+      { name: '越前たけふ',    kana: 'えちぜんたけふ',       lat: 35.9167, lng: 136.1746 },
+      { name: '敦賀',          kana: 'つるが',               lat: 35.6456, lng: 136.0569 },
     ]
   },
   {
     id: 'akita', name: '秋田新幹線', kana: 'あきたしんかんせん',
     nickname: 'こまち', color: '#ec4899', wikiTitle: 'E6系新幹線',
-    labelPos: [39.62, 140.25],  // 田沢湖西
+    labelPos: [39.62, 140.22],
     stations: [
       { name: '盛岡',   kana: 'もりおか',   lat: 39.7033, lng: 141.1540 },
       { name: '雫石',   kana: 'しずくいし', lat: 39.6951, lng: 140.9572 },
@@ -361,7 +372,7 @@ const LINES = [
   {
     id: 'yamagata', name: '山形新幹線', kana: 'やまがたしんかんせん',
     nickname: 'つばさ', color: '#14b8a6', wikiTitle: 'E8系新幹線',
-    labelPos: [38.60, 139.95],  // 大石田西
+    labelPos: [38.60, 139.93],
     stations: [
       { name: '福島',          kana: 'ふくしま',          lat: 37.7569, lng: 140.4740 },
       { name: '米沢',          kana: 'よねざわ',          lat: 37.9154, lng: 140.1169 },
@@ -379,26 +390,26 @@ const LINES = [
   {
     id: 'kyushu', name: '九州新幹線', kana: 'きゅうしゅうしんかんせん',
     nickname: 'さくら・つばめ', color: '#f43f5e', wikiTitle: '800系新幹線',
-    labelPos: [32.30, 131.05],  // 熊本東
+    labelPos: [32.30, 131.10],
     stations: [
-      { name: '博多',       kana: 'はかた',           lat: 33.5902, lng: 130.4207 },
-      { name: '新鳥栖',     kana: 'しんとす',         lat: 33.3758, lng: 130.4984 },
-      { name: '久留米',     kana: 'くるめ',           lat: 33.3146, lng: 130.5077 },
-      { name: '筑後船小屋', kana: 'ちくごふなごや',   lat: 33.2083, lng: 130.5245 },
-      { name: '新大牟田',   kana: 'しんおおむた',     lat: 33.0726, lng: 130.4665 },
-      { name: '新玉名',     kana: 'しんたまな',       lat: 32.9188, lng: 130.5347 },
-      { name: '熊本',       kana: 'くまもと',         lat: 32.7898, lng: 130.7418 },
-      { name: '新八代',     kana: 'しんやつしろ',     lat: 32.5143, lng: 130.5947 },
-      { name: '新水俣',     kana: 'しんみなまた',     lat: 32.2093, lng: 130.4174 },
-      { name: '出水',       kana: 'いずみ',           lat: 32.0881, lng: 130.3607 },
-      { name: '川内',       kana: 'せんだい',         lat: 31.8107, lng: 130.3011 },
+      { name: '博多',       kana: 'はかた',            lat: 33.5902, lng: 130.4207 },
+      { name: '新鳥栖',     kana: 'しんとす',          lat: 33.3758, lng: 130.4984 },
+      { name: '久留米',     kana: 'くるめ',            lat: 33.3146, lng: 130.5077 },
+      { name: '筑後船小屋', kana: 'ちくごふなごや',    lat: 33.2083, lng: 130.5245 },
+      { name: '新大牟田',   kana: 'しんおおむた',      lat: 33.0726, lng: 130.4665 },
+      { name: '新玉名',     kana: 'しんたまな',        lat: 32.9188, lng: 130.5347 },
+      { name: '熊本',       kana: 'くまもと',          lat: 32.7898, lng: 130.7418 },
+      { name: '新八代',     kana: 'しんやつしろ',      lat: 32.5143, lng: 130.5947 },
+      { name: '新水俣',     kana: 'しんみなまた',      lat: 32.2093, lng: 130.4174 },
+      { name: '出水',       kana: 'いずみ',            lat: 32.0881, lng: 130.3607 },
+      { name: '川内',       kana: 'せんだい',          lat: 31.8107, lng: 130.3011 },
       { name: '鹿児島中央', kana: 'かごしまちゅうおう',lat: 31.5783, lng: 130.5381 },
     ]
   },
   {
     id: 'nishi-kyushu', name: '西九州新幹線', kana: 'にしきゅうしゅうしんかんせん',
     nickname: 'かもめ', color: '#fb923c', wikiTitle: 'N700S系新幹線',
-    labelPos: [32.95, 129.55],  // 武雄温泉西
+    labelPos: [32.95, 129.50],
     stations: [
       { name: '武雄温泉', kana: 'たけおおんせん',  lat: 33.1944, lng: 129.9933 },
       { name: '嬉野温泉', kana: 'うれしのおんせん',lat: 33.1162, lng: 130.0924 },
@@ -409,19 +420,14 @@ const LINES = [
   },
 ];
 
-// ── 地図初期化 ─────────────────────────────────────────────────────────────────
+// ── 地図 ─────────────────────────────────────────────────────────────────────
 const map = L.map('map', {
-  zoomControl: false,
-  scrollWheelZoom: false,
-  doubleClickZoom: false,
-  touchZoom: false,
-  dragging: false,
-  // 初期値（fitBoundsで上書き）
+  zoomControl: false, scrollWheelZoom: false,
+  doubleClickZoom: false, touchZoom: false, dragging: false,
   center: [36, 136], zoom: 5,
 });
 
-// タイル非表示（日本地形のみ描画するため）
-// 軽量な透明タイルを使う
+// 透明タイル（日本GeoJSONだけを描くため）
 L.tileLayer('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
@@ -431,7 +437,7 @@ function makeRouteLabelIcon(line) {
   const nick = line.nickname.split('・')[0];
   const html = `<div class="route-label-inner">
     <div class="route-label-nick" style="background:${line.color}">${nick}</div>
-    <div class="route-label-kana">${line.kana.slice(0, 6)}</div>
+    <div class="route-label-kana">${line.kana.slice(0, 7)}</div>
   </div>`;
   return L.divIcon({ className: 'route-label', html, iconAnchor: [0, 0] });
 }
@@ -453,9 +459,8 @@ LINES.forEach(line => {
   const coords = line.stations.map(s => [s.lat, s.lng]);
 
   const ov = L.layerGroup();
-  L.polyline(coords, { color: line.color, weight: 3, opacity: 0.9 }).addTo(ov);
-  const lbl = L.marker(line.labelPos, { icon: makeRouteLabelIcon(line), interactive: true }).addTo(ov);
-  lbl.on('click', () => selectLine(line.id));
+  L.polyline(coords, { color: line.color, weight: 3.5, opacity: 0.92 }).addTo(ov);
+  L.marker(line.labelPos, { icon: makeRouteLabelIcon(line), interactive: false }).addTo(ov);
   overviewLayers[line.id] = ov;
 
   const dt = L.layerGroup();
@@ -466,44 +471,37 @@ LINES.forEach(line => {
   detailLayers[line.id] = dt;
 });
 
-// ── 日本地図を GeoJSON で描画 ─────────────────────────────────────────────────
-let japanLayer = null;
+// ── 日本GeoJSON描画 ───────────────────────────────────────────────────────────
 let ALL_CENTER, ALL_ZOOM;
-
-const JAPAN_STYLE = {
-  fillColor: '#1a3050',
-  fillOpacity: 1,
-  color: '#2a5080',
-  weight: 1,
-};
+const SHINKANSEN_BOUNDS = [[30.8, 129.0], [42.5, 142.5]];
 
 fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
   .then(r => r.json())
   .then(geojson => {
-    japanLayer = L.geoJSON(geojson, { style: JAPAN_STYLE }).addTo(map);
+    L.geoJSON(geojson, {
+      style: { fillColor: '#1e3d5c', fillOpacity: 1, color: '#2d6090', weight: 1 }
+    }).addTo(map);
 
-    // 新幹線ネットワークが収まる範囲にフィット（沖縄など離島は除外）
-    // 鹿児島中央(31.5N)〜新函館北斗(41.9N)、長崎(129.8E)〜八戸(141.5E)
-    const SHINKANSEN_BOUNDS = [[30.8, 129.0], [42.5, 142.5]];
     map.fitBounds(SHINKANSEN_BOUNDS, { padding: [20, 20] });
     ALL_CENTER = map.getCenter();
     ALL_ZOOM   = map.getZoom();
 
-    // 全路線を表示
     LINES.forEach(l => overviewLayers[l.id].addTo(map));
 
+    // アイソメビューに切り替え
+    document.getElementById('map').classList.add('iso');
     document.getElementById('loading').style.display = 'none';
   })
   .catch(() => {
-    // GeoJSON取得失敗時のフォールバック
-    map.fitBounds([[30.8, 129.0], [42.5, 142.5]], { padding: [20, 20] });
+    map.fitBounds(SHINKANSEN_BOUNDS, { padding: [20, 20] });
     ALL_CENTER = map.getCenter();
     ALL_ZOOM   = map.getZoom();
     LINES.forEach(l => overviewLayers[l.id].addTo(map));
+    document.getElementById('map').classList.add('iso');
     document.getElementById('loading').style.display = 'none';
   });
 
-// ── 下部路線チップ生成 ────────────────────────────────────────────────────────
+// ── 下部チップ生成 ────────────────────────────────────────────────────────────
 const chipsEl = document.getElementById('line-chips');
 LINES.forEach(line => {
   const chip = document.createElement('div');
@@ -527,12 +525,17 @@ function selectLine(id) {
   LINES.forEach(l => { map.removeLayer(overviewLayers[l.id]); map.removeLayer(detailLayers[l.id]); });
   detailLayers[id].addTo(map);
 
-  const bounds = L.latLngBounds(line.stations.map(s => [s.lat, s.lng]));
-  map.fitBounds(bounds, { padding: [48, 48], animate: true, duration: 0.6 });
+  // アイソメを解除してフラットな地図に
+  const mapEl = document.getElementById('map');
+  mapEl.classList.remove('iso');
 
-  // チップの active 状態
+  // トランジション後にfitBounds + invalidateSize
+  setTimeout(() => {
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(line.stations.map(s => [s.lat, s.lng])), { padding: [48, 48], animate: true });
+  }, 100);
+
   document.querySelectorAll('.line-chip').forEach(c => c.classList.toggle('active', c.dataset.id === id));
-
   document.getElementById('sidebar').classList.add('visible');
   document.getElementById('back-btn').classList.add('visible');
   document.getElementById('header-sub').textContent = `${line.name}（${line.nickname}）`;
@@ -549,20 +552,26 @@ function selectLine(id) {
   fetchPhoto(line);
 }
 
-// ── 全線表示に戻る ────────────────────────────────────────────────────────────
+// ── 全線に戻る ────────────────────────────────────────────────────────────────
 function resetToAll() {
   if (currentId) map.removeLayer(detailLayers[currentId]);
   currentId = null;
 
   LINES.forEach(l => overviewLayers[l.id].addTo(map));
-  if (ALL_CENTER) map.setView(ALL_CENTER, ALL_ZOOM, { animate: true, duration: 0.5 });
 
-  document.querySelectorAll('.line-chip').forEach(c => c.classList.remove('active'));
   document.getElementById('sidebar').classList.remove('visible');
   document.getElementById('back-btn').classList.remove('visible');
   document.getElementById('header-sub').textContent = 'にほんには、たくさんのしんかんせんがある！';
   document.getElementById('photo-wrap').innerHTML = '<span class="emoji">🚄</span>';
   document.getElementById('photo-caption').innerHTML = '';
+  document.querySelectorAll('.line-chip').forEach(c => c.classList.remove('active'));
+
+  // フラット→アイソメへ戻す
+  if (ALL_CENTER) map.setView(ALL_CENTER, ALL_ZOOM);
+  setTimeout(() => {
+    map.invalidateSize();
+    document.getElementById('map').classList.add('iso');
+  }, 50);
 }
 
 // ── 写真取得 ──────────────────────────────────────────────────────────────────
