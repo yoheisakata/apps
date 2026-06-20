@@ -1,0 +1,21 @@
+{
+  "_note": "FIFA World Cup 2026 の公式16開催都市。lat/lon は各スタジアム位置の概数。pop=都市圏人口の概数(約)。wiki=日本語Wikipediaの記事タイトル(クリック時に写真と説明を取得)。desc=取得失敗時のフォールバック説明。",
+  "venues": [
+    { "id": "mex",  "city": "Mexico City",        "country": "MEX", "stadium": "Estadio Azteca",          "lat": 19.3029, "lon": -99.1505,  "capacity": 87523, "pop": 21800000, "wiki": "メキシコシティ",           "desc": "メキシコの首都。標高約2,240mの高地都市で、1970年・1986年大会も開催した由緒あるアステカ・スタジアムが舞台。" },
+    { "id": "gdl",  "city": "Guadalajara",         "country": "MEX", "stadium": "Estadio Akron",           "lat": 20.6819, "lon": -103.4625, "capacity": 48071, "pop": 5300000,  "wiki": "グアダラハラ",             "desc": "メキシコ第2の都市圏。マリアッチとテキーラ文化の中心地として知られる。" },
+    { "id": "mty",  "city": "Monterrey",           "country": "MEX", "stadium": "Estadio BBVA",            "lat": 25.6690, "lon": -100.2444, "capacity": 53500, "pop": 5300000,  "wiki": "モンテレイ",               "desc": "メキシコ北部の工業・経済都市。背後にそびえるセロ・デ・ラ・シヤ山が象徴。" },
+    { "id": "tor",  "city": "Toronto",             "country": "CAN", "stadium": "BMO Field",               "lat": 43.6332, "lon": -79.4185,  "capacity": 45000, "pop": 6400000,  "wiki": "トロント",                 "desc": "カナダ最大の都市。多文化都市として知られ、CNタワーが象徴。" },
+    { "id": "van",  "city": "Vancouver",           "country": "CAN", "stadium": "BC Place",                "lat": 49.2768, "lon": -123.1119, "capacity": 54500, "pop": 2600000,  "wiki": "バンクーバー",             "desc": "カナダ西海岸の港湾都市。山と海に囲まれ、住みやすい都市の常連。開閉式屋根のBCプレイスが舞台。" },
+    { "id": "atl",  "city": "Atlanta",             "country": "USA", "stadium": "Mercedes-Benz Stadium",   "lat": 33.7553, "lon": -84.4006,  "capacity": 71000, "pop": 6100000,  "wiki": "アトランタ",               "desc": "米南部ジョージア州の中心都市。コカ・コーラ発祥の地で、開閉式の花びら状屋根を持つ最新鋭スタジアム。" },
+    { "id": "bos",  "city": "Boston",              "country": "USA", "stadium": "Gillette Stadium",        "lat": 42.0909, "lon": -71.2643,  "capacity": 65878, "pop": 4900000,  "wiki": "ボストン",                 "desc": "米北東部の歴史都市。スタジアムは郊外フォックスボロに位置する。" },
+    { "id": "dal",  "city": "Dallas",              "country": "USA", "stadium": "AT&T Stadium",            "lat": 32.7473, "lon": -97.0945,  "capacity": 80000, "pop": 7600000,  "wiki": "ダラス",                   "desc": "テキサス州北部の大都市圏(DFW)。巨大な開閉式屋根を持つAT&Tスタジアムが舞台。" },
+    { "id": "hou",  "city": "Houston",             "country": "USA", "stadium": "NRG Stadium",             "lat": 29.6847, "lon": -95.4107,  "capacity": 72220, "pop": 7100000,  "wiki": "ヒューストン",             "desc": "テキサス州最大の都市。宇宙産業とエネルギー産業の中心地。" },
+    { "id": "kan",  "city": "Kansas City",         "country": "USA", "stadium": "Arrowhead Stadium",       "lat": 39.0489, "lon": -94.4839,  "capacity": 76416, "pop": 2200000,  "wiki": "カンザスシティ (ミズーリ州)", "desc": "米中西部の都市。バーベキューとジャズで知られ、熱狂的なアローヘッド・スタジアムが舞台。" },
+    { "id": "lax",  "city": "Los Angeles",         "country": "USA", "stadium": "SoFi Stadium",            "lat": 33.9535, "lon": -118.3392, "capacity": 70240, "pop": 13000000, "wiki": "ロサンゼルス",             "desc": "米西海岸の大都市。エンタメ産業の中心地で、最新鋭のSoFiスタジアムが舞台。2028年五輪開催地。" },
+    { "id": "mia",  "city": "Miami",               "country": "USA", "stadium": "Hard Rock Stadium",       "lat": 25.9580, "lon": -80.2389,  "capacity": 65326, "pop": 6200000,  "wiki": "マイアミ",                 "desc": "フロリダ州南部のリゾート都市。ラテン文化の玄関口。" },
+    { "id": "nyc",  "city": "New York / New Jersey","country": "USA", "stadium": "MetLife Stadium",         "lat": 40.8135, "lon": -74.0745,  "capacity": 82500, "pop": 20000000, "wiki": "ニューヨーク市",           "desc": "全米最大の都市圏。決勝の開催地で、スタジアムは隣接するニュージャージー州にある。" },
+    { "id": "phi",  "city": "Philadelphia",        "country": "USA", "stadium": "Lincoln Financial Field", "lat": 39.9008, "lon": -75.1675,  "capacity": 69596, "pop": 6200000,  "wiki": "フィラデルフィア",         "desc": "米独立宣言ゆかりの歴史都市。" },
+    { "id": "sfo",  "city": "San Francisco Bay",   "country": "USA", "stadium": "Levi's Stadium",          "lat": 37.4030, "lon": -121.9700, "capacity": 68500, "pop": 7700000,  "wiki": "サンフランシスコ",         "desc": "シリコンバレーを擁する湾岸都市圏。スタジアムは南郊サンタクララにある。" },
+    { "id": "sea",  "city": "Seattle",             "country": "USA", "stadium": "Lumen Field",             "lat": 47.5952, "lon": -122.3316, "capacity": 68740, "pop": 4000000,  "wiki": "シアトル",                 "desc": "米北西部の港湾・IT都市。スターバックス発祥の地で、雨と緑の街として知られる。" }
+  ]
+}
