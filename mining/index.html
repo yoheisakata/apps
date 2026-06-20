@@ -3,837 +3,918 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>鉱石マイニング</title>
+<title>3D 鉱石ミュージアム</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Nunito',sans-serif;background:#0a0a14;color:#eee;touch-action:none;user-select:none;-webkit-user-select:none}
 
-:root {
-  --bg: #1a1a2e;
-  --surface: #16213e;
-  --accent: #e94560;
-  --gold: #f5c518;
-  --text: #eee;
-}
+#selection-screen{height:100%;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.sel-header{text-align:center;padding:32px 16px 16px;flex-shrink:0}
+.sel-header h1{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,#f5c518,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sel-header p{color:#666;font-size:0.78rem;margin-top:4px}
+.stone-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:8px 16px 32px;max-width:480px;width:100%;margin:0 auto}
+.stone-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px;text-align:center;cursor:pointer;transition:transform .15s,background .2s,box-shadow .2s}
+.stone-card:active{transform:scale(0.95)}
+.stone-card:hover{background:rgba(255,255,255,0.07);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+.stone-card .preview{width:80px;height:80px;border-radius:50%;margin:0 auto 10px;overflow:hidden;border:2px solid rgba(255,255,255,0.08)}
+.stone-card .preview canvas{width:100%;height:100%;border-radius:50%}
+.stone-card .sname{font-size:0.85rem;font-weight:900;margin-bottom:2px}
+.stone-card .sen{font-size:0.6rem;color:#666;margin-bottom:6px}
+.stone-card .rarity-tag{display:inline-block;font-size:0.55rem;font-weight:900;letter-spacing:.08em;padding:2px 8px;border-radius:10px}
+.r-common{background:rgba(156,163,175,.15);color:#9ca3af}
+.r-uncommon{background:rgba(34,197,94,.15);color:#22c55e}
+.r-rare{background:rgba(59,130,246,.15);color:#3b82f6}
+.r-epic{background:rgba(168,85,247,.15);color:#a855f7}
+.r-legendary{background:rgba(245,197,24,.15);color:#f5c518}
 
-body {
-  font-family: 'Nunito', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow: hidden;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
-}
+#viewer-screen{height:100%;display:none;flex-direction:column;position:relative}
+.viewer-top{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(rgba(10,10,20,.85),transparent)}
+.icon-btn{background:rgba(255,255,255,.08);border:none;color:#ccc;font-size:1.1rem;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.icon-btn:active{background:rgba(255,255,255,.15)}
+.viewer-stone-name{font-size:0.9rem;font-weight:900;flex:1}
+.viewer-stone-en{font-size:0.6rem;color:#666}
+#canvas-container{flex:1;position:relative;overflow:hidden}
+#canvas-container canvas{display:block;width:100%!important;height:100%!important}
 
-.header {
-  width: 100%;
-  max-width: 480px;
-  padding: 12px 16px 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 10;
-}
+.viewer-bottom{position:absolute;bottom:0;left:0;right:0;z-index:10;padding:12px 16px 24px;background:linear-gradient(transparent,rgba(10,10,20,.92) 30%)}
+.hp-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.hp-label{font-size:0.7rem;font-weight:700;white-space:nowrap;min-width:70px}
+.hp-track{flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.hp-track .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#ef4444,#f59e0b,#10b981);transition:width .2s}
+.stone-desc{font-size:0.72rem;color:#888;line-height:1.5;margin-bottom:10px}
+.btn-row{display:flex;gap:8px}
+.action-btn{flex:1;font-family:'Nunito',sans-serif;font-size:0.8rem;font-weight:900;border:none;padding:11px;border-radius:12px;cursor:pointer;transition:transform .12s,opacity .2s}
+.action-btn:active{transform:scale(0.95)}
+.break-btn{background:linear-gradient(135deg,#e94560,#c41850);color:#fff}
+.reset-btn{background:rgba(255,255,255,.1);color:#ccc;display:none}
+.hint{font-size:0.65rem;color:#555;text-align:center;margin-bottom:8px}
+.back-link{position:absolute;top:14px;left:14px;color:rgba(255,255,255,.4);text-decoration:none;font-size:1.3rem;z-index:20;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%}
 
-.header h1 {
-  font-size: 1.1rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, var(--gold), #e94560);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.stats {
-  display: flex;
-  gap: 12px;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255,255,255,0.08);
-  padding: 4px 10px;
-  border-radius: 20px;
-}
-
-.depth-bar {
-  width: 100%;
-  max-width: 480px;
-  padding: 0 16px 8px;
-  z-index: 10;
-}
-
-.depth-info {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.65rem;
-  color: #888;
-  margin-bottom: 4px;
-}
-
-.depth-track {
-  width: 100%;
-  height: 6px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.depth-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6);
-  transition: width 0.3s;
-}
-
-.game-area {
-  flex: 1;
-  width: 100%;
-  max-width: 480px;
-  position: relative;
-  overflow: hidden;
-}
-
-.mine-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 3px;
-  padding: 8px;
-  width: 100%;
-}
-
-.cell {
-  aspect-ratio: 1;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.6rem;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.1s, box-shadow 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.cell:active {
-  transform: scale(0.9);
-}
-
-.cell.rock {
-  background: linear-gradient(145deg, #4a3728, #2d2015);
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.3);
-}
-
-.cell.rock::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
-  pointer-events: none;
-}
-
-.cell.cracked {
-  background: linear-gradient(145deg, #3a2a1a, #1d1008);
-  box-shadow: inset 0 1px 2px rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.3);
-}
-
-.cell.cracked::before {
-  content: '';
-  position: absolute;
-  width: 60%;
-  height: 60%;
-  border: 2px solid rgba(255,255,255,0.1);
-  border-radius: 2px;
-  transform: rotate(15deg);
-  pointer-events: none;
-}
-
-.cell.broken {
-  background: linear-gradient(145deg, #1a1210, #0d0a08);
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
-  cursor: default;
-  animation: breakAnim 0.3s ease-out;
-}
-
-.cell.ore-reveal {
-  animation: oreReveal 0.5s ease-out;
-  cursor: default;
-}
-
-@keyframes breakAnim {
-  0% { transform: scale(1.1); }
-  50% { transform: scale(0.95); }
-  100% { transform: scale(1); }
-}
-
-@keyframes oreReveal {
-  0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-  60% { transform: scale(1.15) rotate(5deg); }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
-.cell.broken .crack-lines {
-  display: none;
-}
-
-.hp-bar {
-  position: absolute;
-  bottom: 3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 70%;
-  height: 3px;
-  background: rgba(0,0,0,0.4);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.hp-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: #10b981;
-  transition: width 0.15s;
-}
-
-.hp-fill.mid { background: #f59e0b; }
-.hp-fill.low { background: #ef4444; }
-
-.pickaxe-info {
-  width: 100%;
-  max-width: 480px;
-  padding: 8px 16px;
-  z-index: 10;
-}
-
-.pickaxe-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 12px;
-  padding: 8px 14px;
-}
-
-.pickaxe-name {
-  font-size: 0.75rem;
-  font-weight: 700;
-  flex: 1;
-}
-
-.pickaxe-power {
-  font-size: 0.65rem;
-  color: #888;
-}
-
-.upgrade-btn {
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, var(--gold), #d4a017);
-  color: #1a1a2e;
-  border: none;
-  padding: 5px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: transform 0.15s, opacity 0.15s;
-}
-
-.upgrade-btn:active { transform: scale(0.93); }
-.upgrade-btn:disabled { opacity: 0.4; cursor: default; }
-
-.collection {
-  width: 100%;
-  max-width: 480px;
-  padding: 8px 16px 16px;
-  z-index: 10;
-}
-
-.collection-title {
-  font-size: 0.68rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #555;
-  margin-bottom: 8px;
-}
-
-.collection-grid {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.col-item {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
-  position: relative;
-  border: 2px solid transparent;
-  transition: border-color 0.3s, background 0.3s;
-}
-
-.col-item.found {
-  border-color: rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.08);
-}
-
-.col-item.not-found {
-  filter: grayscale(1) brightness(0.3);
-}
-
-.col-count {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.5rem;
-  font-weight: 900;
-  min-width: 14px;
-  height: 14px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 3px;
-}
-
-.float-text {
-  position: fixed;
-  font-size: 1.2rem;
-  font-weight: 900;
-  pointer-events: none;
-  z-index: 100;
-  animation: floatUp 1s ease-out forwards;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-}
-
-@keyframes floatUp {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
-}
-
-.particle {
-  position: fixed;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 99;
-  animation: particleAnim 0.6s ease-out forwards;
-}
-
-@keyframes particleAnim {
-  0% { opacity: 1; transform: translate(0,0) scale(1); }
-  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
-}
-
-.dig-deeper-btn {
-  width: 100%;
-  max-width: 480px;
-  padding: 0 16px;
-  z-index: 10;
-}
-
-.dig-deeper-btn button {
-  font-family: 'Nunito', sans-serif;
-  width: 100%;
-  padding: 12px;
-  font-size: 0.85rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: transform 0.15s;
-  margin-bottom: 8px;
-}
-
-.dig-deeper-btn button:active { transform: scale(0.97); }
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s, visibility 0.3s;
-}
-
-.modal-overlay.show {
-  opacity: 1;
-  visibility: visible;
-}
-
-.modal {
-  background: var(--surface);
-  border-radius: 20px;
-  padding: 28px 24px;
-  max-width: 340px;
-  width: 90%;
-  text-align: center;
-  transform: scale(0.9);
-  transition: transform 0.3s;
-}
-
-.modal-overlay.show .modal {
-  transform: scale(1);
-}
-
-.modal h2 {
-  font-size: 1.2rem;
-  margin-bottom: 8px;
-}
-
-.modal p {
-  font-size: 0.8rem;
-  color: #aaa;
-  margin-bottom: 6px;
-}
-
-.modal .ore-display {
-  font-size: 2.5rem;
-  margin: 16px 0;
-}
-
-.modal .rarity-label {
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 3px 12px;
-  border-radius: 20px;
-  display: inline-block;
-  margin-bottom: 16px;
-}
-
-.rarity-common { background: rgba(156,163,175,0.2); color: #9ca3af; }
-.rarity-uncommon { background: rgba(34,197,94,0.2); color: #22c55e; }
-.rarity-rare { background: rgba(59,130,246,0.2); color: #3b82f6; }
-.rarity-epic { background: rgba(168,85,247,0.2); color: #a855f7; }
-.rarity-legendary { background: rgba(245,197,24,0.2); color: #f5c518; }
-
-.modal button {
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 900;
-  background: linear-gradient(135deg, var(--accent), #c41850);
-  color: #fff;
-  border: none;
-  padding: 10px 30px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-
-.modal button:active { transform: scale(0.93); }
-
-.back-btn {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  font-size: 1.4rem;
-  text-decoration: none;
-  color: rgba(255,255,255,0.4);
-  z-index: 20;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background 0.2s;
-}
-
-.back-btn:active {
-  background: rgba(255,255,255,0.1);
-}
+.particle3d{position:fixed;width:5px;height:5px;border-radius:50%;pointer-events:none;z-index:100;animation:p3d .6s ease-out forwards}
+@keyframes p3d{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
+.float-txt{position:fixed;font-size:1rem;font-weight:900;pointer-events:none;z-index:100;animation:flt .8s ease-out forwards;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+@keyframes flt{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-50px) scale(1.2)}}
 </style>
 </head>
 <body>
 
-<a href="../" class="back-btn">&#8592;</a>
+<div id="selection-screen">
+  <a href="../" class="back-link">&larr;</a>
+  <div class="sel-header">
+    <h1>&#9935; 3D 鉱石ミュージアム</h1>
+    <p>石をえらんで、たたいて割ってみよう!</p>
+  </div>
+  <div class="stone-grid" id="stone-grid"></div>
+</div>
 
-<div class="header">
-  <h1>&#9935; 鉱石マイニング</h1>
-  <div class="stats">
-    <div class="stat"><span id="coin-icon">&#128176;</span> <span id="coins">0</span></div>
-    <div class="stat"><span>&#128142;</span> <span id="ore-count">0</span></div>
+<div id="viewer-screen">
+  <div class="viewer-top">
+    <button class="icon-btn" id="back-btn">&larr;</button>
+    <div>
+      <div class="viewer-stone-name" id="v-name"></div>
+      <div class="viewer-stone-en" id="v-en"></div>
+    </div>
+  </div>
+  <div id="canvas-container"></div>
+  <div class="viewer-bottom">
+    <div class="hp-row" id="hp-row">
+      <div class="hp-label">&#9935; あと <span id="hits-left">5</span> 回</div>
+      <div class="hp-track"><div class="fill" id="hp-fill" style="width:100%"></div></div>
+    </div>
+    <div class="hint" id="hint-text">石をタップして叩こう!</div>
+    <div class="stone-desc" id="v-desc"></div>
+    <div class="btn-row">
+      <button class="action-btn break-btn" id="break-btn">&#128296; 一発で割る</button>
+      <button class="action-btn reset-btn" id="reset-btn">&#128260; もとにもどす</button>
+    </div>
   </div>
 </div>
 
-<div class="depth-bar">
-  <div class="depth-info">
-    <span>&#127747; 深さ: <span id="depth-label">地表</span></span>
-    <span id="depth-num">0m</span>
-  </div>
-  <div class="depth-track"><div class="depth-fill" id="depth-fill"></div></div>
-</div>
-
-<div class="game-area">
-  <div class="mine-grid" id="mine-grid"></div>
-</div>
-
-<div class="pickaxe-info">
-  <div class="pickaxe-bar">
-    <span id="pick-icon">&#9935;</span>
-    <span class="pickaxe-name" id="pick-name">木のつるはし</span>
-    <span class="pickaxe-power" id="pick-power">ATK: 1</span>
-    <button class="upgrade-btn" id="upgrade-btn" onclick="upgradePickaxe()">
-      &#11014; <span id="upgrade-cost">10</span>&#128176;
-    </button>
-  </div>
-</div>
-
-<div class="dig-deeper-btn">
-  <button onclick="digDeeper()">&#128071; もっと深く掘る</button>
-</div>
-
-<div class="collection">
-  <div class="collection-title">&#128302; コレクション (<span id="col-found">0</span>/<span id="col-total">0</span>)</div>
-  <div class="collection-grid" id="collection-grid"></div>
-</div>
-
-<div class="modal-overlay" id="modal-overlay">
-  <div class="modal">
-    <h2 id="modal-title">鉱石発見!</h2>
-    <div class="ore-display" id="modal-ore"></div>
-    <p id="modal-name"></p>
-    <div class="rarity-label" id="modal-rarity"></div>
-    <p id="modal-value"></p>
-    <button onclick="closeModal()">OK</button>
-  </div>
-</div>
-
-<script>
-const ORES = [
-  { emoji: '&#129704;', name: '石炭',       rarity: 'common',    value: 2,   minDepth: 0,  weight: 40 },
-  { emoji: '&#129695;', name: '銅鉱石',     rarity: 'common',    value: 5,   minDepth: 0,  weight: 35 },
-  { emoji: '&#9898;',   name: '鉄鉱石',     rarity: 'common',    value: 8,   minDepth: 10, weight: 30 },
-  { emoji: '&#128308;', name: 'ルビー',     rarity: 'uncommon',  value: 15,  minDepth: 20, weight: 18 },
-  { emoji: '&#128154;', name: 'エメラルド', rarity: 'uncommon',  value: 20,  minDepth: 30, weight: 14 },
-  { emoji: '&#128309;', name: 'サファイア', rarity: 'rare',      value: 35,  minDepth: 40, weight: 10 },
-  { emoji: '&#128156;', name: 'アメジスト', rarity: 'rare',      value: 45,  minDepth: 50, weight: 8  },
-  { emoji: '&#128171;', name: 'ダイヤモンド', rarity: 'epic',    value: 80,  minDepth: 60, weight: 4  },
-  { emoji: '&#11088;',  name: 'スターサファイア', rarity: 'epic', value: 120, minDepth: 80, weight: 2 },
-  { emoji: '&#127775;', name: '伝説のオリハルコン', rarity: 'legendary', value: 300, minDepth: 100, weight: 1 },
-];
-
-const PICKAXES = [
-  { name: '木のつるはし',     icon: '&#9935;',   power: 1,  cost: 0    },
-  { name: '石のつるはし',     icon: '&#9935;',   power: 2,  cost: 30   },
-  { name: '鉄のつるはし',     icon: '&#9935;',   power: 3,  cost: 80   },
-  { name: '銀のつるはし',     icon: '&#9935;',   power: 5,  cost: 200  },
-  { name: '金のつるはし',     icon: '&#9935;',   power: 8,  cost: 500  },
-  { name: 'ダイヤのつるはし', icon: '&#128142;', power: 12, cost: 1200 },
-  { name: '伝説のつるはし',   icon: '&#10024;',  power: 20, cost: 3000 },
-];
-
-const DEPTH_NAMES = [
-  { depth: 0,   name: '地表' },
-  { depth: 10,  name: '浅い地層' },
-  { depth: 30,  name: '岩盤層' },
-  { depth: 50,  name: '深層' },
-  { depth: 70,  name: 'マグマ層' },
-  { depth: 100, name: '地核' },
-];
-
-const COLS = 6;
-const ROWS = 7;
-
-let coins = 0;
-let totalOres = 0;
-let depth = 0;
-let pickaxeLevel = 0;
-let collection = {};
-let cells = [];
-
-function getDepthName(d) {
-  let name = '地表';
-  for (const dn of DEPTH_NAMES) {
-    if (d >= dn.depth) name = dn.name;
-  }
-  return name;
-}
-
-function getAvailableOres() {
-  return ORES.filter(o => depth >= o.minDepth);
-}
-
-function pickRandomOre() {
-  const available = getAvailableOres();
-  const totalWeight = available.reduce((s, o) => s + o.weight, 0);
-  let r = Math.random() * totalWeight;
-  for (const ore of available) {
-    r -= ore.weight;
-    if (r <= 0) return ore;
-  }
-  return available[available.length - 1];
-}
-
-function getCellHP() {
-  return 2 + Math.floor(depth / 15);
-}
-
-function generateGrid() {
-  const grid = document.getElementById('mine-grid');
-  grid.innerHTML = '';
-  cells = [];
-
-  for (let i = 0; i < COLS * ROWS; i++) {
-    const hasOre = Math.random() < (0.2 + depth * 0.001);
-    const ore = hasOre ? pickRandomOre() : null;
-    const hp = getCellHP();
-
-    const cell = {
-      el: null,
-      hp,
-      maxHp: hp,
-      ore,
-      broken: false,
-    };
-
-    const div = document.createElement('div');
-    div.className = 'cell rock';
-    div.innerHTML = `<div class="hp-bar"><div class="hp-fill" style="width:100%"></div></div>`;
-    div.addEventListener('click', () => hitCell(i));
-    div.addEventListener('touchstart', (e) => { e.preventDefault(); hitCell(i); }, { passive: false });
-
-    cell.el = div;
-    cells.push(cell);
-    grid.appendChild(div);
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
   }
 }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-function hitCell(idx) {
-  const cell = cells[idx];
-  if (cell.broken) return;
+/* ═══════════════════════════════════════════
+   Noise (gradient noise + FBM + domain warp)
+   ═══════════════════════════════════════════ */
+const P = new Uint8Array(512);
+(function(){const p=new Uint8Array(256);for(let i=0;i<256;i++)p[i]=i;for(let i=255;i>0;i--){const j=Math.floor(Math.random()*i);[p[i],p[j]]=[p[j],p[i]];}for(let i=0;i<512;i++)P[i]=p[i&255];})();
+const G2=[[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+function grad2(h,x,y){const g=G2[h&7];return g[0]*x+g[1]*y;}
+function fade(t){return t*t*t*(t*(t*6-15)+10);}
+function lerp(a,b,t){return a+(b-a)*t;}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function smoothstep(e0,e1,x){const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);}
 
-  const power = PICKAXES[pickaxeLevel].power;
-  cell.hp -= power;
+function noise2D(x,y){
+  const X=Math.floor(x)&255, Y=Math.floor(y)&255;
+  const xf=x-Math.floor(x), yf=y-Math.floor(y);
+  const u=fade(xf), v=fade(yf);
+  const aa=P[P[X]+Y], ab=P[P[X]+Y+1], ba=P[P[X+1]+Y], bb=P[P[X+1]+Y+1];
+  return lerp(lerp(grad2(aa,xf,yf),grad2(ba,xf-1,yf),u),lerp(grad2(ab,xf,yf-1),grad2(bb,xf-1,yf-1),u),v)*.5+.5;
+}
 
-  const rect = cell.el.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  spawnParticles(cx, cy, '#8B7355', 4);
+function fbm(x,y,oct=6){
+  let v=0,a=.5,f=1;
+  for(let i=0;i<oct;i++){v+=a*noise2D(x*f,y*f);a*=.5;f*=2.03;}
+  return v;
+}
 
-  if (cell.hp <= 0) {
-    cell.broken = true;
-    cell.el.className = 'cell broken';
+function domainWarp(x,y,s=1,oct=5){
+  const qx=fbm(x+1.7,y+9.2,oct);
+  const qy=fbm(x+8.3,y+2.8,oct);
+  return fbm(x+s*qx,y+s*qy,oct);
+}
 
-    if (cell.ore) {
-      cell.el.classList.add('ore-reveal');
-      cell.el.innerHTML = cell.ore.emoji;
+function ridgeNoise(x,y,oct=5){
+  let v=0,a=.5,f=1;
+  for(let i=0;i<oct;i++){let n=noise2D(x*f,y*f);n=1-Math.abs(n*2-1);n=n*n;v+=a*n;a*=.5;f*=2.1;}
+  return v;
+}
 
-      coins += cell.ore.value;
-      totalOres++;
-      collection[cell.ore.name] = (collection[cell.ore.name] || 0) + 1;
+function voronoi(x,y){
+  const ix=Math.floor(x),iy=Math.floor(y);
+  let minD=10,minD2=10,cx=0,cy=0;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const nx=ix+dx,ny=iy+dy;
+    const px=nx+noise2D(nx*127.1,ny*311.7);
+    const py=ny+noise2D(nx*269.5,ny*183.3);
+    const d=(x-px)*(x-px)+(y-py)*(y-py);
+    if(d<minD){minD2=minD;minD=d;cx=px;cy=py;}
+    else if(d<minD2)minD2=d;
+  }
+  return{d1:Math.sqrt(minD),d2:Math.sqrt(minD2),cx,cy};
+}
 
-      showFloatText(cx, cy, `${cell.ore.emoji} +${cell.ore.value}`);
-      spawnParticles(cx, cy, getRarityColor(cell.ore.rarity), 10);
+/* ═══════════════════════════════════════════
+   Stone data
+   ═══════════════════════════════════════════ */
+const STONES=[
+  {id:'amethyst',name:'アメジスト晶洞',en:'Amethyst Geode',rarity:'epic',hits:6,
+   desc:'外側はただの灰色の岩。割ると中に美しい紫水晶の結晶が広がっている。古代ギリシャでは酔い止めのお守りとされた。',
+   outer:[115,105,98],outerVar:[72,68,62],crossDesc:'紫色の結晶が放射状に輝く断面',outerRough:.92,crossRough:.12},
+  {id:'agate',name:'瑪瑙（めのう）',en:'Agate',rarity:'rare',hits:5,
+   desc:'微細な石英の結晶が層状に沈殿してできた宝石。断面には同心円状の美しい縞模様が現れる。世界中の火山地帯で産出される。',
+   outer:[135,118,98],outerVar:[85,72,58],crossDesc:'色鮮やかな同心円の縞模様',outerRough:.88,crossRough:.18},
+  {id:'granite',name:'花崗岩',en:'Granite',rarity:'common',hits:7,
+   desc:'地球の大陸地殻を構成する代表的な深成岩。石英（透明）・長石（白〜ピンク）・雲母（黒）の3つの鉱物が肉眼で確認できる。',
+   outer:[145,138,132],outerVar:[105,100,95],crossDesc:'3種の鉱物が織りなすモザイク模様',outerRough:.82,crossRough:.42},
+  {id:'marble',name:'大理石',en:'Marble',rarity:'uncommon',hits:4,
+   desc:'石灰岩が高温・高圧で再結晶した変成岩。ミケランジェロのダビデ像やタージマハルなど、古今の名建築に使用されてきた。',
+   outer:[215,210,205],outerVar:[175,170,165],crossDesc:'優美な灰色の葉脈模様が走る',outerRough:.72,crossRough:.08},
+  {id:'obsidian',name:'黒曜石',en:'Obsidian',rarity:'uncommon',hits:3,
+   desc:'溶岩が急速に冷却されてできた天然ガラス。貝殻状断口と呼ばれる鋭い割れ方をし、古代には矢じりやナイフとして利用された。',
+   outer:[42,40,45],outerVar:[28,25,32],crossDesc:'ガラス質の光沢と貝殻状断口',outerRough:.55,crossRough:.03},
+  {id:'lapis',name:'ラピスラズリ',en:'Lapis Lazuli',rarity:'epic',hits:5,
+   desc:'「天空の破片」とも呼ばれる深い群青色の宝石。金色の黄鉄鉱（パイライト）が星のように散りばめられ、フェルメールの「真珠の耳飾りの少女」の青もこの石から作られた。',
+   outer:[48,52,115],outerVar:[32,38,82],crossDesc:'深い群青色に金のパイライトが輝く',outerRough:.78,crossRough:.18},
+  {id:'rose_quartz',name:'ローズクォーツ',en:'Rose Quartz',rarity:'uncommon',hits:5,
+   desc:'淡いピンク色が美しい水晶の変種。チタンやマンガンの微量元素により発色する。「愛の石」として世界中で親しまれている。',
+   outer:[185,145,155],outerVar:[145,108,120],crossDesc:'透明感のあるピンクの結晶断面',outerRough:.76,crossRough:.15},
+  {id:'tigers_eye',name:'タイガーアイ',en:"Tiger's Eye",rarity:'rare',hits:5,
+   desc:'クロシドライト（青石綿）が石英に置換されてできた宝石。光の反射で虎の眼のように金色に輝くシャトヤンシー効果を持つ。',
+   outer:[125,92,48],outerVar:[88,65,32],crossDesc:'金色の繊維が波打つシルク模様',outerRough:.68,crossRough:.2},
+];
 
-      updateStats();
-      updateCollection();
-      showOreModal(cell.ore);
-    } else {
-      cell.el.innerHTML = '';
-      showFloatText(cx, cy, '&#128168;');
-    }
+/* ═══════════════════════════════════════════
+   Outer texture generation
+   ═══════════════════════════════════════════ */
+function generateOuterTexture(stone, size=512){
+  const c=document.createElement('canvas');c.width=c.height=size;
+  const ctx=c.getContext('2d');
+  const img=ctx.createImageData(size,size);const d=img.data;
+  const [br,bg,bb]=stone.outer,[vr,vg,vb]=stone.outerVar;
+  const seed=stone.id.charCodeAt(0)*7.3+stone.id.charCodeAt(1)*13.7;
+
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const i=(y*size+x)*4;
+    const nx=x/size*6+seed, ny=y/size*6+seed;
+
+    const base=domainWarp(nx*.6,ny*.6,.8,5);
+    const med=fbm(nx*1.5+40,ny*1.5+40,5)*.25;
+    const fine=noise2D(nx*4+80,ny*4+80)*.1;
+    const micro=noise2D(nx*12+120,ny*12+120)*.05;
+    const t=clamp(base+med+fine+micro,0,1);
+
+    const crack=ridgeNoise(nx*1.2+200,ny*1.2+200,4);
+    const crackDark=smoothstep(.55,.65,crack)*15;
+
+    let r=lerp(vr,br,t)-crackDark;
+    let g=lerp(vg,bg,t)-crackDark;
+    let b=lerp(vb,bb,t)-crackDark;
+
+    const grain=(Math.random()-.5)*5;
+    d[i]=clamp(r+grain,0,255);
+    d[i+1]=clamp(g+grain,0,255);
+    d[i+2]=clamp(b+grain,0,255);
+    d[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  return c;
+}
+
+function generateNormalMap(size=512,seed=0){
+  const c=document.createElement('canvas');c.width=c.height=size;
+  const ctx=c.getContext('2d');
+  const img=ctx.createImageData(size,size);const d=img.data;
+  const s=seed;
+  const h=(x,y)=>domainWarp(x*.008+s,y*.008+s,.6,4)+ridgeNoise(x*.015+s+50,y*.015+s+50,4)*.3;
+  const str=2.5;
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const i=(y*size+x)*4;
+    const dx=(h(x+1,y)-h(x-1,y))*str;
+    const dy=(h(x,y+1)-h(x,y-1))*str;
+    d[i]=clamp((-dx*.5+.5)*255,0,255);
+    d[i+1]=clamp((-dy*.5+.5)*255,0,255);
+    d[i+2]=210;
+    d[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  return c;
+}
+
+/* ═══════════════════════════════════════════
+   Cross-section renderers (ultra-realistic)
+   ═══════════════════════════════════════════ */
+function renderAmethyst(x,y,dist,angle,px,py){
+  if(dist>.90){
+    const n=domainWarp(px*.012,py*.012,.6);
+    const n2=noise2D(px*.04,py*.04)*.15;
+    const v=n+n2;
+    return[clamp(80+v*50,60,120),clamp(75+v*45,55,110),clamp(72+v*40,50,100)];
+  }
+  if(dist>.80){
+    const band=fbm(px*.02+30,py*.02+30,4);
+    const layers=Math.sin(dist*80+band*3)*.5+.5;
+    const v=lerp(.7,1,layers);
+    return[clamp(v*215,150,230),clamp(v*210,145,225),clamp(v*205,140,220)];
+  }
+  if(dist>.72){
+    const t=smoothstep(.80,.72,dist);
+    const n=noise2D(px*.05+50,py*.05+50);
+    const v=lerp(.85,1,n);
+    return[clamp(lerp(200,170,t)*v,120,220),clamp(lerp(195,140,t)*v,80,210),clamp(lerp(210,200,t)*v,140,230)];
+  }
+
+  const numCrystals=18;
+  const sector=((angle%(Math.PI*2))+(Math.PI*2))%(Math.PI*2);
+  const crystalIdx=Math.floor(sector/(Math.PI*2)*numCrystals);
+  const crystalSeed=crystalIdx*137.5;
+  const crystalCenter=(crystalIdx+.5)/numCrystals*Math.PI*2;
+  const angDiff=Math.abs(sector-crystalCenter);
+  const crystalLen=.35+noise2D(crystalSeed,crystalSeed+50)*.3;
+  const normalizedDist=(dist-.05)/(.72-.05);
+  const inCrystal=normalizedDist>(.98-crystalLen);
+
+  const depthInCrystal=clamp(1-normalizedDist/(.98-crystalLen+.001),0,1);
+  const crystalWidth=lerp(.12,.04,depthInCrystal);
+  const atEdge=angDiff>crystalWidth;
+
+  if(dist<.08){
+    const n=noise2D(px*.03+70,py*.03+70);
+    return[clamp(25+n*15,15,45),clamp(15+n*10,8,30),clamp(35+n*20,20,60)];
+  }
+
+  if(atEdge&&inCrystal){
+    const n=noise2D(px*.06+90,py*.06+90);
+    const boundary=clamp(n,.3,.8);
+    return[clamp(60+boundary*30,40,100),clamp(20+boundary*15,10,45),clamp(80+boundary*40,50,130)];
+  }
+
+  if(inCrystal){
+    const saturation=.6+noise2D(crystalSeed+px*.02,crystalSeed+py*.02)*.4;
+    const facet=Math.abs(Math.sin(angle*numCrystals*3+depthInCrystal*8+noise2D(px*.04+crystalSeed,py*.04+crystalSeed)*2));
+    const highlight=smoothstep(.85,1,facet)*.4;
+
+    const baseR=lerp(85,160,depthInCrystal*saturation)+highlight*80;
+    const baseG=lerp(15,60,depthInCrystal*saturation*.4)+highlight*40;
+    const baseB=lerp(110,220,depthInCrystal*saturation)+highlight*60;
+
+    const zoneNoise=noise2D(px*.025+crystalSeed*2,py*.025+crystalSeed*2);
+    const zoneDark=smoothstep(.3,.5,zoneNoise)*20;
+
+    return[clamp(baseR-zoneDark,40,255),clamp(baseG-zoneDark,5,120),clamp(baseB-zoneDark,60,255)];
+  }
+
+  const n=noise2D(px*.05+110,py*.05+110);
+  const bg=lerp(.3,.6,n);
+  return[clamp(70*bg+40,30,90),clamp(25*bg+15,8,45),clamp(100*bg+50,40,160)];
+}
+
+function renderAgate(x,y,dist,angle,px,py){
+  const warpX=domainWarp(x*1.5+5,y*1.5+5,.5,4)*.25;
+  const warpY=domainWarp(x*1.5+25,y*1.5+25,.5,4)*.25;
+  const wDist=Math.sqrt((x+warpX)*(x+warpX)+(y+warpY)*(y+warpY));
+
+  const numBands=22;
+  const bandRaw=wDist*numBands+fbm(x*3+40,y*3+40,4)*.6;
+  const bandVal=bandRaw-Math.floor(bandRaw);
+
+  const palette=[
+    [240,235,225],[210,180,150],[180,90,60],[240,220,195],
+    [120,155,190],[245,240,232],[190,140,100],[230,210,185],
+    [95,75,65],[220,200,170],[170,60,45],[250,245,238],
+    [140,170,195],[200,160,130],[235,225,210],[160,100,75],
+    [245,238,228],[110,90,80],[225,195,165],[185,145,115],
+    [250,248,240],[130,160,185]
+  ];
+
+  const idx1=Math.floor(bandRaw)%palette.length;
+  const idx2=(idx1+1)%palette.length;
+  const c1=palette[idx1],c2=palette[idx2];
+  const t=smoothstep(.15,.85,bandVal);
+
+  let r=lerp(c1[0],c2[0],t);
+  let g=lerp(c1[1],c2[1],t);
+  let b=lerp(c1[2],c2[2],t);
+
+  const detail=noise2D(px*.03+60,py*.03+60)*.06;
+  const micro=noise2D(px*.12+80,py*.12+80)*.03;
+  const translucency=smoothstep(.3,.7,noise2D(px*.008+100,py*.008+100))*.08;
+
+  r=clamp(r+detail*120+micro*60+translucency*30,0,255);
+  g=clamp(g+detail*100+micro*50+translucency*25,0,255);
+  b=clamp(b+detail*80+micro*40+translucency*20,0,255);
+  return[r,g,b];
+}
+
+function renderGranite(x,y,dist,angle,px,py){
+  const v=voronoi(x*4.5+10,y*4.5+10);
+  const cellHash=noise2D(v.cx*100,v.cy*100);
+  const edge=smoothstep(.02,.08,v.d2-v.d1);
+  const innerNoise=fbm(px*.015+v.cx*20,py*.015+v.cy*20,4);
+
+  let r,g,b;
+  if(cellHash>.62){
+    const t=innerNoise;
+    r=lerp(200,235,t); g=lerp(198,230,t); b=lerp(195,225,t);
+    const sparkle=noise2D(px*.1+200,py*.1+200);
+    if(sparkle>.82){r=Math.min(255,r+20);g=Math.min(255,g+20);b=Math.min(255,b+20);}
+  } else if(cellHash>.28){
+    const warm=noise2D(v.cx*50+300,v.cy*50+300);
+    const t=innerNoise;
+    if(warm>.5){r=lerp(195,225,t);g=lerp(160,185,t);b=lerp(150,175,t);}
+    else{r=lerp(180,210,t);g=lerp(178,208,t);b=lerp(175,205,t);}
+  } else if(cellHash>.12){
+    const t=innerNoise*.5;
+    r=lerp(50,80,t);g=lerp(48,75,t);b=lerp(45,70,t);
+    const flake=noise2D(px*.15+400,py*.15+400);
+    if(flake>.7){r=Math.min(100,r+20);g=Math.min(95,g+18);b=Math.min(90,b+15);}
   } else {
-    const pct = cell.hp / cell.maxHp;
-    const hpFill = cell.el.querySelector('.hp-fill');
-    if (hpFill) {
-      hpFill.style.width = (pct * 100) + '%';
-      hpFill.className = 'hp-fill' + (pct < 0.3 ? ' low' : pct < 0.6 ? ' mid' : '');
+    r=lerp(35,55,innerNoise);g=lerp(30,48,innerNoise);b=lerp(28,45,innerNoise);
+  }
+
+  const edgeDark=(1-edge)*12;
+  r=clamp(r-edgeDark+(Math.random()-.5)*4,0,255);
+  g=clamp(g-edgeDark+(Math.random()-.5)*4,0,255);
+  b=clamp(b-edgeDark+(Math.random()-.5)*4,0,255);
+  return[r,g,b];
+}
+
+function renderMarble(x,y,dist,angle,px,py){
+  const warp1=domainWarp(x*1.2+10,y*1.2+10,.8,5);
+  const warp2=domainWarp(x*1.8+30,y*1.8+30,.5,4);
+  const vein1=Math.abs(Math.sin((x*1.5+warp1*3)*Math.PI));
+  const vein2=Math.abs(Math.sin((y*1.2+x*.6+warp2*2.5)*Math.PI*1.3));
+  const vein3=Math.abs(Math.sin((x*.8-y*1.1+warp1*2)*Math.PI*.9));
+  const veinMain=Math.min(vein1,vein2);
+  const veinSub=vein3;
+
+  const mainV=smoothstep(0,.15,veinMain);
+  const subV=smoothstep(0,.1,veinSub);
+  const combined=mainV*subV;
+
+  const baseN=fbm(px*.005+50,py*.005+50,4)*.12;
+  const micro=noise2D(px*.04+70,py*.04+70)*.04;
+
+  let r=lerp(115,242,combined)+baseN*40+micro*30;
+  let g=lerp(120,240,combined)+baseN*38+micro*28;
+  let b=lerp(128,238,combined)+baseN*35+micro*25;
+
+  const thinVein=ridgeNoise(x*3+50,y*3+50,5);
+  if(thinVein>.72){
+    const t=(thinVein-.72)/.28*.2;
+    r-=t*60;g-=t*55;b-=t*50;
+  }
+
+  const crystal=noise2D(px*.08+90,py*.08+90);
+  if(crystal>.85){r=Math.min(255,r+8);g=Math.min(255,g+8);b=Math.min(255,b+8);}
+
+  return[clamp(r,80,250),clamp(g,85,248),clamp(b,90,245)];
+}
+
+function renderObsidian(x,y,dist,angle,px,py){
+  const flow1=domainWarp(x*2+15,y*4+15,.4,5);
+  const flow2=fbm(x*3+45,y*1.5+45,5)*.15;
+  const conch1=Math.sin(dist*25+angle*3+flow1*6);
+  const conch2=Math.sin(dist*40-angle*2+flow2*8);
+  const conchVal=Math.abs(conch1*conch2);
+  const conchoidal=smoothstep(.6,.95,conchVal)*.12;
+
+  const base=.06+flow1*.03+flow2+conchoidal;
+
+  const rainbow=noise2D(px*.015+200,py*.015+200);
+  let rShift=0,gShift=0,bShift=0;
+  if(rainbow>.55){
+    const t=(rainbow-.55)/.45;
+    const hue=(angle+dist*3+flow1*2)*2;
+    rShift=Math.sin(hue)*t*18;
+    gShift=Math.sin(hue+2.09)*t*15;
+    bShift=Math.sin(hue+4.19)*t*20;
+  }
+
+  let r=clamp(base*140+8+rShift,5,55);
+  let g=clamp(base*120+6+gShift,3,48);
+  let b=clamp(base*160+12+bShift,8,65);
+
+  const specular=smoothstep(.88,.98,noise2D(px*.02+300,py*.02+300));
+  r+=specular*25;g+=specular*22;b+=specular*30;
+  return[clamp(r,0,80),clamp(g,0,70),clamp(b,0,95)];
+}
+
+function renderLapis(x,y,dist,angle,px,py){
+  const base=domainWarp(x*2+20,y*2+20,.7,5);
+  const deep=fbm(x*3+60,y*3+60,5)*.2;
+  const r0=clamp(18+base*28+deep*25,8,58);
+  const g0=clamp(28+base*38+deep*30,12,78);
+  const b0=clamp(130+base*55+deep*45,90,215);
+
+  let r=r0,g=g0,b=b0;
+
+  const calcWarp=domainWarp(x*4+80,y*4+80,.6,4);
+  if(calcWarp>.62){
+    const t=smoothstep(.62,.78,calcWarp);
+    r=lerp(r,215,t*.7);g=lerp(g,210,t*.7);b=lerp(b,205,t*.6);
+  }
+
+  for(let k=0;k<3;k++){
+    const seed=k*47+11;
+    const pyrX=noise2D(px*.018+seed,py*.012+seed+100);
+    const pyrY=noise2D(px*.012+seed+200,py*.018+seed+300);
+    const pyrDist=Math.sqrt((pyrX-.5)*(pyrX-.5)+(pyrY-.5)*(pyrY-.5));
+    if(pyrDist<.12){
+      const sparkle=noise2D(px*.08+seed*3,py*.08+seed*3);
+      if(sparkle>.45){
+        const intensity=smoothstep(.45,.8,sparkle);
+        r=lerp(r,245,intensity*.85);
+        g=lerp(g,215,intensity*.8);
+        b=lerp(b,75,intensity*.7);
+      }
     }
-
-    if (pct < 0.5 && !cell.el.classList.contains('cracked')) {
-      cell.el.classList.remove('rock');
-      cell.el.classList.add('cracked');
-    }
-
-    cell.el.style.transform = 'scale(0.92)';
-    setTimeout(() => { cell.el.style.transform = ''; }, 100);
   }
 
-  checkAllBroken();
+  const goldSpeck=noise2D(px*.06+500,py*.06+500);
+  if(goldSpeck>.82){
+    const t=(goldSpeck-.82)/.18;
+    r=lerp(r,240,t*.6);g=lerp(g,210,t*.55);b=lerp(b,80,t*.5);
+  }
+
+  const micro=noise2D(px*.035+600,py*.035+600)*.06;
+  return[clamp(r+micro*40,0,255),clamp(g+micro*35,0,255),clamp(b+micro*30,0,255)];
 }
 
-function checkAllBroken() {
-  if (cells.every(c => c.broken)) {
-    setTimeout(() => digDeeper(), 500);
+function renderRoseQuartz(x,y,dist,angle,px,py){
+  const cloud1=domainWarp(x*1.5+30,y*1.5+30,.7,5);
+  const cloud2=fbm(x*2.5+70,y*2.5+70,5)*.2;
+  const veil=domainWarp(x*3+100,y*3+100,.4,4)*.15;
+
+  const depth=cloud1+cloud2+veil;
+  let r=clamp(205+depth*35,175,248);
+  let g=clamp(148+depth*30,118,195);
+  let b=clamp(165+depth*32,132,210);
+
+  const inclusion=ridgeNoise(x*4+50,y*4+50,4);
+  if(inclusion>.65){
+    const t=(inclusion-.65)/.35*.12;
+    r=Math.min(255,r+t*50);g=Math.min(255,g+t*35);b=Math.min(255,b+t*40);
+  }
+
+  const starAngle=angle*3;
+  const star1=Math.abs(Math.sin(starAngle))*.03;
+  const star2=Math.abs(Math.sin(starAngle+Math.PI/3))*.03;
+  const starEffect=(star1+star2)*smoothstep(.2,.6,1-dist);
+  r=Math.min(255,r+starEffect*120);g=Math.min(255,g+starEffect*90);b=Math.min(255,b+starEffect*100);
+
+  const crystal=noise2D(px*.025+150,py*.025+150);
+  if(crystal>.8){r=Math.min(255,r+10);g=Math.min(255,g+8);b=Math.min(255,b+9);}
+
+  return[clamp(r,0,255),clamp(g,0,255),clamp(b,0,255)];
+}
+
+function renderTigersEye(x,y,dist,angle,px,py){
+  const fiberAngle=.15;
+  const rotX=x*Math.cos(fiberAngle)+y*Math.sin(fiberAngle);
+  const rotY=-x*Math.sin(fiberAngle)+y*Math.cos(fiberAngle);
+
+  const wave=Math.sin(rotY*12+fbm(rotX*2+10,rotY*2+10,5)*3.5);
+  const fiber=fbm(rotX*.8+40,rotY*8+40,6);
+  const silk=noise2D(px*.005+rotY*2+60,py*.02+60)*.2;
+
+  const t=smoothstep(-.6,.6,wave)*.55+fiber*.35+silk*.1;
+
+  const chatoyancy=smoothstep(.45,.55,t)*smoothstep(.65,.55,t);
+  const highlight=chatoyancy*1.5;
+
+  let r=lerp(55,225,t)+highlight*35;
+  let g=lerp(32,185,t)+highlight*28;
+  let b=lerp(8,55,t)+highlight*12;
+
+  const shimmer=noise2D(px*.02+100,py*.003+100);
+  if(shimmer>.6){
+    const s=(shimmer-.6)/.4*.15;
+    r=Math.min(255,r+s*80);g=Math.min(255,g+s*65);b=Math.min(255,b+s*25);
+  }
+
+  const microFiber=noise2D(px*.003+200,py*.08+200)*.08;
+  r=clamp(r+microFiber*50,20,255);
+  g=clamp(g+microFiber*40,12,255);
+  b=clamp(b+microFiber*15,3,80);
+  return[r,g,b];
+}
+
+function generateCrossSection(stoneId,size=768){
+  const c=document.createElement('canvas');c.width=c.height=size;
+  const ctx=c.getContext('2d');
+  const img=ctx.createImageData(size,size);const d=img.data;
+  const cx=size/2,cy=size/2;
+  const renderers={amethyst:renderAmethyst,agate:renderAgate,granite:renderGranite,marble:renderMarble,
+    obsidian:renderObsidian,lapis:renderLapis,rose_quartz:renderRoseQuartz,tigers_eye:renderTigersEye};
+  const render=renderers[stoneId];
+
+  for(let py=0;py<size;py++)for(let px=0;px<size;px++){
+    const i=(py*size+px)*4;
+    const x=(px-cx)/cx, y=(py-cy)/cy;
+    const dist=Math.sqrt(x*x+y*y);
+    const angle=Math.atan2(y,x);
+
+    if(dist>1.02){d[i]=10;d[i+1]=10;d[i+2]=15;d[i+3]=0;continue;}
+
+    const edgeFade=smoothstep(1.02,.98,dist);
+    const[r,g,b]=render(x,y,dist,angle,px,py);
+
+    d[i]=clamp(r*edgeFade,0,255);
+    d[i+1]=clamp(g*edgeFade,0,255);
+    d[i+2]=clamp(b*edgeFade,0,255);
+    d[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  return c;
+}
+
+/* ═══════════════════════════════════════════
+   Three.js Scene
+   ═══════════════════════════════════════════ */
+let scene,camera,renderer,controls,raycaster,mouse;
+let currentStone=null,stoneMesh=null,stoneGroup=null;
+let leftGroup=null,rightGroup=null;
+let state='selecting';
+let hitsRemaining=0,maxHits=0,isAnimating=false;
+const container=document.getElementById('canvas-container');
+
+function initThree(){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0a0a14);
+
+  camera=new THREE.PerspectiveCamera(42,1,.1,100);
+  camera.position.set(0,.5,4.8);
+
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.localClippingEnabled=true;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.2;
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  container.appendChild(renderer.domElement);
+
+  controls=new OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;
+  controls.dampingFactor=.08;
+  controls.enablePan=false;
+  controls.minDistance=2.5;
+  controls.maxDistance=8;
+  controls.autoRotate=true;
+  controls.autoRotateSpeed=1.2;
+
+  scene.add(new THREE.AmbientLight(0x404050,.5));
+  const key=new THREE.DirectionalLight(0xfff5e6,2.0);key.position.set(3,5,2);scene.add(key);
+  const fill=new THREE.DirectionalLight(0xc0d4ff,.7);fill.position.set(-4,2,-1);scene.add(fill);
+  const rim=new THREE.DirectionalLight(0xffe8d0,.35);rim.position.set(0,-3,-4);scene.add(rim);
+  const top=new THREE.DirectionalLight(0xffffff,.3);top.position.set(0,6,0);scene.add(top);
+
+  raycaster=new THREE.Raycaster();
+  mouse=new THREE.Vector2();
+  onResize();
+  window.addEventListener('resize',onResize);
+  animate();
+}
+
+function onResize(){
+  const w=container.clientWidth,h=container.clientHeight;
+  if(!w||!h)return;
+  camera.aspect=w/h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w,h);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene,camera);
+}
+
+/* ═══════════════════════════════════════════
+   Stone mesh creation
+   ═══════════════════════════════════════════ */
+function createStoneGeometry(seed=0){
+  const geo=new THREE.IcosahedronGeometry(1.35,5);
+  const pos=geo.attributes.position;
+  const v=new THREE.Vector3();
+  for(let i=0;i<pos.count;i++){
+    v.fromBufferAttribute(pos,i);
+    const n=v.clone().normalize();
+    const d1=fbm(n.x*2.5+seed,n.y*2.5+seed*.7,4)*.15;
+    const d2=noise2D(n.x*5+n.z*5+seed,n.y*5+seed+20)*.06;
+    const d3=noise2D(n.x*10+seed+40,n.y*10+n.z*10+seed+40)*.02;
+    v.addScaledVector(n,d1+d2+d3-.08);
+    pos.setXYZ(i,v.x,v.y,v.z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function loadStone(stone){
+  clearScene();
+  currentStone=stone;
+  state='viewing';
+  hitsRemaining=stone.hits;
+  maxHits=stone.hits;
+
+  const seed=stone.id.charCodeAt(0)*7.3;
+  const geo=createStoneGeometry(seed);
+
+  const outerCanvas=generateOuterTexture(stone);
+  const outerTex=new THREE.CanvasTexture(outerCanvas);
+  outerTex.colorSpace=THREE.SRGBColorSpace;
+
+  const normalCanvas=generateNormalMap(512,seed);
+  const normalTex=new THREE.CanvasTexture(normalCanvas);
+
+  const mat=new THREE.MeshStandardMaterial({
+    map:outerTex,normalMap:normalTex,
+    normalScale:new THREE.Vector2(.9,.9),
+    roughness:stone.outerRough,metalness:.04,
+    side:THREE.DoubleSide,
+  });
+
+  stoneMesh=new THREE.Mesh(geo,mat);
+  stoneGroup=new THREE.Group();
+  stoneGroup.add(stoneMesh);
+  scene.add(stoneGroup);
+
+  updateHP();
+  controls.autoRotate=true;
+  camera.position.set(0,.5,4.8);
+  controls.target.set(0,0,0);
+}
+
+function clearScene(){
+  [stoneGroup,leftGroup,rightGroup].forEach(g=>{if(g)scene.remove(g);});
+  stoneGroup=null;stoneMesh=null;leftGroup=null;rightGroup=null;
+}
+
+/* ═══════════════════════════════════════════
+   Breaking
+   ═══════════════════════════════════════════ */
+function breakStone(){
+  if(state!=='viewing'||isAnimating||!stoneMesh)return;
+  state='broken';isAnimating=true;
+  controls.autoRotate=false;
+
+  const ang=(Math.random()-.5)*.25;
+  const cutNormal=new THREE.Vector3(Math.cos(ang),Math.sin(ang)*.15,Math.sin(ang)*.1).normalize();
+  const plane=new THREE.Plane(cutNormal,0);
+  const negPlane=plane.clone().negate();
+
+  const outerMat=stoneMesh.material;
+  const leftMat=outerMat.clone();leftMat.clippingPlanes=[plane];
+  const rightMat=outerMat.clone();rightMat.clippingPlanes=[negPlane];
+
+  const leftStone=new THREE.Mesh(stoneMesh.geometry,leftMat);
+  const rightStone=new THREE.Mesh(stoneMesh.geometry,rightMat);
+
+  const crossCanvas=generateCrossSection(currentStone.id,768);
+  const crossTex=new THREE.CanvasTexture(crossCanvas);
+  crossTex.colorSpace=THREE.SRGBColorSpace;
+
+  const crossMat=new THREE.MeshPhysicalMaterial({
+    map:crossTex,
+    roughness:currentStone.crossRough,
+    metalness:currentStone.id==='obsidian'?.12:.02,
+    clearcoat:currentStone.crossRough<.2?.9:.35,
+    clearcoatRoughness:.1,
+    side:THREE.DoubleSide,
+  });
+
+  const capGeo=new THREE.CircleGeometry(1.9,64);
+  const q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1),cutNormal);
+
+  const leftCap=new THREE.Mesh(capGeo,crossMat);
+  leftCap.quaternion.copy(q);leftCap.position.copy(cutNormal.clone().multiplyScalar(.002));
+
+  const rightCap=new THREE.Mesh(capGeo.clone(),crossMat.clone());
+  rightCap.quaternion.copy(q);rightCap.rotateY(Math.PI);
+  rightCap.position.copy(cutNormal.clone().multiplyScalar(-.002));
+
+  leftGroup=new THREE.Group();leftGroup.add(leftStone,leftCap);
+  rightGroup=new THREE.Group();rightGroup.add(rightStone,rightCap);
+
+  scene.remove(stoneGroup);stoneGroup=null;stoneMesh=null;
+  scene.add(leftGroup,rightGroup);
+
+  const targetDist=.95;
+  const start=performance.now(),dur=650;
+  function step(){
+    const el=performance.now()-start;
+    const t=Math.min(el/dur,1);
+    const ease=1-Math.pow(1-t,3);
+    leftGroup.position.copy(cutNormal.clone().multiplyScalar(-targetDist*ease));
+    rightGroup.position.copy(cutNormal.clone().multiplyScalar(targetDist*ease));
+    const shake=(1-t)*.04;
+    leftGroup.rotation.z=(Math.random()-.5)*shake;
+    rightGroup.rotation.z=(Math.random()-.5)*shake;
+    if(t<1)requestAnimationFrame(step);
+    else{leftGroup.rotation.z=0;rightGroup.rotation.z=0;isAnimating=false;}
+  }
+  step();
+  spawnBreakParticles();playCrackSound();updateUI();
+}
+
+/* ═══════════════════════════════════════════
+   Tap interaction
+   ═══════════════════════════════════════════ */
+let pointerDown=null;
+function setupPointerEvents(){
+  const el=renderer.domElement;
+  el.addEventListener('pointerdown',e=>{pointerDown={x:e.clientX,y:e.clientY,time:performance.now()};});
+  el.addEventListener('pointerup',e=>{
+    if(!pointerDown)return;
+    const dx=e.clientX-pointerDown.x,dy=e.clientY-pointerDown.y;
+    const dt=performance.now()-pointerDown.time;
+    pointerDown=null;
+    if(dx*dx+dy*dy<150&&dt<300)handleTap(e);
+  });
+}
+
+function handleTap(e){
+  if(state!=='viewing'||isAnimating)return;
+  const rect=renderer.domElement.getBoundingClientRect();
+  mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+  mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(stoneMesh?[stoneMesh]:[]);
+  if(!hits.length)return;
+  const hp=hits[0].point;
+  const sp=hp.clone().project(camera);
+  const sx=(sp.x*.5+.5)*rect.width+rect.left;
+  const sy=(-sp.y*.5+.5)*rect.height+rect.top;
+
+  hitsRemaining--;updateHP();
+  stoneGroup.rotation.x+=(Math.random()-.5)*.07;
+  stoneGroup.rotation.z+=(Math.random()-.5)*.07;
+  setTimeout(()=>{if(stoneGroup){stoneGroup.rotation.x=0;stoneGroup.rotation.z=0;}},100);
+  spawnHitParticles(sx,sy);playHitSound();showFloatText(sx,sy,'&#9935;');
+  if(hitsRemaining<=0)setTimeout(()=>breakStone(),200);
+}
+
+function updateHP(){
+  document.getElementById('hp-fill').style.width=Math.max(0,hitsRemaining/maxHits*100)+'%';
+  document.getElementById('hits-left').textContent=Math.max(0,hitsRemaining);
+}
+
+/* ═══════════════════════════════════════════
+   Effects
+   ═══════════════════════════════════════════ */
+function spawnHitParticles(sx,sy){
+  for(let i=0;i<8;i++){
+    const p=document.createElement('div');p.className='particle3d';
+    const a=Math.random()*Math.PI*2,dd=20+Math.random()*30;
+    p.style.left=sx+'px';p.style.top=sy+'px';
+    p.style.background=`hsl(${30+Math.random()*20},${20+Math.random()*20}%,${50+Math.random()*30}%)`;
+    p.style.setProperty('--dx',Math.cos(a)*dd+'px');
+    p.style.setProperty('--dy',Math.sin(a)*dd+'px');
+    document.body.appendChild(p);setTimeout(()=>p.remove(),600);
+  }
+}
+function spawnBreakParticles(){
+  const rect=container.getBoundingClientRect();
+  for(let i=0;i<30;i++){
+    const p=document.createElement('div');p.className='particle3d';
+    const sx=rect.left+rect.width/2+(Math.random()-.5)*100;
+    const sy=rect.top+rect.height/2+(Math.random()-.5)*100;
+    const a=Math.random()*Math.PI*2,dd=30+Math.random()*70;
+    p.style.left=sx+'px';p.style.top=sy+'px';
+    p.style.width=(4+Math.random()*7)+'px';p.style.height=p.style.width;
+    const s=currentStone;
+    p.style.background=`rgb(${s.outer[0]+Math.random()*50},${s.outer[1]+Math.random()*50},${s.outer[2]+Math.random()*50})`;
+    p.style.setProperty('--dx',Math.cos(a)*dd+'px');
+    p.style.setProperty('--dy',Math.sin(a)*dd+'px');
+    document.body.appendChild(p);setTimeout(()=>p.remove(),600);
+  }
+}
+function showFloatText(x,y,text){
+  const el=document.createElement('div');el.className='float-txt';el.innerHTML=text;
+  el.style.left=x+'px';el.style.top=y+'px';
+  document.body.appendChild(el);setTimeout(()=>el.remove(),800);
+}
+function playHitSound(){
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();
+  const buf=ctx.createBuffer(1,ctx.sampleRate*.08,ctx.sampleRate);const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/(ctx.sampleRate*.012))*.5;
+  const src=ctx.createBufferSource();src.buffer=buf;src.connect(ctx.destination);src.start();
+  setTimeout(()=>ctx.close(),200);}catch(e){}
+}
+function playCrackSound(){
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();
+  const buf=ctx.createBuffer(1,ctx.sampleRate*.4,ctx.sampleRate);const data=buf.getChannelData(0);
+  for(let i=0;i<data.length;i++){const t=i/ctx.sampleRate;
+  data[i]=(Math.random()*2-1)*Math.exp(-t*6)*.7;if(t<.03)data[i]*=3;}
+  const src=ctx.createBufferSource();src.buffer=buf;src.connect(ctx.destination);src.start();
+  setTimeout(()=>ctx.close(),600);}catch(e){}
+}
+
+/* ═══════════════════════════════════════════
+   UI
+   ═══════════════════════════════════════════ */
+const selScreen=document.getElementById('selection-screen');
+const viewScreen=document.getElementById('viewer-screen');
+
+function buildSelectionGrid(){
+  const grid=document.getElementById('stone-grid');grid.innerHTML='';
+  STONES.forEach(stone=>{
+    const card=document.createElement('div');card.className='stone-card';
+    card.onclick=()=>openViewer(stone);
+    const preview=document.createElement('div');preview.className='preview';
+    const pCanvas=generateCrossSection(stone.id,128);
+    preview.appendChild(pCanvas);
+    const sn=document.createElement('div');sn.className='sname';sn.textContent=stone.name;
+    const se=document.createElement('div');se.className='sen';se.textContent=stone.en;
+    const rt=document.createElement('div');rt.className='rarity-tag r-'+stone.rarity;
+    const rn={common:'コモン',uncommon:'アンコモン',rare:'レア',epic:'エピック',legendary:'レジェンダリー'};
+    rt.textContent=rn[stone.rarity];
+    card.append(preview,sn,se,rt);grid.appendChild(card);
+  });
+}
+
+function openViewer(stone){
+  selScreen.style.display='none';viewScreen.style.display='flex';
+  document.getElementById('v-name').textContent=stone.name;
+  document.getElementById('v-en').textContent=stone.en;
+  document.getElementById('v-desc').textContent=stone.desc;
+  document.getElementById('hp-row').style.display='flex';
+  document.getElementById('hint-text').textContent='石をタップして叩こう!';
+  document.getElementById('break-btn').style.display='block';
+  document.getElementById('reset-btn').style.display='none';
+  if(!renderer){initThree();setupPointerEvents();}
+  setTimeout(()=>{onResize();loadStone(stone);},50);
+}
+
+function updateUI(){
+  if(state==='broken'){
+    document.getElementById('hp-row').style.display='none';
+    document.getElementById('hint-text').textContent=currentStone.crossDesc;
+    document.getElementById('break-btn').style.display='none';
+    document.getElementById('reset-btn').style.display='block';
   }
 }
 
-function digDeeper() {
-  depth += 10;
-  updateDepth();
-  generateGrid();
-}
-
-function updateStats() {
-  document.getElementById('coins').textContent = coins;
-  document.getElementById('ore-count').textContent = totalOres;
-  updateUpgradeBtn();
-}
-
-function updateDepth() {
-  document.getElementById('depth-label').textContent = getDepthName(depth);
-  document.getElementById('depth-num').textContent = depth + 'm';
-  const maxDepth = 120;
-  const pct = Math.min(depth / maxDepth * 100, 100);
-  document.getElementById('depth-fill').style.width = pct + '%';
-}
-
-function updateUpgradeBtn() {
-  const btn = document.getElementById('upgrade-btn');
-  const costSpan = document.getElementById('upgrade-cost');
-  if (pickaxeLevel >= PICKAXES.length - 1) {
-    btn.disabled = true;
-    btn.textContent = 'MAX';
-    return;
+document.getElementById('back-btn').addEventListener('click',()=>{
+  clearScene();viewScreen.style.display='none';selScreen.style.display='flex';
+  state='selecting';currentStone=null;
+});
+document.getElementById('break-btn').addEventListener('click',()=>{
+  if(state==='viewing'){hitsRemaining=0;updateHP();breakStone();}
+});
+document.getElementById('reset-btn').addEventListener('click',()=>{
+  if(currentStone&&!isAnimating){
+    loadStone(currentStone);
+    document.getElementById('hp-row').style.display='flex';
+    document.getElementById('hint-text').textContent='石をタップして叩こう!';
+    document.getElementById('break-btn').style.display='block';
+    document.getElementById('reset-btn').style.display='none';
   }
-  const next = PICKAXES[pickaxeLevel + 1];
-  costSpan.textContent = next.cost;
-  btn.disabled = coins < next.cost;
-}
+});
 
-function upgradePickaxe() {
-  if (pickaxeLevel >= PICKAXES.length - 1) return;
-  const next = PICKAXES[pickaxeLevel + 1];
-  if (coins < next.cost) return;
-
-  coins -= next.cost;
-  pickaxeLevel++;
-
-  const pick = PICKAXES[pickaxeLevel];
-  document.getElementById('pick-icon').innerHTML = pick.icon;
-  document.getElementById('pick-name').textContent = pick.name;
-  document.getElementById('pick-power').textContent = 'ATK: ' + pick.power;
-
-  updateStats();
-}
-
-function updateCollection() {
-  const grid = document.getElementById('collection-grid');
-  grid.innerHTML = '';
-
-  let found = 0;
-  for (const ore of ORES) {
-    const count = collection[ore.name] || 0;
-    if (count > 0) found++;
-
-    const div = document.createElement('div');
-    div.className = 'col-item ' + (count > 0 ? 'found' : 'not-found');
-    div.innerHTML = ore.emoji;
-    div.title = ore.name;
-
-    if (count > 0) {
-      const badge = document.createElement('div');
-      badge.className = 'col-count';
-      badge.textContent = count;
-      div.appendChild(badge);
-    }
-    grid.appendChild(div);
-  }
-
-  document.getElementById('col-found').textContent = found;
-  document.getElementById('col-total').textContent = ORES.length;
-}
-
-function showOreModal(ore) {
-  const overlay = document.getElementById('modal-overlay');
-  document.getElementById('modal-ore').innerHTML = ore.emoji;
-  document.getElementById('modal-name').textContent = ore.name;
-
-  const rarityEl = document.getElementById('modal-rarity');
-  const rarityNames = {
-    common: 'コモン',
-    uncommon: 'アンコモン',
-    rare: 'レア',
-    epic: 'エピック',
-    legendary: 'レジェンダリー'
-  };
-  rarityEl.textContent = rarityNames[ore.rarity];
-  rarityEl.className = 'rarity-label rarity-' + ore.rarity;
-
-  document.getElementById('modal-value').textContent = `売値: ${ore.value} コイン`;
-
-  if (ore.rarity === 'legendary') {
-    document.getElementById('modal-title').textContent = '&#10024; 超激レア発見!! &#10024;';
-  } else if (ore.rarity === 'epic') {
-    document.getElementById('modal-title').textContent = '&#128165; レア鉱石発見!';
-  } else {
-    document.getElementById('modal-title').textContent = '鉱石発見!';
-  }
-
-  overlay.classList.add('show');
-}
-
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('show');
-}
-
-function getRarityColor(rarity) {
-  const colors = {
-    common: '#9ca3af',
-    uncommon: '#22c55e',
-    rare: '#3b82f6',
-    epic: '#a855f7',
-    legendary: '#f5c518'
-  };
-  return colors[rarity] || '#fff';
-}
-
-function showFloatText(x, y, text) {
-  const el = document.createElement('div');
-  el.className = 'float-text';
-  el.innerHTML = text;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1000);
-}
-
-function spawnParticles(x, y, color, count) {
-  for (let i = 0; i < count; i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
-    p.style.left = x + 'px';
-    p.style.top = y + 'px';
-    p.style.background = color;
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 20 + Math.random() * 30;
-    p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
-    p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
-    document.body.appendChild(p);
-    setTimeout(() => p.remove(), 600);
-  }
-}
-
-generateGrid();
-updateStats();
-updateDepth();
-updateCollection();
+buildSelectionGrid();
 </script>
 </body>
 </html>
