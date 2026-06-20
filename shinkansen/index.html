@@ -18,7 +18,6 @@ body {
   overflow: hidden;
 }
 
-/* ── ヘッダー ── */
 header {
   background: #0b1728;
   border-bottom: 2px solid #1a2e48;
@@ -37,49 +36,23 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
   border-radius: 20px; padding: 5px 14px;
   font-size: 0.78rem; font-weight: 700; color: #bbb;
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
-  transition: background 0.15s;
 }
 #back-btn:hover { background: rgba(255,255,255,0.14); }
 #back-btn.visible { display: flex; }
 
-/* ── メイン ── */
-.main { display: flex; flex: 1; overflow: hidden; min-height: 0; position: relative; }
+/* ── メイン：地図＋サイドバー ── */
+.main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
 
-/* ── 地図コンテナ（クリップ用） ── */
-#map-clip {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  /* アイソメ時の上部はみ出しをクリップしない（奥行きが見えるよう） */
-  overflow: visible;
-}
-
-/* ── 地図本体 ── */
 #map {
-  position: absolute;
-  /* 通常時は親いっぱい */
-  inset: 0;
+  flex: 1;
   background: #07111f;
-  /* アイソメ→フラットのトランジション */
-  transition: transform 0.7s cubic-bezier(0.4,0,0.2,1), inset 0.7s ease;
-  transform-origin: 50% 52%;
 }
-
-/* アイソメビュー（overview時） */
-#map.iso {
-  /* 地図を大きめに取ってから傾ける */
-  inset: -18% -12%;
-  transform:
-    perspective(1100px)
-    rotateX(50deg)
-    rotateZ(-20deg)
-    scale(0.88);
-}
+.leaflet-control-attribution { font-size: 0.5rem !important; }
 
 /* ── サイドバー ── */
 .sidebar {
   display: none;
-  width: 210px; min-width: 210px;
+  width: 220px; min-width: 220px;
   background: #0b1728;
   border-left: 2px solid #1a2e48;
   overflow-y: auto; flex-shrink: 0; flex-direction: column;
@@ -87,7 +60,7 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .sidebar.visible { display: flex; }
 
 .photo-wrap {
-  width: 100%; height: 118px; background: #0f1e30;
+  width: 100%; height: 130px; background: #0f1e30;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; overflow: hidden;
 }
@@ -96,42 +69,45 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .photo-caption { font-size: 0.58rem; color: #2a3a50; text-align: right; padding: 2px 8px 0; flex-shrink: 0; }
 .photo-caption a { color: #3a5070; text-decoration: none; }
 
-.sidebar-inner { padding: 10px 10px 16px; overflow-y: auto; }
-.sidebar-line-name { font-size: 0.95rem; font-weight: 900; margin-bottom: 2px; }
-.sidebar-line-kana { font-size: 0.68rem; color: #5a7090; margin-bottom: 6px; }
+.sidebar-inner { padding: 12px 10px 20px; }
+.sidebar-line-name { font-size: 1rem; font-weight: 900; margin-bottom: 2px; }
+.sidebar-line-kana { font-size: 0.68rem; color: #5a7090; margin-bottom: 7px; }
 .sidebar-nickname-badge {
-  display: inline-block; padding: 3px 10px; border-radius: 20px;
-  font-size: 0.72rem; font-weight: 700; color: #fff; margin-bottom: 12px;
+  display: inline-block; padding: 3px 12px; border-radius: 20px;
+  font-size: 0.74rem; font-weight: 700; color: #fff; margin-bottom: 14px;
 }
 .station-list { list-style: none; }
 .station-list li {
-  padding: 4px 6px; border-left: 2px solid var(--c);
+  padding: 5px 7px; border-left: 2px solid var(--c);
   margin-bottom: 3px; background: rgba(255,255,255,0.03);
   border-radius: 0 6px 6px 0;
 }
-.station-list .s-name { font-size: 0.76rem; font-weight: 700; color: #ddd; }
-.station-list .s-kana { font-size: 0.58rem; color: #5a7090; }
+.station-list .s-name { font-size: 0.78rem; font-weight: 700; color: #ddd; }
+.station-list .s-kana { font-size: 0.6rem; color: #5a7090; }
 
 /* ── 下部路線バー（常に表示） ── */
 #line-bar {
   background: #0b1728;
   border-top: 2px solid #1a2e48;
-  padding: 8px 12px 10px; flex-shrink: 0;
+  padding: 8px 14px 11px; flex-shrink: 0;
 }
-.line-bar-title { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em; color: #3a5070; margin-bottom: 7px; }
+.line-bar-title {
+  font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em;
+  color: #3a5070; margin-bottom: 8px;
+}
 .line-chips { display: flex; gap: 7px; flex-wrap: wrap; }
 .line-chip {
   display: flex; align-items: center; gap: 5px;
-  padding: 4px 9px; border-radius: 20px;
-  border: 1.5px solid var(--c); background: rgba(0,0,0,0.25);
-  cursor: pointer; font-size: 0.7rem; font-weight: 700;
+  padding: 5px 10px; border-radius: 20px;
+  border: 1.5px solid var(--c); background: rgba(0,0,0,0.3);
+  cursor: pointer; font-size: 0.71rem; font-weight: 700;
   color: #ccc; white-space: nowrap;
   transition: background 0.12s, transform 0.1s;
 }
-.line-chip:hover  { background: rgba(255,255,255,0.07); transform: scale(1.05); }
+.line-chip:hover  { background: rgba(255,255,255,0.08); transform: scale(1.05); }
 .line-chip.active { background: var(--c); color: #fff; }
 .line-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
-.line-chip.active .line-chip-dot { background: #fff; }
+.line-chip.active .line-chip-dot { background: rgba(255,255,255,0.8); }
 .line-chip-nick { color: var(--c); font-weight: 900; }
 .line-chip.active .line-chip-nick { color: #fff; }
 
@@ -139,12 +115,12 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .route-label { background: none !important; border: none !important; box-shadow: none !important; }
 .route-label-inner { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
 .route-label-nick {
-  font-size: 0.7rem; font-weight: 900;
+  font-size: 0.72rem; font-weight: 900;
   padding: 2px 8px; border-radius: 10px; white-space: nowrap; color: #fff;
   box-shadow: 0 1px 5px rgba(0,0,0,0.7);
 }
 .route-label-kana {
-  font-size: 0.5rem; color: rgba(255,255,255,0.85);
+  font-size: 0.52rem; color: rgba(255,255,255,0.82);
   text-shadow: 0 0 3px #000, 0 1px 3px #000;
   white-space: nowrap; margin-top: 1px;
 }
@@ -155,7 +131,7 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 .station-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid #fff; margin-bottom: 2px; }
 .station-name {
   font-size: 0.68rem; font-weight: 700; color: #fff;
-  text-shadow: 0 0 3px #000, 0 1px 4px #000, -1px 0 3px #000, 1px 0 3px #000;
+  text-shadow: 0 0 4px #000, 0 1px 4px #000, -1px 0 3px #000, 1px 0 3px #000;
   white-space: nowrap; text-align: center;
 }
 .station-kana {
@@ -168,19 +144,16 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 #loading {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: #07111f; z-index: 9999; gap: 12px;
-  font-size: 0.85rem; color: #4a6080;
+  background: #07111f; z-index: 9999; gap: 14px;
+  font-size: 0.9rem; color: #4a6080; pointer-events: none;
 }
-#loading .spin { font-size: 2.4rem; animation: spin 1.2s linear infinite; }
+#loading .spin { font-size: 2.8rem; animation: spin 1.2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.leaflet-control-attribution { font-size: 0.5rem !important; }
-
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .sidebar { display: none !important; }
   .line-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
   #line-bar { padding: 6px 10px 8px; }
-  #map.iso { inset: -10% -5%; transform: perspective(900px) rotateX(44deg) rotateZ(-18deg) scale(0.9); }
 }
 </style>
 </head>
@@ -194,11 +167,9 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
   <button id="back-btn" onclick="resetToAll()">◀ もどる</button>
 </header>
 
-<div class="main">
-  <div id="map-clip">
-    <div id="loading"><div class="spin">🗾</div>ちずをよみこみちゅう…</div>
-    <div id="map"></div>
-  </div>
+<div class="main" style="position:relative">
+  <div id="loading"><div class="spin">🗾</div>ちずをよみこみちゅう…</div>
+  <div id="map"></div>
   <aside class="sidebar" id="sidebar">
     <div class="photo-wrap" id="photo-wrap"><span class="emoji">🚄</span></div>
     <div class="photo-caption" id="photo-caption"></div>
@@ -243,25 +214,25 @@ const LINES = [
     nickname: 'みずほ・さくら', color: '#3b82f6', wikiTitle: '500系新幹線',
     labelPos: [34.15, 132.05],
     stations: [
-      { name: '新大阪',    kana: 'しんおおさか',     lat: 34.7330, lng: 135.5000 },
-      { name: '新神戸',    kana: 'しんこうべ',       lat: 34.6946, lng: 135.1956 },
-      { name: '西明石',    kana: 'にしあかし',       lat: 34.6530, lng: 134.9804 },
-      { name: '姫路',      kana: 'ひめじ',           lat: 34.8278, lng: 134.6932 },
-      { name: '相生',      kana: 'あいおい',         lat: 34.8042, lng: 134.4674 },
-      { name: '岡山',      kana: 'おかやま',         lat: 34.6551, lng: 133.9185 },
-      { name: '新倉敷',    kana: 'しんくらしき',     lat: 34.5844, lng: 133.7713 },
-      { name: '福山',      kana: 'ふくやま',         lat: 34.4875, lng: 133.3629 },
-      { name: '新尾道',    kana: 'しんおのみち',     lat: 34.4147, lng: 133.2790 },
-      { name: '三原',      kana: 'みはら',           lat: 34.3970, lng: 133.0812 },
-      { name: '東広島',    kana: 'ひがしひろしま',   lat: 34.3937, lng: 132.7412 },
-      { name: '広島',      kana: 'ひろしま',         lat: 34.3965, lng: 132.4758 },
-      { name: '新岩国',    kana: 'しんいわくに',     lat: 34.1617, lng: 132.2280 },
-      { name: '徳山',      kana: 'とくやま',         lat: 34.0548, lng: 131.8095 },
-      { name: '新山口',    kana: 'しんやまぐち',     lat: 34.1601, lng: 131.4691 },
-      { name: '厚狭',      kana: 'あさ',             lat: 34.0476, lng: 131.2027 },
-      { name: '新下関',    kana: 'しんしものせき',   lat: 34.0036, lng: 130.9463 },
-      { name: '小倉',      kana: 'こくら',           lat: 33.8795, lng: 130.8753 },
-      { name: '博多',      kana: 'はかた',           lat: 33.5902, lng: 130.4207 },
+      { name: '新大阪',  kana: 'しんおおさか',   lat: 34.7330, lng: 135.5000 },
+      { name: '新神戸',  kana: 'しんこうべ',     lat: 34.6946, lng: 135.1956 },
+      { name: '西明石',  kana: 'にしあかし',     lat: 34.6530, lng: 134.9804 },
+      { name: '姫路',    kana: 'ひめじ',         lat: 34.8278, lng: 134.6932 },
+      { name: '相生',    kana: 'あいおい',       lat: 34.8042, lng: 134.4674 },
+      { name: '岡山',    kana: 'おかやま',       lat: 34.6551, lng: 133.9185 },
+      { name: '新倉敷',  kana: 'しんくらしき',   lat: 34.5844, lng: 133.7713 },
+      { name: '福山',    kana: 'ふくやま',       lat: 34.4875, lng: 133.3629 },
+      { name: '新尾道',  kana: 'しんおのみち',   lat: 34.4147, lng: 133.2790 },
+      { name: '三原',    kana: 'みはら',         lat: 34.3970, lng: 133.0812 },
+      { name: '東広島',  kana: 'ひがしひろしま', lat: 34.3937, lng: 132.7412 },
+      { name: '広島',    kana: 'ひろしま',       lat: 34.3965, lng: 132.4758 },
+      { name: '新岩国',  kana: 'しんいわくに',   lat: 34.1617, lng: 132.2280 },
+      { name: '徳山',    kana: 'とくやま',       lat: 34.0548, lng: 131.8095 },
+      { name: '新山口',  kana: 'しんやまぐち',   lat: 34.1601, lng: 131.4691 },
+      { name: '厚狭',    kana: 'あさ',           lat: 34.0476, lng: 131.2027 },
+      { name: '新下関',  kana: 'しんしものせき', lat: 34.0036, lng: 130.9463 },
+      { name: '小倉',    kana: 'こくら',         lat: 33.8795, lng: 130.8753 },
+      { name: '博多',    kana: 'はかた',         lat: 33.5902, lng: 130.4207 },
     ]
   },
   {
@@ -330,30 +301,30 @@ const LINES = [
     nickname: 'かがやき・はくたか', color: '#eab308', wikiTitle: 'W7系新幹線',
     labelPos: [36.72, 136.82],
     stations: [
-      { name: '東京',          kana: 'とうきょう',           lat: 35.6812, lng: 139.7671 },
-      { name: '上野',          kana: 'うえの',               lat: 35.7136, lng: 139.7773 },
-      { name: '大宮',          kana: 'おおみや',             lat: 35.9065, lng: 139.6238 },
-      { name: '熊谷',          kana: 'くまがや',             lat: 36.1469, lng: 139.3886 },
-      { name: '本庄早稲田',    kana: 'ほんじょうわせだ',     lat: 36.2233, lng: 139.1848 },
-      { name: '高崎',          kana: 'たかさき',             lat: 36.3226, lng: 139.0048 },
-      { name: '安中榛名',      kana: 'あんなかはるな',       lat: 36.3505, lng: 138.8523 },
-      { name: '軽井沢',        kana: 'かるいざわ',           lat: 36.3489, lng: 138.6289 },
-      { name: '佐久平',        kana: 'さくだいら',           lat: 36.2531, lng: 138.4776 },
-      { name: '上田',          kana: 'うえだ',               lat: 36.4007, lng: 138.2492 },
-      { name: '長野',          kana: 'ながの',               lat: 36.6448, lng: 138.1881 },
-      { name: '飯山',          kana: 'いいやま',             lat: 36.8497, lng: 138.3683 },
-      { name: '上越妙高',      kana: 'じょうえつみょうこう', lat: 37.1282, lng: 138.2396 },
-      { name: '糸魚川',        kana: 'いといがわ',           lat: 37.0368, lng: 137.8606 },
+      { name: '東京',          kana: 'とうきょう',            lat: 35.6812, lng: 139.7671 },
+      { name: '上野',          kana: 'うえの',                lat: 35.7136, lng: 139.7773 },
+      { name: '大宮',          kana: 'おおみや',              lat: 35.9065, lng: 139.6238 },
+      { name: '熊谷',          kana: 'くまがや',              lat: 36.1469, lng: 139.3886 },
+      { name: '本庄早稲田',    kana: 'ほんじょうわせだ',      lat: 36.2233, lng: 139.1848 },
+      { name: '高崎',          kana: 'たかさき',              lat: 36.3226, lng: 139.0048 },
+      { name: '安中榛名',      kana: 'あんなかはるな',        lat: 36.3505, lng: 138.8523 },
+      { name: '軽井沢',        kana: 'かるいざわ',            lat: 36.3489, lng: 138.6289 },
+      { name: '佐久平',        kana: 'さくだいら',            lat: 36.2531, lng: 138.4776 },
+      { name: '上田',          kana: 'うえだ',                lat: 36.4007, lng: 138.2492 },
+      { name: '長野',          kana: 'ながの',                lat: 36.6448, lng: 138.1881 },
+      { name: '飯山',          kana: 'いいやま',              lat: 36.8497, lng: 138.3683 },
+      { name: '上越妙高',      kana: 'じょうえつみょうこう',  lat: 37.1282, lng: 138.2396 },
+      { name: '糸魚川',        kana: 'いといがわ',            lat: 37.0368, lng: 137.8606 },
       { name: '黒部宇奈月温泉',kana: 'くろべうなづきおんせん',lat: 36.8683, lng: 137.5427 },
-      { name: '富山',          kana: 'とやま',               lat: 36.7024, lng: 137.2133 },
-      { name: '新高岡',        kana: 'しんたかおか',         lat: 36.5783, lng: 136.9974 },
-      { name: '金沢',          kana: 'かなざわ',             lat: 36.5786, lng: 136.6480 },
-      { name: '小松',          kana: 'こまつ',               lat: 36.4060, lng: 136.4390 },
-      { name: '加賀温泉',      kana: 'かがおんせん',         lat: 36.2933, lng: 136.3349 },
-      { name: '芦原温泉',      kana: 'あわらおんせん',       lat: 36.2090, lng: 136.2260 },
-      { name: '福井',          kana: 'ふくい',               lat: 36.0638, lng: 136.2196 },
-      { name: '越前たけふ',    kana: 'えちぜんたけふ',       lat: 35.9167, lng: 136.1746 },
-      { name: '敦賀',          kana: 'つるが',               lat: 35.6456, lng: 136.0569 },
+      { name: '富山',          kana: 'とやま',                lat: 36.7024, lng: 137.2133 },
+      { name: '新高岡',        kana: 'しんたかおか',          lat: 36.5783, lng: 136.9974 },
+      { name: '金沢',          kana: 'かなざわ',              lat: 36.5786, lng: 136.6480 },
+      { name: '小松',          kana: 'こまつ',                lat: 36.4060, lng: 136.4390 },
+      { name: '加賀温泉',      kana: 'かがおんせん',          lat: 36.2933, lng: 136.3349 },
+      { name: '芦原温泉',      kana: 'あわらおんせん',        lat: 36.2090, lng: 136.2260 },
+      { name: '福井',          kana: 'ふくい',                lat: 36.0638, lng: 136.2196 },
+      { name: '越前たけふ',    kana: 'えちぜんたけふ',        lat: 35.9167, lng: 136.1746 },
+      { name: '敦賀',          kana: 'つるが',                lat: 35.6456, lng: 136.0569 },
     ]
   },
   {
@@ -427,19 +398,19 @@ const map = L.map('map', {
   center: [36, 136], zoom: 5,
 });
 
-// 透明タイル（日本GeoJSONだけを描くため）
+// 透明タイル（日本GeoJSONのみ表示するため）
 L.tileLayer('data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
-// ── アイコン生成 ──────────────────────────────────────────────────────────────
+// ── アイコン ──────────────────────────────────────────────────────────────────
 function makeRouteLabelIcon(line) {
   const nick = line.nickname.split('・')[0];
   const html = `<div class="route-label-inner">
     <div class="route-label-nick" style="background:${line.color}">${nick}</div>
-    <div class="route-label-kana">${line.kana.slice(0, 7)}</div>
+    <div class="route-label-kana">${line.kana.slice(0,7)}</div>
   </div>`;
-  return L.divIcon({ className: 'route-label', html, iconAnchor: [0, 0] });
+  return L.divIcon({ className: 'route-label', html, iconAnchor: [0,0] });
 }
 
 function makeStationIcon(s, color) {
@@ -448,10 +419,10 @@ function makeStationIcon(s, color) {
     <div class="station-name">${s.name}</div>
     <div class="station-kana">${s.kana}</div>
   </div>`;
-  return L.divIcon({ className: 'station-label', html, iconAnchor: [0, 8] });
+  return L.divIcon({ className: 'station-label', html, iconAnchor: [0,8] });
 }
 
-// ── レイヤー生成 ──────────────────────────────────────────────────────────────
+// ── レイヤー ──────────────────────────────────────────────────────────────────
 const overviewLayers = {};
 const detailLayers   = {};
 
@@ -459,7 +430,7 @@ LINES.forEach(line => {
   const coords = line.stations.map(s => [s.lat, s.lng]);
 
   const ov = L.layerGroup();
-  L.polyline(coords, { color: line.color, weight: 3.5, opacity: 0.92 }).addTo(ov);
+  L.polyline(coords, { color: line.color, weight: 3.5, opacity: 0.9 }).addTo(ov);
   L.marker(line.labelPos, { icon: makeRouteLabelIcon(line), interactive: false }).addTo(ov);
   overviewLayers[line.id] = ov;
 
@@ -471,9 +442,9 @@ LINES.forEach(line => {
   detailLayers[line.id] = dt;
 });
 
-// ── 日本GeoJSON描画 ───────────────────────────────────────────────────────────
+// ── 日本GeoJSON ───────────────────────────────────────────────────────────────
 let ALL_CENTER, ALL_ZOOM;
-const SHINKANSEN_BOUNDS = [[30.8, 129.0], [42.5, 142.5]];
+const BOUNDS = [[30.8, 129.0], [42.5, 142.5]];
 
 fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
   .then(r => r.json())
@@ -482,26 +453,21 @@ fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
       style: { fillColor: '#1e3d5c', fillOpacity: 1, color: '#2d6090', weight: 1 }
     }).addTo(map);
 
-    map.fitBounds(SHINKANSEN_BOUNDS, { padding: [20, 20] });
+    map.fitBounds(BOUNDS, { padding: [10, 10] });
     ALL_CENTER = map.getCenter();
     ALL_ZOOM   = map.getZoom();
-
     LINES.forEach(l => overviewLayers[l.id].addTo(map));
-
-    // アイソメビューに切り替え
-    document.getElementById('map').classList.add('iso');
     document.getElementById('loading').style.display = 'none';
   })
   .catch(() => {
-    map.fitBounds(SHINKANSEN_BOUNDS, { padding: [20, 20] });
+    map.fitBounds(BOUNDS, { padding: [10, 10] });
     ALL_CENTER = map.getCenter();
     ALL_ZOOM   = map.getZoom();
     LINES.forEach(l => overviewLayers[l.id].addTo(map));
-    document.getElementById('map').classList.add('iso');
     document.getElementById('loading').style.display = 'none';
   });
 
-// ── 下部チップ生成 ────────────────────────────────────────────────────────────
+// ── 下部チップ ────────────────────────────────────────────────────────────────
 const chipsEl = document.getElementById('line-chips');
 LINES.forEach(line => {
   const chip = document.createElement('div');
@@ -525,15 +491,8 @@ function selectLine(id) {
   LINES.forEach(l => { map.removeLayer(overviewLayers[l.id]); map.removeLayer(detailLayers[l.id]); });
   detailLayers[id].addTo(map);
 
-  // アイソメを解除してフラットな地図に
-  const mapEl = document.getElementById('map');
-  mapEl.classList.remove('iso');
-
-  // トランジション後にfitBounds + invalidateSize
-  setTimeout(() => {
-    map.invalidateSize();
-    map.fitBounds(L.latLngBounds(line.stations.map(s => [s.lat, s.lng])), { padding: [48, 48], animate: true });
-  }, 100);
+  map.invalidateSize();
+  map.fitBounds(L.latLngBounds(line.stations.map(s => [s.lat, s.lng])), { padding: [48, 48], animate: true });
 
   document.querySelectorAll('.line-chip').forEach(c => c.classList.toggle('active', c.dataset.id === id));
   document.getElementById('sidebar').classList.add('visible');
@@ -546,7 +505,7 @@ function selectLine(id) {
     <div class="sidebar-line-kana">${line.kana}</div>
     <div class="sidebar-nickname-badge" style="background:${line.color}">${line.nickname}</div>
     <ul class="station-list" style="--c:${line.color}">
-      ${line.stations.map(s => `<li><div class="s-name">${s.name}</div><div class="s-kana">${s.kana}</div></li>`).join('')}
+      ${line.stations.map(s=>`<li><div class="s-name">${s.name}</div><div class="s-kana">${s.kana}</div></li>`).join('')}
     </ul>`;
 
   fetchPhoto(line);
@@ -557,21 +516,18 @@ function resetToAll() {
   if (currentId) map.removeLayer(detailLayers[currentId]);
   currentId = null;
 
-  LINES.forEach(l => overviewLayers[l.id].addTo(map));
-
   document.getElementById('sidebar').classList.remove('visible');
+  setTimeout(() => {
+    map.invalidateSize();
+    LINES.forEach(l => overviewLayers[l.id].addTo(map));
+    if (ALL_CENTER) map.setView(ALL_CENTER, ALL_ZOOM, { animate: true });
+  }, 50);
+
+  document.querySelectorAll('.line-chip').forEach(c => c.classList.remove('active'));
   document.getElementById('back-btn').classList.remove('visible');
   document.getElementById('header-sub').textContent = 'にほんには、たくさんのしんかんせんがある！';
   document.getElementById('photo-wrap').innerHTML = '<span class="emoji">🚄</span>';
   document.getElementById('photo-caption').innerHTML = '';
-  document.querySelectorAll('.line-chip').forEach(c => c.classList.remove('active'));
-
-  // フラット→アイソメへ戻す
-  if (ALL_CENTER) map.setView(ALL_CENTER, ALL_ZOOM);
-  setTimeout(() => {
-    map.invalidateSize();
-    document.getElementById('map').classList.add('iso');
-  }, 50);
 }
 
 // ── 写真取得 ──────────────────────────────────────────────────────────────────
