@@ -14,6 +14,7 @@ import { createRankings } from "./views/rankings.js";
 import { createStandings } from "./views/standingstab.js";
 import { createTeamList } from "./views/teamlist.js";
 import { createJapan } from "./views/japan.js";
+import { createMatchModal } from "./views/matchmodal.js";
 import { fetchLiveData } from "./views/livedata.js";
 
 const $ = (id) => document.getElementById(id);
@@ -217,15 +218,27 @@ function toggleTheme() {
   applyThemeButton();
 }
 
+const matchModal = createMatchModal();
+
 function bind() {
   document.querySelectorAll(".tab").forEach((b) =>
     b.addEventListener("click", () => setTab(b.dataset.tab))
   );
-  // Clicking the brand returns to the first tab (schedule).
   document.querySelector(".brand")?.addEventListener("click", () => setTab("schedule"));
   $("refresh-btn")?.addEventListener("click", () => refreshLive({}));
   $("theme-btn")?.addEventListener("click", toggleTheme);
   applyThemeButton();
+
+  // Global delegated handler: clicking any match card opens its detail modal.
+  document.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-match-id]");
+    if (!card) return;
+    // Don't open modal when clicking a team link inside a card.
+    if (e.target.closest(".team-link")) return;
+    const id = card.dataset.matchId;
+    const m = data.matches.find((mm) => mm.id === id);
+    if (m) matchModal.open(m, data);
+  });
 }
 
 (async function boot() {

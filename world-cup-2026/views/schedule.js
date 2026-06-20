@@ -96,7 +96,7 @@ export function createSchedule({ container, data }) {
       ? `<div class="m-score">${m.result[0]}<span>-</span>${m.result[1]}</div>`
       : `<div class="m-vs">vs</div>`;
 
-    return `<div class="m-card">
+    return `<div class="m-card" data-match-id="${m.id}" role="button" tabindex="0">
       <div class="m-side home">${side(m.home, m.homeLabel)}</div>
       ${center}
       <div class="m-side away">${side(m.away, m.awayLabel)}</div>

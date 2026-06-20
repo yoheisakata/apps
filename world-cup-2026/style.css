@@ -824,6 +824,150 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 tr.japan-row { background: rgba(0,212,160,.06); }
 tr.japan-row td { font-weight: 700; }
 
+/* ---- Match detail modal ---- */
+#match-modal {
+  position: fixed;
+  z-index: 3000;
+}
+.mm-card {
+  width: 500px;
+  max-width: 94%;
+}
+.mm-body { padding: 20px 24px 24px; }
+.mm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.mm-stage {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.mm-match-id {
+  font-size: 11px;
+  color: var(--muted);
+}
+.mm-status {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  padding: 4px 0;
+}
+.mm-status.finished { color: var(--win); }
+.mm-status.upcoming { color: var(--accent2); }
+
+.mm-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.mm-team-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+.mm-team-block:first-child { justify-self: end; }
+.mm-team-block:last-child { justify-self: start; }
+.mm-flag { font-size: 40px; line-height: 1; }
+.mm-tname { font-size: 15px; font-weight: 700; }
+.mm-tmeta { font-size: 10px; color: var(--muted); }
+.mm-team-block.tbd .mm-tname { color: var(--muted); font-weight: 400; font-size: 12px; }
+
+.mm-score-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mm-score-num {
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.mm-score-sep {
+  font-size: 24px;
+  color: var(--muted);
+  font-weight: 300;
+}
+.mm-vs-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+
+/* Scorers */
+.mm-scorers {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: var(--panel2);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.mm-scorers-side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mm-scorers-side.home { align-items: flex-end; text-align: right; }
+.mm-scorers-side.away { align-items: flex-start; text-align: left; }
+.mm-scorers-divider {
+  width: 1px;
+  background: var(--line);
+  align-self: stretch;
+}
+.mm-scorer {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mm-no-goal {
+  font-size: 12px;
+  color: var(--muted);
+}
+.mm-scorers-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Venue details */
+.mm-details {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.mm-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.mm-dk { color: var(--muted); }
+.mm-dv { font-weight: 500; text-align: right; }
+
+/* Make match cards look clickable */
+.m-card[data-match-id] { cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.m-card[data-match-id]:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,212,160,.12); }
+.japan-match-card[data-match-id] { cursor: pointer; transition: border-color .12s; }
+.japan-match-card[data-match-id]:hover { border-color: var(--accent); }
+.result-row[data-match-id] { cursor: pointer; transition: background .12s; }
+.result-row[data-match-id]:hover { background: var(--panel); }
+
 /* ---- Global countdown (header) ---- */
 .countdown-wrap {
   display: flex;
