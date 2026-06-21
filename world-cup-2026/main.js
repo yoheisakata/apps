@@ -158,7 +158,12 @@ async function refreshLive({ silent } = {}) {
     setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
     rerenderAll();
   } catch (e) {
-    setStatus("更新失敗 — 保存データを表示中", "err");
+    const played = data.matches.filter((m) => m.result).length;
+    if (data.source === "cache") {
+      setStatus(`保存データを表示中 / ${played}試合`, "");
+    } else {
+      setStatus(`オフラインモード — 静的データ (${data.asOf || "—"}) / ${played}試合`, "");
+    }
   } finally {
     if (btn) btn.disabled = false;
   }
