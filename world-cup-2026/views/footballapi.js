@@ -114,9 +114,52 @@ function parseGoals(goals, teamId) {
     .map((g) => g.scorer?.name?.split(" ").pop() || "Unknown");
 }
 
+// Rich goal detail: { name, minute, type, assist }
+function parseGoalDetails(goals, teamId) {
+  if (!Array.isArray(goals)) return [];
+  return goals
+    .filter((g) => g.team?.id === teamId)
+    .map((g) => ({
+      name: g.scorer?.name?.split(" ").pop() || "Unknown",
+      fullName: g.scorer?.name || "Unknown",
+      minute: g.minute ?? null,
+      injuryTime: g.injuryTime ?? null,
+      type: g.type || "REGULAR",
+      assist: g.assist?.name || null,
+    }));
+}
+
 function countOwnGoalsForTeam(goals, teamId) {
   if (!Array.isArray(goals)) return 0;
   return goals.filter((g) => g.team?.id === teamId && g.type === "OWN").length;
+}
+
+// Parse referees from the API.
+function parseReferees(referees) {
+  if (!Array.isArray(referees)) return [];
+  return referees.map((r) => ({
+    name: r.name,
+    type: r.type,
+    nationality: r.nationality,
+  }));
+}
+
+// Map API status to a display-friendly status.
+function mapStatus(status) {
+  const m = {
+    SCHEDULED: "scheduled",
+    TIMED: "timed",
+    IN_PLAY: "live",
+    PAUSED: "halftime",
+    EXTRA_TIME: "extra_time",
+    PENALTY_SHOOTOUT: "penalties",
+    FINISHED: "finished",
+    SUSPENDED: "suspended",
+    POSTPONED: "postponed",
+    CANCELLED: "cancelled",
+    AWARDED: "finished",
+  };
+  return m[status] || "scheduled";
 }
 
 // Fetch matches + standings from Football-Data.org and return the same
@@ -187,6 +230,17 @@ export async function fetchFootballData(knownTeams) {
     const ownGoals1 = countOwnGoalsForTeam(am.goals, am.homeTeam?.id);
     const ownGoals2 = countOwnGoalsForTeam(am.goals, am.awayTeam?.id);
 
+    // Rich details from Football-Data.org
+    const goalDetails1 = parseGoalDetails(am.goals, am.homeTeam?.id);
+    const goalDetails2 = parseGoalDetails(am.goals, am.awayTeam?.id);
+    const halfTime = am.score?.halfTime;
+    const extraTime = am.score?.extraTime;
+    const penalties = am.score?.penalties;
+    const referees = parseReferees(am.referees);
+    const status = mapStatus(am.status);
+    const kickoff = am.utcDate || null;
+    const matchday = am.matchday || null;
+
     const entry = {
       id: `M${String(mid).padStart(3, "0")}`,
       stage,
@@ -199,6 +253,15 @@ export async function fetchFootballData(knownTeams) {
       scorers2,
       ownGoals1,
       ownGoals2,
+      goalDetails1,
+      goalDetails2,
+      halfTime: halfTime?.home != null ? [halfTime.home, halfTime.away] : null,
+      extraTime: extraTime?.home != null ? [extraTime.home, extraTime.away] : null,
+      penalties: penalties?.home != null ? [penalties.home, penalties.away] : null,
+      referees,
+      status,
+      kickoff,
+      matchday,
     };
     if (stage === "group" && group) entry.group = group;
     if (stage !== "group") {
