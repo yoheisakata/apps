@@ -1079,25 +1079,221 @@ tr.japan-row td { font-weight: 700; }
 .cd-label { color: var(--muted); }
 .cd-timer { font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* ---- Mobile ---- */
-@media (max-width: 760px) {
+/* ---- Tablet (≤960px) ---- */
+@media (max-width: 960px) {
   .japan-grid { grid-template-columns: 1fr; }
-  .japan-header { gap: 10px; }
-  .japan-stats { margin-left: 0; }
-  .japan-flag { font-size: 36px; }
-  .jc-timer { font-size: 24px; }
-  .japan-match-card { grid-template-columns: 60px 1fr auto; }
-  .countdown-wrap { display: none; }
   .country-grid { grid-template-columns: 1fr; }
-  .result-row { grid-template-columns: 20px 56px 1fr auto; }
-  .result-row .r-date { display: none; }
-  #topbar { flex-wrap: wrap; gap: 10px; }
+  .card-list { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .tl-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+}
+
+/* ---- Mobile (≤760px) ---- */
+@media (max-width: 760px) {
+  html { font-size: 15px; -webkit-text-size-adjust: 100%; }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* Header: compact layout */
+  #topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand { font-size: 15px; }
+  .brand .ball { font-size: 18px; }
   .host { display: none; }
   .update-status { display: none; }
-  .update-wrap { margin-left: auto; }
-  #tabs { order: 3; width: 100%; }
-  .tab { flex: 1; padding: 7px 4px; font-size: 13px; }
-  .leaflet-host { height: calc(100vh - 230px); }
-  .card-list { grid-template-columns: 1fr; }
+  .update-wrap { margin-left: auto; gap: 4px; }
+  .refresh-btn { padding: 6px 10px; font-size: 14px; }
+
+  /* Tabs: horizontal scroll */
+  #tabs {
+    order: 3;
+    width: calc(100% + 24px);
+    margin: 0 -12px;
+    padding: 0 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    min-height: 36px;
+  }
+
+  /* Countdown in header */
+  .countdown-wrap { display: none; }
+
+  /* Main content */
+  .view { padding: 14px 12px; }
+  h2.section-title { font-size: 16px; }
+  .banner { font-size: 12px; padding: 8px 10px; }
+
+  /* Chips toolbar: horizontal scroll */
+  .toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0 -12px 14px;
+    padding: 0 12px;
+    gap: 6px;
+  }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; font-size: 12px; padding: 6px 12px; min-height: 32px; }
+
+  /* Match cards: single column, compact */
+  .card-list { grid-template-columns: 1fr; gap: 8px; }
+  .m-card {
+    padding: 10px 10px;
+    gap: 6px;
+  }
+  .m-team { font-size: 13px; gap: 5px; }
+  .m-team .flag { font-size: 18px; }
+  .m-score { font-size: 16px; }
+  .m-vs { font-size: 11px; }
+  .m-meta { gap: 8px; margin-top: 6px; padding-top: 6px; font-size: 10px; }
+
+  /* Group tables */
+  .groups-grid { grid-template-columns: 1fr; }
+  .standings th, .standings td { padding: 5px 6px; font-size: 12px; }
+  .standings th { font-size: 10px; }
+
+  /* Japan page */
+  .japan-header { gap: 10px; }
+  .japan-flag { font-size: 36px; }
+  .japan-title { font-size: 20px; }
+  .japan-stats { margin-left: 0; width: 100%; justify-content: center; }
+  .japan-stat { padding: 6px 12px; min-width: 48px; }
+  .js-num { font-size: 18px; }
+  .jc-timer { font-size: 24px; letter-spacing: 1px; }
+  .jc-match { font-size: 14px; gap: 8px; }
+  .japan-countdown { padding: 16px; }
+  .japan-match-card {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+  .jm-date { font-size: 11px; }
+  .jm-teams { flex-wrap: wrap; gap: 4px; }
+  .jm-venue { margin-top: 2px; }
+
+  /* Country page */
+  .country-grid { grid-template-columns: 1fr; }
+  .country-title .c-flag { font-size: 28px; }
+  .country-title .c-name { font-size: 20px; }
+  .result-row {
+    grid-template-columns: 20px 50px 1fr auto;
+    gap: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .result-row .r-date { display: none; }
+
+  /* Squad table: horizontal scroll */
+  .squad-table { font-size: 12px; }
+  .squad-table th, .squad-table td { padding: 5px 6px; }
+  .squad-table .p-club { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Scorer list */
+  .scorer-row { gap: 6px; padding: 5px 6px; }
+  .scorer-row .s-name { font-size: 13px; }
+
+  /* Team list */
+  .tl-grid { grid-template-columns: 1fr; gap: 8px; }
+  .tl-card { padding: 10px 12px; }
+  .tl-flag { font-size: 26px; }
+
+  /* Ranking table */
+  .rank-table { font-size: 13px; }
+  .rank-table th, .rank-table td { padding: 6px 6px; }
+  .goal-bar { max-width: 40px; }
+
+  /* Maps */
+  .leaflet-host { height: calc(100vh - 200px); min-height: 300px; }
+
+  /* Modals: near full screen on mobile */
+  .city-modal-card {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+  .cm-card { padding: 14px 14px 16px; }
+  .cm-title { font-size: 18px; }
   .cm-photos { grid-template-columns: 1fr; }
+  .cm-img { height: 180px; }
+  .cm-photo-single .cm-img { height: 200px; }
+
+  /* Match detail modal */
+  .mm-card {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px 12px 0 0;
+    max-height: 92vh;
+  }
+  .mm-body { padding: 16px 14px 20px; }
+  .mm-flag { font-size: 32px; }
+  .mm-tname { font-size: 14px; }
+  .mm-score-num { font-size: 28px; }
+  .mm-score-sep { font-size: 18px; }
+  .mm-scorers { padding: 10px 10px; gap: 6px; }
+  .mm-scorer { font-size: 11px; }
+  .mm-detail-row { font-size: 12px; }
+
+  /* Bracket: smaller slots */
+  .round { min-width: 110px; }
+  .slot { font-size: 11px; padding: 3px 5px; }
+  .bracket { gap: 10px; }
+  .champion-box { min-width: 100px; }
+  .champion-box .trophy { font-size: 24px; }
+  .champion-box .name { font-size: 13px; }
+  .champ-callout { padding: 6px 10px; }
+  .champ-callout .cc-team { font-size: 15px; }
+}
+
+/* ---- Small phones (≤400px) ---- */
+@media (max-width: 400px) {
+  .view { padding: 10px 8px; }
+  .m-card { padding: 8px; }
+  .m-team { font-size: 12px; }
+  .m-team .flag { font-size: 16px; }
+  .m-score { font-size: 15px; }
+  .japan-stats { gap: 6px; }
+  .japan-stat { padding: 5px 8px; }
+  .js-num { font-size: 16px; }
+  .jc-timer { font-size: 20px; }
+  .tab { padding: 7px 10px; font-size: 12px; }
+  .mm-flag { font-size: 26px; }
+  .mm-tname { font-size: 13px; }
+  .mm-score-num { font-size: 24px; }
+  .standings th, .standings td { padding: 4px 4px; font-size: 11px; }
+}
+
+/* ---- Touch-friendly: larger tap targets ---- */
+@media (hover: none) and (pointer: coarse) {
+  .tab { min-height: 40px; }
+  .chip { min-height: 36px; }
+  .m-card { min-height: 56px; }
+  .refresh-btn { min-height: 36px; min-width: 36px; }
+  .tl-card { min-height: 52px; }
+  .japan-match-card { min-height: 52px; }
+  .result-row { min-height: 40px; }
+  .team-link { padding: 2px 4px; }
+  .player-link { padding: 2px 0; }
+  .m-card[data-match-id]:hover { border-color: var(--line); box-shadow: none; }
+  .m-card[data-match-id]:active { border-color: var(--accent); background: var(--panel2); }
+  .japan-match-card[data-match-id]:hover { border-color: inherit; }
+  .japan-match-card[data-match-id]:active { border-color: var(--accent); }
+  .result-row[data-match-id]:hover { background: var(--panel2); }
+  .result-row[data-match-id]:active { background: var(--panel); }
 }
