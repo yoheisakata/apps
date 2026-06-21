@@ -46,6 +46,46 @@ function scorerList(scorers) {
     .join("");
 }
 
+// Rich goal detail list with minute, type (PK/OG), and assist.
+function goalDetailList(details) {
+  if (!details || !details.length) return "";
+  return details.map((g) => {
+    const min = g.minute != null
+      ? `${g.minute}${g.injuryTime ? `+${g.injuryTime}` : ""}'`
+      : "";
+    const tag = g.type === "OWN" ? ' <span class="mm-og-tag">OG</span>'
+      : g.type === "PENALTY" ? ' <span class="mm-pk-tag">PK</span>'
+      : "";
+    const assist = g.assist ? ` <span class="mm-assist">(${esc(g.assist.split(" ").pop())})</span>` : "";
+    return `<div class="mm-goal-detail">
+      <span class="mm-goal-min">${min}</span>
+      <span class="mm-goal-icon">${g.type === "OWN" ? "🔴" : "⚽"}</span>
+      <span class="mm-goal-name">${esc(g.name)}${tag}${assist}</span>
+    </div>`;
+  }).join("");
+}
+
+function formatKickoff(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+const STATUS_LABEL = {
+  scheduled: "未実施",
+  timed: "未実施",
+  live: "🔴 試合中",
+  halftime: "🔴 ハーフタイム",
+  extra_time: "🔴 延長戦",
+  penalties: "🔴 PK戦",
+  finished: "試合終了",
+  suspended: "中断",
+  postponed: "延期",
+  cancelled: "中止",
+};
+
 function youtubeSearchUrl(homeName, awayName) {
   const q = `${homeName} vs ${awayName} FIFA World Cup 2026 highlights`;
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
@@ -105,56 +145,90 @@ export function createMatchModal() {
     const stageText = STAGE_LABEL[m.stage] || m.stage;
     const groupText = m.group ? ` ${m.group}` : "";
 
-    const scoreSection = played
+    const hasRichGoals = m.goalDetails1?.length || m.goalDetails2?.length;
+    const isLive = m.status === "live" || m.status === "halftime" || m.status === "extra_time" || m.status === "penalties";
+
+    const scoreSection = played || isLive
       ? `<div class="mm-score-wrap">
-          <div class="mm-score-num">${m.result[0]}</div>
+          <div class="mm-score-num">${m.result ? m.result[0] : "0"}</div>
           <div class="mm-score-sep">-</div>
-          <div class="mm-score-num">${m.result[1]}</div>
+          <div class="mm-score-num">${m.result ? m.result[1] : "0"}</div>
         </div>`
       : `<div class="mm-score-wrap"><div class="mm-vs-label">VS</div></div>`;
 
-    const homeScorers = scorerList(m.scorers1);
-    const awayScorers = scorerList(m.scorers2);
+    // Sub-scores: half-time, extra time, penalties
+    let subScores = "";
+    if (m.halfTime) subScores += `<span class="mm-sub-score">前半 ${m.halfTime[0]}-${m.halfTime[1]}</span>`;
+    if (m.extraTime) subScores += `<span class="mm-sub-score">延長 ${m.extraTime[0]}-${m.extraTime[1]}</span>`;
+    if (m.penalties) subScores += `<span class="mm-sub-score mm-pk-score">PK ${m.penalties[0]}-${m.penalties[1]}</span>`;
+    const subScoreSection = subScores ? `<div class="mm-sub-scores">${subScores}</div>` : "";
 
-    const scorersSection = (homeScorers || awayScorers)
-      ? `<div class="mm-scorers">
-          <div class="mm-scorers-side home">${homeScorers || '<span class="mm-no-goal">—</span>'}</div>
-          <div class="mm-scorers-divider"></div>
-          <div class="mm-scorers-side away">${awayScorers || '<span class="mm-no-goal">—</span>'}</div>
-        </div>`
-      : played
-        ? `<div class="mm-scorers"><div class="mm-scorers-empty">得点者データなし</div></div>`
-        : "";
+    // Use rich goal details if available (from Football-Data.org), else simple list
+    let scorersSection = "";
+    if (hasRichGoals) {
+      const homeGoals = goalDetailList(m.goalDetails1);
+      const awayGoals = goalDetailList(m.goalDetails2);
+      scorersSection = `<div class="mm-scorers rich">
+        <div class="mm-scorers-side home">${homeGoals || '<span class="mm-no-goal">—</span>'}</div>
+        <div class="mm-scorers-divider"></div>
+        <div class="mm-scorers-side away">${awayGoals || '<span class="mm-no-goal">—</span>'}</div>
+      </div>`;
+    } else {
+      const homeScorers = scorerList(m.scorers1);
+      const awayScorers = scorerList(m.scorers2);
+      scorersSection = (homeScorers || awayScorers)
+        ? `<div class="mm-scorers">
+            <div class="mm-scorers-side home">${homeScorers || '<span class="mm-no-goal">—</span>'}</div>
+            <div class="mm-scorers-divider"></div>
+            <div class="mm-scorers-side away">${awayScorers || '<span class="mm-no-goal">—</span>'}</div>
+          </div>`
+        : played
+          ? `<div class="mm-scorers"><div class="mm-scorers-empty">得点者データなし</div></div>`
+          : "";
+    }
 
-    const statusText = played
-      ? "試合終了"
-      : m.date
-        ? "未実施"
-        : "日程未定";
-    const statusClass = played ? "finished" : "upcoming";
+    const statusText = STATUS_LABEL[m.status] || (played ? "試合終了" : m.date ? "未実施" : "日程未定");
+    const statusClass = isLive ? "live" : played ? "finished" : "upcoming";
 
     const homeTeam = data.byCode?.[m.home];
     const awayTeam = data.byCode?.[m.away];
     const showHighlight = played && homeTeam && awayTeam;
+
+    // Kickoff time
+    const kickoffTime = formatKickoff(m.kickoff);
+
+    // Referee info
+    const mainRef = m.referees?.find((r) => r.type === "REFEREE");
+    const refHtml = mainRef
+      ? `<div class="mm-detail-row"><span class="mm-dk">主審</span><span class="mm-dv">${esc(mainRef.name)}${mainRef.nationality ? ` (${esc(mainRef.nationality)})` : ""}</span></div>`
+      : "";
+
+    // Matchday info
+    const matchdayHtml = m.matchday
+      ? `<div class="mm-detail-row"><span class="mm-dk">節</span><span class="mm-dv">第${m.matchday}節</span></div>`
+      : "";
 
     body.innerHTML = `
       <div class="mm-header">
         <span class="mm-stage">${esc(stageText)}${esc(groupText)}</span>
         <span class="mm-match-id">${esc(m.id)}</span>
       </div>
-      <div class="mm-status ${statusClass}">${statusText}</div>
+      <div class="mm-status ${statusClass}">${esc(statusText)}</div>
       <div class="mm-teams">
         ${teamBlock(m.home, m.homeLabel, data)}
         ${scoreSection}
         ${teamBlock(m.away, m.awayLabel, data)}
       </div>
+      ${subScoreSection}
       ${scorersSection}
       ${showHighlight ? '<div id="mm-yt-area"><div class="mm-yt-loading">🎬 ハイライト動画を検索中…</div></div>' : ""}
       <div class="mm-details">
-        ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(m.date)}</span></div>` : ""}
+        ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(m.date)}${kickoffTime ? ` ${kickoffTime} (現地)` : ""}</span></div>` : ""}
+        ${matchdayHtml}
         ${venue ? `<div class="mm-detail-row"><span class="mm-dk">スタジアム</span><span class="mm-dv">${esc(venue.stadium)}</span></div>` : ""}
         ${venue ? `<div class="mm-detail-row"><span class="mm-dk">都市</span><span class="mm-dv">${esc(venue.city)}</span></div>` : ""}
         ${venue?.capacity ? `<div class="mm-detail-row"><span class="mm-dk">収容人数</span><span class="mm-dv">${venue.capacity.toLocaleString()}人</span></div>` : ""}
+        ${refHtml}
       </div>
     `;
 

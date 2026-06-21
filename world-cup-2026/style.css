@@ -231,6 +231,24 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   gap: 5px;
 }
 .m-score span { color: var(--muted); font-weight: 400; }
+.m-live-score { color: #e00; }
+.m-live-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  background: #e00;
+  border-radius: 4px;
+  padding: 1px 6px;
+  text-align: center;
+  animation: mm-pulse 1.5s ease-in-out infinite;
+}
+.m-card-live { border-color: #e00; box-shadow: 0 0 8px rgba(224,0,0,.15); }
+.m-pen {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 600;
+  text-align: center;
+}
 .m-vs { font-size: 12px; color: var(--muted); }
 .m-meta {
   grid-column: 1 / -1;
@@ -944,6 +962,95 @@ tr.japan-row td { font-weight: 700; }
   text-align: center;
   font-size: 12px;
   color: var(--muted);
+}
+
+/* Sub-scores (half-time, extra time, penalties) */
+.mm-sub-scores {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 4px 0 8px;
+  flex-wrap: wrap;
+}
+.mm-sub-score {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 2px 10px;
+}
+.mm-pk-score {
+  color: var(--accent);
+  font-weight: 600;
+  border-color: var(--accent);
+}
+
+/* Rich goal details (minute + assist) */
+.mm-scorers.rich .mm-scorers-side {
+  gap: 2px;
+}
+.mm-goal-detail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.mm-scorers-side.home .mm-goal-detail {
+  flex-direction: row-reverse;
+}
+.mm-goal-min {
+  font-size: 10px;
+  color: var(--muted);
+  min-width: 28px;
+  text-align: center;
+}
+.mm-goal-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+.mm-goal-name {
+  font-weight: 500;
+}
+.mm-og-tag, .mm-pk-tag {
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 0 4px;
+  vertical-align: middle;
+}
+.mm-og-tag {
+  background: #fee;
+  color: #c00;
+}
+.mm-pk-tag {
+  background: #eef6ff;
+  color: var(--accent);
+}
+[data-theme="dark"] .mm-og-tag {
+  background: #3a1010;
+  color: #f88;
+}
+[data-theme="dark"] .mm-pk-tag {
+  background: #0e1e30;
+  color: #6cb4ff;
+}
+.mm-assist {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Live match status */
+.mm-status.live {
+  color: #e00;
+  font-weight: 700;
+  animation: mm-pulse 1.5s ease-in-out infinite;
+}
+@keyframes mm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
 }
 
 /* Venue details */

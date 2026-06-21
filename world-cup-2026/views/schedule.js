@@ -94,20 +94,40 @@ export function createSchedule({ container, data }) {
   // A BBC-style match card. Knockout fixtures show the real slot labels
   // (e.g. "A組 1位 vs B組 2位") with their real date/venue — no predicted
   // teams here (predictions live only in the 優勝予想 tab).
+  function fmtTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return ` ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
   function matchCard(m) {
     const venue = data.venueById[m.venue];
     const played = Array.isArray(m.result);
+    const isLive = m.status === "live" || m.status === "halftime" || m.status === "extra_time" || m.status === "penalties";
 
-    const center = played
-      ? `<div class="m-score">${m.result[0]}<span>-</span>${m.result[1]}</div>`
-      : `<div class="m-vs">vs</div>`;
+    const liveLabel = { live: "LIVE", halftime: "HT", extra_time: "延長", penalties: "PK" };
 
-    return `<div class="m-card" data-match-id="${m.id}" role="button" tabindex="0">
+    let center;
+    if (played) {
+      const pen = m.penalties ? `<div class="m-pen">PK ${m.penalties[0]}-${m.penalties[1]}</div>` : "";
+      center = `<div class="m-score">${m.result[0]}<span>-</span>${m.result[1]}</div>${pen}`;
+    } else if (isLive) {
+      center = `<div class="m-score m-live-score">${m.result ? m.result[0] : "0"}<span>-</span>${m.result ? m.result[1] : "0"}</div>
+        <div class="m-live-badge">${liveLabel[m.status] || "LIVE"}</div>`;
+    } else {
+      center = `<div class="m-vs">vs</div>`;
+    }
+
+    const kickoffTime = m.kickoff ? fmtTime(m.kickoff) : "";
+
+    return `<div class="m-card${isLive ? " m-card-live" : ""}" data-match-id="${m.id}" role="button" tabindex="0">
       <div class="m-side home">${side(m.home, m.homeLabel)}</div>
       ${center}
       <div class="m-side away">${side(m.away, m.awayLabel)}</div>
       <div class="m-meta">
-        ${m.date ? `<span class="m-date">${m.date}</span>` : `<span class="m-date tbd">日程未定</span>`}
+        ${m.date ? `<span class="m-date">${m.date}${kickoffTime}</span>` : `<span class="m-date tbd">日程未定</span>`}
         ${venue ? `<span class="m-venue">${venue.city}</span>` : ""}
       </div>
     </div>`;
@@ -197,7 +217,7 @@ export function createSchedule({ container, data }) {
 
     container.innerHTML = `
       <h2 class="section-title">📅 日程・結果 <span class="sub">全${data.matches.length}試合</span></h2>
-      <div class="banner">組分け・結果は Wikipedia から自動取得（${data.asOf || "—"} 時点）。順位表はスコアから自動集計。ノックアウトは実際の日程・会場・対戦枠（各組順位）を表示。</div>
+      <div class="banner">組分け・結果は Football-Data.org API / Wikipedia から自動取得（${data.asOf || "—"} 時点）。順位表はスコアから自動集計。試合カードをクリックで詳細（得点者・分・アシスト・審判等）。</div>
       <div class="toolbar">${chips}</div>
       ${body}
     `;
