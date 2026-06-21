@@ -63,26 +63,48 @@ export function createCountry({ container, data, onBack }) {
     return t ? `${t.flag} ${t.name}` : "未定";
   }
 
+  let countdownInterval = null;
+
   function nextMatchCard() {
     const m = nextMatch();
     if (!m) return "";
+    const t = data.byCode[code];
     const opp = m.home === code ? m.away : m.home;
     const oppTeam = data.byCode[opp];
     const venue = data.venueById[m.venue];
     const timeStr = m.time || "";
-    return `<div class="card next-match-card" data-match-id="${m.id}" role="button" tabindex="0">
-      <h3>📅 次の試合</h3>
-      <div class="nm-teams">
-        <span class="nm-team">${teamName(code)}</span>
-        <span class="nm-vs">vs</span>
-        <span class="nm-team">${oppTeam ? teamName(opp) : "未定"}</span>
+    const stageText = STAGE_LABEL[m.stage] || "";
+    return `<div class="country-countdown" id="country-countdown" data-match-id="${m.id}" role="button" tabindex="0">
+      <div class="jc-label">次の試合まで</div>
+      <div class="jc-timer" id="cc-timer">--:--:--:--</div>
+      <div class="jc-match">
+        <span class="jc-team">${t ? t.flag + " " + t.name : code}</span>
+        <span class="jc-vs">vs</span>
+        <span class="jc-team">${oppTeam ? oppTeam.flag + " " + oppTeam.name : "未定"}</span>
       </div>
-      <div class="nm-info">
-        ${m.date ? `<span>${m.date}${timeStr ? ` ${timeStr}` : ""}</span>` : ""}
-        ${venue ? `<span>${esc(venue.city)} · ${esc(venue.stadium)}</span>` : ""}
-        <span>${STAGE_LABEL[m.stage] || ""}${m.group ? " " + m.group : ""}</span>
-      </div>
+      <div class="jc-info">${m.date || ""}${timeStr ? " " + timeStr : ""}${venue ? " · " + esc(venue.city) + " · " + esc(venue.stadium) : ""}${stageText ? " · " + stageText : ""}${m.group ? " " + m.group : ""}</div>
     </div>`;
+  }
+
+  function startCountdown(m) {
+    if (countdownInterval) clearInterval(countdownInterval);
+    if (!m || !m.date) return;
+    const target = new Date(m.date + "T00:00:00Z");
+    function tick() {
+      const el = container.querySelector("#cc-timer");
+      if (!el) { clearInterval(countdownInterval); return; }
+      const now = new Date();
+      const diff = target - now;
+      if (diff <= 0) { el.textContent = "試合日！"; clearInterval(countdownInterval); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const min = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      const p = (n) => String(n).padStart(2, "0");
+      el.textContent = `${d}日 ${p(h)}:${p(min)}:${p(s)}`;
+    }
+    tick();
+    countdownInterval = setInterval(tick, 1000);
   }
 
   function resultsTable(matches) {
@@ -191,52 +213,26 @@ export function createCountry({ container, data, onBack }) {
       container.innerHTML = `<p class="sub">チームが見つかりません。</p>`;
       return;
     }
+    const results = playedMatches();
+    const next = nextMatch();
     container.innerHTML = `
       ${header(t)}
       <div class="banner">出場メンバーと本大会の得点は Wikipedia から取得。出場・得点（右2列）は<b>代表通算</b>の数字です。</div>
-      <div id="country-body"><p class="sub">選手データを読み込み中…</p></div>
-    `;
-    container.querySelector("#country-back").addEventListener("click", () => onBack());
-
-    let squads;
-    try {
-      squads = await ensureSquads();
-    } catch (e) {
-      container.querySelector("#country-body").innerHTML =
-        `<p class="sub">選手データの取得に失敗しました（ネット接続をご確認ください）。</p>`;
-      return;
-    }
-    // guard: user may have navigated away
-    if (data.byCode[code] !== t) return;
-
-    const players = squads.byCode[code] || [];
-    const teamScorers = tournamentScorers(data.matches)[code] || {};
-    // Assign each scorer's goals to exactly one squad player (deduplicated).
-    goalsMap = teamGoalsByPlayer(squads, code, teamScorers);
-    const ownGoals = teamOwnGoals(data.matches)[code] || 0;
-    // Total = players' goals + own goals benefited from, so it matches the
-    // scoreline (e.g. USA scored 6: 5 by players + 1 own goal).
-    const totalGoals = Object.values(teamScorers).reduce((a, b) => a + b, 0) + ownGoals;
-
-    const body = container.querySelector("#country-body");
-    if (!body) return;
-    const results = playedMatches();
-    body.innerHTML = `
       ${nextMatchCard()}
       <div class="country-grid">
         <div class="country-col">
-          <div class="card">
-            <h3>⚽ 本大会の得点 <span class="sub">${totalGoals}得点</span></h3>
-            ${scorerTable(players, ownGoals)}
+          <div class="card" id="country-scorers">
+            <h3>⚽ 本大会の得点</h3>
+            <p class="sub">読み込み中…</p>
           </div>
           <div class="card">
             <h3>📋 試合結果 <span class="sub">${results.length}試合</span></h3>
             ${resultsTable(results)}
           </div>
         </div>
-        <div class="card">
-          <h3>👥 登録メンバー <span class="sub">${players.length}名</span></h3>
-          ${players.length ? squadTable(players) : `<p class="sub">名簿データがありません。</p>`}
+        <div class="card" id="country-squad">
+          <h3>👥 登録メンバー</h3>
+          <p class="sub">選手データを読み込み中…</p>
         </div>
       </div>
       <div id="player-modal" class="city-modal hidden">
@@ -247,6 +243,41 @@ export function createCountry({ container, data, onBack }) {
         </div>
       </div>
     `;
+    container.querySelector("#country-back").addEventListener("click", () => onBack());
+    startCountdown(next);
+
+    let squads;
+    try {
+      squads = await ensureSquads();
+    } catch (e) {
+      const sq = container.querySelector("#country-squad");
+      if (sq) sq.innerHTML = `<h3>👥 登録メンバー</h3><p class="sub">選手データの取得に失敗しました。</p>`;
+      const sc = container.querySelector("#country-scorers");
+      if (sc) sc.innerHTML = `<h3>⚽ 本大会の得点</h3><p class="sub">データ取得に失敗しました。</p>`;
+      return;
+    }
+    if (data.byCode[code] !== t) return;
+
+    const players = squads.byCode[code] || [];
+    const teamScorers = tournamentScorers(data.matches)[code] || {};
+    goalsMap = teamGoalsByPlayer(squads, code, teamScorers);
+    const ownGoals = teamOwnGoals(data.matches)[code] || 0;
+    const totalGoals = Object.values(teamScorers).reduce((a, b) => a + b, 0) + ownGoals;
+
+    const scorersEl = container.querySelector("#country-scorers");
+    if (scorersEl) {
+      scorersEl.innerHTML = `
+        <h3>⚽ 本大会の得点 <span class="sub">${totalGoals}得点</span></h3>
+        ${scorerTable(players, ownGoals)}
+      `;
+    }
+    const squadEl = container.querySelector("#country-squad");
+    if (squadEl) {
+      squadEl.innerHTML = `
+        <h3>👥 登録メンバー <span class="sub">${players.length}名</span></h3>
+        ${players.length ? squadTable(players) : `<p class="sub">名簿データがありません。</p>`}
+      `;
+    }
 
     bindPlayerLinks();
   }

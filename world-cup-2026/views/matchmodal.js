@@ -1,3 +1,5 @@
+import { fetchMatchStats } from "./footballapi.js?v=3";
+
 const STAGE_LABEL = {
   group: "グループステージ",
   r32: "ラウンド32",
@@ -44,6 +46,21 @@ function scorerList(scorers) {
   return Object.entries(counts)
     .map(([name, n]) => `<span class="mm-scorer">⚽ ${esc(name)}${n > 1 ? ` ×${n}` : ""}</span>`)
     .join("");
+}
+
+function wikiScorerDetailList(details) {
+  if (!details || !details.length) return "";
+  return details.map((g) => {
+    const min = g.minute ? `${g.minute}'` : "";
+    const tag = g.og ? ' <span class="mm-og-tag">OG</span>'
+      : g.pen ? ' <span class="mm-pk-tag">PK</span>'
+      : "";
+    return `<div class="mm-goal-detail">
+      <span class="mm-goal-min">${min}</span>
+      <span class="mm-goal-icon">${g.og ? "🔴" : "⚽"}</span>
+      <span class="mm-goal-name">${esc(g.name)}${tag}</span>
+    </div>`;
+  }).join("");
 }
 
 // Rich goal detail list with minute, type (PK/OG), and assist.
@@ -146,6 +163,7 @@ export function createMatchModal() {
     const groupText = m.group ? ` ${m.group}` : "";
 
     const hasRichGoals = m.goalDetails1?.length || m.goalDetails2?.length;
+    const hasWikiDetails = m.scorerDetails1?.length || m.scorerDetails2?.length;
     const isLive = m.status === "live" || m.status === "halftime" || m.status === "extra_time" || m.status === "penalties";
 
     const scoreSection = played || isLive
@@ -163,11 +181,20 @@ export function createMatchModal() {
     if (m.penalties) subScores += `<span class="mm-sub-score mm-pk-score">PK ${m.penalties[0]}-${m.penalties[1]}</span>`;
     const subScoreSection = subScores ? `<div class="mm-sub-scores">${subScores}</div>` : "";
 
-    // Use rich goal details if available (from Football-Data.org), else simple list
+    // Use rich goal details if available (from Football-Data.org API),
+    // then Wikipedia scorer details (with minutes), else simple name list.
     let scorersSection = "";
     if (hasRichGoals) {
       const homeGoals = goalDetailList(m.goalDetails1);
       const awayGoals = goalDetailList(m.goalDetails2);
+      scorersSection = `<div class="mm-scorers rich">
+        <div class="mm-scorers-side home">${homeGoals || '<span class="mm-no-goal">—</span>'}</div>
+        <div class="mm-scorers-divider"></div>
+        <div class="mm-scorers-side away">${awayGoals || '<span class="mm-no-goal">—</span>'}</div>
+      </div>`;
+    } else if (hasWikiDetails) {
+      const homeGoals = wikiScorerDetailList(m.scorerDetails1);
+      const awayGoals = wikiScorerDetailList(m.scorerDetails2);
       scorersSection = `<div class="mm-scorers rich">
         <div class="mm-scorers-side home">${homeGoals || '<span class="mm-no-goal">—</span>'}</div>
         <div class="mm-scorers-divider"></div>
@@ -221,7 +248,6 @@ export function createMatchModal() {
       </div>
       ${subScoreSection}
       ${scorersSection}
-      ${showHighlight ? '<div id="mm-yt-area"><div class="mm-yt-loading">🎬 ハイライト動画を検索中…</div></div>' : ""}
       <div class="mm-details">
         ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(m.date)}${kickoffTime ? ` ${kickoffTime} (現地)` : ""}</span></div>` : ""}
         ${matchdayHtml}
@@ -230,24 +256,56 @@ export function createMatchModal() {
         ${venue?.capacity ? `<div class="mm-detail-row"><span class="mm-dk">収容人数</span><span class="mm-dv">${venue.capacity.toLocaleString()}人</span></div>` : ""}
         ${refHtml}
       </div>
+      ${played ? '<div id="mm-stats-area"></div>' : ""}
+      ${showHighlight ? '<div id="mm-yt-area"><div class="mm-yt-loading">🎬 ハイライト動画を検索中…</div></div>' : ""}
     `;
 
     overlay.classList.remove("hidden");
 
+    // Fetch stats and YouTube in parallel for played matches.
+    const statsPromise = played && m.apiId ? fetchMatchStats(m.apiId) : Promise.resolve(null);
+    const ytPromise = showHighlight ? searchYouTube(homeTeam.name, awayTeam.name) : Promise.resolve(null);
+
+    const [stats, ytResult] = await Promise.all([statsPromise, ytPromise]);
+    if (overlay.classList.contains("hidden")) return;
+
+    // Render match stats
+    const statsArea = body.querySelector("#mm-stats-area");
+    if (statsArea && stats?.rows?.length) {
+      statsArea.innerHTML = `
+        <div class="mm-stats">
+          <div class="mm-stats-title">📊 試合スタッツ</div>
+          ${stats.rows.map((r) => {
+            const total = r.homeVal + r.awayVal;
+            const hPct = total > 0 ? (r.homeVal / total) * 100 : 50;
+            return `<div class="mm-stat-row">
+              <span class="mm-stat-val home">${esc(r.home)}</span>
+              <div class="mm-stat-center">
+                <div class="mm-stat-bar">
+                  <div class="mm-stat-bar-home" style="width:${hPct}%"></div>
+                </div>
+                <span class="mm-stat-label">${esc(r.label)}</span>
+              </div>
+              <span class="mm-stat-val away">${esc(r.away)}</span>
+            </div>`;
+          }).join("")}
+        </div>`;
+    }
+
+    // Render YouTube (at the bottom)
     if (showHighlight) {
       const ytArea = body.querySelector("#mm-yt-area");
-      const result = await searchYouTube(homeTeam.name, awayTeam.name);
-      if (!ytArea || overlay.classList.contains("hidden")) return;
-      if (result) {
-        const ytUrl = `https://www.youtube.com/watch?v=${result.videoId}`;
-        const thumbUrl = `https://i.ytimg.com/vi/${result.videoId}/hqdefault.jpg`;
+      if (!ytArea) return;
+      if (ytResult) {
+        const ytUrl = `https://www.youtube.com/watch?v=${ytResult.videoId}`;
+        const thumbUrl = `https://i.ytimg.com/vi/${ytResult.videoId}/hqdefault.jpg`;
         ytArea.innerHTML = `
           <a class="mm-yt-thumb-link" href="${ytUrl}" target="_blank" rel="noopener">
             <div class="mm-yt-thumb">
-              <img src="${thumbUrl}" alt="${esc(result.title)}" />
+              <img src="${thumbUrl}" alt="${esc(ytResult.title)}" />
               <div class="mm-yt-play-overlay"><span class="mm-yt-play-btn">▶</span></div>
             </div>
-            <div class="mm-yt-thumb-title">${esc(result.title)}</div>
+            <div class="mm-yt-thumb-title">${esc(ytResult.title)}</div>
           </a>
           <a class="mm-yt-more" href="${youtubeSearchUrl(homeTeam.name, awayTeam.name)}" target="_blank" rel="noopener">
             YouTubeでもっと見る →
