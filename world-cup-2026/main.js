@@ -16,6 +16,7 @@ import { createTeamList } from "./views/teamlist.js?v=3";
 import { createJapan } from "./views/japan.js?v=3";
 import { createMatchModal } from "./views/matchmodal.js?v=3";
 import { fetchLiveData } from "./views/livedata.js?v=3";
+import { fetchFootballData } from "./views/footballapi.js?v=3";
 
 const $ = (id) => document.getElementById(id);
 const LIVE_CACHE_KEY = "wc2026-livedata";
@@ -137,14 +138,24 @@ async function refreshLive({ silent } = {}) {
   if (btn) btn.disabled = true;
   if (!silent) setStatus("更新中…", "loading");
   try {
-    const live = await fetchLiveData();
-    applyLive(live, "live");
+    let live;
+    let source;
+    // Try Football-Data.org first (structured API), fall back to Wikipedia.
+    try {
+      live = await fetchFootballData(data.teams);
+      source = "api";
+    } catch (apiErr) {
+      live = await fetchLiveData();
+      source = "wiki";
+    }
+    applyLive(live, source);
     const fetchedAt = new Date().toISOString();
     try {
       localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify({ ...live, fetchedAt }));
     } catch (_) {}
     const played = live.matches.filter((m) => m.result).length;
-    setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
+    const srcLabel = source === "api" ? "API" : "Wikipedia";
+    setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合 (${srcLabel})`, "ok");
     startGlobalCountdown();
     rerenderAll();
   } catch (e) {
