@@ -144,11 +144,9 @@ export function createWorld({ container, data, onTeam }) {
     const markerBounds = L.latLngBounds(located.map((t) => [t.lat, t.lon]));
     map.setMinZoom(0);
     map.setMaxBounds(null);
-    map.fitBounds(markerBounds, { animate: false, padding: [20, 30] });
-    const fitted = map.getZoom();
-    map.setZoom(fitted + 0.5, { animate: false });
-    map.setMinZoom(fitted);
-    map.setMaxBounds(map.getBounds().pad(0.15));
+    map.fitBounds(markerBounds, { animate: false, padding: [15, 25] });
+    map.setMinZoom(map.getZoom());
+    map.setMaxBounds(map.getBounds().pad(0.05));
   }
 
   function render() {
