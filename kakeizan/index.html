@@ -4,836 +4,337 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✖️</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2020/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✖️</text></svg>">
-<title>かけざんクエスト✖️</title>
+<title>くくをおぼえよう ✖️</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-:root{
-  --bg:#0d0d1a;--card:#1a1a2e;--card2:#16213e;
-  --gold:#ff7f3f;--red:#ff4757;--green:#2ed573;--blue:#1e90ff;--purple:#a855f7;
-  --text:#eee;--muted:#777;
-}
-body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:12px;overflow-x:hidden;}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 10%,rgba(255,127,63,0.12) 0%,transparent 50%),radial-gradient(ellipse at 80% 90%,rgba(168,85,247,0.1) 0%,transparent 50%);pointer-events:none;z-index:0;}
+body{font-family:'Nunito',sans-serif;background:#0d0d1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden;user-select:none;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 10%,rgba(255,159,28,.1) 0%,transparent 50%),radial-gradient(ellipse at 80% 90%,rgba(168,85,247,.08) 0%,transparent 50%);pointer-events:none;}
 
-/* ── SCREENS ── */
-.screen{display:none;position:fixed;inset:0;z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:20px;background:var(--bg);overflow-y:auto;}
+/* ── スクリーン共通 ── */
+.screen{display:none;flex-direction:column;align-items:center;width:100%;max-width:420px;min-height:100vh;padding:0 16px 24px;position:relative;z-index:1;}
 .screen.active{display:flex;}
-.big-btn{background:linear-gradient(135deg,#ff7f3f,#e85d04);border:none;border-radius:16px;color:#fff;font-family:'Nunito',sans-serif;font-size:1.2rem;font-weight:900;padding:14px 40px;cursor:pointer;box-shadow:0 6px 20px rgba(255,127,63,0.35);margin:6px;transition:transform 0.1s;}
-.big-btn:active{transform:scale(0.94);}
-.big-btn.red{background:linear-gradient(135deg,#ff4757,#c0392b);color:#fff;box-shadow:0 6px 20px rgba(255,71,87,0.3);}
-.big-btn.purple{background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;box-shadow:0 6px 20px rgba(168,85,247,0.3);}
 
-/* ── TITLE ── */
-.title-hero{font-size:3rem;margin-bottom:6px;}
-.title-main{font-size:2rem;font-weight:900;background:linear-gradient(135deg,#ff7f3f,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
-.title-sub{color:var(--muted);font-size:0.85rem;margin-bottom:20px;}
-/* save card */
-.save-card{background:var(--card);border:1px solid rgba(255,127,63,0.3);border-radius:16px;padding:12px 18px;margin-bottom:16px;width:100%;max-width:300px;display:flex;align-items:center;gap:12px;}
-.save-card-avatar{font-size:2.2rem;}
-.save-card-info{flex:1;}
-.save-card-name{font-size:0.9rem;font-weight:900;color:var(--gold);}
-.save-card-detail{font-size:0.65rem;color:var(--muted);margin-top:2px;}
-.save-card-btns{display:flex;flex-direction:column;gap:5px;}
-.save-small-btn{border:none;border-radius:8px;font-family:'Nunito',sans-serif;font-size:0.7rem;font-weight:900;padding:5px 10px;cursor:pointer;}
-.save-small-btn.load{background:linear-gradient(135deg,#2ed573,#1e9950);color:#fff;}
-.save-small-btn.del{background:rgba(255,71,87,0.2);color:var(--red);}
-/* in-game save toast */
-.save-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(46,213,115,0.9);color:#000;font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:900;padding:8px 20px;border-radius:100px;z-index:999;opacity:0;pointer-events:none;transition:opacity 0.3s;}
-.save-toast.show{opacity:1;}
+/* ── だんえらびスクリーン ── */
+.app-title{font-size:2rem;font-weight:900;background:linear-gradient(135deg,#ff9f1c,#ff6b9d,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:24px 0 4px;text-align:center;}
+.app-sub{color:#888;font-size:1rem;margin-bottom:20px;}
+.dan-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;width:100%;}
+.dan-btn{border:none;border-radius:20px;font-family:'Nunito',sans-serif;font-weight:900;color:#fff;padding:18px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:transform .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.dan-btn:active{transform:scale(.92);}
+.dan-btn .d-emoji{font-size:1.8rem;}
+.dan-btn .d-label{font-size:0.85rem;}
+.home-link{color:#555;font-size:0.8rem;margin-top:20px;text-decoration:none;}
+.home-link:hover{color:#888;}
 
-/* ── CHAR SELECT ── */
-.char-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;width:100%;max-width:360px;margin:12px 0;}
-.char-card{background:var(--card);border:2px solid rgba(255,255,255,0.1);border-radius:16px;padding:12px 8px;text-align:center;cursor:pointer;transition:all 0.15s;}
-.char-card:active{transform:scale(0.95);}
-.char-card.selected{border-color:var(--gold);background:rgba(255,127,63,0.1);}
-.char-emoji{font-size:2.4rem;margin-bottom:4px;}
-.char-name{font-size:0.75rem;font-weight:900;color:var(--gold);}
-.char-desc{font-size:0.6rem;color:var(--muted);margin-top:2px;}
+/* ── べんきょうスクリーン ── */
+.study-header{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 0 0;}
+.back-btn{background:rgba(255,255,255,.1);border:none;border-radius:12px;color:#fff;font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:700;padding:8px 14px;cursor:pointer;}
+.back-btn:active{opacity:.7;}
+.dan-label-big{font-size:1.2rem;font-weight:900;}
+.prog-text{font-size:0.85rem;color:#888;}
 
-/* ── GAME WRAP ── */
-.game-wrap{position:relative;z-index:1;width:100%;max-width:420px;}
-.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-.coin-pill{display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid rgba(255,127,63,0.3);border-radius:100px;padding:5px 12px;}
-.coin-pill span{font-size:1rem;font-weight:900;color:var(--gold);}
-.shop-btn{background:linear-gradient(135deg,#a855f7,#7c3aed);border:none;border-radius:100px;color:#fff;font-family:'Nunito',sans-serif;font-size:0.8rem;font-weight:900;padding:7px 14px;cursor:pointer;}
-.shop-btn:active{transform:scale(0.95);}
-.battle-btn-wrap{display:flex;gap:6px;}
-.battle-start-btn{background:linear-gradient(135deg,#ff4757,#c0392b);border:none;border-radius:100px;color:#fff;font-family:'Nunito',sans-serif;font-size:0.8rem;font-weight:900;padding:7px 14px;cursor:pointer;}
-.battle-start-btn:active{transform:scale(0.95);}
+/* しんちょくドット */
+.prog-dots{display:flex;gap:6px;justify-content:center;margin:12px 0 8px;}
+.pdot{height:10px;border-radius:5px;background:rgba(255,255,255,.18);transition:all .3s;}
+.pdot.done{background:rgba(255,255,255,.45);}
+.pdot.cur{width:28px;}
 
-/* ── HERO PANEL ── */
-.char-panel{background:var(--card);border-radius:18px;padding:12px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.07);display:flex;gap:10px;align-items:center;}
-.char-avatar{font-size:2.8rem;text-align:center;min-width:56px;}
-.char-info{flex:1;}
-.char-info-name{font-size:0.95rem;font-weight:900;color:var(--gold);margin-bottom:3px;}
-.equipped-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px;}
-.equipped-tag{background:rgba(255,255,255,0.07);border-radius:7px;padding:2px 7px;font-size:0.6rem;color:var(--muted);}
-.equipped-tag span{color:var(--text);}
-.bar-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
-.bar-label{font-size:0.58rem;color:var(--muted);width:20px;}
-.bar-track{flex:1;background:rgba(255,255,255,0.1);border-radius:100px;height:6px;overflow:hidden;}
-.bar-fill{height:100%;border-radius:100px;transition:width 0.4s;}
-.bar-fill.hp{background:linear-gradient(90deg,#ff4757,#ff6b81);}
-.bar-fill.exp{background:linear-gradient(90deg,#ff7f3f,#f5c518);}
-.bar-val{font-size:0.58rem;color:var(--muted);min-width:34px;text-align:right;}
-.stat-row{display:flex;gap:5px;margin-top:3px;}
-.stat-pill{background:rgba(255,255,255,0.06);border-radius:7px;padding:2px 7px;font-size:0.6rem;color:var(--muted);}
-.stat-pill b{color:var(--text);}
+/* めいんカード */
+.study-card{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  width:100%;background:rgba(255,255,255,.05);border-radius:26px;
+  border:2px solid rgba(255,255,255,.1);padding:28px 16px 20px;
+  cursor:pointer;transition:border-color .4s;margin-bottom:12px;
+  min-height:340px;
+}
+.study-card:active{opacity:.92;}
 
-.level-badge{text-align:center;margin-bottom:7px;}
-.level-badge span{background:rgba(255,127,63,0.2);color:#ffa070;font-size:0.68rem;font-weight:700;padding:3px 12px;border-radius:100px;border:1px solid rgba(255,127,63,0.3);}
+/* えもじビジュアル */
+.visual-area{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;min-height:48px;align-items:center;}
+.v-group{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;background:rgba(255,255,255,.07);border-radius:10px;padding:5px 7px;}
 
-/* ── QUESTION ── */
-.question-card{background:var(--card);border-radius:18px;padding:12px 10px;text-align:center;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);}
-.emoji-row{display:flex;align-items:center;justify-content:center;gap:7px;min-height:38px;margin-bottom:6px;flex-wrap:wrap;}
-.emoji-group{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;max-width:140px;}
-.emoji-item{font-size:1.1rem;line-height:1.2;}
-.times-sign{font-size:1.6rem;font-weight:900;color:var(--gold);flex-shrink:0;}
-.question-num{font-size:2rem;font-weight:900;}
-.question-num .num{color:var(--gold);}
+/* しき */
+.eq-line{font-size:clamp(2.6rem,11vw,3.8rem);font-weight:900;letter-spacing:3px;line-height:1.2;text-align:center;margin-bottom:4px;}
+.eq-ans{font-size:clamp(3rem,13vw,4.5rem);font-weight:900;line-height:1.1;text-align:center;margin-bottom:14px;}
 
-/* ── ANSWERS ── */
-.answers{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:7px;}
-.ans-btn{background:var(--card2);border:2px solid rgba(255,255,255,0.1);border-radius:13px;color:var(--text);font-family:'Nunito',sans-serif;font-size:1.8rem;font-weight:900;padding:14px 10px;cursor:pointer;transition:all 0.12s;}
-.ans-btn:active{transform:scale(0.93);}
-.ans-btn.correct{background:rgba(46,213,115,0.2);border-color:var(--green);color:var(--green);animation:pop 0.3s ease;}
-.ans-btn.wrong{background:rgba(255,71,87,0.2);border-color:var(--red);color:var(--red);animation:shake 0.3s ease;}
-@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
-.feedback{text-align:center;font-size:0.9rem;font-weight:900;height:26px;margin-bottom:3px;}
-.feedback.correct{color:var(--green);}
-.feedback.wrong{color:var(--red);}
+/* よみがな */
+.yomi{font-size:clamp(1.2rem,5vw,1.6rem);font-weight:700;letter-spacing:2px;color:rgba(255,255,255,.9);margin-bottom:16px;text-align:center;}
 
-/* ── COIN POP ── */
-.coin-pop{position:fixed;pointer-events:none;z-index:999;animation:coinFly 0.9s ease forwards;}
-@keyframes coinFly{0%{transform:translateY(0) scale(0.8);opacity:1;}60%{opacity:1;}100%{transform:translateY(-80px) scale(1.3);opacity:0;}}
+.tap-hint{font-size:0.72rem;color:rgba(255,255,255,.25);margin-top:auto;}
 
-/* ── LEVEL UP OVERLAY ── */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:80;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;}
-.overlay.show{display:flex;animation:fadeIn 0.3s ease;}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.overlay-box{background:var(--card);border:2px solid var(--gold);border-radius:22px;padding:24px 28px;max-width:300px;width:100%;}
-.lvup-emoji{font-size:3rem;margin-bottom:6px;}
-.lvup-title{font-size:1.5rem;font-weight:900;color:var(--gold);margin-bottom:4px;}
-.lvup-desc{color:var(--muted);font-size:0.85rem;margin-bottom:12px;}
-.lvup-stats{display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap;}
-.lvup-stat{background:rgba(255,255,255,0.06);border-radius:9px;padding:7px 12px;font-size:0.75rem;}
-.lvup-stat b{color:var(--gold);display:block;font-size:0.95rem;}
+/* もういちどボタン */
+.speak-btn{background:rgba(255,255,255,.1);border:none;border-radius:100px;color:#fff;font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:700;padding:9px 20px;cursor:pointer;margin-bottom:14px;}
+.speak-btn:active{opacity:.7;}
 
-/* ══════════════════════════
-   ── BATTLE SCREEN ──
-══════════════════════════ */
-.battle-screen{display:none;position:fixed;inset:0;z-index:60;flex-direction:column;background:linear-gradient(180deg,#0a0a18 0%,#1a0a2e 100%);overflow:hidden;}
-.battle-screen.active{display:flex;}
+/* ナビボタン */
+.nav-row{display:flex;gap:10px;width:100%;}
+.nav-btn{flex:1;border:none;border-radius:16px;color:#fff;font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;padding:15px;cursor:pointer;background:rgba(255,255,255,.1);transition:transform .1s;}
+.nav-btn:active{transform:scale(.95);}
 
-/* battle bg stars */
-.battle-screen::before{content:'';position:absolute;inset:0;background-image:
-  radial-gradient(1px 1px at 15% 20%,rgba(255,255,255,0.5) 0%,transparent 100%),
-  radial-gradient(1px 1px at 40% 10%,rgba(255,255,255,0.4) 0%,transparent 100%),
-  radial-gradient(1px 1px at 70% 15%,rgba(255,255,255,0.6) 0%,transparent 100%),
-  radial-gradient(1px 1px at 85% 8%,rgba(255,255,255,0.3) 0%,transparent 100%),
-  radial-gradient(1px 1px at 25% 5%,rgba(255,255,255,0.4) 0%,transparent 100%);
-  pointer-events:none;}
-
-/* ground */
-.battle-ground{position:absolute;bottom:0;left:0;right:0;height:80px;background:linear-gradient(180deg,transparent,rgba(100,60,20,0.3));border-top:2px solid rgba(100,60,20,0.4);}
-
-/* top bar */
-.battle-topbar{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 16px 0;position:relative;z-index:2;}
-.b-stat-box{background:rgba(0,0,0,0.5);border-radius:12px;padding:8px 12px;min-width:130px;border:1px solid rgba(255,255,255,0.1);}
-.b-name{font-size:0.7rem;font-weight:900;margin-bottom:4px;}
-.b-name.hero{color:var(--gold);}
-.b-name.monster{color:var(--red);}
-.b-hp-track{background:rgba(255,255,255,0.1);border-radius:100px;height:8px;overflow:hidden;margin-bottom:2px;}
-.b-hp-fill{height:100%;border-radius:100px;background:linear-gradient(90deg,#2ed573,#7bed9f);transition:width 0.5s ease;}
-.b-hp-fill.low{background:linear-gradient(90deg,#ff4757,#ff6b81);}
-.b-hp-fill.mid{background:linear-gradient(90deg,#ff9800,#ffd32a);}
-.b-hp-fill.monster-bar{background:linear-gradient(90deg,#ff4757,#c0392b);}
-.b-hp-val{font-size:0.6rem;color:var(--muted);}
-.b-level{font-size:0.6rem;color:var(--muted);margin-top:2px;}
-
-/* arena */
-.battle-arena{flex:1;position:relative;display:flex;align-items:flex-end;justify-content:space-between;padding:0 40px 80px;}
-
-/* sprites */
-.b-sprite{font-size:4.5rem;position:relative;text-align:center;user-select:none;transition:transform 0.3s;}
-.b-sprite.hero-sprite{transform-origin:bottom center;}
-.b-sprite.monster-sprite{transform-origin:bottom center;transform:scaleX(-1);}
-.b-sprite.attack-anim{animation:heroAtk 0.5s ease;}
-.b-sprite.hurt-anim{animation:spriteHurt 0.4s ease;}
-.b-sprite.dead-anim{animation:spriteDead 0.6s ease forwards;}
-@keyframes heroAtk{0%{transform:translateX(0)}40%{transform:translateX(60px)}70%{transform:translateX(30px)}100%{transform:translateX(0)}}
-@keyframes monsterAtk{0%{transform:scaleX(-1) translateX(0)}40%{transform:scaleX(-1) translateX(60px)}70%{transform:scaleX(-1) translateX(30px)}100%{transform:scaleX(-1) translateX(0)}}
-@keyframes spriteHurt{0%{filter:brightness(1)}30%{filter:brightness(3) sepia(1) hue-rotate(300deg)}100%{filter:brightness(1)}}
-@keyframes spriteDead{0%{transform:scaleX(-1) rotate(0) opacity(1)}100%{transform:scaleX(-1) rotate(90deg);opacity:0;}}
-@keyframes heroDeadAnim{0%{transform:rotate(0);opacity:1;}100%{transform:rotate(-90deg);opacity:0;}}
-
-/* damage number */
-.dmg-num{position:absolute;font-size:1.4rem;font-weight:900;pointer-events:none;z-index:10;animation:dmgFloat 1s ease forwards;}
-.dmg-num.hero-dmg{color:#ff4757;left:30px;}
-.dmg-num.monster-dmg{color:#ff7f3f;right:30px;}
-.dmg-num.heal{color:#2ed573;}
-@keyframes dmgFloat{0%{transform:translateY(0);opacity:1;}100%{transform:translateY(-60px);opacity:0;}}
-
-/* battle log */
-.battle-log{position:relative;z-index:2;background:rgba(0,0,0,0.6);border-top:1px solid rgba(255,255,255,0.08);padding:10px 16px;min-height:56px;font-size:0.85rem;font-weight:700;color:var(--text);text-align:center;}
-.battle-log .log-line{opacity:0;animation:logFade 0.4s ease forwards;}
-@keyframes logFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-
-/* battle result */
-.battle-result{display:none;position:absolute;inset:0;background:rgba(0,0,0,0.85);z-index:10;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;}
-.battle-result.show{display:flex;animation:fadeIn 0.4s ease;}
-.result-emoji{font-size:4rem;margin-bottom:8px;animation:bounce 1s ease infinite;}
-@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-.result-title{font-size:1.8rem;font-weight:900;margin-bottom:6px;}
-.result-title.win{color:var(--gold);}
-.result-title.lose{color:var(--red);}
-.result-rewards{background:var(--card);border-radius:14px;padding:12px 20px;margin:10px 0 16px;font-size:0.85rem;color:var(--muted);}
-.result-rewards b{color:var(--gold);}
-
-/* ── SHOP ── */
-.shop-header{font-size:1.5rem;font-weight:900;color:var(--gold);margin-bottom:4px;}
-.shop-coins{display:flex;align-items:center;gap:6px;margin-bottom:14px;font-size:1rem;font-weight:700;color:var(--gold);}
-.shop-section{font-size:0.72rem;color:var(--purple);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin:10px 0 5px;width:100%;}
-.shop-items{display:flex;flex-direction:column;gap:7px;width:100%;max-width:360px;}
-.shop-item{background:var(--card);border:1px solid rgba(255,255,255,0.08);border-radius:13px;padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all 0.15s;}
-.shop-item:active{transform:scale(0.97);}
-.shop-item.owned{border-color:var(--green);opacity:0.7;}
-.shop-item.equipped-item{border-color:var(--gold);}
-.shop-item-icon{font-size:1.8rem;min-width:34px;text-align:center;}
-.shop-item-info{flex:1;}
-.shop-item-name{font-size:0.85rem;font-weight:900;}
-.shop-item-desc{font-size:0.6rem;color:var(--muted);margin-top:1px;}
-.shop-item-stat{font-size:0.65rem;color:var(--green);margin-top:1px;}
-.shop-price{display:flex;align-items:center;gap:3px;font-size:0.85rem;font-weight:900;color:var(--gold);flex-shrink:0;}
-.shop-price.owned-label{color:var(--green);font-size:0.75rem;}
-.back-btn{background:rgba(255,255,255,0.08);border:none;border-radius:100px;color:var(--text);font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:700;padding:9px 22px;cursor:pointer;margin-top:14px;}
-.shop-scroll{overflow-y:auto;width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;padding-bottom:20px;}
+/* ── かんりょうスクリーン ── */
+.done-stars{font-size:3.5rem;animation:starBounce .8s infinite alternate;margin-bottom:12px;}
+@keyframes starBounce{from{transform:translateY(0) rotate(-5deg)}to{transform:translateY(-14px) rotate(5deg)}}
+.done-title{font-size:2.4rem;font-weight:900;color:#f5c518;margin-bottom:6px;}
+.done-sub{font-size:1.1rem;color:#aaa;margin-bottom:30px;}
+.done-btns{display:flex;flex-direction:column;gap:10px;width:100%;}
+.done-btn{border:none;border-radius:18px;color:#fff;font-family:'Nunito',sans-serif;font-size:1.1rem;font-weight:900;padding:17px;cursor:pointer;transition:transform .1s;}
+.done-btn:active{transform:scale(.95);}
+.done-btn.sub{background:rgba(255,255,255,.1);}
 </style>
 </head>
 <body>
 
-<!-- ══ TITLE ══ -->
-<div class="screen active" id="screenTitle">
-  <div class="title-hero">✖️🧙🔢</div>
-  <div class="title-main">かけざんクエスト</div>
-  <div class="title-sub">9×9をといてつよくなれ！</div>
-  <div id="saveSlots" style="width:100%;max-width:300px;margin-bottom:8px;"></div>
-  <button class="big-btn" onclick="showScreen('screenCharSelect')">あたらしくはじめる</button>
-  <a href="../" style="color:var(--muted);font-size:0.8rem;margin-top:12px;text-decoration:none;">← ゲーム一覧にもどる</a>
-</div>
-<!-- save toast -->
-<div class="save-toast" id="saveToast">💾 セーブした！</div>
-
-<!-- ══ CHAR SELECT ══ -->
-<div class="screen" id="screenCharSelect">
-  <div style="font-size:1.3rem;font-weight:900;color:var(--gold);margin-bottom:4px;">キャラをえらぼう！</div>
-  <div style="color:var(--muted);font-size:0.8rem;margin-bottom:8px;">どのゆうしゃになる？</div>
-  <div class="char-grid" id="charGrid"></div>
-  <button class="big-btn" id="startBtn" onclick="startGame()" style="opacity:0.4;pointer-events:none;">このキャラではじめる！</button>
+<!-- ── だんえらびスクリーン ── -->
+<div class="screen active" id="screenSelect">
+  <div class="app-title">✖️ くくをおぼえよう</div>
+  <div class="app-sub">なんのだんをやる？</div>
+  <div class="dan-grid" id="danGrid"></div>
+  <a href="../" class="home-link">← ゲームいちらんにもどる</a>
 </div>
 
-<!-- ══ LEVEL UP OVERLAY ══ -->
-<div class="overlay" id="lvupOverlay">
-  <div class="overlay-box">
-    <div class="lvup-emoji">🌟</div>
-    <div class="lvup-title" id="lvupTitle">レベルアップ！</div>
-    <div class="lvup-desc" id="lvupDesc"></div>
-    <div class="lvup-stats" id="lvupStats"></div>
-    <button class="big-btn" onclick="closeLvup()">つぎへ！</button>
+<!-- ── べんきょうスクリーン ── -->
+<div class="screen" id="screenStudy">
+  <div class="study-header">
+    <button class="back-btn" onclick="showSelect()">← もどる</button>
+    <div class="dan-label-big" id="studyTitle">３のだん</div>
+    <div class="prog-text" id="studyProg">1 / 9</div>
   </div>
-</div>
+  <div class="prog-dots" id="progDots"></div>
 
-<!-- ══ BATTLE SCREEN ══ -->
-<div class="battle-screen" id="battleScreen">
-  <div class="battle-topbar">
-    <div class="b-stat-box">
-      <div class="b-name hero" id="bHeroName">ゆうしゃ Lv.1</div>
-      <div class="b-hp-track"><div class="b-hp-fill" id="bHeroHpBar" style="width:100%"></div></div>
-      <div class="b-hp-val" id="bHeroHpVal">20/20</div>
-      <div class="b-level" id="bHeroStats">⚔️5 🛡️2</div>
-    </div>
-    <div class="b-stat-box" style="text-align:right;">
-      <div class="b-name monster" id="bMonName">スライム</div>
-      <div class="b-hp-track"><div class="b-hp-fill monster-bar" id="bMonHpBar" style="width:100%"></div></div>
-      <div class="b-hp-val" id="bMonHpVal">15/15</div>
-      <div class="b-level" id="bMonLevel">モンスター Lv.1</div>
-    </div>
+  <div class="study-card" id="studyCard" onclick="nextEntry()">
+    <div class="visual-area" id="visualArea"></div>
+    <div class="eq-line" id="eqLine">３ × ４</div>
+    <div class="eq-ans" id="eqAns">＝ １２</div>
+    <div class="yomi" id="eqYomi">さんし じゅうに</div>
+    <button class="speak-btn" onclick="event.stopPropagation();speak()">🔊 もういちど</button>
+    <div class="tap-hint">タップでつぎへ ▶</div>
   </div>
-  <div class="battle-arena">
-    <div id="heroSprite" class="b-sprite hero-sprite">🧙‍♂️</div>
-    <div id="monsterSprite" class="b-sprite monster-sprite">🟢</div>
-  </div>
-  <div class="battle-ground"></div>
-  <div class="battle-log" id="battleLog"><span class="log-line">たたかいがはじまった！</span></div>
-  <div class="battle-result" id="battleResult">
-    <div class="result-emoji" id="resultEmoji">🎉</div>
-    <div class="result-title" id="resultTitle">かった！</div>
-    <div class="result-rewards" id="resultRewards"></div>
-    <button class="big-btn" onclick="closeBattle()">もどる</button>
+
+  <div class="nav-row">
+    <button class="nav-btn" onclick="prevEntry()">← まえ</button>
+    <button class="nav-btn" id="nextBtn" onclick="nextEntry()">つぎへ →</button>
   </div>
 </div>
 
-<!-- ══ SHOP SCREEN ══ -->
-<div class="screen" id="screenShop">
-  <div class="shop-header">✖️ ショップ</div>
-  <div class="shop-coins" id="shopCoinRow"></div>
-  <div class="shop-scroll">
-    <div class="shop-section">⚔️ ぶき</div>
-    <div class="shop-items" id="shopWeapons"></div>
-    <div class="shop-section">🛡️ ぼうぐ</div>
-    <div class="shop-items" id="shopArmors"></div>
-  </div>
-  <button class="back-btn" onclick="closeShop()">← もどる</button>
-</div>
-
-<!-- ══ MAIN GAME ══ -->
-<div class="game-wrap" id="gameWrap" style="display:none;">
-  <div class="topbar">
-    <div class="coin-pill">
-      <svg width="18" height="18" viewBox="0 0 28 28"><defs><radialGradient id="cg0" cx="35%" cy="35%"><stop offset="0%" stop-color="#ffb066"/><stop offset="60%" stop-color="#e85d04"/><stop offset="100%" stop-color="#9a3412"/></radialGradient></defs><circle cx="14" cy="14" r="13" fill="url(#cg0)" stroke="#c2410c" stroke-width="1.5"/><circle cx="14" cy="14" r="9" fill="none" stroke="rgba(255,160,80,0.5)" stroke-width="1.5"/><text x="14" y="18" text-anchor="middle" font-size="9" font-weight="bold" fill="#fff" font-family="sans-serif">G</text></svg>
-      <span id="coinDisplay">0</span>
+<!-- ── かんりょうスクリーン ── -->
+<div class="screen" id="screenComplete">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;text-align:center;">
+    <div class="done-stars">⭐⭐⭐</div>
+    <div class="done-title">すごい！</div>
+    <div class="done-sub" id="doneSub">３のだん、ぜんぶできた！</div>
+    <div class="done-btns">
+      <button class="done-btn" id="replayBtn" onclick="replay()">🔄 もういちど</button>
+      <button class="done-btn" id="nextDanBtn" onclick="goNextDan()">▶ つぎのだんへ</button>
+      <button class="done-btn sub" onclick="showSelect()">📚 ほかのだんをえらぶ</button>
     </div>
-    <div class="battle-btn-wrap">
-      <a href="../" class="shop-btn" style="text-decoration:none;background:rgba(255,255,255,0.1);">🏠</a>
-      <button class="shop-btn" onclick="openShop()">🛒 みせ</button>
-      <button class="battle-start-btn" onclick="openBattle()">⚔️ たたかう</button>
-      <button class="shop-btn" style="background:linear-gradient(135deg,#2ed573,#1e9950);" onclick="saveGame()">💾</button>
-    </div>
-  </div>
-
-  <div class="char-panel">
-    <div class="char-avatar" id="charAvatar">⚔️</div>
-    <div class="char-info">
-      <div class="char-info-name" id="charInfoName">ゆうしゃ Lv.1</div>
-      <div class="equipped-row" id="equippedRow"></div>
-      <div class="bar-row"><div class="bar-label">HP</div><div class="bar-track"><div class="bar-fill hp" id="hpBar" style="width:100%"></div></div><div class="bar-val" id="hpVal">20/20</div></div>
-      <div class="bar-row"><div class="bar-label">EXP</div><div class="bar-track"><div class="bar-fill exp" id="expBar" style="width:0%"></div></div><div class="bar-val" id="expVal">0/10</div></div>
-      <div class="stat-row">
-        <div class="stat-pill">⚔️ <b id="statAtk">5</b></div>
-        <div class="stat-pill">🛡️ <b id="statDef">2</b></div>
-        <div class="stat-pill">🔥 <b id="statStreak">x0</b></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="level-badge"><span id="levelLabel">レベル1：1〜3のかけざん</span></div>
-
-  <div class="question-card">
-    <div class="emoji-row" id="emojiRow"></div>
-    <div class="question-num" id="question">？×？＝？</div>
-  </div>
-
-  <div class="feedback" id="feedback"></div>
-  <div class="answers">
-    <button class="ans-btn" onclick="answer(0)">0</button>
-    <button class="ans-btn" onclick="answer(1)">0</button>
-    <button class="ans-btn" onclick="answer(2)">0</button>
-    <button class="ans-btn" onclick="answer(3)">0</button>
   </div>
 </div>
 
 <script>
-const CHARACTERS=[
-  {id:'warrior',name:'せんし',  emoji:'🧙‍♂️',desc:'バランスがいい',baseAtk:6,baseDef:4,baseHp:24,expRate:1.0},
-  {id:'mage',   name:'まほうし',emoji:'🧝',  desc:'こうげきりょく↑',baseAtk:9,baseDef:2,baseHp:18,expRate:1.1},
-  {id:'knight', name:'きし',    emoji:'🦸',  desc:'ぼうぐりょく↑', baseAtk:4,baseDef:7,baseHp:28,expRate:0.9},
-];
-const WEAPONS=[
-  {id:'stick', name:'きのぼう',   emoji:'🪵',price:0, atk:0, starter:true,desc:'さいしょのぶき'},
-  {id:'sword', name:'てつのつるぎ',emoji:'⚔️',price:15,atk:4, desc:'こうげき +4'},
-  {id:'axe',   name:'せんとうおの',emoji:'🪓',price:30,atk:8, desc:'こうげき +8'},
-  {id:'spear', name:'みずのやり', emoji:'🔱',price:55,atk:13,desc:'こうげき +13'},
-  {id:'bow',   name:'まほうのゆみ',emoji:'🏹',price:90,atk:20,desc:'こうげき +20'},
-];
-const ARMORS=[
-  {id:'rags',   name:'ぬののふく',  emoji:'👕',price:0, def:0, starter:true,desc:'さいしょのぼうぐ'},
-  {id:'leather',name:'かわのよろい', emoji:'🦺',price:12,def:3, desc:'ぼうぐ +3'},
-  {id:'chain',  name:'くさりかたびら',emoji:'🥋',price:28,def:6, desc:'ぼうぐ +6'},
-  {id:'plate',  name:'てつのよろい', emoji:'🛡️',price:50,def:11,desc:'ぼうぐ +11'},
-  {id:'dragon', name:'りゅうのよろい',emoji:'🐉',price:85,def:18,desc:'ぼうぐ +18'},
-];
-const MONSTERS=[
-  {id:'slime',lv:1,hp:12,atk:3,def:1,exp:4,gold:3,name:'スライム',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><defs><radialGradient id="sg" cx="38%" cy="30%"><stop offset="0%" stop-color="#88ccff"/><stop offset="100%" stop-color="#1144cc"/></radialGradient></defs><path d="M50 10C28 10 12 30 12 50C12 70 28 90 50 90C72 90 88 70 88 50C88 30 72 10 50 10Z" fill="url(#sg)" stroke="#0a3aaa" stroke-width="2"/><ellipse cx="35" cy="28" rx="12" ry="7" fill="rgba(255,255,255,.45)" transform="rotate(-20 35 28)"/><circle cx="37" cy="55" r="10" fill="#fff"/><circle cx="63" cy="55" r="10" fill="#fff"/><circle cx="39" cy="56" r="5.5" fill="#0a0a2a"/><circle cx="65" cy="56" r="5.5" fill="#0a0a2a"/><circle cx="37" cy="53" r="3" fill="rgba(255,255,255,.7)"/><circle cx="63" cy="53" r="3" fill="rgba(255,255,255,.7)"/><path d="M38 72Q50 84 62 72" stroke="#0a0a2a" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`},
-  {id:'goblin',lv:2,hp:18,atk:5,def:2,exp:6,gold:5,name:'ゴブリン',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><ellipse cx="50" cy="55" rx="28" ry="32" fill="#4aaa3a" stroke="#2a7a1a" stroke-width="2"/><polygon points="22,38 10,18 26,32" fill="#4aaa3a"/><polygon points="78,38 90,18 74,32" fill="#4aaa3a"/><path d="M22 40L35 33" stroke="#1a5a0a" stroke-width="3.5" stroke-linecap="round"/><path d="M78 40L65 33" stroke="#1a5a0a" stroke-width="3.5" stroke-linecap="round"/><ellipse cx="37" cy="47" rx="8" ry="9" fill="#dd2200"/><ellipse cx="63" cy="47" rx="8" ry="9" fill="#dd2200"/><ellipse cx="37" cy="48" rx="4" ry="4.5" fill="#110"/><ellipse cx="63" cy="48" rx="4" ry="4.5" fill="#110"/><ellipse cx="50" cy="59" rx="6" ry="4" fill="#3a8a2a"/><circle cx="47" cy="59" r="2" fill="#2a6a1a"/><circle cx="53" cy="59" r="2" fill="#2a6a1a"/><path d="M33 70Q50 82 67 70" stroke="#2a6a1a" stroke-width="2" fill="#993322"/><rect x="42" y="70" width="5" height="8" rx="1" fill="#fff"/><rect x="53" y="70" width="5" height="8" rx="1" fill="#fff"/></svg>`},
-  {id:'bat',lv:3,hp:22,atk:7,def:2,exp:8,gold:7,name:'おおこうもり',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><path d="M50 55C38 55 28 62 22 72 L10 58 18 45 30 50Z" fill="#7733bb" stroke="#4a1a88" stroke-width="1.5"/><path d="M50 55C62 55 72 62 78 72 L90 58 82 45 70 50Z" fill="#7733bb" stroke="#4a1a88" stroke-width="1.5"/><path d="M18 45C14 36 16 24 22 20L30 32Z" fill="#5522aa"/><path d="M82 45C86 36 84 24 78 20L70 32Z" fill="#5522aa"/><ellipse cx="50" cy="52" rx="20" ry="22" fill="#8844cc" stroke="#4a1a88" stroke-width="2"/><circle cx="42" cy="46" r="8" fill="#ffee44"/><circle cx="58" cy="46" r="8" fill="#ffee44"/><circle cx="42" cy="47" r="4" fill="#111"/><circle cx="58" cy="47" r="4" fill="#111"/><circle cx="41" cy="45" r="2" fill="rgba(255,255,255,.6)"/><circle cx="57" cy="45" r="2" fill="rgba(255,255,255,.6)"/><path d="M43 63Q50 68 57 63" stroke="#4a1a88" stroke-width="2" fill="none"/><rect x="44" y="62" width="4" height="6" rx="1" fill="#eee"/><rect x="52" y="62" width="4" height="6" rx="1" fill="#eee"/><path d="M42 72Q40 80 38 74" stroke="#8844cc" stroke-width="2.5" fill="none"/><path d="M58 72Q60 80 62 74" stroke="#8844cc" stroke-width="2.5" fill="none"/></svg>`},
-  {id:'skeleton',lv:4,hp:30,atk:9,def:4,exp:11,gold:9,name:'スケルトン',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><ellipse cx="50" cy="42" rx="30" ry="34" fill="#e8e8d8" stroke="#aaa" stroke-width="2"/><ellipse cx="36" cy="38" rx="10" ry="12" fill="#1a1a2a"/><ellipse cx="64" cy="38" rx="10" ry="12" fill="#1a1a2a"/><ellipse cx="36" cy="39" rx="5" ry="6" fill="rgba(100,120,255,.2)"/><ellipse cx="64" cy="39" rx="5" ry="6" fill="rgba(100,120,255,.2)"/><ellipse cx="50" cy="52" rx="5" ry="6" fill="#ccc"/><rect x="32" y="66" width="8" height="6" rx="2" fill="#ccc"/><rect x="44" y="65" width="8" height="7" rx="2" fill="#ccc"/><rect x="56" y="66" width="8" height="6" rx="2" fill="#ccc"/><path d="M50 18C46 12 40 10 36 14" stroke="#ccc" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M50 18C54 12 60 10 64 14" stroke="#ccc" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`},
-  {id:'orc',lv:5,hp:38,atk:12,def:6,exp:14,gold:12,name:'オーク',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><defs><radialGradient id="og" cx="40%" cy="35%"><stop offset="0%" stop-color="#88bb44"/><stop offset="100%" stop-color="#3a6a10"/></radialGradient></defs><rect x="18" y="28" width="64" height="62" rx="20" fill="url(#og)" stroke="#2a5a08" stroke-width="2"/><path d="M20 44L36 36" stroke="#1a4a08" stroke-width="5" stroke-linecap="round"/><path d="M80 44L64 36" stroke="#1a4a08" stroke-width="5" stroke-linecap="round"/><ellipse cx="36" cy="52" rx="9" ry="8" fill="#ffcc00"/><ellipse cx="64" cy="52" rx="9" ry="8" fill="#ffcc00"/><ellipse cx="36" cy="53" rx="4.5" ry="4" fill="#110"/><ellipse cx="64" cy="53" rx="4.5" ry="4" fill="#110"/><ellipse cx="50" cy="65" rx="10" ry="7" fill="#5a9a20"/><circle cx="45" cy="64" r="3" fill="#3a6a10"/><circle cx="55" cy="64" r="3" fill="#3a6a10"/><path d="M32 78Q50 90 68 78" stroke="#2a5a08" stroke-width="2" fill="#773311"/><polygon points="38,78 34,90 42,82" fill="#eeeecc"/><polygon points="62,78 66,90 58,82" fill="#eeeecc"/><rect x="22" y="18" width="10" height="18" rx="4" fill="#5a8820"/><rect x="68" y="18" width="10" height="18" rx="4" fill="#5a8820"/></svg>`},
-  {id:'witch',lv:6,hp:45,atk:15,def:7,exp:18,gold:16,name:'まじょ',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><polygon points="50,4 30,38 70,38" fill="#2a1a4a" stroke="#6633aa" stroke-width="2"/><ellipse cx="50" cy="40" rx="22" ry="14" fill="#3a2a5a" stroke="#6633aa" stroke-width="2"/><ellipse cx="50" cy="60" rx="26" ry="30" fill="#2a1a44" stroke="#5522aa" stroke-width="2"/><ellipse cx="37" cy="42" rx="7" ry="8" fill="#aa44ff"/><ellipse cx="63" cy="42" rx="7" ry="8" fill="#aa44ff"/><circle cx="37" cy="43" r="3.5" fill="#ffaa00"/><circle cx="63" cy="43" r="3.5" fill="#ffaa00"/><circle cx="36" cy="41" r="1.5" fill="#fff" opacity=".8"/><circle cx="62" cy="41" r="1.5" fill="#fff" opacity=".8"/><path d="M42 52Q50 58 58 52" stroke="#6633aa" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M28 68Q20 60 24 52" stroke="#aa66ff" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M72 68Q80 60 76 52" stroke="#aa66ff" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="50" cy="22" r="5" fill="#cc88ff" opacity=".6"/></svg>`},
-  {id:'golem',lv:7,hp:55,atk:18,def:10,exp:22,gold:20,name:'ゴーレム',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><defs><radialGradient id="gg" cx="40%" cy="30%"><stop offset="0%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#444"/></radialGradient></defs><rect x="22" y="30" width="56" height="60" rx="14" fill="url(#gg)" stroke="#333" stroke-width="2.5"/><rect x="10" y="38" width="18" height="32" rx="8" fill="#888" stroke="#333" stroke-width="2"/><rect x="72" y="38" width="18" height="32" rx="8" fill="#888" stroke="#333" stroke-width="2"/><ellipse cx="37" cy="50" rx="10" ry="11" fill="#222"/><ellipse cx="63" cy="50" rx="10" ry="11" fill="#222"/><ellipse cx="37" cy="50" rx="6" ry="7" fill="#44ddff" opacity=".8"/><ellipse cx="63" cy="50" rx="6" ry="7" fill="#44ddff" opacity=".8"/><path d="M35 72Q50 80 65 72" stroke="#333" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M30 35L70 35" stroke="#555" stroke-width="2" opacity=".5"/><path d="M38 62L44 55L50 65L56 55L62 62" stroke="#555" stroke-width="1.5" fill="none" opacity=".5"/><circle cx="50" cy="40" r="5" fill="#cc4400" opacity=".7"/></svg>`},
-  {id:'dragon',lv:8,hp:70,atk:24,def:12,exp:30,gold:28,name:'ドラゴン',
-   emoji:`<svg viewBox="0 0 100 100" width="72" height="72"><defs><radialGradient id="dg" cx="40%" cy="30%"><stop offset="0%" stop-color="#88ee66"/><stop offset="100%" stop-color="#226600"/></radialGradient></defs><path d="M60 20L80 8L72 28Z" fill="#3a8822"/><path d="M40 20L20 8L28 28Z" fill="#3a8822"/><ellipse cx="50" cy="50" rx="32" ry="36" fill="url(#dg)" stroke="#1a5500" stroke-width="2"/><ellipse cx="50" cy="38" rx="22" ry="18" fill="#66cc44" stroke="#1a5500" stroke-width="1.5"/><ellipse cx="36" cy="36" rx="9" ry="10" fill="#ffcc00"/><ellipse cx="64" cy="36" rx="9" ry="10" fill="#ffcc00"/><ellipse cx="36" cy="37" rx="4" ry="5.5" fill="#111"/><ellipse cx="64" cy="37" rx="4" ry="5.5" fill="#111"/><circle cx="35" cy="35" r="2" fill="rgba(255,255,255,.7)"/><circle cx="63" cy="35" r="2" fill="rgba(255,255,255,.7)"/><path d="M36 52Q50 62 64 52" stroke="#1a5500" stroke-width="2" fill="#449922"/><path d="M36 58L28 54L30 62L22 60L32 72" stroke="#dd4400" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="50" cy="82" rx="18" ry="10" fill="#5aaa33" stroke="#1a5500" stroke-width="1.5"/><path d="M26 60Q14 48 16 34L26 40Z" fill="#4a9922" stroke="#1a5500" stroke-width="1.5"/><path d="M74 60Q86 48 84 34L74 40Z" fill="#4a9922" stroke="#1a5500" stroke-width="1.5"/></svg>`},
-];
-const LEVEL_CONFIG=[
-  {label:'レベル1：1〜3のかけざん', aMax:3, bMax:3},
-  {label:'レベル2：1〜5のかけざん', aMax:5, bMax:5},
-  {label:'レベル3：1〜7のかけざん', aMax:7, bMax:7},
-  {label:'レベル4：1〜9のかけざん', aMax:9, bMax:9},
-  {label:'レベル5：9×9チャレンジ！',aMax:9, bMax:9},
-];
-const EMOJIS=['🎂','⭐','🐶','🚀','💎'];
+const DAN_COLORS=['#e84057','#ff7f3f','#f5c518','#2ed573','#1e90ff','#a855f7','#ff6b9d','#00cec9','#f39c12'];
+const DAN_EMOJI =['⭐','🍎','🌸','🐸','⚽','🦋','🌈','🐬','💎'];
 
-let coins=0,streak=0,answered=false,correctAnswer=0,qA=1,qB=1;
-let quizLevel=1;
-let charTemplate=null;
-let hero={name:'',emoji:'',lv:1,exp:0,expNext:10,hp:20,hpMax:20,atk:5,def:2,weapon:'stick',armor:'rags',owned:{weapons:['stick'],armors:['rags']},charId:'warrior',expRate:1.0};
-let lvupQueue=[];
+const KUKU=[
+  [
+    {a:1,b:1,ans:1, yomi:'いんいちが いち'},
+    {a:1,b:2,ans:2, yomi:'いんにが に'},
+    {a:1,b:3,ans:3, yomi:'いんさんが さん'},
+    {a:1,b:4,ans:4, yomi:'いんしが し'},
+    {a:1,b:5,ans:5, yomi:'いんごが ご'},
+    {a:1,b:6,ans:6, yomi:'いんろくが ろく'},
+    {a:1,b:7,ans:7, yomi:'いんしちが しち'},
+    {a:1,b:8,ans:8, yomi:'いんはちが はち'},
+    {a:1,b:9,ans:9, yomi:'いんくが く'},
+  ],[
+    {a:2,b:1,ans:2,  yomi:'にいちが に'},
+    {a:2,b:2,ans:4,  yomi:'ににんが し'},
+    {a:2,b:3,ans:6,  yomi:'にさんが ろく'},
+    {a:2,b:4,ans:8,  yomi:'にしが はち'},
+    {a:2,b:5,ans:10, yomi:'にご じゅう'},
+    {a:2,b:6,ans:12, yomi:'にろく じゅうに'},
+    {a:2,b:7,ans:14, yomi:'にしち じゅうし'},
+    {a:2,b:8,ans:16, yomi:'にはち じゅうろく'},
+    {a:2,b:9,ans:18, yomi:'にく じゅうはち'},
+  ],[
+    {a:3,b:1,ans:3,  yomi:'さんいちが さん'},
+    {a:3,b:2,ans:6,  yomi:'さんにが ろく'},
+    {a:3,b:3,ans:9,  yomi:'さざんが く'},
+    {a:3,b:4,ans:12, yomi:'さんし じゅうに'},
+    {a:3,b:5,ans:15, yomi:'さんご じゅうご'},
+    {a:3,b:6,ans:18, yomi:'さんろく じゅうはち'},
+    {a:3,b:7,ans:21, yomi:'さんしち にじゅういち'},
+    {a:3,b:8,ans:24, yomi:'さんぱ にじゅうし'},
+    {a:3,b:9,ans:27, yomi:'さんく にじゅうしち'},
+  ],[
+    {a:4,b:1,ans:4,  yomi:'しいちが し'},
+    {a:4,b:2,ans:8,  yomi:'しにが はち'},
+    {a:4,b:3,ans:12, yomi:'しさん じゅうに'},
+    {a:4,b:4,ans:16, yomi:'しし じゅうろく'},
+    {a:4,b:5,ans:20, yomi:'しご にじゅう'},
+    {a:4,b:6,ans:24, yomi:'しろく にじゅうし'},
+    {a:4,b:7,ans:28, yomi:'ししち にじゅうはち'},
+    {a:4,b:8,ans:32, yomi:'しはち さんじゅうに'},
+    {a:4,b:9,ans:36, yomi:'しく さんじゅうろく'},
+  ],[
+    {a:5,b:1,ans:5,  yomi:'ごいちが ご'},
+    {a:5,b:2,ans:10, yomi:'ごに じゅう'},
+    {a:5,b:3,ans:15, yomi:'ごさん じゅうご'},
+    {a:5,b:4,ans:20, yomi:'ごし にじゅう'},
+    {a:5,b:5,ans:25, yomi:'ごご にじゅうご'},
+    {a:5,b:6,ans:30, yomi:'ごろく さんじゅう'},
+    {a:5,b:7,ans:35, yomi:'ごしち さんじゅうご'},
+    {a:5,b:8,ans:40, yomi:'ごはち しじゅう'},
+    {a:5,b:9,ans:45, yomi:'ごく しじゅうご'},
+  ],[
+    {a:6,b:1,ans:6,  yomi:'ろくいちが ろく'},
+    {a:6,b:2,ans:12, yomi:'ろくに じゅうに'},
+    {a:6,b:3,ans:18, yomi:'ろくさん じゅうはち'},
+    {a:6,b:4,ans:24, yomi:'ろくし にじゅうし'},
+    {a:6,b:5,ans:30, yomi:'ろくご さんじゅう'},
+    {a:6,b:6,ans:36, yomi:'ろくろく さんじゅうろく'},
+    {a:6,b:7,ans:42, yomi:'ろくしち しじゅうに'},
+    {a:6,b:8,ans:48, yomi:'ろくはち しじゅうはち'},
+    {a:6,b:9,ans:54, yomi:'ろっく ごじゅうし'},
+  ],[
+    {a:7,b:1,ans:7,  yomi:'しちいちが しち'},
+    {a:7,b:2,ans:14, yomi:'しちに じゅうし'},
+    {a:7,b:3,ans:21, yomi:'しちさん にじゅういち'},
+    {a:7,b:4,ans:28, yomi:'しちし にじゅうはち'},
+    {a:7,b:5,ans:35, yomi:'しちご さんじゅうご'},
+    {a:7,b:6,ans:42, yomi:'しちろく しじゅうに'},
+    {a:7,b:7,ans:49, yomi:'しちしち しじゅうく'},
+    {a:7,b:8,ans:56, yomi:'しちはち ごじゅうろく'},
+    {a:7,b:9,ans:63, yomi:'しちく ろくじゅうさん'},
+  ],[
+    {a:8,b:1,ans:8,  yomi:'はちいちが はち'},
+    {a:8,b:2,ans:16, yomi:'はちに じゅうろく'},
+    {a:8,b:3,ans:24, yomi:'はちさん にじゅうし'},
+    {a:8,b:4,ans:32, yomi:'はちし さんじゅうに'},
+    {a:8,b:5,ans:40, yomi:'はちご しじゅう'},
+    {a:8,b:6,ans:48, yomi:'はちろく しじゅうはち'},
+    {a:8,b:7,ans:56, yomi:'はちしち ごじゅうろく'},
+    {a:8,b:8,ans:64, yomi:'はっぱ ろくじゅうし'},
+    {a:8,b:9,ans:72, yomi:'はちく しちじゅうに'},
+  ],[
+    {a:9,b:1,ans:9,  yomi:'くいちが く'},
+    {a:9,b:2,ans:18, yomi:'くに じゅうはち'},
+    {a:9,b:3,ans:27, yomi:'くさん にじゅうしち'},
+    {a:9,b:4,ans:36, yomi:'くし さんじゅうろく'},
+    {a:9,b:5,ans:45, yomi:'くご しじゅうご'},
+    {a:9,b:6,ans:54, yomi:'くろく ごじゅうし'},
+    {a:9,b:7,ans:63, yomi:'くしち ろくじゅうさん'},
+    {a:9,b:8,ans:72, yomi:'くはち しちじゅうに'},
+    {a:9,b:9,ans:81, yomi:'くく はちじゅういち'},
+  ],
+];
 
-function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
-function getLvCfg(){return LEVEL_CONFIG[Math.min(quizLevel-1,LEVEL_CONFIG.length-1)];}
-function getEmoji(){return EMOJIS[Math.min(quizLevel-1,EMOJIS.length-1)];}
-function coinSVG(s=18){return `<svg width="${s}" height="${s}" viewBox="0 0 28 28"><defs><radialGradient id="cgi" cx="35%" cy="35%"><stop offset="0%" stop-color="#ffb066"/><stop offset="60%" stop-color="#e85d04"/><stop offset="100%" stop-color="#9a3412"/></radialGradient></defs><circle cx="14" cy="14" r="13" fill="url(#cgi)" stroke="#c2410c" stroke-width="1.5"/><circle cx="14" cy="14" r="9" fill="none" stroke="rgba(255,160,80,0.5)" stroke-width="1.5"/><text x="14" y="18" text-anchor="middle" font-size="9" font-weight="bold" fill="#fff" font-family="sans-serif">G</text></svg>`;}
+let curDan=0, curIdx=0;
+
+function fw(n){return String(n).replace(/[0-9]/g,c=>'０１２３４５６７８９'[+c]);}
 
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  const el=document.getElementById(id);
-  if(el) el.classList.add('active');
-  document.getElementById('gameWrap').style.display='none';
-  document.getElementById('battleScreen').classList.remove('active');
-}
-function showGame(){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('gameWrap').style.display='block';
-  document.getElementById('battleScreen').classList.remove('active');
+  document.getElementById(id).classList.add('active');
 }
 
-(function(){
-  const grid=document.getElementById('charGrid');
-  CHARACTERS.forEach(c=>{
-    const d=document.createElement('div');
-    d.className='char-card';
-    d.innerHTML=`<div class="char-emoji">${c.emoji}</div><div class="char-name">${c.name}</div><div class="char-desc">${c.desc}</div>`;
-    d.onclick=()=>{
-      document.querySelectorAll('.char-card').forEach(x=>x.classList.remove('selected'));
-      d.classList.add('selected');charTemplate=c;
-      const b=document.getElementById('startBtn');b.style.opacity='1';b.style.pointerEvents='auto';
-    };
-    grid.appendChild(d);
-  });
-})();
-
-function startGame(){
-  if(!charTemplate)return;
-  const c=charTemplate;
-  hero={name:c.name,emoji:c.emoji,lv:1,exp:0,expNext:10,hp:c.baseHp,hpMax:c.baseHp,atk:c.baseAtk,def:c.baseDef,weapon:'stick',armor:'rags',owned:{weapons:['stick'],armors:['rags']},charId:c.id,expRate:c.expRate};
-  coins=0;streak=0;quizLevel=1;
-  updateHeroUI();showGame();generateQuestion();
+function showSelect(){
+  if(window.speechSynthesis) speechSynthesis.cancel();
+  showScreen('screenSelect');
 }
 
-function heroTotalAtk(){return hero.atk+(WEAPONS.find(w=>w.id===hero.weapon).atk);}
-function heroTotalDef(){return hero.def+(ARMORS.find(a=>a.id===hero.armor).def);}
-function updateHeroUI(){
-  document.getElementById('charAvatar').textContent=hero.emoji;
-  document.getElementById('charInfoName').textContent=`${hero.name}  Lv.${hero.lv}`;
-  const wep=WEAPONS.find(w=>w.id===hero.weapon);
-  const arm=ARMORS.find(a=>a.id===hero.armor);
-  document.getElementById('equippedRow').innerHTML=
-    `<div class="equipped-tag">${wep.emoji} <span>${wep.name}</span></div>`+
-    `<div class="equipped-tag">${arm.emoji} <span>${arm.name}</span></div>`;
-  document.getElementById('hpBar').style.width=Math.max(0,(hero.hp/hero.hpMax*100))+'%';
-  document.getElementById('hpVal').textContent=`${hero.hp}/${hero.hpMax}`;
-  document.getElementById('expBar').style.width=(hero.exp/hero.expNext*100)+'%';
-  document.getElementById('expVal').textContent=`${hero.exp}/${hero.expNext}`;
-  document.getElementById('statAtk').textContent=heroTotalAtk();
-  document.getElementById('statDef').textContent=heroTotalDef();
-  document.getElementById('statStreak').textContent='x'+streak;
-  document.getElementById('coinDisplay').textContent=coins;
+function startDan(i){
+  curDan=i; curIdx=0;
+  const col=DAN_COLORS[i];
+  document.getElementById('nextBtn').style.background=col;
+  document.getElementById('studyTitle').style.color=col;
+  showScreen('screenStudy');
+  renderEntry();
 }
 
-function generateQuestion(){
-  answered=false;
-  const cfg=getLvCfg();
-  /* pick a,b with product < 30 (exception: factor 2 always allowed) */
-  let tries=0;
-  do{qA=randInt(1,cfg.aMax);qB=randInt(1,cfg.bMax);tries++;}
-  while(qA*qB>=30&&qA!==2&&qB!==2&&tries<200);
-  correctAnswer=qA*qB;
-  const em=getEmoji();
-  const row=document.getElementById('emojiRow');
-  if(correctAnswer<=30){
-    let groups='';
-    for(let g=0;g<qB;g++){
+function renderEntry(){
+  const e=KUKU[curDan][curIdx];
+  const col=DAN_COLORS[curDan];
+  const em=DAN_EMOJI[curDan];
+
+  document.getElementById('studyTitle').textContent=`${curDan+1}のだん`;
+  document.getElementById('studyProg').textContent=`${curIdx+1} / 9`;
+  document.getElementById('studyCard').style.borderColor=col+'99';
+
+  // しんちょくドット
+  let dots='';
+  for(let i=0;i<9;i++){
+    const isCur=i===curIdx, isDone=i<curIdx;
+    dots+=`<div class="pdot${isCur?' cur':isDone?' done':''}" style="${isCur?`width:28px;background:${col};`:isDone?`width:10px;background:${col}66;`:'width:10px;'}"></div>`;
+  }
+  document.getElementById('progDots').innerHTML=dots;
+
+  // えもじビジュアル（25こ以下はグループひょうじ）
+  const va=document.getElementById('visualArea');
+  if(e.ans<=25){
+    let h='';
+    for(let g=0;g<e.b;g++){
       let items='';
-      for(let i=0;i<qA;i++) items+=`<span class="emoji-item">${em}</span>`;
-      groups+=`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;"><div style="font-size:0.65rem;font-weight:900;color:var(--gold);letter-spacing:1px;">${qA}</div><div style="display:flex;gap:2px;background:rgba(255,255,255,0.07);border-radius:8px;padding:4px 6px;">${items}</div></div>`;
+      for(let k=0;k<e.a;k++) items+=`<span style="font-size:1.25rem;line-height:1.3">${em}</span>`;
+      h+=`<div class="v-group">${items}</div>`;
     }
-    row.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;">${groups}</div>`;
-  }else{
-    row.innerHTML=`<span style="font-size:1.6rem">${em}</span><span class="times-sign">×</span><span style="font-size:1.6rem">${em}</span>`;
-  }
-  document.getElementById('question').innerHTML=`<span class="num">${qA}</span> × <span class="num">${qB}</span> ＝ ？`;
-  const opts=new Set([correctAnswer]);let att=0;
-  while(opts.size<4&&att<200){
-    att++;
-    const d=randInt(1,6)*(Math.random()<0.5?1:-1);
-    const w=correctAnswer+d;
-    if(w>0)opts.add(w);
-  }
-  const arr=[...opts].sort(()=>Math.random()-0.5);
-  const btns=document.querySelectorAll('.ans-btn');
-  arr.forEach((v,i)=>{btns[i].textContent=v;btns[i].className='ans-btn';btns[i].disabled=false;});
-  document.getElementById('feedback').textContent='';
-  document.getElementById('feedback').className='feedback';
-  document.getElementById('levelLabel').textContent=cfg.label;
-}
-
-function timeUp(){}
-function playCorrectSound(){
-  try{
-    const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    const o=ctx.createOscillator();const g=ctx.createGain();
-    o.connect(g);g.connect(ctx.destination);
-    o.frequency.setValueAtTime(784,ctx.currentTime);
-    o.frequency.setValueAtTime(988,ctx.currentTime+0.1);
-    o.frequency.setValueAtTime(1175,ctx.currentTime+0.2);
-    g.gain.setValueAtTime(0.3,ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
-    o.start(ctx.currentTime);o.stop(ctx.currentTime+0.5);
-  }catch(e){}
-}
-function answer(idx){
-  if(answered)return;answered=true;
-  const btns=document.querySelectorAll('.ans-btn');
-  const chosen=parseInt(btns[idx].textContent);
-  if(chosen===correctAnswer){
-    btns[idx].classList.add('correct');streak++;playCorrectSound();
-    const sBonus=streak>=5?3:streak>=3?2:0;
-    const earned=1+sBonus;coins+=earned;
-    const expGain=Math.ceil((1)*hero.expRate);hero.exp+=expGain;
-    if(streak%5===0&&hero.hp<hero.hpMax) hero.hp=Math.min(hero.hpMax,hero.hp+3);
-    let msg=streak>=5?`🔥 ${streak}れんぞく！ +${earned}G`:`⭕ せいかい！ +${earned}G +${expGain}EXP`;
-    showFeedback(msg,'correct');spawnCoin(earned,btns[idx]);
-    checkHeroLevelUp();
-    if(hero.lv>quizLevel&&quizLevel<5) quizLevel=Math.min(5,hero.lv);
-    updateHeroUI();
-    triggerAutoSave();
-    setTimeout(generateQuestion,1000);
+    va.innerHTML=h;
   } else {
-    btns[idx].classList.add('wrong');streak=0;
-    const dmg=Math.max(1,4-Math.floor(heroTotalDef()/3));
-    hero.hp=Math.max(0,hero.hp-dmg);
-    showFeedback(`❌ ${qA}×${qB}＝${correctAnswer}！ -${dmg}HP`,'wrong');
-    highlightCorrect();updateHeroUI();
-    setTimeout(generateQuestion,1600);
+    va.innerHTML=`<span style="font-size:2.5rem">${em}</span>`;
   }
+
+  // しき
+  document.getElementById('eqLine').innerHTML=
+    `<span style="color:${col}">${fw(e.a)}</span><span style="color:rgba(255,255,255,.45)"> × </span><span style="color:${col}">${fw(e.b)}</span>`;
+  document.getElementById('eqAns').innerHTML=
+    `<span style="color:rgba(255,255,255,.4)">＝ </span><span style="color:#fff">${fw(e.ans)}</span>`;
+  document.getElementById('eqYomi').textContent=e.yomi;
+
+  // じどうよみあげ
+  setTimeout(()=>doSpeak(e.yomi), 350);
 }
-function highlightCorrect(){document.querySelectorAll('.ans-btn').forEach(b=>{if(parseInt(b.textContent)===correctAnswer)b.classList.add('correct');b.disabled=true;});}
-function showFeedback(msg,type){const el=document.getElementById('feedback');el.textContent=msg;el.className=`feedback ${type}`;}
-function spawnCoin(n,btn){
-  const rect=btn?btn.getBoundingClientRect():{left:160,top:300};
-  for(let i=0;i<Math.min(n,3);i++){
-    setTimeout(()=>{const el=document.createElement('div');el.className='coin-pop';el.innerHTML=coinSVG(24);el.style.left=(rect.left+rect.width/2-12+(Math.random()-.5)*26)+'px';el.style.top=(rect.top+rect.height/2-12+window.scrollY)+'px';document.body.appendChild(el);setTimeout(()=>el.remove(),950);},i*160);
+
+function doSpeak(text){
+  if(!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ja-JP'; u.rate=0.78; u.pitch=1.1;
+  speechSynthesis.speak(u);
+}
+function speak(){doSpeak(KUKU[curDan][curIdx].yomi);}
+
+function nextEntry(){
+  if(curIdx<8){curIdx++;renderEntry();}
+  else showComplete();
+}
+function prevEntry(){
+  if(curIdx>0){curIdx--;renderEntry();}
+}
+
+function showComplete(){
+  if(window.speechSynthesis) speechSynthesis.cancel();
+  document.getElementById('doneSub').textContent=`${curDan+1}のだん、ぜんぶできた！`;
+  document.getElementById('replayBtn').style.background=DAN_COLORS[curDan];
+  const nb=document.getElementById('nextDanBtn');
+  if(curDan<8){nb.style.display='';nb.style.background=DAN_COLORS[curDan+1];}
+  else nb.style.display='none';
+  showScreen('screenComplete');
+  setTimeout(()=>doSpeak('すごい！ぜんぶできた！'), 400);
+}
+function replay(){startDan(curDan);}
+function goNextDan(){if(curDan<8)startDan(curDan+1);else showSelect();}
+
+// だんボタンをつくる
+(function(){
+  const grid=document.getElementById('danGrid');
+  for(let i=0;i<9;i++){
+    const b=document.createElement('button');
+    b.className='dan-btn';
+    b.style.background=`linear-gradient(135deg,${DAN_COLORS[i]},${DAN_COLORS[i]}88)`;
+    b.innerHTML=`<span class="d-emoji">${DAN_EMOJI[i]}</span><span class="d-label">${i+1}のだん</span>`;
+    b.onclick=()=>startDan(i);
+    grid.appendChild(b);
   }
-}
-
-function playLevelUpSound(){
-  try{
-    const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    // DQ風ファンファーレ：上昇アルペジオ＋締めのフレーズ
-    const notes=[
-      // 時間, 周波数, 長さ, 音量
-      [0.00, 523.25, 0.18, 0.18],  // C5
-      [0.16, 659.25, 0.18, 0.18],  // E5
-      [0.32, 783.99, 0.18, 0.18],  // G5
-      [0.48, 1046.5, 0.28, 0.20],  // C6
-      [0.78, 783.99, 0.16, 0.15],  // G5
-      [0.95, 1046.5, 0.80, 0.22],  // C6 (長め)
-    ];
-    notes.forEach(([t,freq,dur,vol])=>{
-      const o=ctx.createOscillator();
-      const g=ctx.createGain();
-      o.type='triangle';
-      o.frequency.value=freq;
-      o.connect(g);g.connect(ctx.destination);
-      g.gain.setValueAtTime(0,ctx.currentTime+t);
-      g.gain.linearRampToValueAtTime(vol,ctx.currentTime+t+0.01);
-      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+dur);
-      o.start(ctx.currentTime+t);
-      o.stop(ctx.currentTime+t+dur+0.05);
-    });
-  }catch(e){}
-}
-function checkHeroLevelUp(){
-  while(hero.exp>=hero.expNext){
-    hero.exp-=hero.expNext;hero.lv++;
-    hero.expNext=Math.floor(hero.expNext*1.4);
-    const c=CHARACTERS.find(x=>x.id===hero.charId);
-    const ag=c.id==='mage'?3:c.id==='knight'?1:2;
-    const dg=c.id==='knight'?3:c.id==='mage'?1:2;
-    const hg=c.id==='knight'?5:c.id==='mage'?3:4;
-    hero.atk+=ag;hero.def+=dg;hero.hpMax+=hg;hero.hp=hero.hpMax;
-    lvupQueue.push({ag,dg,hg});
-  }
-  if(lvupQueue.length===1){playLevelUpSound();displayNextLvup();}
-}
-function displayNextLvup(){
-  if(!lvupQueue.length)return;
-  const{ag,dg,hg}=lvupQueue[0];
-  document.getElementById('lvupTitle').textContent=`レベル ${hero.lv} にアップ！`;
-  document.getElementById('lvupDesc').textContent='キャラがつよくなったよ！HPもかいふく！';
-  document.getElementById('lvupStats').innerHTML=`<div class="lvup-stat"><b>+${ag}</b>こうげき</div><div class="lvup-stat"><b>+${dg}</b>ぼうぐ</div><div class="lvup-stat"><b>+${hg}</b>HP</div>`;
-  document.getElementById('lvupOverlay').classList.add('show');
-}
-function closeLvup(){
-  document.getElementById('lvupOverlay').classList.remove('show');
-  lvupQueue.shift();
-  if(lvupQueue.length){setTimeout(displayNextLvup,200);return;}
-  generateQuestion();
-}
-
-let battleMon=null,battleHeroHp=0,battleMonHp=0,battleTurn=0,battleRunning=false,battleTimeout=null;
-
-function openBattle(){
-  const idx=Math.min(hero.lv-1,MONSTERS.length-1);
-  const pick=Math.max(0,Math.min(MONSTERS.length-1,idx+randInt(-1,1)));
-  battleMon={...MONSTERS[pick]};
-  const scale=1+hero.lv*0.15;
-  battleMon.hp=Math.round(battleMon.hp*scale);
-  battleMon.atk=Math.round(battleMon.atk*scale);
-  battleMon.def=Math.round(battleMon.def*scale);
-  battleMon.exp=Math.round(battleMon.exp*scale);
-  battleMon.gold=Math.round(battleMon.gold*scale);
-  battleHeroHp=hero.hp;
-  battleMonHp=battleMon.hp;
-  battleTurn=0;
-  battleRunning=true;
-  document.getElementById('heroSprite').textContent=hero.emoji;
-  document.getElementById('monsterSprite').innerHTML=battleMon.emoji;
-  document.getElementById('monsterSprite').style.animation='';
-  document.getElementById('heroSprite').style.animation='';
-  document.getElementById('monsterSprite').style.opacity='1';
-  document.getElementById('heroSprite').style.opacity='1';
-  document.getElementById('monsterSprite').className='b-sprite monster-sprite';
-  document.getElementById('heroSprite').className='b-sprite hero-sprite';
-  document.getElementById('battleResult').classList.remove('show');
-  document.getElementById('bHeroName').textContent=`${hero.name} Lv.${hero.lv}`;
-  document.getElementById('bHeroStats').textContent=`⚔️${heroTotalAtk()} 🛡️${heroTotalDef()}`;
-  document.getElementById('bMonName').textContent=battleMon.name;
-  document.getElementById('bMonLevel').textContent=`モンスター Lv.${battleMon.lv}`;
-  updateBattleHpBars();
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('gameWrap').style.display='none';
-  document.getElementById('battleScreen').classList.add('active');
-  setBattleLog(`${battleMon.name}があらわれた！`);
-  setTimeout(()=>runBattleTurn(),1200);
-}
-
-function updateBattleHpBars(){
-  const hPct=Math.max(0,battleHeroHp/hero.hpMax*100);
-  const mPct=Math.max(0,battleMonHp/battleMon.hp*100);
-  const hBar=document.getElementById('bHeroHpBar');
-  hBar.style.width=hPct+'%';
-  hBar.className='b-hp-fill'+(hPct<30?' low':hPct<60?' mid':'');
-  document.getElementById('bHeroHpVal').textContent=`${Math.max(0,battleHeroHp)}/${hero.hpMax}`;
-  document.getElementById('bMonHpBar').style.width=mPct+'%';
-  document.getElementById('bMonHpVal').textContent=`${Math.max(0,battleMonHp)}/${battleMon.hp}`;
-}
-
-function setBattleLog(msg){
-  const log=document.getElementById('battleLog');
-  log.innerHTML=`<span class="log-line">${msg}</span>`;
-}
-
-function spawnBattleDmg(amount,isHero,isHeal){
-  const arena=document.querySelector('.battle-arena');
-  const el=document.createElement('div');
-  el.className='dmg-num'+(isHero?' hero-dmg':' monster-dmg')+(isHeal?' heal':'');
-  el.textContent=(isHeal?'+':'-')+amount+(isHeal?' HP':'');
-  el.style.top='40%';
-  arena.appendChild(el);
-  setTimeout(()=>el.remove(),1000);
-}
-
-function runBattleTurn(){
-  if(!battleRunning) return;
-  battleTurn++;
-  const hAtk=heroTotalAtk();
-  const heroDmg=Math.max(1,hAtk-battleMon.def+randInt(-2,3));
-  battleMonHp-=heroDmg;
-  const heroSprite=document.getElementById('heroSprite');
-  const monSprite=document.getElementById('monsterSprite');
-  heroSprite.style.animation='none';
-  void heroSprite.offsetWidth;
-  heroSprite.style.animation='heroAtk 0.5s ease';
-  setTimeout(()=>{
-    monSprite.style.animation='none';
-    void monSprite.offsetWidth;
-    monSprite.style.animation='spriteHurt 0.4s ease';
-    spawnBattleDmg(heroDmg,false,false);
-    updateBattleHpBars();
-    if(battleMonHp<=0){
-      setTimeout(()=>{
-        monSprite.style.animation='none';
-        void monSprite.offsetWidth;
-        monSprite.style.animation='spriteDead 0.6s ease forwards';
-        setBattleLog(`${battleMon.name}をたおした！🎉`);
-        setTimeout(()=>battleWin(),900);
-      },400);
-      return;
-    }
-    setBattleLog(`${hero.name}のこうげき！ ${battleMon.name}に ${heroDmg} のダメージ！`);
-    setTimeout(()=>{
-      if(!battleRunning) return;
-      const mAtk=battleMon.atk;
-      const monDmg=Math.max(1,mAtk-heroTotalDef()+randInt(-1,3));
-      battleHeroHp-=monDmg;
-      monSprite.style.animation='none';
-      void monSprite.offsetWidth;
-      monSprite.style.animation='monsterAtk 0.5s ease';
-      setTimeout(()=>{
-        heroSprite.style.animation='none';
-        void heroSprite.offsetWidth;
-        heroSprite.style.animation='spriteHurt 0.4s ease';
-        spawnBattleDmg(monDmg,true,false);
-        updateBattleHpBars();
-        if(battleHeroHp<=0){
-          setTimeout(()=>{
-            heroSprite.style.animation='heroDeadAnim 0.6s ease forwards';
-            setBattleLog(`${hero.name}はたおれた…😢`);
-            setTimeout(()=>battleLose(),900);
-          },400);
-          return;
-        }
-        setBattleLog(`${battleMon.name}のこうげき！ ${hero.name}に ${monDmg} のダメージ！`);
-        if(battleTurn>=20){
-          setTimeout(()=>{setBattleLog('じかんぎれ！ひきわけ！');setTimeout(()=>battleDraw(),800);},600);
-        } else {
-          setTimeout(()=>runBattleTurn(),1400);
-        }
-      },300);
-    },700);
-  },300);
-}
-
-function battleWin(){
-  battleRunning=false;
-  hero.hp=Math.max(1,battleHeroHp);
-  hero.exp+=battleMon.exp;
-  coins+=battleMon.gold;
-  checkHeroLevelUp();
-  updateHeroUI();
-  document.getElementById('resultEmoji').textContent='🏆';
-  document.getElementById('resultTitle').textContent='かった！';document.getElementById('resultTitle').className='result-title win';
-  document.getElementById('resultRewards').innerHTML=`+<b>${battleMon.exp}</b> EXP　　+<b>${battleMon.gold}</b> G<br>のこりHP：<b>${Math.max(1,battleHeroHp)}</b>`;
-  document.getElementById('battleResult').classList.add('show');
-}
-function battleLose(){
-  battleRunning=false;
-  hero.hp=Math.max(1,Math.floor(hero.hpMax*0.3));
-  updateHeroUI();
-  document.getElementById('resultEmoji').textContent='💀';
-  document.getElementById('resultTitle').textContent='まけた…';document.getElementById('resultTitle').className='result-title lose';
-  document.getElementById('resultRewards').innerHTML=`HP が <b>${hero.hp}</b> までかいふくしたよ。<br>もっとつよくなってリベンジしよう！`;
-  document.getElementById('battleResult').classList.add('show');
-}
-function battleDraw(){
-  battleRunning=false;
-  hero.hp=Math.max(1,battleHeroHp);
-  updateHeroUI();
-  document.getElementById('resultEmoji').textContent='⚖️';
-  document.getElementById('resultTitle').textContent='ひきわけ！';document.getElementById('resultTitle').className='result-title win';
-  document.getElementById('resultRewards').innerHTML=`ちょうどいいたたかいだったね！`;
-  document.getElementById('battleResult').classList.add('show');
-}
-function closeBattle(){
-  document.getElementById('battleScreen').classList.remove('active');
-  showGame();
-  generateQuestion();
-}
-
-function openShop(){
-  document.getElementById('shopCoinRow').innerHTML=coinSVG(20)+`<span>${coins}</span> コイン`;
-  buildShop();showScreen('screenShop');
-}
-function closeShop(){showGame();generateQuestion();}
-function buildShop(){
-  renderShopItems('shopWeapons',WEAPONS,'weapon');
-  renderShopItems('shopArmors',ARMORS,'armor');
-}
-function renderShopItems(cid,items,type){
-  const wrap=document.getElementById(cid);wrap.innerHTML='';
-  items.filter(i=>!i.starter).forEach(item=>{
-    const owned=type==='weapon'?hero.owned.weapons.includes(item.id):hero.owned.armors.includes(item.id);
-    const equipped=(type==='weapon'?hero.weapon:hero.armor)===item.id;
-    const div=document.createElement('div');
-    div.className='shop-item'+(equipped?' equipped-item':owned?' owned':'');
-    const statLbl=type==='weapon'?`⚔️ こうげき +${item.atk}`:`🛡️ ぼうぐ +${item.def}`;
-    const priceArea=equipped?`<span class="shop-price owned-label">そうびちゅう</span>`:owned?`<span class="shop-price owned-label">そうびする</span>`:`<div class="shop-price">${coinSVG(16)}<span>${item.price}</span></div>`;
-    div.innerHTML=`<div class="shop-item-icon">${item.emoji}</div><div class="shop-item-info"><div class="shop-item-name">${item.name}</div><div class="shop-item-desc">${item.desc}</div><div class="shop-item-stat">${statLbl}</div></div>${priceArea}`;
-    if(!owned&&!equipped) div.onclick=()=>buyItem(type,item);
-    else if(owned&&!equipped) div.onclick=()=>equipItem(type,item.id);
-    wrap.appendChild(div);
-  });
-}
-function buyItem(type,item){
-  if(coins<item.price){showFeedback('コインがたりない！','wrong');return;}
-  coins-=item.price;
-  if(type==='weapon') hero.owned.weapons.push(item.id);
-  else hero.owned.armors.push(item.id);
-  equipItem(type,item.id);
-}
-function equipItem(type,id){
-  if(type==='weapon') hero.weapon=id;
-  else hero.armor=id;
-  document.getElementById('shopCoinRow').innerHTML=coinSVG(20)+`<span>${coins}</span> コイン`;
-  buildShop();updateHeroUI();
-}
-
-const SAVE_KEY='kakeizan_save';
-function saveGame(){
-  const data={hero,coins,quizLevel,savedAt:new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})};
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify(data));showSaveToast();}catch(e){alert('セーブできなかった…');}
-}
-function loadSave(){
-  try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return;loadGame(JSON.parse(raw));}catch(e){alert('よみこめなかった…');}
-}
-function loadGame(data){
-  hero=data.hero;coins=data.coins;quizLevel=data.quizLevel||1;streak=0;
-  updateHeroUI();showGame();generateQuestion();
-}
-function deleteSave(){
-  if(!confirm('セーブデータをけす？'))return;
-  localStorage.removeItem(SAVE_KEY);renderSaveSlots();
-}
-function renderSaveSlots(){
-  const wrap=document.getElementById('saveSlots');
-  if(!wrap)return;
-  try{
-    const raw=localStorage.getItem(SAVE_KEY);
-    if(!raw){wrap.innerHTML='';return;}
-    const data=JSON.parse(raw);
-    const h=data.hero;
-    const wep=WEAPONS.find(w=>w.id===h.weapon)||WEAPONS[0];
-    const arm=ARMORS.find(a=>a.id===h.armor)||ARMORS[0];
-    wrap.innerHTML=`
-      <div class="save-card" style="flex-direction:column;text-align:center;">
-        <div class="save-card-avatar" style="font-size:2.8rem;margin-bottom:4px;">${h.emoji}</div>
-        <div class="save-card-info" style="width:100%;margin-bottom:6px;">
-          <div class="save-card-name">${h.name}  Lv.${h.lv}</div>
-          <div class="save-card-detail">${wep.emoji}${wep.name}　${arm.emoji}${arm.name}</div>
-          <div class="save-card-detail">コイン:${data.coins}　HP:${h.hp}/${h.hpMax}</div>
-          <div class="save-card-detail" style="color:#555">${data.savedAt||''}</div>
-        </div>
-        <div class="save-card-btns">
-          <button class="big-btn" style="margin:3px 0;padding:10px 16px;font-size:0.9rem;" onclick="loadSave()">つづきから</button>
-          <button class="big-btn red" style="margin:3px 0;padding:8px 16px;font-size:0.75rem;" onclick="deleteSave()">けす</button>
-        </div>
-      </div>`;
-  }catch(e){wrap.innerHTML='';}
-}
-function showSaveToast(){const t=document.getElementById('saveToast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
-let _saveCounter=0;
-function triggerAutoSave(){_saveCounter++;if(_saveCounter%5===0)saveGame();}
-window.addEventListener('load',()=>{renderSaveSlots();});
+})();
 </script>
 </body>
 </html>
