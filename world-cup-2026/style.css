@@ -56,7 +56,6 @@ body { display: flex; flex-direction: column; height: 100vh; }
 .brand { font-size: 18px; letter-spacing: .5px; white-space: nowrap; cursor: pointer; }
 .brand strong { color: var(--accent2); }
 .brand .ball { font-size: 22px; }
-.host { font-size: 20px; letter-spacing: 2px; }
 
 /* live-update status + refresh button */
 .update-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -1211,7 +1210,6 @@ tr.japan-row td { font-weight: 700; }
   }
   .brand { font-size: 15px; }
   .brand .ball { font-size: 18px; }
-  .host { display: none; }
   .update-status { display: none; }
   .update-wrap { margin-left: auto; gap: 4px; }
   .refresh-btn { padding: 6px 10px; font-size: 14px; }
