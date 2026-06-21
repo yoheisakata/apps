@@ -11,14 +11,44 @@ export function createStandings({ container, data, onTeam }) {
     return `<span class="team-link" data-team="${code}" role="button" tabindex="0"><span class="flag">${t.flag}</span><span class="tname">${t.name}</span></span>`;
   }
 
+  // Determine which teams have qualified for R32.
+  // Top 2 per group + best 8 third-place teams advance.
+  // A team is "confirmed" only when all 3 group matches are played.
+  function qualifiedTeams() {
+    const groupKeys = Object.keys(data.groups);
+    const qualified = new Set();
+    const thirdPlace = [];
+
+    for (const g of groupKeys) {
+      const standing = groupStandings(data, g);
+      const allPlayed = standing.every((r) => r.pld === 3);
+      if (!allPlayed) continue;
+      if (standing[0]) qualified.add(standing[0].code);
+      if (standing[1]) qualified.add(standing[1].code);
+      if (standing[2]) thirdPlace.push(standing[2]);
+    }
+
+    // Best 8 third-place teams qualify (same tiebreaker: pts, gd, gf)
+    thirdPlace
+      .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+      .slice(0, 8)
+      .forEach((r) => qualified.add(r.code));
+
+    return qualified;
+  }
+
   function groupCard(groupKey) {
+    const qualified = qualifiedTeams();
     const rows = groupStandings(data, groupKey)
       .map(
-        (r, i) => `<tr>
+        (r, i) => {
+          const isQual = qualified.has(r.code);
+          return `<tr class="${isQual ? "r32-qualified" : ""} ${i < 2 ? "" : ""}">
           <td class="team ${i < 2 ? "qual" : ""}">${flagName(r.code)}</td>
           <td>${r.pld}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
           <td>${r.gd > 0 ? "+" : ""}${r.gd}</td><td><strong>${r.pts}</strong></td>
-        </tr>`
+        </tr>`;
+        }
       )
       .join("");
     return `<div class="group-card">

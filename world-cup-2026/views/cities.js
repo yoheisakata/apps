@@ -156,7 +156,7 @@ export function createCities({ container, data }) {
     if (!map) {
       container.innerHTML = `
         <h2 class="section-title">🏟️ 開催都市 <span class="sub">16都市</span></h2>
-        <div class="banner">地図上のマーカーをクリックすると、その都市の写真・人口・特徴が表示されます（写真と解説は Wikipedia から取得）。<span class="legend-inline"><b style="color:#4a90e2">●</b>米 <b style="color:#e25555">●</b>加 <b style="color:#3cba54">●</b>墨</span></div>
+        <div class="banner">地図上のマーカーをクリックすると、その都市の写真・人口・特徴が表示されます（写真と解説は Wikipedia から取得）。<span class="legend-inline"><b style="color:#4a90e2">●</b> 🇺🇸 USA <b style="color:#e25555">●</b> 🇨🇦 Canada <b style="color:#3cba54">●</b> 🇲🇽 Mexico</span></div>
         <div class="map-shell">
           <div id="cities-map" class="leaflet-host"></div>
           <div id="city-modal" class="city-modal hidden">

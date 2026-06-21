@@ -44,16 +44,45 @@ export function createCountry({ container, data, onBack }) {
     sf: "準決勝", third: "3位決定戦", final: "決勝",
   };
 
-  // This team's matches (any stage) that have a result, oldest first.
-  function teamMatches() {
+  function allTeamMatches() {
     return data.matches
-      .filter((m) => m.result && (m.home === code || m.away === code))
+      .filter((m) => m.home === code || m.away === code)
       .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  }
+
+  function playedMatches() {
+    return allTeamMatches().filter((m) => m.result);
+  }
+
+  function nextMatch() {
+    return allTeamMatches().find((m) => !m.result);
   }
 
   function teamName(c) {
     const t = data.byCode[c];
     return t ? `${t.flag} ${t.name}` : "未定";
+  }
+
+  function nextMatchCard() {
+    const m = nextMatch();
+    if (!m) return "";
+    const opp = m.home === code ? m.away : m.home;
+    const oppTeam = data.byCode[opp];
+    const venue = data.venueById[m.venue];
+    const timeStr = m.time || "";
+    return `<div class="card next-match-card" data-match-id="${m.id}" role="button" tabindex="0">
+      <h3>📅 次の試合</h3>
+      <div class="nm-teams">
+        <span class="nm-team">${teamName(code)}</span>
+        <span class="nm-vs">vs</span>
+        <span class="nm-team">${oppTeam ? teamName(opp) : "未定"}</span>
+      </div>
+      <div class="nm-info">
+        ${m.date ? `<span>${m.date}${timeStr ? ` ${timeStr}` : ""}</span>` : ""}
+        ${venue ? `<span>${esc(venue.city)} · ${esc(venue.stadium)}</span>` : ""}
+        <span>${STAGE_LABEL[m.stage] || ""}${m.group ? " " + m.group : ""}</span>
+      </div>
+    </div>`;
   }
 
   function resultsTable(matches) {
@@ -191,8 +220,9 @@ export function createCountry({ container, data, onBack }) {
 
     const body = container.querySelector("#country-body");
     if (!body) return;
-    const results = teamMatches();
+    const results = playedMatches();
     body.innerHTML = `
+      ${nextMatchCard()}
       <div class="country-grid">
         <div class="country-col">
           <div class="card">
