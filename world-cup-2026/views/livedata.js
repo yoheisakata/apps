@@ -55,6 +55,11 @@ function parseDate(s) {
   return `${m[1]}-${p(m[2])}-${p(m[3])}`;
 }
 
+function parseTime(s) {
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  return m ? `${m[1].padStart(2, "0")}:${m[2]}` : null;
+}
+
 function parseCity(s) {
   // last [[...]] link in the stadium field is the city
   const links = [...s.matchAll(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/g)].map((m) => m[1]);
@@ -104,6 +109,7 @@ function parseKnockoutArticle(wikitext) {
       stage: stageFor(sec),
       matchNo: parseMatchNo(field(body, "score")),
       date: parseDate(field(body, "date")),
+      time: parseTime(field(body, "time")),
       city: parseCity(field(body, "stadium")),
       label1: cleanSlotLabel(field(body, "team1")),
       label2: cleanSlotLabel(field(body, "team2")),
@@ -158,11 +164,12 @@ function parseGroupArticle(wikitext) {
       away: flagCode(field(body, "team2")),
       result: parseScore(field(body, "score")),
       date: parseDate(field(body, "date")),
+      time: parseTime(field(body, "time")),
       city: parseCity(field(body, "stadium")),
       scorers1: parseScorers(g1),
       scorers2: parseScorers(g2),
-      ownGoals1: countOwnGoals(g1), // own goals credited to the home team
-      ownGoals2: countOwnGoals(g2), // own goals credited to the away team
+      ownGoals1: countOwnGoals(g1),
+      ownGoals2: countOwnGoals(g2),
     });
   }
   return matches;
@@ -230,6 +237,7 @@ export async function fetchLiveData() {
         stage: "group",
         group: g,
         date: mm.date,
+        time: mm.time,
         venue,
         home: mm.home,
         away: mm.away,
@@ -261,10 +269,11 @@ export async function fetchLiveData() {
         slot: i + 1,
         matchNo: b?.matchNo ?? null,
         date: b?.date ?? null,
+        time: b?.time ?? null,
         venue: b ? CITY_TO_VENUE[b.city] || null : null,
         home: null,
         away: null,
-        homeLabel: b?.label1 ?? null, // e.g. "Winner Group A" / "Winner Match 73"
+        homeLabel: b?.label1 ?? null,
         awayLabel: b?.label2 ?? null,
         result: null,
       });

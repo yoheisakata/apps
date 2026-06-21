@@ -111,9 +111,10 @@ export function createJapan({ container, data }) {
         const played = Array.isArray(m.result);
         const venue = data.venueById[m.venue];
 
+        const timeStr = m.time || "";
         if (!played) {
           return `<div class="japan-match-card upcoming" data-match-id="${m.id}" role="button" tabindex="0">
-            <div class="jm-date">${m.date || "未定"}</div>
+            <div class="jm-date">${m.date || "未定"}${timeStr ? ` ${timeStr}` : ""}</div>
             <div class="jm-teams">
               <span class="jm-team">${teamName(m.home)}</span>
               <span class="jm-vs">vs</span>
@@ -130,7 +131,7 @@ export function createJapan({ container, data }) {
         const outcome = my > opGoals ? "win" : my < opGoals ? "loss" : "draw";
         const outcomeLabel = outcome === "win" ? "勝ち" : outcome === "loss" ? "負け" : "引き分け";
         return `<div class="japan-match-card ${outcome}" data-match-id="${m.id}" role="button" tabindex="0">
-          <div class="jm-date">${m.date || ""}</div>
+          <div class="jm-date">${m.date || ""}${timeStr ? ` ${timeStr}` : ""}</div>
           <div class="jm-teams">
             <span class="jm-team">${teamName(m.home)}</span>
             <span class="jm-score">${hs} - ${as}</span>

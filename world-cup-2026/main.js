@@ -156,7 +156,6 @@ async function refreshLive({ silent } = {}) {
     } catch (_) {}
     const played = live.matches.filter((m) => m.result).length;
     setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
-    startGlobalCountdown();
     rerenderAll();
   } catch (e) {
     setStatus("更新失敗 — 保存データを表示中", "err");
@@ -181,38 +180,6 @@ function loadCache() {
   return false;
 }
 
-// ---- global countdown timer (next match across all teams) ----
-let _cdInterval = null;
-function startGlobalCountdown() {
-  if (_cdInterval) clearInterval(_cdInterval);
-  const next = data.matches
-    .filter((m) => !m.result && m.date)
-    .sort((a, b) => a.date.localeCompare(b.date))[0];
-  const wrap = $("global-countdown");
-  const el = $("cd-timer");
-  if (!next || !el) { if (wrap) wrap.classList.add("hidden"); return; }
-  if (wrap) wrap.classList.remove("hidden");
-  const target = new Date(next.date + "T00:00:00Z");
-  const homeTeam = data.byCode[next.home];
-  const awayTeam = data.byCode[next.away];
-  const label = wrap?.querySelector(".cd-label");
-  if (label) {
-    const names = [homeTeam, awayTeam].filter(Boolean).map((t) => t.flag).join(" vs ");
-    label.textContent = names ? `${names}` : "次の試合:";
-  }
-  function tick() {
-    const diff = target - new Date();
-    if (diff <= 0) { el.textContent = "試合日！"; clearInterval(_cdInterval); return; }
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor((diff % 86400000) / 3600000);
-    const min = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    const p = (n) => String(n).padStart(2, "0");
-    el.textContent = d > 0 ? `${d}日 ${p(h)}:${p(min)}:${p(s)}` : `${p(h)}:${p(min)}:${p(s)}`;
-  }
-  tick();
-  _cdInterval = setInterval(tick, 1000);
-}
 
 function applyThemeButton() {
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -263,6 +230,5 @@ function bind() {
   bind();
   setTab("schedule");
   $("loading").classList.add("hidden");
-  startGlobalCountdown();
-  refreshLive({ silent: false }); // then refresh from Wikipedia in the background
+  refreshLive({ silent: false });
 })();

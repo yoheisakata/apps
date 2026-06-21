@@ -120,14 +120,14 @@ export function createSchedule({ container, data }) {
       center = `<div class="m-vs">vs</div>`;
     }
 
-    const kickoffTime = m.kickoff ? fmtTime(m.kickoff) : "";
+    const timeStr = m.time || (m.kickoff ? fmtTime(m.kickoff) : "");
 
     return `<div class="m-card${isLive ? " m-card-live" : ""}" data-match-id="${m.id}" role="button" tabindex="0">
       <div class="m-side home">${side(m.home, m.homeLabel)}</div>
       ${center}
       <div class="m-side away">${side(m.away, m.awayLabel)}</div>
       <div class="m-meta">
-        ${m.date ? `<span class="m-date">${m.date}${kickoffTime}</span>` : `<span class="m-date tbd">日程未定</span>`}
+        ${m.date ? `<span class="m-date">${m.date}${timeStr ? ` ${timeStr}` : ""}</span>` : `<span class="m-date tbd">日程未定</span>`}
         ${venue ? `<span class="m-venue">${venue.city}</span>` : ""}
       </div>
     </div>`;
