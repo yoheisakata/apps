@@ -30,7 +30,7 @@ function teamBlock(code, label, data) {
   if (code) {
     const t = data.byCode[code];
     if (!t) return `<div class="mm-team-block"><span class="mm-flag">🏳️</span><span class="mm-tname">${esc(code)}</span></div>`;
-    return `<div class="mm-team-block">
+    return `<div class="mm-team-block mm-team-link" data-team-code="${esc(code)}" role="button" tabindex="0">
       <span class="mm-flag">${t.flag}</span>
       <span class="mm-tname">${esc(t.name)}</span>
       <span class="mm-tmeta">${t.group ? t.group + "組" : ""}${t.rank ? " · FIFA " + t.rank + "位" : ""}</span>
@@ -136,7 +136,7 @@ async function searchYouTube(homeName, awayName) {
   }
 }
 
-export function createMatchModal() {
+export function createMatchModal({ onTeam } = {}) {
   const overlay = document.getElementById("match-modal");
   if (!overlay) return { open() {}, close() {} };
 
@@ -146,6 +146,16 @@ export function createMatchModal() {
 
   function close() {
     overlay.classList.add("hidden");
+  }
+
+  if (onTeam) {
+    overlay.addEventListener("click", (e) => {
+      const el = e.target.closest("[data-team-code]");
+      if (!el) return;
+      e.stopPropagation();
+      close();
+      onTeam(el.dataset.teamCode);
+    });
   }
 
   closeBtn?.addEventListener("click", close);

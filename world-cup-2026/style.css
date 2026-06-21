@@ -989,6 +989,9 @@ tr.japan-row td { font-weight: 700; }
 .mm-tname { font-size: 15px; font-weight: 700; }
 .mm-tmeta { font-size: 10px; color: var(--muted); }
 .mm-team-block.tbd .mm-tname { color: var(--muted); font-weight: 400; font-size: 12px; }
+.mm-team-link { cursor: pointer; transition: transform .12s; }
+.mm-team-link:hover { transform: scale(1.08); }
+.mm-team-link:hover .mm-tname { color: var(--accent); text-decoration: underline; }
 
 .mm-score-wrap {
   display: flex;

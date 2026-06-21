@@ -199,7 +199,7 @@ function toggleTheme() {
   applyThemeButton();
 }
 
-const matchModal = createMatchModal();
+const matchModal = createMatchModal({ onTeam: (code) => goToCountry(code) });
 
 function bind() {
   document.querySelectorAll(".tab").forEach((b) =>
