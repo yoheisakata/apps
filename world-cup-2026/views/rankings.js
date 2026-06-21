@@ -4,7 +4,7 @@
 // scorers (name + minute), with no assist information, so an assist ranking
 // can't be built without fabricating it. The view notes this explicitly.
 
-import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=2";
+import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=3";
 
 export function createRankings({ container, data, onTeam }) {
   let squads = null; // filled in asynchronously; enables full-name display
