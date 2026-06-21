@@ -1,0 +1,6 @@
+name = "wc2026-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+FOOTBALL_API_TOKEN = "65bcaec3f8df4bc3bfe5fd88f8d42131"

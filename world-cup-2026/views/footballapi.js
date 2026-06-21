@@ -1,9 +1,8 @@
-// Football-Data.org v4 API integration.
+// Football-Data.org v4 API integration via Cloudflare Worker proxy.
+// The worker handles CORS and API authentication server-side.
 // Primary live data source; falls back to Wikipedia on failure.
-// Free plan: 10 requests/minute, competition code WC for World Cup.
 
-const BASE = "https://api.football-data.org/v4";
-const TOKEN = "65bcaec3f8df4bc3bfe5fd88f8d42131";
+const BASE = "https://wc2026-api.yoheisakata.workers.dev";
 const COMP = "WC"; // FIFA World Cup
 
 // Football-Data.org uses FIFA country codes which mostly match ours,
@@ -24,19 +23,9 @@ function mapCode(apiCode) {
 }
 
 async function apiFetch(path) {
-  const url = `${BASE}${path}`;
-  console.log(`[football-data] fetching ${url}`);
-  const res = await fetch(url, {
-    headers: { "X-Auth-Token": TOKEN },
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error(`[football-data] ${res.status} ${res.statusText}`, body);
-    throw new Error(`football-data.org ${res.status}`);
-  }
-  const json = await res.json();
-  console.log(`[football-data] ${path} OK`, Object.keys(json));
-  return json;
+  const res = await fetch(`${BASE}${path}`);
+  if (!res.ok) throw new Error(`football-data.org ${res.status}`);
+  return res.json();
 }
 
 // Map API match status to a result array [home, away] or null.

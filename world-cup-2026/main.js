@@ -16,6 +16,7 @@ import { createTeamList } from "./views/teamlist.js?v=4";
 import { createJapan } from "./views/japan.js?v=4";
 import { createMatchModal } from "./views/matchmodal.js?v=4";
 import { fetchLiveData } from "./views/livedata.js?v=4";
+import { fetchFootballData } from "./views/footballapi.js?v=4";
 
 const $ = (id) => document.getElementById(id);
 const APP_VERSION = 4;
@@ -140,12 +141,15 @@ async function refreshLive({ silent } = {}) {
   if (btn) btn.disabled = true;
   if (!silent) setStatus("更新中…", "loading");
   try {
-    // Football-Data.org's free plan only sends Access-Control-Allow-Origin:
-    // http://localhost, so browsers block it from GitHub Pages. We rely on
-    // the English Wikipedia MediaWiki API (CORS-enabled via origin=*) instead.
-    const live = await fetchLiveData();
-    const source = "wiki";
-    console.log("[live] Wikipedia OK");
+    let live;
+    let source;
+    try {
+      live = await fetchFootballData(data.teams);
+      source = "api";
+    } catch (_) {
+      live = await fetchLiveData();
+      source = "wiki";
+    }
     applyLive(live, source);
     const fetchedAt = new Date().toISOString();
     try {
@@ -155,7 +159,7 @@ async function refreshLive({ silent } = {}) {
     setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
     rerenderAll();
   } catch (e) {
-    console.warn("[live] Wikipedia fetch failed:", e.message);
+    console.warn("[live] fetch failed:", e.message);
     const played = data.matches.filter((m) => m.result).length;
     if (data.source === "cache") {
       setStatus(`保存データを表示中 / ${played}試合`, "");
