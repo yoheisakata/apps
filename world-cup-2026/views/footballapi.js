@@ -162,6 +162,59 @@ function mapStatus(status) {
   return m[status] || "scheduled";
 }
 
+// Fetch detailed match info (including statistics) for a single match.
+// The v4 API returns head2head and match details including statistics.
+const STATS_CACHE = new Map();
+
+export async function fetchMatchStats(matchApiId) {
+  if (!matchApiId) return null;
+  if (STATS_CACHE.has(matchApiId)) return STATS_CACHE.get(matchApiId);
+  try {
+    const json = await apiFetch(`/matches/${matchApiId}`);
+    const stats = {};
+    if (json.homeTeam?.statistics && json.awayTeam?.statistics) {
+      const hStats = json.homeTeam.statistics;
+      const aStats = json.awayTeam.statistics;
+      const mapStat = (arr) => {
+        const obj = {};
+        if (Array.isArray(arr)) arr.forEach((s) => { obj[s.type] = s.value; });
+        return obj;
+      };
+      const h = mapStat(hStats);
+      const a = mapStat(aStats);
+      const keys = [
+        ["ball_possession", "ポゼッション", "%"],
+        ["shots", "シュート", ""],
+        ["shots_on_goal", "枠内シュート", ""],
+        ["corner_kicks", "コーナーキック", ""],
+        ["fouls", "ファウル", ""],
+        ["offsides", "オフサイド", ""],
+        ["yellow_cards", "イエローカード", ""],
+        ["red_cards", "レッドカード", ""],
+        ["saves", "セーブ", ""],
+      ];
+      stats.rows = [];
+      for (const [key, label, unit] of keys) {
+        if (h[key] != null || a[key] != null) {
+          stats.rows.push({
+            label,
+            home: h[key] != null ? `${h[key]}${unit}` : "-",
+            away: a[key] != null ? `${a[key]}${unit}` : "-",
+            homeVal: Number(h[key]) || 0,
+            awayVal: Number(a[key]) || 0,
+          });
+        }
+      }
+    }
+    const result = stats.rows?.length ? stats : null;
+    STATS_CACHE.set(matchApiId, result);
+    return result;
+  } catch (e) {
+    STATS_CACHE.set(matchApiId, null);
+    return null;
+  }
+}
+
 // Fetch matches + standings from Football-Data.org and return the same
 // { groups, matches, asOf } shape that fetchLiveData() in livedata.js uses.
 // `knownTeams` is data.teams (used to validate/map codes).
@@ -243,6 +296,7 @@ export async function fetchFootballData(knownTeams) {
 
     const entry = {
       id: `M${String(mid).padStart(3, "0")}`,
+      apiId: am.id || null,
       stage,
       date,
       venue: mapVenue(am),
