@@ -127,7 +127,7 @@ export function createSchedule({ container, data }) {
       ${center}
       <div class="m-side away">${side(m.away, m.awayLabel)}</div>
       <div class="m-meta">
-        ${m.date ? `<span class="m-date">${m.date}${timeStr ? ` ${timeStr}` : ""}</span>` : `<span class="m-date tbd">日程未定</span>`}
+        ${timeStr ? `<span class="m-date">${timeStr}</span>` : ""}
         ${venue ? `<span class="m-venue">${venue.city}</span>` : ""}
       </div>
     </div>`;

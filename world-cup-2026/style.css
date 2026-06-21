@@ -157,6 +157,8 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .standings td.team { text-align: left; white-space: nowrap; }
 .standings tr:not(:last-child) td { border-bottom: 1px solid var(--line); }
 .standings .qual { border-left: 3px solid var(--accent); }
+.standings tr.r32-qualified { background: rgba(0, 212, 160, 0.08); }
+[data-theme="dark"] .standings tr.r32-qualified { background: rgba(0, 212, 160, 0.12); }
 .flag { font-size: 16px; margin-right: 5px; }
 
 /* ---- Match list ---- */
@@ -581,6 +583,31 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 
 .country-grid { display: grid; grid-template-columns: 1fr 1.6fr; gap: 18px; align-items: start; }
 .country-col { display: flex; flex-direction: column; gap: 18px; }
+
+.next-match-card {
+  border-left: 3px solid var(--accent2);
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+.next-match-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,212,160,.12); }
+.nm-teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.nm-vs { color: var(--muted); font-size: 13px; font-weight: 400; }
+.nm-info {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
 
 .scorer-list { display: flex; flex-direction: column; gap: 6px; }
 .scorer-row {
