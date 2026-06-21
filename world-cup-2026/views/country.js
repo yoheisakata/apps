@@ -213,53 +213,26 @@ export function createCountry({ container, data, onBack }) {
       container.innerHTML = `<p class="sub">チームが見つかりません。</p>`;
       return;
     }
+    const results = playedMatches();
+    const next = nextMatch();
     container.innerHTML = `
       ${header(t)}
       <div class="banner">出場メンバーと本大会の得点は Wikipedia から取得。出場・得点（右2列）は<b>代表通算</b>の数字です。</div>
-      <div id="country-body"><p class="sub">選手データを読み込み中…</p></div>
-    `;
-    container.querySelector("#country-back").addEventListener("click", () => onBack());
-
-    let squads;
-    try {
-      squads = await ensureSquads();
-    } catch (e) {
-      container.querySelector("#country-body").innerHTML =
-        `<p class="sub">選手データの取得に失敗しました（ネット接続をご確認ください）。</p>`;
-      return;
-    }
-    // guard: user may have navigated away
-    if (data.byCode[code] !== t) return;
-
-    const players = squads.byCode[code] || [];
-    const teamScorers = tournamentScorers(data.matches)[code] || {};
-    // Assign each scorer's goals to exactly one squad player (deduplicated).
-    goalsMap = teamGoalsByPlayer(squads, code, teamScorers);
-    const ownGoals = teamOwnGoals(data.matches)[code] || 0;
-    // Total = players' goals + own goals benefited from, so it matches the
-    // scoreline (e.g. USA scored 6: 5 by players + 1 own goal).
-    const totalGoals = Object.values(teamScorers).reduce((a, b) => a + b, 0) + ownGoals;
-
-    const body = container.querySelector("#country-body");
-    if (!body) return;
-    const results = playedMatches();
-    const next = nextMatch();
-    body.innerHTML = `
       ${nextMatchCard()}
       <div class="country-grid">
         <div class="country-col">
-          <div class="card">
-            <h3>⚽ 本大会の得点 <span class="sub">${totalGoals}得点</span></h3>
-            ${scorerTable(players, ownGoals)}
+          <div class="card" id="country-scorers">
+            <h3>⚽ 本大会の得点</h3>
+            <p class="sub">読み込み中…</p>
           </div>
           <div class="card">
             <h3>📋 試合結果 <span class="sub">${results.length}試合</span></h3>
             ${resultsTable(results)}
           </div>
         </div>
-        <div class="card">
-          <h3>👥 登録メンバー <span class="sub">${players.length}名</span></h3>
-          ${players.length ? squadTable(players) : `<p class="sub">名簿データがありません。</p>`}
+        <div class="card" id="country-squad">
+          <h3>👥 登録メンバー</h3>
+          <p class="sub">選手データを読み込み中…</p>
         </div>
       </div>
       <div id="player-modal" class="city-modal hidden">
@@ -270,8 +243,42 @@ export function createCountry({ container, data, onBack }) {
         </div>
       </div>
     `;
-
+    container.querySelector("#country-back").addEventListener("click", () => onBack());
     startCountdown(next);
+
+    let squads;
+    try {
+      squads = await ensureSquads();
+    } catch (e) {
+      const sq = container.querySelector("#country-squad");
+      if (sq) sq.innerHTML = `<h3>👥 登録メンバー</h3><p class="sub">選手データの取得に失敗しました。</p>`;
+      const sc = container.querySelector("#country-scorers");
+      if (sc) sc.innerHTML = `<h3>⚽ 本大会の得点</h3><p class="sub">データ取得に失敗しました。</p>`;
+      return;
+    }
+    if (data.byCode[code] !== t) return;
+
+    const players = squads.byCode[code] || [];
+    const teamScorers = tournamentScorers(data.matches)[code] || {};
+    goalsMap = teamGoalsByPlayer(squads, code, teamScorers);
+    const ownGoals = teamOwnGoals(data.matches)[code] || 0;
+    const totalGoals = Object.values(teamScorers).reduce((a, b) => a + b, 0) + ownGoals;
+
+    const scorersEl = container.querySelector("#country-scorers");
+    if (scorersEl) {
+      scorersEl.innerHTML = `
+        <h3>⚽ 本大会の得点 <span class="sub">${totalGoals}得点</span></h3>
+        ${scorerTable(players, ownGoals)}
+      `;
+    }
+    const squadEl = container.querySelector("#country-squad");
+    if (squadEl) {
+      squadEl.innerHTML = `
+        <h3>👥 登録メンバー <span class="sub">${players.length}名</span></h3>
+        ${players.length ? squadTable(players) : `<p class="sub">名簿データがありません。</p>`}
+      `;
+    }
+
     bindPlayerLinks();
   }
 
