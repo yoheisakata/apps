@@ -46,6 +46,11 @@ function scorerList(scorers) {
     .join("");
 }
 
+function youtubeSearchUrl(homeName, awayName) {
+  const q = `${homeName} vs ${awayName} FIFA World Cup 2026 highlights`;
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
+
 export function createMatchModal() {
   const overlay = document.getElementById("match-modal");
   if (!overlay) return { open() {}, close() {} };
@@ -100,6 +105,14 @@ export function createMatchModal() {
         : "日程未定";
     const statusClass = played ? "finished" : "upcoming";
 
+    const homeTeam = data.byCode?.[m.home];
+    const awayTeam = data.byCode?.[m.away];
+    const highlightLink = played && homeTeam && awayTeam
+      ? `<a class="mm-highlight-btn" href="${youtubeSearchUrl(homeTeam.name, awayTeam.name)}" target="_blank" rel="noopener">
+          <span class="mm-yt-icon">▶</span> ハイライト動画を見る
+        </a>`
+      : "";
+
     body.innerHTML = `
       <div class="mm-header">
         <span class="mm-stage">${esc(stageText)}${esc(groupText)}</span>
@@ -112,6 +125,7 @@ export function createMatchModal() {
         ${teamBlock(m.away, m.awayLabel, data)}
       </div>
       ${scorersSection}
+      ${highlightLink}
       <div class="mm-details">
         ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(m.date)}</span></div>` : ""}
         ${venue ? `<div class="mm-detail-row"><span class="mm-dk">スタジアム</span><span class="mm-dv">${esc(venue.stadium)}</span></div>` : ""}

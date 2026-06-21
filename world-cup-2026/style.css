@@ -960,6 +960,38 @@ tr.japan-row td { font-weight: 700; }
 .mm-dk { color: var(--muted); }
 .mm-dv { font-weight: 500; text-align: right; }
 
+/* YouTube highlight button */
+.mm-highlight-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: #ff0000;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background .12s, transform .12s;
+}
+.mm-highlight-btn:hover { background: #cc0000; transform: translateY(-1px); }
+.mm-yt-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 20px;
+  background: #fff;
+  color: #ff0000;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+}
+
 /* Make match cards look clickable */
 .m-card[data-match-id] { cursor: pointer; transition: border-color .12s, box-shadow .12s; }
 .m-card[data-match-id]:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,212,160,.12); }
