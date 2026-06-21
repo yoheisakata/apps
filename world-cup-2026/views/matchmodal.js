@@ -97,7 +97,7 @@ export function createMatchModal() {
     if (e.key === "Escape" && !overlay.classList.contains("hidden")) close();
   });
 
-  function open(match, data) {
+  async function open(match, data) {
     if (!match) return;
     const m = match;
     const venue = data.venueById?.[m.venue];
