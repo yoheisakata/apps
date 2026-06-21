@@ -165,12 +165,16 @@ export function createMatchModal() {
       const result = await searchYouTube(homeTeam.name, awayTeam.name);
       if (!ytArea || overlay.classList.contains("hidden")) return;
       if (result) {
+        const ytUrl = `https://www.youtube.com/watch?v=${result.videoId}`;
+        const thumbUrl = `https://i.ytimg.com/vi/${result.videoId}/hqdefault.jpg`;
         ytArea.innerHTML = `
-          <div class="mm-yt-embed">
-            <iframe src="https://www.youtube.com/embed/${result.videoId}" title="${esc(result.title)}"
-              frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowfullscreen></iframe>
-          </div>
+          <a class="mm-yt-thumb-link" href="${ytUrl}" target="_blank" rel="noopener">
+            <div class="mm-yt-thumb">
+              <img src="${thumbUrl}" alt="${esc(result.title)}" />
+              <div class="mm-yt-play-overlay"><span class="mm-yt-play-btn">▶</span></div>
+            </div>
+            <div class="mm-yt-thumb-title">${esc(result.title)}</div>
+          </a>
           <a class="mm-yt-more" href="${youtubeSearchUrl(homeTeam.name, awayTeam.name)}" target="_blank" rel="noopener">
             YouTubeでもっと見る →
           </a>`;
