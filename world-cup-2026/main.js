@@ -6,16 +6,16 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=3";
-import { createBracket } from "./views/bracket.js?v=3";
-import { createCities } from "./views/cities.js?v=3";
-import { createWorld } from "./views/world.js?v=3";
-import { createRankings } from "./views/rankings.js?v=3";
-import { createStandings } from "./views/standingstab.js?v=3";
-import { createTeamList } from "./views/teamlist.js?v=3";
-import { createJapan } from "./views/japan.js?v=3";
-import { createMatchModal } from "./views/matchmodal.js?v=3";
-import { fetchLiveData } from "./views/livedata.js?v=3";
+import { createSchedule } from "./views/schedule.js?v=4";
+import { createBracket } from "./views/bracket.js?v=4";
+import { createCities } from "./views/cities.js?v=4";
+import { createWorld } from "./views/world.js?v=4";
+import { createRankings } from "./views/rankings.js?v=4";
+import { createStandings } from "./views/standingstab.js?v=4";
+import { createTeamList } from "./views/teamlist.js?v=4";
+import { createJapan } from "./views/japan.js?v=4";
+import { createMatchModal } from "./views/matchmodal.js?v=4";
+import { fetchLiveData } from "./views/livedata.js?v=4";
 
 const $ = (id) => document.getElementById(id);
 const LIVE_CACHE_KEY = "wc2026-livedata";
@@ -28,11 +28,12 @@ let activeTab = "schedule";
 const views = {}; // lazily created view instances
 
 async function loadStatic() {
+  const cb = `?_=${Date.now()}`;
   const [teams, groups, venues, matches] = await Promise.all([
-    fetch("./data/teams.json").then((r) => r.json()),
-    fetch("./data/groups.json").then((r) => r.json()),
-    fetch("./data/venues.json").then((r) => r.json()),
-    fetch("./data/matches.json").then((r) => r.json()),
+    fetch(`./data/teams.json${cb}`).then((r) => r.json()),
+    fetch(`./data/groups.json${cb}`).then((r) => r.json()),
+    fetch(`./data/venues.json${cb}`).then((r) => r.json()),
+    fetch(`./data/matches.json${cb}`).then((r) => r.json()),
   ]);
   data.teams = teams.teams;
   data.groups = groups.groups;
@@ -199,7 +200,7 @@ function toggleTheme() {
   applyThemeButton();
 }
 
-const matchModal = createMatchModal();
+const matchModal = createMatchModal({ onTeam: (code) => goToCountry(code) });
 
 function bind() {
   document.querySelectorAll(".tab").forEach((b) =>
