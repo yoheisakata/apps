@@ -145,9 +145,12 @@ async function refreshLive({ silent } = {}) {
     try {
       live = await fetchFootballData(data.teams);
       source = "api";
+      console.log("[live] Football-Data.org OK");
     } catch (apiErr) {
+      console.warn("[live] Football-Data.org failed:", apiErr.message);
       live = await fetchLiveData();
       source = "wiki";
+      console.log("[live] Wikipedia fallback OK");
     }
     applyLive(live, source);
     const fetchedAt = new Date().toISOString();
@@ -158,6 +161,7 @@ async function refreshLive({ silent } = {}) {
     setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
     rerenderAll();
   } catch (e) {
+    console.error("[live] Both sources failed:", e.message);
     const played = data.matches.filter((m) => m.result).length;
     if (data.source === "cache") {
       setStatus(`保存データを表示中 / ${played}試合`, "");

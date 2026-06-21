@@ -24,11 +24,19 @@ function mapCode(apiCode) {
 }
 
 async function apiFetch(path) {
-  const res = await fetch(`${BASE}${path}`, {
+  const url = `${BASE}${path}`;
+  console.log(`[football-data] fetching ${url}`);
+  const res = await fetch(url, {
     headers: { "X-Auth-Token": TOKEN },
   });
-  if (!res.ok) throw new Error(`football-data.org ${res.status}`);
-  return res.json();
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[football-data] ${res.status} ${res.statusText}`, body);
+    throw new Error(`football-data.org ${res.status}`);
+  }
+  const json = await res.json();
+  console.log(`[football-data] ${path} OK`, Object.keys(json));
+  return json;
 }
 
 // Map API match status to a result array [home, away] or null.
