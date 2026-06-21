@@ -1,13 +1,19 @@
 // Rankings view: tournament goalscorer ranking, aggregated from match data.
-//
-// Assists are intentionally NOT shown: Wikipedia's match data records only
-// scorers (name + minute), with no assist information, so an assist ranking
-// can't be built without fabricating it. The view notes this explicitly.
+// Top 10 displayed. Player names open a centered modal with Wikipedia data.
 
 import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=3";
+import { fetchWiki } from "./wiki.js?v=3";
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
+  );
+}
 
 export function createRankings({ container, data, onTeam }) {
-  let squads = null; // filled in asynchronously; enables full-name display
+  let squads = null;
+  let openWiki = null;
+
   function teamCell(code) {
     const t = data.byCode[code];
     if (!t) return code || "";
@@ -15,19 +21,14 @@ export function createRankings({ container, data, onTeam }) {
       <span class="flag">${t.flag}</span>${t.name}</span>`;
   }
 
-  // Player name cell. Once squads are loaded, a player matched to a Wikipedia
-  // article becomes a clickable link to that article (opens in a new tab).
-  // Unmatched players (no squad/article) stay as plain text.
   function nameCell(scorer, code) {
-    if (!squads) return scorer;
+    if (!squads) return esc(scorer);
     const p = resolvePlayer(squads, code, scorer);
-    if (!p) return scorer;
-    if (!p.wiki) return p.name;
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(p.wiki.replace(/ /g, "_"))}`;
-    return `<a class="player-link" href="${url}" target="_blank" rel="noopener">${p.name} ↗</a>`;
+    if (!p) return esc(scorer);
+    if (!p.wiki) return esc(p.name);
+    return `<span class="player-link" data-wiki="${esc(p.wiki)}" data-name="${esc(p.name)}" data-code="${esc(code)}" role="button" tabindex="0">${esc(p.name)}</span>`;
   }
 
-  // Group rows by goal count so ties share a rank number.
   function rankedRows(rows) {
     let lastGoals = null;
     let rank = 0;
@@ -40,14 +41,82 @@ export function createRankings({ container, data, onTeam }) {
     });
   }
 
+  // --- Player modal ---
+  function closePlayer() {
+    openWiki = null;
+    container.querySelector("#player-modal-rankings")?.classList.add("hidden");
+  }
+
+  function showPlayer(html) {
+    const ov = container.querySelector("#player-modal-rankings");
+    if (!ov) return;
+    ov.querySelector(".city-modal-body").innerHTML = html;
+    ov.classList.remove("hidden");
+  }
+
+  function playerCard(name, code, goals, w, loading) {
+    const t = data.byCode[code];
+    const flag = t ? t.flag : "🏳️";
+    const teamName = t ? t.name : code;
+    const img = w?.thumb
+      ? `<img class="cm-img cm-img-portrait" src="${esc(w.thumb)}" alt="${esc(name)}" />`
+      : `<div class="cm-img placeholder">${loading ? "🖼️ 読み込み中…" : "📷 写真なし"}</div>`;
+    const text = w?.extract || "";
+    const link = w?.pageUrl
+      ? `<a class="popup-link" href="${esc(w.pageUrl)}" target="_blank" rel="noopener">Wikipediaで読む →</a>`
+      : "";
+    return `<div class="cm-card">
+      <div class="cm-header"><span class="cm-flag">${flag}</span>
+        <div><div class="cm-title">${esc(name)}</div><div class="cm-sub">${esc(teamName)} · ${goals}得点</div></div>
+      </div>
+      <figure class="cm-photo cm-photo-single">${img}</figure>
+      ${text ? `<p class="popup-text">${esc(text)}</p>` : `<p class="sub">${loading ? "" : "情報が見つかりませんでした。"}</p>`}
+      <div class="cm-links">${link}</div>
+    </div>`;
+  }
+
+  async function openPlayer(wiki, name, code, goals) {
+    openWiki = wiki;
+    showPlayer(playerCard(name, code, goals, null, true));
+    const w = await fetchWiki(wiki, "en");
+    if (openWiki === wiki) showPlayer(playerCard(name, code, goals, w, false));
+  }
+
+  function bindEvents() {
+    container.querySelectorAll(".team-link").forEach((el) => {
+      const open = () => onTeam?.(el.dataset.team);
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      });
+    });
+
+    container.querySelectorAll(".player-link").forEach((el) => {
+      const open = () => {
+        const row = el.closest("tr");
+        const goalsCell = row?.querySelector(".r-goals");
+        const goals = goalsCell ? parseInt(goalsCell.textContent) || 0 : 0;
+        openPlayer(el.dataset.wiki, el.dataset.name, el.dataset.code, goals);
+      };
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      });
+    });
+
+    container.querySelector("#player-modal-rankings .city-modal-backdrop")?.addEventListener("click", closePlayer);
+    container.querySelector("#player-modal-rankings .city-modal-close")?.addEventListener("click", closePlayer);
+  }
+
   function render() {
     const ranking = rankedRows(goalRanking(data.matches));
+    const top10 = ranking.filter((r) => r.rank <= 10);
     const totalGoals = ranking.reduce((a, b) => a + b.goals, 0);
 
-    const body = ranking.length
+    const body = top10.length
       ? `<table class="rank-table">
           <thead><tr><th>#</th><th>選手</th><th>代表</th><th>得点</th></tr></thead>
-          <tbody>${ranking
+          <tbody>${top10
             .map(
               (r) => `<tr>
               <td class="r-rank">${r.rank}</td>
@@ -61,23 +130,20 @@ export function createRankings({ container, data, onTeam }) {
       : `<p class="sub">まだ得点がありません。</p>`;
 
     container.innerHTML = `
-      <h2 class="section-title">🥇 得点ランキング <span class="sub">${ranking.length}選手 / ${totalGoals}得点</span></h2>
-      <div class="banner">本大会の得点を Wikipedia の試合データから集計（${data.asOf || "—"} 時点）。選手名（リンク付き ↗）をクリックすると選手の Wikipedia ページへ、代表名をクリックすると国ページへ。<br>※ アシスト・出場時間などは Wikipedia の試合データに無いため、得点のみのランキングです。オウンゴールは加算していません。</div>
+      <h2 class="section-title">🥇 得点ランキング TOP10 <span class="sub">${ranking.length}選手 / ${totalGoals}得点</span></h2>
+      <div class="banner">本大会の得点を試合データから集計（${data.asOf || "—"} 時点）。選手名をクリックするとプロフィールを表示、代表名をクリックすると国ページへ。<br>※ オウンゴールは加算していません。</div>
       <div class="rank-wrap card">${body}</div>
+      <div id="player-modal-rankings" class="city-modal hidden">
+        <div class="city-modal-backdrop"></div>
+        <div class="city-modal-card">
+          <button class="city-modal-close" aria-label="閉じる">✕</button>
+          <div class="city-modal-body"></div>
+        </div>
+      </div>
     `;
 
-    container.querySelectorAll(".team-link").forEach((el) => {
-      const open = () => onTeam?.(el.dataset.team);
-      el.addEventListener("click", open);
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          open();
-        }
-      });
-    });
+    bindEvents();
 
-    // Lazily load squads to upgrade surnames -> full names, then re-render once.
     if (!squads) {
       loadSquads(data.teams)
         .then((s) => {

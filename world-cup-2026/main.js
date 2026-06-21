@@ -74,6 +74,7 @@ function setTab(name) {
     v.classList.toggle("hidden", v.id !== `tab-${name}`)
   );
   ensureView(name);
+  $("main")?.scrollTo(0, 0);
 }
 
 // Jump to a country page (owned by the schedule view) from another tab.
