@@ -116,14 +116,12 @@ export function createWorld({ container, data, onTeam }) {
       tap: false,
       worldCopyJump: false,
     });
-    const worldBounds = L.latLngBounds([-58, -170], [78, 180]);
     // CARTO "Voyager" — clean, light, colourful basemap that reads well.
     L.tileLayer(
       "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
       {
         maxZoom: 18,
-        noWrap: true,
-        bounds: worldBounds,
+        noWrap: false,
         subdomains: "abcd",
         attribution: "© OpenStreetMap contributors © CARTO",
       }
@@ -146,9 +144,9 @@ export function createWorld({ container, data, onTeam }) {
     const markerBounds = L.latLngBounds(located.map((t) => [t.lat, t.lon]));
     map.setMinZoom(0);
     map.setMaxBounds(null);
-    map.fitBounds(markerBounds, { animate: false, padding: [30, 30] });
+    map.fitBounds(markerBounds, { animate: false, padding: [40, 60] });
     map.setMinZoom(map.getZoom());
-    map.setMaxBounds(map.getBounds().pad(0.1));
+    map.setMaxBounds(map.getBounds().pad(0.25));
   }
 
   function render() {
