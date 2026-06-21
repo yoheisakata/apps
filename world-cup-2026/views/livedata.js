@@ -144,6 +144,31 @@ function parseScorers(s) {
   return out;
 }
 
+// Rich scorer detail: { name, minute, pen } for each goal.
+// Parses the same format as parseScorers but keeps the minute markers.
+function parseScorerDetails(s) {
+  const out = [];
+  for (const line of s.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    const isOG = /o\.g\./i.test(t);
+    const m = t.match(/\[\[[^\]|]*\|([^\]]+)\]\]|\[\[([^\]]+)\]\]/);
+    if (!m) continue;
+    const name = (m[1] || m[2]).trim();
+    const isPen = /pen\./i.test(t);
+    const after = t.replace(/\[\[[^\]]*\]\]/g, "");
+    const mins = after.match(/\d+(?:\+\d+)?/g) || [];
+    if (mins.length) {
+      for (const min of mins) {
+        out.push({ name, minute: min, pen: isPen && mins.indexOf(min) === 0, og: isOG });
+      }
+    } else {
+      out.push({ name, minute: null, pen: isPen, og: isOG });
+    }
+  }
+  return out;
+}
+
 // Count own goals in a goals field. In Wikipedia, an own goal appears in the
 // goals list of the team that BENEFITED (the scoring side), marked "o.g.".
 function countOwnGoals(s) {
@@ -168,6 +193,8 @@ function parseGroupArticle(wikitext) {
       city: parseCity(field(body, "stadium")),
       scorers1: parseScorers(g1),
       scorers2: parseScorers(g2),
+      scorerDetails1: parseScorerDetails(g1),
+      scorerDetails2: parseScorerDetails(g2),
       ownGoals1: countOwnGoals(g1),
       ownGoals2: countOwnGoals(g2),
     });
@@ -244,6 +271,8 @@ export async function fetchLiveData() {
         result: mm.result,
         scorers1: mm.scorers1,
         scorers2: mm.scorers2,
+        scorerDetails1: mm.scorerDetails1,
+        scorerDetails2: mm.scorerDetails2,
         ownGoals1: mm.ownGoals1,
         ownGoals2: mm.ownGoals2,
       });

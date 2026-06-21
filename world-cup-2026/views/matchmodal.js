@@ -46,6 +46,21 @@ function scorerList(scorers) {
     .join("");
 }
 
+function wikiScorerDetailList(details) {
+  if (!details || !details.length) return "";
+  return details.map((g) => {
+    const min = g.minute ? `${g.minute}'` : "";
+    const tag = g.og ? ' <span class="mm-og-tag">OG</span>'
+      : g.pen ? ' <span class="mm-pk-tag">PK</span>'
+      : "";
+    return `<div class="mm-goal-detail">
+      <span class="mm-goal-min">${min}</span>
+      <span class="mm-goal-icon">${g.og ? "🔴" : "⚽"}</span>
+      <span class="mm-goal-name">${esc(g.name)}${tag}</span>
+    </div>`;
+  }).join("");
+}
+
 // Rich goal detail list with minute, type (PK/OG), and assist.
 function goalDetailList(details) {
   if (!details || !details.length) return "";
@@ -146,6 +161,7 @@ export function createMatchModal() {
     const groupText = m.group ? ` ${m.group}` : "";
 
     const hasRichGoals = m.goalDetails1?.length || m.goalDetails2?.length;
+    const hasWikiDetails = m.scorerDetails1?.length || m.scorerDetails2?.length;
     const isLive = m.status === "live" || m.status === "halftime" || m.status === "extra_time" || m.status === "penalties";
 
     const scoreSection = played || isLive
@@ -163,11 +179,20 @@ export function createMatchModal() {
     if (m.penalties) subScores += `<span class="mm-sub-score mm-pk-score">PK ${m.penalties[0]}-${m.penalties[1]}</span>`;
     const subScoreSection = subScores ? `<div class="mm-sub-scores">${subScores}</div>` : "";
 
-    // Use rich goal details if available (from Football-Data.org), else simple list
+    // Use rich goal details if available (from Football-Data.org API),
+    // then Wikipedia scorer details (with minutes), else simple name list.
     let scorersSection = "";
     if (hasRichGoals) {
       const homeGoals = goalDetailList(m.goalDetails1);
       const awayGoals = goalDetailList(m.goalDetails2);
+      scorersSection = `<div class="mm-scorers rich">
+        <div class="mm-scorers-side home">${homeGoals || '<span class="mm-no-goal">—</span>'}</div>
+        <div class="mm-scorers-divider"></div>
+        <div class="mm-scorers-side away">${awayGoals || '<span class="mm-no-goal">—</span>'}</div>
+      </div>`;
+    } else if (hasWikiDetails) {
+      const homeGoals = wikiScorerDetailList(m.scorerDetails1);
+      const awayGoals = wikiScorerDetailList(m.scorerDetails2);
       scorersSection = `<div class="mm-scorers rich">
         <div class="mm-scorers-side home">${homeGoals || '<span class="mm-no-goal">—</span>'}</div>
         <div class="mm-scorers-divider"></div>
