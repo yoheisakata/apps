@@ -194,8 +194,8 @@ export function createMatchModal() {
     const awayTeam = data.byCode?.[m.away];
     const showHighlight = played && homeTeam && awayTeam;
 
-    // Kickoff time
-    const kickoffTime = formatKickoff(m.kickoff);
+    // Kickoff time: prefer Wikipedia's local time, fall back to API's UTC
+    const kickoffTime = m.time || formatKickoff(m.kickoff);
 
     // Referee info
     const mainRef = m.referees?.find((r) => r.type === "REFEREE");

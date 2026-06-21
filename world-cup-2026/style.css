@@ -1174,17 +1174,6 @@ tr.japan-row td { font-weight: 700; }
 .result-row[data-match-id] { cursor: pointer; transition: background .12s; }
 .result-row[data-match-id]:hover { background: var(--panel); }
 
-/* ---- Global countdown (header) ---- */
-.countdown-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--accent2);
-  white-space: nowrap;
-}
-.cd-label { color: var(--muted); }
-.cd-timer { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---- Tablet (≤960px) ---- */
 @media (max-width: 960px) {
@@ -1236,7 +1225,6 @@ tr.japan-row td { font-weight: 700; }
   }
 
   /* Countdown in header */
-  .countdown-wrap { display: none; }
 
   /* Main content */
   .view { padding: 14px 12px; }
