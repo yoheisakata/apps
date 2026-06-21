@@ -382,6 +382,7 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 
 /* ---- Maps (Leaflet) ---- */
 .leaflet-host {
+  width: 100%;
   height: calc(100vh - 200px);
   min-height: 420px;
   border-radius: 10px;
