@@ -2,8 +2,8 @@
 // Group results come from live data; knockout fixtures show real dates/venues
 // with predicted teams filled in (from the prediction engine).
 
-import { groupStandings } from "./standings.js";
-import { createCountry } from "./country.js";
+import { groupStandings } from "./standings.js?v=2";
+import { createCountry } from "./country.js?v=2";
 
 const STAGE_LABELS = {
   group: "グループステージ",

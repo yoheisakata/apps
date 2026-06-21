@@ -6,16 +6,16 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js";
-import { createBracket } from "./views/bracket.js";
-import { createCities } from "./views/cities.js";
-import { createWorld } from "./views/world.js";
-import { createRankings } from "./views/rankings.js";
-import { createStandings } from "./views/standingstab.js";
-import { createTeamList } from "./views/teamlist.js";
-import { createJapan } from "./views/japan.js";
-import { createMatchModal } from "./views/matchmodal.js";
-import { fetchLiveData } from "./views/livedata.js";
+import { createSchedule } from "./views/schedule.js?v=2";
+import { createBracket } from "./views/bracket.js?v=2";
+import { createCities } from "./views/cities.js?v=2";
+import { createWorld } from "./views/world.js?v=2";
+import { createRankings } from "./views/rankings.js?v=2";
+import { createStandings } from "./views/standingstab.js?v=2";
+import { createTeamList } from "./views/teamlist.js?v=2";
+import { createJapan } from "./views/japan.js?v=2";
+import { createMatchModal } from "./views/matchmodal.js?v=2";
+import { fetchLiveData } from "./views/livedata.js?v=2";
 
 const $ = (id) => document.getElementById(id);
 const LIVE_CACHE_KEY = "wc2026-livedata";
