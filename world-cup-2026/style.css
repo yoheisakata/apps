@@ -585,7 +585,7 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .country-col { display: flex; flex-direction: column; gap: 18px; }
 
 .country-countdown {
-  background: linear-gradient(135deg, #1a3a5c 0%, #0d47a1 50%, #004d40 100%);
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #b71c1c 100%);
   border-radius: 12px;
   padding: 20px 24px;
   text-align: center;
@@ -813,6 +813,80 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .japan-section h3 { margin: 0 0 12px; font-size: 15px; }
 .japan-group-card { margin-bottom: 0; }
 .japan-matches h3 { font-size: 15px; margin: 0 0 12px; }
+
+/* Advance probability card */
+.prob-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.prob-card h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+.prob-main {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.prob-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.prob-ring-inner {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.prob-pct {
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.prob-pct small {
+  font-size: 13px;
+  font-weight: 600;
+}
+.prob-breakdown {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.prob-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 3px 8px;
+  background: var(--panel2);
+  border-radius: 6px;
+}
+.prob-label {
+  font-weight: 500;
+}
+.prob-val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.prob-note {
+  margin-top: 10px;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.4;
+}
 
 /* Match cards in Japan page */
 .japan-match-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1338,6 +1412,11 @@ tr.japan-row td { font-weight: 700; }
   .jc-timer { font-size: 24px; letter-spacing: 1px; }
   .jc-match { font-size: 14px; gap: 8px; }
   .japan-countdown { padding: 16px; }
+  .prob-ring { width: 80px; height: 80px; }
+  .prob-ring-inner { width: 60px; height: 60px; }
+  .prob-pct { font-size: 18px; }
+  .prob-main { gap: 14px; }
+  .prob-row { font-size: 12px; padding: 2px 6px; }
   .japan-match-card {
     grid-template-columns: 1fr;
     gap: 4px;

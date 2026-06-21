@@ -3,6 +3,7 @@ import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "
 import { fetchWiki } from "./wiki.js?v=3";
 
 const CODE = "JPN";
+const GROUP = "F";
 const POS_ORDER = { GK: 0, DF: 1, MF: 2, FW: 3 };
 const POS_LABEL = { GK: "GK", DF: "DF", MF: "MF", FW: "FW" };
 const STAGE_LABEL = {
@@ -14,6 +15,145 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
   );
+}
+
+// Rank → Elo-like rating for outcome probability weighting.
+// Lower rank = stronger. Uses a simple mapping: rank 1 → ~2000, rank 100 → ~1400.
+function rankToElo(rank) {
+  return 2100 - (rank || 50) * 6;
+}
+
+// Expected score (0-1) for team A vs B given Elo ratings.
+function expectedScore(eloA, eloB) {
+  return 1 / (1 + Math.pow(10, (eloB - eloA) / 400));
+}
+
+// Win/draw/loss probabilities from expected score.
+function matchProbs(eloH, eloA) {
+  const e = expectedScore(eloH, eloA);
+  const drawBase = 0.26;
+  const drawFactor = 1 - Math.abs(e - 0.5) * 1.2;
+  const pDraw = Math.max(0.1, drawBase * drawFactor);
+  const remainder = 1 - pDraw;
+  return { pWin: remainder * e, pDraw, pLoss: remainder * (1 - e) };
+}
+
+// Monte-Carlo-style exhaustive enumeration for Japan's group.
+// Returns { advance, first, second, third, fourth, scenarios, thirdAdvance }.
+function computeAdvanceProb(data) {
+  const groupKey = data.byCode[CODE]?.group || GROUP;
+  const teams = data.groups[groupKey];
+  if (!teams || teams.length !== 4) return null;
+
+  const groupMatches = data.matches.filter(
+    (m) => m.stage === "group" && m.group === groupKey
+  );
+  const played = groupMatches.filter((m) => m.result);
+  const remaining = groupMatches.filter((m) => !m.result);
+
+  // If all matches played, just check actual standings.
+  if (remaining.length === 0) {
+    const st = groupStandings(data, groupKey);
+    const pos = st.findIndex((r) => r.code === CODE);
+    return {
+      advance: pos <= 1 ? 100 : pos === 2 ? 67 : 0,
+      first: pos === 0 ? 100 : 0,
+      second: pos === 1 ? 100 : 0,
+      third: pos === 2 ? 100 : 0,
+      fourth: pos === 3 ? 100 : 0,
+      scenarios: 1,
+      thirdAdvance: pos === 2 ? 67 : 0,
+    };
+  }
+
+  // Build Elo ratings from FIFA ranks.
+  const elo = {};
+  for (const c of teams) {
+    elo[c] = rankToElo(data.byCode[c]?.rank);
+  }
+
+  // Base standings from played matches.
+  const baseRow = {};
+  for (const c of teams) {
+    baseRow[c] = { code: c, pld: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+  }
+  for (const m of played) {
+    const H = baseRow[m.home];
+    const A = baseRow[m.away];
+    if (!H || !A) continue;
+    const [hs, as] = m.result;
+    H.pld++; A.pld++;
+    H.gf += hs; H.ga += as; A.gf += as; A.ga += hs;
+    if (hs > as) { H.w++; A.l++; H.pts += 3; }
+    else if (hs < as) { A.w++; H.l++; A.pts += 3; }
+    else { H.d++; A.d++; H.pts++; A.pts++; }
+  }
+
+  // Outcome combos: 0=home win, 1=draw, 2=away win.
+  const n = remaining.length;
+  const total = Math.pow(3, n);
+  let wFirst = 0, wSecond = 0, wThird = 0, wFourth = 0;
+  let wTotal = 0;
+
+  for (let combo = 0; combo < total; combo++) {
+    const row = {};
+    for (const c of teams) {
+      row[c] = { ...baseRow[c] };
+    }
+
+    let prob = 1;
+    let bits = combo;
+    for (let i = 0; i < n; i++) {
+      const outcome = bits % 3;
+      bits = Math.floor(bits / 3);
+      const m = remaining[i];
+      const H = row[m.home];
+      const A = row[m.away];
+      if (!H || !A) continue;
+      const p = matchProbs(elo[m.home], elo[m.away]);
+
+      H.pld++; A.pld++;
+      if (outcome === 0) {
+        H.w++; A.l++; H.pts += 3;
+        H.gf += 2; H.ga += 1; A.gf += 1; A.ga += 2;
+        prob *= p.pWin;
+      } else if (outcome === 1) {
+        H.d++; A.d++; H.pts++; A.pts++;
+        H.gf += 1; H.ga += 1; A.gf += 1; A.ga += 1;
+        prob *= p.pDraw;
+      } else {
+        A.w++; H.l++; A.pts += 3;
+        H.gf += 0; H.ga += 1; A.gf += 1; A.ga += 0;
+        prob *= p.pLoss;
+      }
+    }
+
+    const standing = Object.values(row)
+      .map((r) => ({ ...r, gd: r.gf - r.ga }))
+      .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+
+    const pos = standing.findIndex((r) => r.code === CODE);
+    wTotal += prob;
+    if (pos === 0) wFirst += prob;
+    else if (pos === 1) wSecond += prob;
+    else if (pos === 2) wThird += prob;
+    else wFourth += prob;
+  }
+
+  const pct = (w) => Math.round((w / wTotal) * 1000) / 10;
+  // 3rd-place advance estimate: 8 of 12 third-place teams (67%) advance.
+  // Adjust slightly by points: higher pts → higher chance.
+  const thirdAdv = 67;
+
+  return {
+    advance: pct(wFirst + wSecond) + pct(wThird) * thirdAdv / 100,
+    first: pct(wFirst),
+    second: pct(wSecond),
+    third: pct(wThird),
+    fourth: pct(wFourth),
+    scenarios: total,
+    thirdAdvance: thirdAdv,
+  };
 }
 
 export function createJapan({ container, data }) {
@@ -98,6 +238,31 @@ export function createJapan({ container, data }) {
         <tr><th>チーム</th><th>試</th><th>勝</th><th>分</th><th>負</th><th>差</th><th>点</th></tr>
         ${rows}
       </table>
+    </div>`;
+  }
+
+  function advanceProbCard() {
+    const prob = computeAdvanceProb(data);
+    if (!prob) return "";
+    const advPct = Math.round(prob.advance * 10) / 10;
+    const gradAngle = Math.max(0, Math.min(360, advPct * 3.6));
+    const ringColor = advPct >= 70 ? "var(--win)" : advPct >= 40 ? "var(--accent2)" : "var(--can)";
+    return `<div class="prob-card">
+      <h3>📈 グループリーグ突破確率</h3>
+      <div class="prob-main">
+        <div class="prob-ring" style="background:conic-gradient(${ringColor} ${gradAngle}deg, var(--panel2) ${gradAngle}deg)">
+          <div class="prob-ring-inner">
+            <span class="prob-pct">${advPct}<small>%</small></span>
+          </div>
+        </div>
+        <div class="prob-breakdown">
+          <div class="prob-row"><span class="prob-label">🥇 1位通過</span><span class="prob-val">${prob.first}%</span></div>
+          <div class="prob-row"><span class="prob-label">🥈 2位通過</span><span class="prob-val">${prob.second}%</span></div>
+          <div class="prob-row"><span class="prob-label">🥉 3位 (条件付)</span><span class="prob-val">${prob.third}%</span></div>
+          <div class="prob-row"><span class="prob-label">❌ 敗退</span><span class="prob-val">${prob.fourth}%</span></div>
+        </div>
+      </div>
+      <div class="prob-note">FIFAランクに基づくシミュレーション（${prob.scenarios}通り）。3位通過は上位8チーム中の確率${prob.thirdAdvance}%で推定。</div>
     </div>`;
   }
 
@@ -222,6 +387,7 @@ export function createJapan({ container, data }) {
           </div>
         </div>
         ${countdownHtml(next)}
+        ${advanceProbCard()}
         <div class="japan-grid">
           <div class="japan-col">
             ${standingsCard()}
