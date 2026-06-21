@@ -960,7 +960,39 @@ tr.japan-row td { font-weight: 700; }
 .mm-dk { color: var(--muted); }
 .mm-dv { font-weight: 500; text-align: right; }
 
-/* YouTube highlight button */
+/* YouTube embed */
+.mm-yt-loading {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 16px 0;
+}
+.mm-yt-embed {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+.mm-yt-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mm-yt-more {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+.mm-yt-more:hover { text-decoration: underline; }
+
+/* YouTube highlight button (fallback) */
 .mm-highlight-btn {
   display: flex;
   align-items: center;
