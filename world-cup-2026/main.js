@@ -185,7 +185,9 @@ function loadCache() {
 let _cdInterval = null;
 function startGlobalCountdown() {
   if (_cdInterval) clearInterval(_cdInterval);
-  const next = data.matches.find((m) => !m.result && m.date);
+  const next = data.matches
+    .filter((m) => !m.result && m.date)
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
   const wrap = $("global-countdown");
   const el = $("cd-timer");
   if (!next || !el) { if (wrap) wrap.classList.add("hidden"); return; }
