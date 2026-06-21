@@ -18,7 +18,8 @@ import { createMatchModal } from "./views/matchmodal.js?v=4";
 import { fetchLiveData } from "./views/livedata.js?v=4";
 
 const $ = (id) => document.getElementById(id);
-const LIVE_CACHE_KEY = "wc2026-livedata";
+const APP_VERSION = 4;
+const LIVE_CACHE_KEY = "wc2026-livedata-v4";
 
 // ---- shared data, loaded once ----
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
@@ -222,13 +223,17 @@ function bind() {
 }
 
 (async function boot() {
+  // Clean up old localStorage keys from previous versions
+  try { localStorage.removeItem("wc2026-livedata"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v3"); } catch (_) {}
+
   try {
     await loadStatic();
   } catch (e) {
     $("loading").textContent = "データの読み込みに失敗しました: " + e.message;
     return;
   }
-  loadCache(); // show last-known live data instantly if present
+  loadCache();
   bind();
   setTab("schedule");
   $("loading").classList.add("hidden");
