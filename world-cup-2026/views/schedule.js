@@ -217,7 +217,7 @@ export function createSchedule({ container, data }) {
 
     container.innerHTML = `
       <h2 class="section-title">📅 日程・結果 <span class="sub">全${data.matches.length}試合</span></h2>
-      <div class="banner">組分け・結果は Football-Data.org API / Wikipedia から自動取得（${data.asOf || "—"} 時点）。順位表はスコアから自動集計。試合カードをクリックで詳細（得点者・分・アシスト・審判等）。</div>
+      <div class="banner">組分け・結果は自動取得（${data.asOf || "—"} 時点）。順位表はスコアから自動集計。試合カードをクリックで詳細（得点者・分・アシスト・審判等）。</div>
       <div class="toolbar">${chips}</div>
       ${body}
     `;

@@ -155,8 +155,7 @@ async function refreshLive({ silent } = {}) {
       localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify({ ...live, fetchedAt }));
     } catch (_) {}
     const played = live.matches.filter((m) => m.result).length;
-    const srcLabel = source === "api" ? "API" : "Wikipedia";
-    setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合 (${srcLabel})`, "ok");
+    setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
     startGlobalCountdown();
     rerenderAll();
   } catch (e) {
