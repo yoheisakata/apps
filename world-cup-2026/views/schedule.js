@@ -190,15 +190,27 @@ export function createSchedule({ container, data }) {
     const mm = String(ny.getMonth() + 1).padStart(2, "0");
     const dd = String(ny.getDate()).padStart(2, "0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
-    const todayMatches = data.matches.filter((m) => m.date === todayStr);
+
+    const opening = new Date(2026, 5, 11); // June 11, 2026
+    const dayNum = Math.floor((ny - opening) / 86400000) + 1;
+    const dayLabel = dayNum >= 1 ? ` — 大会${dayNum}日目` : "";
+
+    const groupKeys = Object.keys(data.groups);
+    let todayMatches = data.matches.filter((m) => m.date === todayStr);
+    if (filter !== "groups" && groupKeys.includes(filter)) {
+      todayMatches = todayMatches.filter((m) => m.group === filter);
+    } else if (KO_STAGES.includes(filter)) {
+      todayMatches = todayMatches.filter((m) => m.stage === filter);
+    }
+
     if (todayMatches.length === 0) {
       return `<div class="today-section">
-        <h3 class="today-title">📺 今日の試合</h3>
+        <h3 class="today-title">📺 今日の試合${dayLabel}</h3>
         <p class="today-none">今日の試合はありません</p>
       </div>`;
     }
     return `<div class="today-section">
-      <h3 class="today-title">📺 今日の試合</h3>
+      <h3 class="today-title">📺 今日の試合${dayLabel}</h3>
       <div class="card-list">${todayMatches.map((m) => matchCard(m)).join("")}</div>
     </div>`;
   }
