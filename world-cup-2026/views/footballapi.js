@@ -362,3 +362,28 @@ export async function fetchFootballData(knownTeams) {
 
   return { groups, matches, asOf: latestDate || fmtDate(new Date().toISOString()) };
 }
+
+// Fetch top scorers from the dedicated scorers endpoint.
+// Returns [{ name, code, goals, assists, penalties, matches }] sorted by goals desc.
+export async function fetchTopScorers(knownTeams) {
+  const json = await apiFetch(`/competitions/${COMP}/scorers?limit=50`);
+  const codeByName = {};
+  for (const t of knownTeams) codeByName[t.name.toLowerCase()] = t.code;
+
+  return (json.scorers || []).map((s) => {
+    const tla = s.team?.tla;
+    let code = tla ? (CODE_MAP[tla] || tla) : null;
+    if (code && !knownTeams.find((t) => t.code === code)) {
+      const name = (s.team?.name || "").toLowerCase();
+      code = codeByName[name] || code;
+    }
+    return {
+      name: s.player?.name || "Unknown",
+      code,
+      goals: s.goals || 0,
+      assists: s.assists || 0,
+      penalties: s.penalties || 0,
+      matches: s.playedMatches || 0,
+    };
+  }).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+}
