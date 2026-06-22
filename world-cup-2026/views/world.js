@@ -134,15 +134,6 @@ export function createWorld({ container, data, onTeam }) {
         if (map.hasLayer(marker)) map.removeLayer(marker);
       }
     }
-    // Reframe to visible markers
-    if (visible.length) {
-      const bounds = L.latLngBounds(visible.map((t) => [t.lat, t.lon]));
-      map.setMinZoom(0);
-      map.setMaxBounds(null);
-      map.fitBounds(bounds, { animate: true, padding: [15, 25] });
-      map.setMinZoom(map.getZoom());
-      map.setMaxBounds(map.getBounds().pad(0.05));
-    }
     // Update chip active state
     container.querySelectorAll(".chip[data-confed]").forEach((el) => {
       el.classList.toggle("active", el.dataset.confed === filter);
