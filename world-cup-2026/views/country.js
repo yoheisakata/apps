@@ -287,13 +287,13 @@ export function createCountry({ container, data, onBack }) {
         const outcomeLabel = outcome === "win" ? "勝ち" : outcome === "loss" ? "負け" : "引き分け";
         return `<div class="japan-match-card ${outcome}" data-match-id="${m.id}" role="button" tabindex="0">
           <div class="jm-date">${m.date || ""}${timeStr ? ` ${timeStr}` : ""}</div>
-          <div class="jm-result-label ${outcome}">${outcomeLabel}</div>
           <div class="jm-teams">
             <span class="jm-team">${teamName(left)}</span>
             <span class="jm-score">${myGoals} - ${opGoals}</span>
             <span class="jm-team">${teamName(right)}</span>
           </div>
           <div class="jm-venue">${venue ? esc(venue.city) : ""}</div>
+          <div class="jm-result-label ${outcome}">${outcomeLabel}</div>
         </div>`;
       }).join("")}</div>
     </div>`;
