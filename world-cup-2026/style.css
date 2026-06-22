@@ -415,7 +415,13 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .legend-inline b { margin-left: 8px; }
 
 /* Centered city detail modal (overlays the map; opening it never pans). */
-.map-shell { position: relative; }
+.map-shell {
+  position: relative;
+  width: 90vw;
+  max-width: 1600px;
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
 .city-modal {
   position: absolute;
   inset: 0;
@@ -1484,6 +1490,7 @@ tr.japan-row td { font-weight: 700; }
 
   /* Maps */
   .leaflet-host { height: calc(100vh - 200px); min-height: 300px; }
+  .map-shell { width: 100vw; margin-left: -12px; transform: none; }
 
   /* Modals: near full screen on mobile */
   .city-modal-card {
