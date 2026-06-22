@@ -236,8 +236,8 @@ export async function fetchLiveData() {
     if (g) byGroup[g] = content;
     else if (p.title === KNOCKOUT_TITLE) koContent = content;
   }
-  if (Object.keys(byGroup).length !== 12) {
-    throw new Error("expected 12 groups, got " + Object.keys(byGroup).length);
+  if (Object.keys(byGroup).length === 0) {
+    throw new Error("no group articles found");
   }
 
   const groups = {};
@@ -247,14 +247,13 @@ export async function fetchLiveData() {
 
   for (const g of GROUP_KEYS) {
     const parsed = parseGroupArticle(byGroup[g]);
-    if (parsed.length !== 6) throw new Error(`group ${g}: expected 6 matches, got ${parsed.length}`);
+    if (parsed.length === 0) continue;
 
     // group membership = team codes in order of first appearance
     const seen = [];
     for (const mm of parsed) {
       for (const c of [mm.home, mm.away]) if (c && !seen.includes(c)) seen.push(c);
     }
-    if (seen.length !== 4) throw new Error(`group ${g}: expected 4 teams, got ${seen.length}`);
     groups[g] = seen;
 
     for (const mm of parsed) {
