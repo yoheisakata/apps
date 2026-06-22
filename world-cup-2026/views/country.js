@@ -188,7 +188,7 @@ export function createCountry({ container, data, onBack }) {
   function startCountdown(m) {
     if (countdownInterval) clearInterval(countdownInterval);
     if (!m || !m.date) return;
-    const target = new Date(m.date + "T00:00:00Z");
+    const target = new Date(m.date + "T00:00:00");
     function tick() {
       const el = container.querySelector("#cc-timer");
       if (!el) { clearInterval(countdownInterval); return; }

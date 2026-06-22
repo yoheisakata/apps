@@ -199,7 +199,7 @@ export function createJapan({ container, data }) {
   function startCountdown(m) {
     if (countdownInterval) clearInterval(countdownInterval);
     if (!m || !m.date) return;
-    const target = new Date(m.date + "T00:00:00Z");
+    const target = new Date(m.date + "T00:00:00");
     function tick() {
       const el = document.getElementById("jc-timer");
       if (!el) { clearInterval(countdownInterval); return; }
