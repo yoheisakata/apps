@@ -173,6 +173,8 @@ export function createCountry({ container, data, onBack }) {
     const oppTeam = data.byCode[opp];
     const venue = data.venueById[m.venue];
     const stageText = STAGE_LABEL[m.stage] || "";
+    const kickoffLocal = m.kickoff ? new Date(m.kickoff).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : (m.time || "");
+    const timeStr = kickoffLocal ? ` ${kickoffLocal}` : "";
     return `<div class="japan-countdown" id="country-countdown" data-match-id="${m.id}" role="button" tabindex="0">
       <div class="jc-label">次の試合まで</div>
       <div class="jc-timer" id="cc-timer">--:--:--:--</div>
@@ -181,14 +183,14 @@ export function createCountry({ container, data, onBack }) {
         <span class="jc-vs">vs</span>
         <span class="jc-team">${oppTeam ? oppTeam.flag + " " + oppTeam.name : "未定"}</span>
       </div>
-      <div class="jc-info">${m.date || ""}${m.time ? " " + m.time : ""}${venue ? " · " + esc(venue.city) + " · " + esc(venue.stadium) : ""}${stageText ? " · " + stageText : ""}${m.group ? " " + m.group : ""}</div>
+      <div class="jc-info">${m.date || ""}${timeStr}${venue ? " · " + esc(venue.city) + " · " + esc(venue.stadium) : ""}${stageText ? " · " + stageText : ""}${m.group ? " " + m.group : ""}</div>
     </div>`;
   }
 
   function startCountdown(m) {
     if (countdownInterval) clearInterval(countdownInterval);
     if (!m || !m.date) return;
-    const target = new Date(m.date + "T00:00:00");
+    const target = m.kickoff ? new Date(m.kickoff) : new Date(m.date + "T00:00:00");
     function tick() {
       const el = container.querySelector("#cc-timer");
       if (!el) { clearInterval(countdownInterval); return; }

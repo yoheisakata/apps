@@ -184,6 +184,8 @@ export function createJapan({ container, data }) {
     const opp = m.home === CODE ? m.away : m.home;
     const oppTeam = data.byCode[opp];
     const venue = data.venueById[m.venue];
+    const kickoffLocal = m.kickoff ? new Date(m.kickoff).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : (m.time || "");
+    const timeStr = kickoffLocal ? ` ${kickoffLocal}` : "";
     return `<div class="japan-countdown" id="japan-countdown">
       <div class="jc-label">次の試合まで</div>
       <div class="jc-timer" id="jc-timer">--:--:--:--</div>
@@ -192,14 +194,14 @@ export function createJapan({ container, data }) {
         <span class="jc-vs">vs</span>
         <span class="jc-team">${oppTeam ? oppTeam.flag + " " + oppTeam.name : "未定"}</span>
       </div>
-      <div class="jc-info">${m.date}${venue ? " · " + esc(venue.city) + " · " + esc(venue.stadium) : ""}</div>
+      <div class="jc-info">${m.date}${timeStr}${venue ? " · " + esc(venue.city) + " · " + esc(venue.stadium) : ""}</div>
     </div>`;
   }
 
   function startCountdown(m) {
     if (countdownInterval) clearInterval(countdownInterval);
     if (!m || !m.date) return;
-    const target = new Date(m.date + "T00:00:00");
+    const target = m.kickoff ? new Date(m.kickoff) : new Date(m.date + "T00:00:00");
     function tick() {
       const el = document.getElementById("jc-timer");
       if (!el) { clearInterval(countdownInterval); return; }
