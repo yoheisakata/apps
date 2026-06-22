@@ -249,9 +249,10 @@ export async function fetchMatchStats(matchApiId) {
 // { groups, matches, asOf } shape that fetchLiveData() in livedata.js uses.
 // `knownTeams` is data.teams (used to validate/map codes).
 export async function fetchFootballData(knownTeams) {
-  const [matchData, standingsData] = await Promise.all([
+  const [matchData, standingsData, scorersData] = await Promise.all([
     apiFetch(`/competitions/${COMP}/matches`),
     apiFetch(`/competitions/${COMP}/standings`),
+    apiFetch(`/competitions/${COMP}/scorers?limit=50`).catch(() => null),
   ]);
 
   const codeByName = {};
@@ -360,7 +361,28 @@ export async function fetchFootballData(knownTeams) {
     if (result && date && (!latestDate || date > latestDate)) latestDate = date;
   }
 
-  return { groups, matches, asOf: latestDate || fmtDate(new Date().toISOString()) };
+  // Parse scorers if available
+  let scorers = [];
+  if (scorersData?.scorers) {
+    scorers = scorersData.scorers.map((s) => {
+      const tla = s.team?.tla;
+      let code = tla ? (CODE_MAP[tla] || tla) : null;
+      if (code && !knownTeams.find((t) => t.code === code)) {
+        const name = (s.team?.name || "").toLowerCase();
+        code = codeByName[name] || code;
+      }
+      return {
+        name: s.player?.name || "Unknown",
+        code,
+        goals: s.goals || 0,
+        assists: s.assists || 0,
+        penalties: s.penalties || 0,
+        matches: s.playedMatches || 0,
+      };
+    }).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+  }
+
+  return { groups, matches, scorers, asOf: latestDate || fmtDate(new Date().toISOString()) };
 }
 
 // Fetch top scorers from the dedicated scorers endpoint.
