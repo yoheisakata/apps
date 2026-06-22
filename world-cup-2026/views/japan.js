@@ -277,13 +277,15 @@ export function createJapan({ container, data }) {
         const venue = data.venueById[m.venue];
 
         const timeStr = m.time || "";
+        const left = isHome ? m.home : m.away;
+        const right = isHome ? m.away : m.home;
         if (!played) {
           return `<div class="japan-match-card upcoming" data-match-id="${m.id}" role="button" tabindex="0">
             <div class="jm-date">${m.date || "未定"}${timeStr ? ` ${timeStr}` : ""}</div>
             <div class="jm-teams">
-              <span class="jm-team">${teamName(m.home)}</span>
+              <span class="jm-team">${teamName(left)}</span>
               <span class="jm-vs">vs</span>
-              <span class="jm-team">${teamName(m.away)}</span>
+              <span class="jm-team">${teamName(right)}</span>
             </div>
             <div class="jm-venue">${venue ? esc(venue.city) + " · " + esc(venue.stadium) : ""}</div>
             <div class="jm-status">未実施</div>
@@ -291,16 +293,16 @@ export function createJapan({ container, data }) {
         }
 
         const [hs, as] = m.result;
-        const my = isHome ? hs : as;
+        const myGoals = isHome ? hs : as;
         const opGoals = isHome ? as : hs;
-        const outcome = my > opGoals ? "win" : my < opGoals ? "loss" : "draw";
+        const outcome = myGoals > opGoals ? "win" : myGoals < opGoals ? "loss" : "draw";
         const outcomeLabel = outcome === "win" ? "勝ち" : outcome === "loss" ? "負け" : "引き分け";
         return `<div class="japan-match-card ${outcome}" data-match-id="${m.id}" role="button" tabindex="0">
           <div class="jm-date">${m.date || ""}${timeStr ? ` ${timeStr}` : ""}</div>
           <div class="jm-teams">
-            <span class="jm-team">${teamName(m.home)}</span>
-            <span class="jm-score">${hs} - ${as}</span>
-            <span class="jm-team">${teamName(m.away)}</span>
+            <span class="jm-team">${teamName(left)}</span>
+            <span class="jm-score">${myGoals} - ${opGoals}</span>
+            <span class="jm-team">${teamName(right)}</span>
           </div>
           <div class="jm-venue">${venue ? esc(venue.city) : ""}</div>
           <div class="jm-result-label ${outcome}">${outcomeLabel}</div>
