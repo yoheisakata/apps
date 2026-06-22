@@ -96,10 +96,12 @@ function mapVenue(apiMatch) {
   return null;
 }
 
-// Format an ISO date string to YYYY-MM-DD.
+// Format an ISO date string to YYYY-MM-DD in the user's local timezone.
 function fmtDate(iso) {
   if (!iso) return null;
-  return iso.slice(0, 10);
+  const d = new Date(iso);
+  if (isNaN(d)) return iso.slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Parse goal scorers from the API goals array (if available).

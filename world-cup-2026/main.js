@@ -19,8 +19,8 @@ import { fetchLiveData } from "./views/livedata.js?v=7";
 import { fetchFootballData } from "./views/footballapi.js?v=7";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 7;
-const LIVE_CACHE_KEY = "wc2026-livedata-v7";
+const APP_VERSION = 8;
+const LIVE_CACHE_KEY = "wc2026-livedata-v8";
 
 // ---- shared data, loaded once ----
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
@@ -264,6 +264,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v4"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v5"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v6"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v7"); } catch (_) {}
 
   try {
     await loadStatic();
