@@ -180,24 +180,18 @@ export function createRankings({ container, data, onTeam }) {
     }).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
   }
 
-  // Fetch individual match details with rate-limit-safe batching
+  // Fetch individual match details one at a time with delay
   async function fetchScorersFromMatches() {
     const finished = data.matches.filter((m) => m.result && m.apiId);
     if (!finished.length) return [];
 
-    const BATCH = 3;
-    const DELAY_MS = 7000;
+    const DELAY_MS = 1500;
     const tally = {};
-    for (let i = 0; i < finished.length; i += BATCH) {
+    for (let i = 0; i < finished.length; i++) {
       if (i > 0) await delay(DELAY_MS);
-      const batch = finished.slice(i, i + BATCH);
-      const results = await Promise.all(
-        batch.map((m) => fetchMatchDetails(m.apiId).catch(() => null))
-      );
-      for (let j = 0; j < batch.length; j++) {
-        const d = results[j];
-        const m = batch[j];
-        if (!d) continue;
+      const m = finished[i];
+      const d = await fetchMatchDetails(m.apiId).catch(() => null);
+      if (d) {
         for (const gd of (d.goalDetails1 || [])) {
           if (gd.type === "OWN") continue;
           const key = `${gd.fullName}||${m.home}`;
@@ -216,8 +210,7 @@ export function createRankings({ container, data, onTeam }) {
         (a, b) => b.goals - a.goals || a.name.localeCompare(b.name)
       );
       if (partial.length) {
-        const progress = Math.min(i + BATCH, finished.length);
-        renderTable(rankedRows(partial), null);
+        renderTable(rankedRows(partial), `${i + 1}/${finished.length} 試合取得中…`);
       }
     }
     return Object.values(tally).sort(

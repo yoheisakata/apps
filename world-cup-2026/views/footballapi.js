@@ -22,8 +22,12 @@ function mapCode(apiCode) {
   return CODE_MAP[apiCode] || apiCode;
 }
 
-async function apiFetch(path) {
+async function apiFetch(path, retries = 2) {
   const res = await fetch(`${BASE}${path}`);
+  if (res.status === 429 && retries > 0) {
+    await new Promise((r) => setTimeout(r, 8000));
+    return apiFetch(path, retries - 1);
+  }
   if (!res.ok) throw new Error(`football-data.org ${res.status}`);
   return res.json();
 }
