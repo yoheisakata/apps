@@ -363,7 +363,7 @@ export async function fetchFootballData(knownTeams) {
     if (result && date && (!latestDate || date > latestDate)) latestDate = date;
   }
 
-  // Parse scorers if available
+  // Parse scorers from /scorers endpoint
   let scorers = [];
   if (scorersData?.scorers) {
     scorers = scorersData.scorers.map((s) => {
@@ -382,6 +382,38 @@ export async function fetchFootballData(knownTeams) {
         matches: s.playedMatches || 0,
       };
     }).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+  }
+
+  // Fallback: aggregate scorers from individual match details
+  if (!scorers.length) {
+    const finishedIds = apiMatches
+      .filter((am) => am.status === "FINISHED" || am.status === "AWARDED")
+      .map((am) => am.id)
+      .filter(Boolean);
+    if (finishedIds.length) {
+      try {
+        const details = await Promise.all(
+          finishedIds.map((id) => apiFetch(`/matches/${id}`).catch(() => null))
+        );
+        const tally = {};
+        for (const d of details) {
+          if (!d?.goals) continue;
+          for (const g of d.goals) {
+            if (g.type === "OWN") continue;
+            const name = g.scorer?.name;
+            if (!name) continue;
+            const teamTla = g.team?.tla;
+            const code = teamTla ? (mapCode(teamTla) || teamTla) : null;
+            const key = `${name}||${code}`;
+            if (!tally[key]) tally[key] = { name, code, goals: 0 };
+            tally[key].goals++;
+          }
+        }
+        scorers = Object.values(tally).sort(
+          (a, b) => b.goals - a.goals || a.name.localeCompare(b.name)
+        );
+      } catch (_) {}
+    }
   }
 
   return { groups, matches, scorers, asOf: latestDate || fmtDate(new Date().toISOString()) };
