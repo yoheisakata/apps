@@ -2,8 +2,8 @@
 // Group results come from live data; knockout fixtures show real dates/venues
 // with predicted teams filled in (from the prediction engine).
 
-import { groupStandings } from "./standings.js?v=6";
-import { createCountry } from "./country.js?v=6";
+import { groupStandings } from "./standings.js?v=7";
+import { createCountry } from "./country.js?v=7";
 
 const STAGE_LABELS = {
   group: "Group",
@@ -184,14 +184,12 @@ export function createSchedule({ container, data }) {
   }
 
   function todaySection() {
-    const todayStr = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/New_York",
-    }).format(new Date()); // "YYYY-MM-DD" in NY time
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-    const [y, m, d] = todayStr.split("-").map(Number);
-    const nyDate = new Date(y, m - 1, d);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const opening = new Date(2026, 5, 11);
-    const dayNum = Math.floor((nyDate - opening) / 86400000) + 1;
+    const dayNum = Math.floor((today - opening) / 86400000) + 1;
     const dayLabel = dayNum >= 1 ? ` — 大会${dayNum}日目` : "";
 
     const groupKeys = Object.keys(data.groups);
