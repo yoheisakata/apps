@@ -7,7 +7,7 @@ const ALLOWED_PATHS = [
 ];
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
@@ -18,6 +18,13 @@ export default {
     if (!ALLOWED_PATHS.some((re) => re.test(path))) {
       return json({ error: "Not found" }, 404);
     }
+
+    // Use Cloudflare Cache API to avoid hitting football-data.org rate limits.
+    // Cache for 60s for matches/standings, 120s for scorers, 300s for match details.
+    const cache = caches.default;
+    const cacheKey = new Request(url.toString(), { method: "GET" });
+    const cached = await cache.match(cacheKey);
+    if (cached) return addCors(cached);
 
     const apiUrl = `${API_BASE}${path}${url.search}`;
     const token = env.FOOTBALL_API_TOKEN || "";
@@ -31,14 +38,24 @@ export default {
       });
 
       const body = await res.text();
-      return new Response(body, {
+      const ttl = path.startsWith("/matches/") ? 300
+        : path.includes("/scorers") ? 120
+        : 60;
+
+      const response = new Response(body, {
         status: res.status,
         headers: {
           ...corsHeaders(),
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=60",
+          "Cache-Control": `public, max-age=${ttl}`,
         },
       });
+
+      if (res.ok) {
+        ctx.waitUntil(cache.put(cacheKey, response.clone()));
+      }
+
+      return response;
     } catch (e) {
       return json({ error: e.message }, 502);
     }
@@ -52,6 +69,12 @@ function corsHeaders() {
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
   };
+}
+
+function addCors(response) {
+  const headers = new Headers(response.headers);
+  for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v);
+  return new Response(response.body, { status: response.status, headers });
 }
 
 function json(obj, status = 200) {
