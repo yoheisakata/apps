@@ -1,11 +1,8 @@
 // Rankings view: tournament goalscorer ranking, aggregated from match data.
 // Top 10 displayed. Player names open a centered modal with Wikipedia data.
 
-import { loadSquads, resolvePlayer } from "./livedata.js?v=7";
+import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=7";
 import { fetchWiki } from "./wiki.js?v=7";
-import { fetchMatchDetails } from "./footballapi.js?v=7";
-
-const WORKER_BASE = "https://wc2026-api.yoheisakata.workers.dev";
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
@@ -13,15 +10,9 @@ function esc(s) {
   );
 }
 
-function delay(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 export function createRankings({ container, data, onTeam }) {
   let squads = null;
   let openWiki = null;
-  let fetchedScorers = null;
-  let fetchStarted = false;
 
   function teamCell(code) {
     const t = data.byCode[code];
@@ -117,11 +108,9 @@ export function createRankings({ container, data, onTeam }) {
     container.querySelector("#player-modal-rankings .city-modal-close")?.addEventListener("click", closePlayer);
   }
 
-  function renderTable(ranking, status) {
+  function renderTable(ranking) {
     const top10 = ranking.filter((r) => r.rank <= 10);
     const totalGoals = ranking.reduce((a, b) => a + b.goals, 0);
-
-    const statusHtml = status ? `<p class="sub">${esc(status)}</p>` : "";
 
     const body = top10.length
       ? `<table class="rank-table">
@@ -137,7 +126,7 @@ export function createRankings({ container, data, onTeam }) {
             )
             .join("")}</tbody>
         </table>`
-      : statusHtml || `<p class="sub">まだ得点がありません。</p>`;
+      : `<p class="sub">まだ得点がありません。</p>`;
 
     container.innerHTML = `
       <h2 class="section-title">🥇 得点ランキング TOP10 <span class="sub">${ranking.length}選手 / ${totalGoals}得点</span></h2>
@@ -155,129 +144,19 @@ export function createRankings({ container, data, onTeam }) {
     bindEvents();
   }
 
-  // Try the /scorers endpoint directly
-  async function fetchScorersEndpoint() {
-    const res = await fetch(`${WORKER_BASE}/competitions/WC/scorers?limit=50`);
-    if (!res.ok) throw new Error(`scorers ${res.status}`);
-    const json = await res.json();
-    if (!json.scorers?.length) return [];
-    const codeByName = {};
-    for (const t of data.teams) codeByName[t.name.toLowerCase()] = t.code;
-    const CODE_MAP = { GRE: "GRC", NED: "NLD", SUI: "CHE" };
-    return json.scorers.map((s) => {
-      const tla = s.team?.tla;
-      let code = tla ? (CODE_MAP[tla] || tla) : null;
-      if (code && !data.teams.find((t) => t.code === code)) {
-        const name = (s.team?.name || "").toLowerCase();
-        code = codeByName[name] || code;
-      }
-      return {
-        name: s.player?.name || "Unknown",
-        code,
-        goals: s.goals || 0,
-        assists: s.assists || 0,
-      };
-    }).sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
-  }
-
-  // Fetch individual match details one at a time with delay
-  async function fetchScorersFromMatches() {
-    const finished = data.matches.filter((m) => m.result && m.apiId);
-    if (!finished.length) return [];
-
-    const DELAY_MS = 1500;
-    const tally = {};
-    for (let i = 0; i < finished.length; i++) {
-      if (i > 0) await delay(DELAY_MS);
-      const m = finished[i];
-      const d = await fetchMatchDetails(m.apiId).catch(() => null);
-      if (d) {
-        for (const gd of (d.goalDetails1 || [])) {
-          if (gd.type === "OWN") continue;
-          const key = `${gd.fullName}||${m.home}`;
-          if (!tally[key]) tally[key] = { name: gd.fullName, code: m.home, goals: 0 };
-          tally[key].goals++;
-        }
-        for (const gd of (d.goalDetails2 || [])) {
-          if (gd.type === "OWN") continue;
-          const key = `${gd.fullName}||${m.away}`;
-          if (!tally[key]) tally[key] = { name: gd.fullName, code: m.away, goals: 0 };
-          tally[key].goals++;
-        }
-      }
-      // Show partial results as they come in
-      const partial = Object.values(tally).sort(
-        (a, b) => b.goals - a.goals || a.name.localeCompare(b.name)
-      );
-      if (partial.length) {
-        renderTable(rankedRows(partial), `${i + 1}/${finished.length} 試合取得中…`);
-      }
-    }
-    return Object.values(tally).sort(
-      (a, b) => b.goals - a.goals || a.name.localeCompare(b.name)
-    );
-  }
-
-  async function loadScorers() {
-    // 1. Already have scorers from main data flow?
-    if (data.scorers?.length) {
-      fetchedScorers = data.scorers;
-      renderTable(rankedRows(fetchedScorers));
-      return;
-    }
-
-    renderTable([], "得点データを取得中…");
-
-    // 2. Try /scorers endpoint directly
-    try {
-      console.log("[rankings] trying /scorers endpoint...");
-      const scorers = await fetchScorersEndpoint();
-      if (scorers.length) {
-        console.log(`[rankings] got ${scorers.length} scorers from /scorers`);
-        fetchedScorers = scorers;
-        renderTable(rankedRows(fetchedScorers));
-        return;
-      }
-      console.log("[rankings] /scorers returned empty");
-    } catch (e) {
-      console.warn("[rankings] /scorers failed:", e.message);
-    }
-
-    // 3. Fallback: fetch individual match details (slow, with rate limiting)
-    try {
-      console.log("[rankings] falling back to individual match details...");
-      const scorers = await fetchScorersFromMatches();
-      if (scorers.length) {
-        fetchedScorers = scorers;
-        renderTable(rankedRows(fetchedScorers));
-        return;
-      }
-    } catch (e) {
-      console.warn("[rankings] match details failed:", e.message);
-    }
-
-    renderTable([], "得点データを取得できませんでした。更新ボタンを試してください。");
-  }
-
   function render() {
-    if (fetchedScorers?.length) {
-      renderTable(rankedRows(fetchedScorers));
-    } else if (!fetchStarted) {
-      fetchStarted = true;
-      loadScorers().then(() => {
-        if (!squads) {
-          loadSquads(data.teams)
-            .then((s) => {
-              squads = s;
-              if (fetchedScorers?.length) renderTable(rankedRows(fetchedScorers));
-            })
-            .catch(() => {});
-        }
-      });
-    }
+    const baseRows = data.scorers?.length ? data.scorers : goalRanking(data.matches);
+    const ranking = rankedRows(baseRows);
+    renderTable(ranking);
 
-    if (squads && fetchedScorers?.length) {
-      renderTable(rankedRows(fetchedScorers));
+    if (!squads) {
+      loadSquads(data.teams)
+        .then((s) => {
+          squads = s;
+          const rows = data.scorers?.length ? data.scorers : goalRanking(data.matches);
+          renderTable(rankedRows(rows));
+        })
+        .catch(() => {});
     }
   }
 
