@@ -513,23 +513,22 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .cm-team-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-/* venue dot markers */
+/* venue flag markers */
 .venue-marker { background: none; border: none; position: relative; }
-.venue-pin {
+.venue-flag {
   position: absolute;
   left: 0;
   top: 0;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.25);
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.45));
   transition: transform .12s;
+  cursor: pointer;
 }
-/* always-on city name to the right of the dot */
+/* always-on city name to the right of the flag */
 .venue-label {
   position: absolute;
-  left: 19px;
+  left: 28px;
   top: 50%;
   transform: translateY(-50%);
   white-space: nowrap;
@@ -539,7 +538,7 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff, 0 1px 2px #fff;
   pointer-events: none;
 }
-.venue-marker:hover .venue-pin { transform: scale(1.35); }
+.venue-marker:hover .venue-flag { transform: scale(1.3); }
 .venue-marker:hover .venue-label { color: var(--accent); }
 /* flag markers (participating nations) */
 .flag-marker { background: none; border: none; }
