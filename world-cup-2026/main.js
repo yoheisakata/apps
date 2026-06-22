@@ -19,8 +19,8 @@ import { fetchLiveData } from "./views/livedata.js?v=7";
 import { fetchFootballData } from "./views/footballapi.js?v=7";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 8;
-const LIVE_CACHE_KEY = "wc2026-livedata-v8";
+const APP_VERSION = 9;
+const LIVE_CACHE_KEY = "wc2026-livedata-v9";
 
 // ---- shared data, loaded once ----
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
@@ -164,33 +164,49 @@ async function refreshLive({ silent } = {}) {
     if (source === "api") {
       try {
         wikiLive = await fetchLiveData();
-      } catch (_) {}
+      } catch (e) {
+        console.warn("[live] wiki fetch for scorers failed:", e.message);
+      }
       if (wikiLive?.matches) {
-        const wikiByKey = {};
+        // Index wiki matches by team pair (no date — timezone can cause mismatches)
+        const wikiByTeams = {};
         for (const wm of wikiLive.matches) {
-          if (wm.home && wm.away && wm.date) {
-            wikiByKey[`${wm.date}|${wm.home}|${wm.away}`] = wm;
+          if (wm.home && wm.away) {
+            wikiByTeams[`${wm.home}|${wm.away}`] = wm;
           }
         }
         for (const m of live.matches) {
-          if (!m.home || !m.away || !m.date) continue;
-          const wm = wikiByKey[`${m.date}|${m.home}|${m.away}`]
-                   || wikiByKey[`${m.date}|${m.away}|${m.home}`];
-          if (!wm) continue;
-          if (!m.scorers1?.length && wm.scorers1?.length) m.scorers1 = wm.scorers1;
-          if (!m.scorers2?.length && wm.scorers2?.length) m.scorers2 = wm.scorers2;
-          if (!m.scorerDetails1?.length && wm.scorerDetails1?.length) m.scorerDetails1 = wm.scorerDetails1;
-          if (!m.scorerDetails2?.length && wm.scorerDetails2?.length) m.scorerDetails2 = wm.scorerDetails2;
-          if (!m.ownGoals1 && wm.ownGoals1) m.ownGoals1 = wm.ownGoals1;
-          if (!m.ownGoals2 && wm.ownGoals2) m.ownGoals2 = wm.ownGoals2;
+          if (!m.home || !m.away) continue;
+          const exact = wikiByTeams[`${m.home}|${m.away}`];
+          const swapped = wikiByTeams[`${m.away}|${m.home}`];
+          if (exact) {
+            if (!m.scorers1?.length && exact.scorers1?.length) m.scorers1 = exact.scorers1;
+            if (!m.scorers2?.length && exact.scorers2?.length) m.scorers2 = exact.scorers2;
+            if (!m.scorerDetails1?.length && exact.scorerDetails1?.length) m.scorerDetails1 = exact.scorerDetails1;
+            if (!m.scorerDetails2?.length && exact.scorerDetails2?.length) m.scorerDetails2 = exact.scorerDetails2;
+            if (!m.ownGoals1 && exact.ownGoals1) m.ownGoals1 = exact.ownGoals1;
+            if (!m.ownGoals2 && exact.ownGoals2) m.ownGoals2 = exact.ownGoals2;
+          } else if (swapped) {
+            if (!m.scorers1?.length && swapped.scorers2?.length) m.scorers1 = swapped.scorers2;
+            if (!m.scorers2?.length && swapped.scorers1?.length) m.scorers2 = swapped.scorers1;
+            if (!m.scorerDetails1?.length && swapped.scorerDetails2?.length) m.scorerDetails1 = swapped.scorerDetails2;
+            if (!m.scorerDetails2?.length && swapped.scorerDetails1?.length) m.scorerDetails2 = swapped.scorerDetails1;
+            if (!m.ownGoals1 && swapped.ownGoals2) m.ownGoals1 = swapped.ownGoals2;
+            if (!m.ownGoals2 && swapped.ownGoals1) m.ownGoals2 = swapped.ownGoals1;
+          }
         }
       }
     }
-    // Build scorers from merged match data if /scorers endpoint was empty
+    // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
       const { goalRanking } = await import("./views/livedata.js?v=7");
       const ranked = goalRanking(live.matches);
-      if (ranked.length) live.scorers = ranked;
+      if (!ranked.length && wikiLive?.matches) {
+        const wikiRanked = goalRanking(wikiLive.matches);
+        if (wikiRanked.length) live.scorers = wikiRanked;
+      } else if (ranked.length) {
+        live.scorers = ranked;
+      }
     }
     applyLive(live, source);
     const fetchedAt = new Date().toISOString();
@@ -298,6 +314,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v5"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v6"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v7"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v8"); } catch (_) {}
 
   try {
     await loadStatic();
