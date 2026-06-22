@@ -28,6 +28,7 @@ const data = { teams: null, groups: null, venues: null, matches: null, byCode: {
 // ---- tab state ----
 let activeTab = "schedule";
 const views = {}; // lazily created view instances
+const VALID_TABS = ["schedule", "bracket", "standings", "cities", "world", "teams", "rankings", "japan"];
 
 async function loadStatic() {
   const cb = `?_=${Date.now()}`;
@@ -70,7 +71,7 @@ function rerenderAll() {
   for (const name of Object.keys(views)) views[name].render?.();
 }
 
-function setTab(name) {
+function setTab(name, skipHash) {
   activeTab = name;
   document.querySelectorAll(".tab").forEach((b) =>
     b.classList.toggle("active", b.dataset.tab === name)
@@ -80,6 +81,9 @@ function setTab(name) {
   );
   ensureView(name);
   $("main")?.scrollTo(0, 0);
+  if (!skipHash) {
+    history.replaceState(null, "", `#${name}`);
+  }
 }
 
 // Jump to a country page (owned by the schedule view) from another tab.
@@ -91,12 +95,13 @@ const ORIGIN_LABEL = {
   world: "← 参加国に戻る",
 };
 function goToCountry(code, origin) {
-  setTab("schedule");
+  setTab("schedule", true);
   const back =
     origin && ORIGIN_LABEL[origin]
       ? { label: ORIGIN_LABEL[origin], run: () => setTab(origin) }
       : null;
   views.schedule?.showCountry?.(code, back);
+  history.replaceState(null, "", origin ? `#country/${code}/${origin}` : `#country/${code}`);
 }
 
 function ensureView(name) {
@@ -210,6 +215,26 @@ function toggleTheme() {
 
 const matchModal = createMatchModal({ onTeam: (code) => goToCountry(code) });
 
+function parseHash() {
+  const h = location.hash.replace(/^#/, "");
+  if (!h) return { tab: "schedule" };
+  if (h.startsWith("country/")) {
+    const parts = h.split("/");
+    return { tab: "schedule", country: parts[1], origin: parts[2] || null };
+  }
+  if (VALID_TABS.includes(h)) return { tab: h };
+  return { tab: "schedule" };
+}
+
+function applyHash() {
+  const { tab, country, origin } = parseHash();
+  if (country && data.byCode[country]) {
+    goToCountry(country, origin);
+  } else {
+    setTab(tab);
+  }
+}
+
 function bind() {
   document.querySelectorAll(".tab").forEach((b) =>
     b.addEventListener("click", () => setTab(b.dataset.tab))
@@ -218,6 +243,8 @@ function bind() {
   $("refresh-btn")?.addEventListener("click", () => refreshLive({}));
   $("theme-btn")?.addEventListener("click", toggleTheme);
   applyThemeButton();
+
+  window.addEventListener("hashchange", () => applyHash());
 
   // Global delegated handler: clicking any match card opens its detail modal.
   document.addEventListener("click", (e) => {
@@ -243,7 +270,7 @@ function bind() {
   }
   loadCache();
   bind();
-  setTab("schedule");
+  applyHash();
   $("loading").classList.add("hidden");
   refreshLive({ silent: false });
 })();
