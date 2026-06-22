@@ -15,6 +15,16 @@ const CONFED_NAME = {
   TBD: "未定 (大陸間プレーオフ)",
 };
 
+const CONFED_SHORT = {
+  all: "All",
+  UEFA: "UEFA",
+  CONMEBOL: "CONMEBOL",
+  CONCACAF: "CONCACAF",
+  CAF: "CAF",
+  AFC: "AFC",
+  OFC: "OFC",
+};
+
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
@@ -25,9 +35,14 @@ export function createWorld({ container, data, onTeam }) {
   let map = null;
   const markers = {};
   let openCode = null;
+  let filter = "all";
 
   // Only teams with real coordinates (skip the play-off placeholder at 0,0).
   const located = data.teams.filter((t) => t.lat || t.lon);
+
+  // Collect unique confederations in display order
+  const confedOrder = ["UEFA", "CONMEBOL", "CONCACAF", "CAF", "AFC", "OFC"];
+  const confeds = confedOrder.filter((c) => located.some((t) => t.confed === c));
 
   function flagIcon(team) {
     return L.divIcon({
@@ -87,7 +102,6 @@ export function createWorld({ container, data, onTeam }) {
     if (!ov) return;
     ov.querySelector(".city-modal-body").innerHTML = html;
     ov.classList.remove("hidden");
-    // "Go to team page" jumps to the country detail (owned by the schedule tab).
     ov.querySelector(".cm-team-btn")?.addEventListener("click", (e) => {
       closeModal();
       onTeam?.(e.currentTarget.dataset.team);
@@ -101,9 +115,45 @@ export function createWorld({ container, data, onTeam }) {
     if (openCode === t.code) showModal(detailCard(t, wiki, false));
   }
 
+  function filteredTeams() {
+    if (filter === "all") return located;
+    return located.filter((t) => t.confed === filter);
+  }
+
+  function confedCount(c) {
+    return located.filter((t) => t.confed === c).length;
+  }
+
+  function applyFilter() {
+    const visible = filteredTeams();
+    const visibleCodes = new Set(visible.map((t) => t.code));
+    for (const [code, marker] of Object.entries(markers)) {
+      if (visibleCodes.has(code)) {
+        if (!map.hasLayer(marker)) marker.addTo(map);
+      } else {
+        if (map.hasLayer(marker)) map.removeLayer(marker);
+      }
+    }
+    // Reframe to visible markers
+    if (visible.length) {
+      const bounds = L.latLngBounds(visible.map((t) => [t.lat, t.lon]));
+      map.setMinZoom(0);
+      map.setMaxBounds(null);
+      map.fitBounds(bounds, { animate: true, padding: [15, 25] });
+      map.setMinZoom(map.getZoom());
+      map.setMaxBounds(map.getBounds().pad(0.05));
+    }
+    // Update chip active state
+    container.querySelectorAll(".chip[data-confed]").forEach((el) => {
+      el.classList.toggle("active", el.dataset.confed === filter);
+    });
+    // Update count
+    const countEl = container.querySelector("#world-count");
+    if (countEl) countEl.textContent = `${visible.length}か国`;
+  }
+
   function buildMap() {
     const mapEl = container.querySelector("#world-map");
-    // Fully static map: no panning, no zooming — only flag clicks (→ modal).
     map = L.map(mapEl, {
       attributionControl: true,
       zoomControl: false,
@@ -116,7 +166,6 @@ export function createWorld({ container, data, onTeam }) {
       tap: false,
       worldCopyJump: false,
     });
-    // CARTO "Voyager" — clean, light, colourful basemap that reads well.
     L.tileLayer(
       "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
       {
@@ -137,9 +186,6 @@ export function createWorld({ container, data, onTeam }) {
     frameWorld();
   }
 
-  // Frame the actual markers (all 48 nations) so none are cropped, then lock.
-  // We fit the marker bounds — not the whole globe — which guarantees every
-  // flag is visible and still fills the wide container well.
   function frameWorld() {
     const markerBounds = L.latLngBounds(located.map((t) => [t.lat, t.lon]));
     map.setMinZoom(0);
@@ -149,11 +195,28 @@ export function createWorld({ container, data, onTeam }) {
     map.setMaxBounds(map.getBounds().pad(0.05));
   }
 
+  function bindChips() {
+    container.querySelectorAll(".chip[data-confed]").forEach((el) => {
+      el.addEventListener("click", () => {
+        filter = el.dataset.confed;
+        applyFilter();
+      });
+    });
+  }
+
   function render() {
     if (!map) {
       const playoff = data.teams.length - located.length;
+      const chips = [
+        `<button class="chip active" data-confed="all">All (${located.length})</button>`,
+        ...confeds.map(
+          (c) => `<button class="chip" data-confed="${c}">${CONFED_SHORT[c]} (${confedCount(c)})</button>`
+        ),
+      ].join("");
+
       container.innerHTML = `
-        <h2 class="section-title">🌍 参加国 <span class="sub">${located.length}か国${playoff ? ` + プレーオフ${playoff}枠` : ""}</span></h2>
+        <h2 class="section-title">🌍 参加国 <span class="sub" id="world-count">${located.length}か国${playoff ? ` + プレーオフ${playoff}枠` : ""}</span></h2>
+        <div class="toolbar">${chips}</div>
         <div class="banner">国旗マーカーをクリックすると、写真・FIFAランキング・所属連盟・グループ・特徴が表示されます（写真と解説は Wikipedia から取得）。マーカーは首都の位置に配置。組分けは実際の抽選結果（2026-06-18 時点）。<br>※ FIFAランキングは概数（2025年後半時点の目安）。</div>
         <div class="map-shell">
           <div id="world-map" class="leaflet-host"></div>
@@ -166,12 +229,13 @@ export function createWorld({ container, data, onTeam }) {
           </div>
         </div>`;
       buildMap();
+      bindChips();
       container.querySelector(".city-modal-backdrop").addEventListener("click", closeModal);
       container.querySelector(".city-modal-close").addEventListener("click", closeModal);
     } else {
       setTimeout(() => {
         map.invalidateSize();
-        frameWorld();
+        applyFilter();
       }, 0);
     }
   }
