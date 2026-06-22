@@ -184,15 +184,14 @@ export function createSchedule({ container, data }) {
   }
 
   function todaySection() {
-    const now = new Date();
-    const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const yyyy = ny.getFullYear();
-    const mm = String(ny.getMonth() + 1).padStart(2, "0");
-    const dd = String(ny.getDate()).padStart(2, "0");
-    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const todayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York",
+    }).format(new Date()); // "YYYY-MM-DD" in NY time
 
-    const opening = new Date(2026, 5, 11); // June 11, 2026
-    const dayNum = Math.floor((ny - opening) / 86400000) + 1;
+    const [y, m, d] = todayStr.split("-").map(Number);
+    const nyDate = new Date(y, m - 1, d);
+    const opening = new Date(2026, 5, 11);
+    const dayNum = Math.floor((nyDate - opening) / 86400000) + 1;
     const dayLabel = dayNum >= 1 ? ` — 大会${dayNum}日目` : "";
 
     const groupKeys = Object.keys(data.groups);
