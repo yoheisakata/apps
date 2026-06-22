@@ -26,7 +26,7 @@ const LIVE_CACHE_KEY = "wc2026-livedata-v9";
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
 
 // ---- tab state ----
-let activeTab = "schedule";
+let activeTab = "japan";
 const views = {}; // lazily created view instances
 const VALID_TABS = ["schedule", "bracket", "standings", "cities", "world", "teams", "rankings", "japan"];
 
@@ -267,13 +267,13 @@ const matchModal = createMatchModal({ onTeam: (code) => goToCountry(code) });
 
 function parseHash() {
   const h = location.hash.replace(/^#/, "");
-  if (!h) return { tab: "schedule" };
+  if (!h) return { tab: "japan" };
   if (h.startsWith("country/")) {
     const parts = h.split("/");
-    return { tab: "schedule", country: parts[1], origin: parts[2] || null };
+    return { tab: "japan", country: parts[1], origin: parts[2] || null };
   }
   if (VALID_TABS.includes(h)) return { tab: h };
-  return { tab: "schedule" };
+  return { tab: "japan" };
 }
 
 function applyHash() {
