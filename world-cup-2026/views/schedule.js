@@ -6,13 +6,13 @@ import { groupStandings } from "./standings.js?v=6";
 import { createCountry } from "./country.js?v=6";
 
 const STAGE_LABELS = {
-  group: "グループステージ",
-  r32: "ラウンド32",
-  r16: "ラウンド16",
-  qf: "準々決勝",
-  sf: "準決勝",
-  third: "3位決定戦",
-  final: "決勝",
+  group: "Group",
+  r32: "R32",
+  r16: "R16",
+  qf: "QF",
+  sf: "SF",
+  third: "3rd",
+  final: "Final",
 };
 const KO_STAGES = ["r32", "r16", "qf", "sf", "third", "final"];
 
@@ -223,9 +223,9 @@ export function createSchedule({ container, data }) {
     const groupKeys = Object.keys(data.groups);
 
     const chips = [
-      `<button class="chip ${filter === "groups" ? "active" : ""}" data-f="groups">全グループ</button>`,
+      `<button class="chip ${filter === "groups" ? "active" : ""}" data-f="groups">All</button>`,
       ...groupKeys.map(
-        (g) => `<button class="chip ${filter === g ? "active" : ""}" data-f="${g}">${g}組</button>`
+        (g) => `<button class="chip ${filter === g ? "active" : ""}" data-f="${g}">${g}</button>`
       ),
       ...KO_STAGES.map(
         (s) => `<button class="chip ${filter === s ? "active" : ""}" data-f="${s}">${STAGE_LABELS[s]}</button>`
