@@ -11,7 +11,7 @@
   <!-- Leaflet (interactive maps) from CDN -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
   <!-- Apply the saved theme before first paint to avoid a flash. Light default. -->
   <script>
     try {
@@ -61,6 +61,11 @@
 
   <div id="loading">読み込み中…</div>
 
-  <script type="module" src="main.js?v=6"></script>
+  <script>
+    var s = document.createElement("script");
+    s.type = "module";
+    s.src = "main.js?_=" + Date.now();
+    document.body.appendChild(s);
+  </script>
 </body>
 </html>

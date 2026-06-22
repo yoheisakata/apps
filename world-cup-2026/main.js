@@ -6,21 +6,21 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=6";
-import { createBracket } from "./views/bracket.js?v=6";
-import { createCities } from "./views/cities.js?v=6";
-import { createWorld } from "./views/world.js?v=6";
-import { createRankings } from "./views/rankings.js?v=6";
-import { createStandings } from "./views/standingstab.js?v=6";
-import { createTeamList } from "./views/teamlist.js?v=6";
-import { createJapan } from "./views/japan.js?v=6";
-import { createMatchModal } from "./views/matchmodal.js?v=6";
-import { fetchLiveData } from "./views/livedata.js?v=6";
-import { fetchFootballData } from "./views/footballapi.js?v=6";
+import { createSchedule } from "./views/schedule.js?v=7";
+import { createBracket } from "./views/bracket.js?v=7";
+import { createCities } from "./views/cities.js?v=7";
+import { createWorld } from "./views/world.js?v=7";
+import { createRankings } from "./views/rankings.js?v=7";
+import { createStandings } from "./views/standingstab.js?v=7";
+import { createTeamList } from "./views/teamlist.js?v=7";
+import { createJapan } from "./views/japan.js?v=7";
+import { createMatchModal } from "./views/matchmodal.js?v=7";
+import { fetchLiveData } from "./views/livedata.js?v=7";
+import { fetchFootballData } from "./views/footballapi.js?v=7";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 6;
-const LIVE_CACHE_KEY = "wc2026-livedata-v6";
+const APP_VERSION = 7;
+const LIVE_CACHE_KEY = "wc2026-livedata-v7";
 
 // ---- shared data, loaded once ----
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
@@ -263,6 +263,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v3"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v4"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v5"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v6"); } catch (_) {}
 
   try {
     await loadStatic();
