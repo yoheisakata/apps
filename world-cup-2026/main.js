@@ -53,13 +53,16 @@ function reindex() {
 // Merge a live { groups, matches, asOf } payload into the shared data and
 // re-sync each team's group field so all views stay consistent.
 function applyLive(live, source) {
-  data.groups = live.groups;
+  // Only overwrite groups if the live data has them (API may return empty).
+  if (live.groups && Object.keys(live.groups).length > 0) {
+    data.groups = live.groups;
+    const groupOf = {};
+    for (const [g, codes] of Object.entries(live.groups)) for (const c of codes) groupOf[c] = g;
+    for (const t of data.teams) if (groupOf[t.code]) t.group = groupOf[t.code];
+  }
   data.matches = live.matches;
   data.asOf = live.asOf || data.asOf;
-  data.source = source; // "live" | "cache"
-  const groupOf = {};
-  for (const [g, codes] of Object.entries(live.groups)) for (const c of codes) groupOf[c] = g;
-  for (const t of data.teams) if (groupOf[t.code]) t.group = groupOf[t.code];
+  data.source = source;
   reindex();
 }
 
