@@ -2,6 +2,7 @@ const API_BASE = "https://api.football-data.org/v4";
 const ALLOWED_PATHS = [
   /^\/competitions\/WC\/matches/,
   /^\/competitions\/WC\/standings/,
+  /^\/competitions\/WC\/scorers/,
   /^\/matches\/\d+$/,
 ];
 

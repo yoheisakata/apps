@@ -3,6 +3,7 @@
 
 import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=4";
 import { fetchWiki } from "./wiki.js?v=4";
+import { fetchTopScorers } from "./footballapi.js?v=4";
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
@@ -13,6 +14,8 @@ function esc(s) {
 export function createRankings({ container, data, onTeam }) {
   let squads = null;
   let openWiki = null;
+  let apiScorers = null;
+  let apiFetched = false;
 
   function teamCell(code) {
     const t = data.byCode[code];
@@ -108,8 +111,7 @@ export function createRankings({ container, data, onTeam }) {
     container.querySelector("#player-modal-rankings .city-modal-close")?.addEventListener("click", closePlayer);
   }
 
-  function render() {
-    const ranking = rankedRows(goalRanking(data.matches));
+  function renderTable(ranking) {
     const top10 = ranking.filter((r) => r.rank <= 10);
     const totalGoals = ranking.reduce((a, b) => a + b.goals, 0);
 
@@ -143,12 +145,32 @@ export function createRankings({ container, data, onTeam }) {
     `;
 
     bindEvents();
+  }
+
+  function render() {
+    // Use API scorers if available, otherwise aggregate from match data
+    const baseRows = apiScorers || goalRanking(data.matches);
+    const ranking = rankedRows(baseRows);
+    renderTable(ranking);
+
+    if (!apiFetched) {
+      apiFetched = true;
+      fetchTopScorers(data.teams)
+        .then((scorers) => {
+          if (scorers.length) {
+            apiScorers = scorers;
+            renderTable(rankedRows(apiScorers));
+          }
+        })
+        .catch(() => {});
+    }
 
     if (!squads) {
       loadSquads(data.teams)
         .then((s) => {
           squads = s;
-          render();
+          const rows = apiScorers || goalRanking(data.matches);
+          renderTable(rankedRows(rows));
         })
         .catch(() => {});
     }
