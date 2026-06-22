@@ -3,7 +3,7 @@
 // clicking a flag opens a centered modal that lazily loads the country's photo
 // + summary from Wikipedia, plus its group / confederation / FIFA ranking.
 
-import { fetchWiki } from "./wiki.js?v=5";
+import { fetchWiki } from "./wiki.js?v=6";
 
 const CONFED_NAME = {
   UEFA: "欧州 (UEFA)",

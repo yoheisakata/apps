@@ -1,6 +1,6 @@
-import { groupStandings } from "./standings.js?v=5";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=5";
-import { fetchWiki } from "./wiki.js?v=5";
+import { groupStandings } from "./standings.js?v=6";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=6";
+import { fetchWiki } from "./wiki.js?v=6";
 
 const CODE = "JPN";
 const GROUP = "F";
