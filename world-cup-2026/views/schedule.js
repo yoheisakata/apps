@@ -238,6 +238,7 @@ export function createSchedule({ container, data }) {
       <div class="banner">組分け・結果は自動取得（${data.asOf || "—"} 時点）。順位表はスコアから自動集計。試合カードをクリックで詳細（得点者・分・アシスト・審判等）。</div>
       ${today}
       <div class="toolbar">${chips}</div>
+      ${today}
       ${body}
     `;
 
