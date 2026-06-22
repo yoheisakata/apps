@@ -5,6 +5,7 @@
 // Each row: { code, pld, w, d, l, gf, ga, gd, pts }.
 export function groupStandings(data, groupKey) {
   const teams = data.groups[groupKey];
+  if (!teams) return [];
   const row = Object.fromEntries(
     teams.map((c) => [c, { code: c, pld: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }])
   );
