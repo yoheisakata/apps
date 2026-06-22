@@ -5,7 +5,7 @@
 import { fetchWiki, formatPop } from "./wiki.js?v=5";
 
 const COUNTRY_NAME = { USA: "アメリカ", CAN: "カナダ", MEX: "メキシコ" };
-const COUNTRY_COLOR = { USA: "#4a90e2", CAN: "#e25555", MEX: "#3cba54" };
+const COUNTRY_FLAG = { USA: "🇺🇸", CAN: "🇨🇦", MEX: "🇲🇽" };
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
@@ -17,14 +17,12 @@ export function createCities({ container, data }) {
   let map = null;
   const markers = {};
 
-  function dotIcon(color, city) {
-    // Dot + an always-visible city-name label to its right. The icon anchors on
-    // the dot center; the label flows right and doesn't affect positioning.
+  function flagIcon(flag, city) {
     return L.divIcon({
       className: "venue-marker",
-      html: `<span class="venue-pin" style="background:${color};color:${color}"></span><span class="venue-label">${esc(city)}</span>`,
+      html: `<span class="venue-flag">${flag}</span><span class="venue-label">${esc(city)}</span>`,
       iconSize: [0, 0],
-      iconAnchor: [7, 7],
+      iconAnchor: [12, 12],
     });
   }
 
@@ -139,10 +137,8 @@ export function createCities({ container, data }) {
 
     const latlngs = [];
     for (const v of data.venues) {
-      const color = COUNTRY_COLOR[v.country] || "#00d4a0";
-      // No Leaflet popup — clicking opens the centered modal instead, so the
-      // map never pans. The city name is shown as an always-on label.
-      const marker = L.marker([v.lat, v.lon], { icon: dotIcon(color, v.city) }).addTo(map);
+      const flag = COUNTRY_FLAG[v.country] || "📍";
+      const marker = L.marker([v.lat, v.lon], { icon: flagIcon(flag, v.city) }).addTo(map);
       marker.on("click", () => openCity(v));
       markers[v.id] = marker;
       latlngs.push([v.lat, v.lon]);
@@ -156,7 +152,7 @@ export function createCities({ container, data }) {
     if (!map) {
       container.innerHTML = `
         <h2 class="section-title">🏟️ 開催都市 <span class="sub">16都市</span></h2>
-        <div class="banner">地図上のマーカーをクリックすると、その都市の写真・人口・特徴が表示されます（写真と解説は Wikipedia から取得）。<span class="legend-inline"><b style="color:#4a90e2">●</b> 🇺🇸 USA <b style="color:#e25555">●</b> 🇨🇦 Canada <b style="color:#3cba54">●</b> 🇲🇽 Mexico</span></div>
+        <div class="banner">地図上のマーカーをクリックすると、その都市の写真・人口・特徴が表示されます（写真と解説は Wikipedia から取得）。<span class="legend-inline">🇺🇸 USA　🇨🇦 Canada　🇲🇽 Mexico</span></div>
         <div class="map-shell">
           <div id="cities-map" class="leaflet-host"></div>
           <div id="city-modal" class="city-modal hidden">
