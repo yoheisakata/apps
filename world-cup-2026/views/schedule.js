@@ -188,7 +188,7 @@ export function createSchedule({ container, data }) {
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const opening = new Date(2026, 5, 13);
+    const opening = new Date(2026, 5, 12);
     const dayNum = Math.floor((today - opening) / 86400000) + 1;
     const dayLabel = dayNum >= 1 ? ` — 大会${dayNum}日目` : "";
 
