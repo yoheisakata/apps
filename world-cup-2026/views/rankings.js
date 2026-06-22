@@ -1,9 +1,9 @@
 // Rankings view: tournament goalscorer ranking, aggregated from match data.
 // Top 10 displayed. Player names open a centered modal with Wikipedia data.
 
-import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=7";
+import { loadSquads, resolvePlayer } from "./livedata.js?v=7";
 import { fetchWiki } from "./wiki.js?v=7";
-import { fetchTopScorers } from "./footballapi.js?v=7";
+import { fetchMatchDetails } from "./footballapi.js?v=7";
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
@@ -14,8 +14,8 @@ function esc(s) {
 export function createRankings({ container, data, onTeam }) {
   let squads = null;
   let openWiki = null;
-  let apiScorers = null;
-  let apiFetched = false;
+  let detailScorers = null;
+  let detailFetched = false;
 
   function teamCell(code) {
     const t = data.byCode[code];
@@ -129,7 +129,7 @@ export function createRankings({ container, data, onTeam }) {
             )
             .join("")}</tbody>
         </table>`
-      : `<p class="sub">まだ得点がありません。</p>`;
+      : `<p class="sub">得点データを取得中…</p>`;
 
     container.innerHTML = `
       <h2 class="section-title">🥇 得点ランキング TOP10 <span class="sub">${ranking.length}選手 / ${totalGoals}得点</span></h2>
@@ -147,29 +147,71 @@ export function createRankings({ container, data, onTeam }) {
     bindEvents();
   }
 
+  async function fetchScorersFromMatches() {
+    const finished = data.matches.filter(
+      (m) => m.result && m.apiId
+    );
+    if (!finished.length) return [];
+
+    const BATCH = 6;
+    const tally = {};
+    for (let i = 0; i < finished.length; i += BATCH) {
+      const batch = finished.slice(i, i + BATCH);
+      const results = await Promise.all(
+        batch.map((m) => fetchMatchDetails(m.apiId).catch(() => null))
+      );
+      for (let j = 0; j < batch.length; j++) {
+        const d = results[j];
+        const m = batch[j];
+        if (!d) continue;
+        for (const gd of (d.goalDetails1 || [])) {
+          if (gd.type === "OWN") continue;
+          const key = `${gd.fullName}||${m.home}`;
+          if (!tally[key]) tally[key] = { name: gd.fullName, code: m.home, goals: 0 };
+          tally[key].goals++;
+        }
+        for (const gd of (d.goalDetails2 || [])) {
+          if (gd.type === "OWN") continue;
+          const key = `${gd.fullName}||${m.away}`;
+          if (!tally[key]) tally[key] = { name: gd.fullName, code: m.away, goals: 0 };
+          tally[key].goals++;
+        }
+      }
+    }
+    return Object.values(tally).sort(
+      (a, b) => b.goals - a.goals || a.name.localeCompare(b.name)
+    );
+  }
+
+  function bestRows() {
+    if (data.scorers?.length) return data.scorers;
+    if (detailScorers?.length) return detailScorers;
+    return [];
+  }
+
   function render() {
-    const baseRows = data.scorers?.length ? data.scorers : (apiScorers || goalRanking(data.matches));
-    const ranking = rankedRows(baseRows);
+    const ranking = rankedRows(bestRows());
     renderTable(ranking);
 
-    if (!apiFetched && !data.scorers?.length) {
-      apiFetched = true;
-      fetchTopScorers(data.teams)
+    if (!detailFetched) {
+      detailFetched = true;
+      fetchScorersFromMatches()
         .then((scorers) => {
           if (scorers.length) {
-            apiScorers = scorers;
-            renderTable(rankedRows(apiScorers));
+            detailScorers = scorers;
+            if (!data.scorers?.length) {
+              renderTable(rankedRows(detailScorers));
+            }
           }
         })
-        .catch(() => {});
+        .catch((e) => console.warn("[rankings] match detail fetch failed:", e));
     }
 
     if (!squads) {
       loadSquads(data.teams)
         .then((s) => {
           squads = s;
-          const rows = data.scorers?.length ? data.scorers : (apiScorers || goalRanking(data.matches));
-          renderTable(rankedRows(rows));
+          renderTable(rankedRows(bestRows()));
         })
         .catch(() => {});
     }
