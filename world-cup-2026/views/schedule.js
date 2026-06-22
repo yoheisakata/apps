@@ -184,10 +184,11 @@ export function createSchedule({ container, data }) {
   }
 
   function todaySection() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
+    const now = new Date();
+    const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const yyyy = ny.getFullYear();
+    const mm = String(ny.getMonth() + 1).padStart(2, "0");
+    const dd = String(ny.getDate()).padStart(2, "0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
     const todayMatches = data.matches.filter((m) => m.date === todayStr);
     if (todayMatches.length === 0) {
@@ -236,7 +237,6 @@ export function createSchedule({ container, data }) {
     container.innerHTML = `
       <h2 class="section-title">📅 日程・結果 <span class="sub">全${data.matches.length}試合</span></h2>
       <div class="banner">組分け・結果は自動取得（${data.asOf || "—"} 時点）。順位表はスコアから自動集計。試合カードをクリックで詳細（得点者・分・アシスト・審判等）。</div>
-      ${today}
       <div class="toolbar">${chips}</div>
       ${today}
       ${body}
