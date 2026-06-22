@@ -161,7 +161,6 @@ export function createWorld({ container, data, onTeam }) {
       "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
       {
         maxZoom: 18,
-        noWrap: true,
         subdomains: "abcd",
         attribution: "© OpenStreetMap contributors © CARTO",
       }
