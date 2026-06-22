@@ -62,6 +62,7 @@ function applyLive(live, source) {
     for (const t of data.teams) if (groupOf[t.code]) t.group = groupOf[t.code];
   }
   data.matches = live.matches;
+  if (live.scorers?.length) data.scorers = live.scorers;
   data.asOf = live.asOf || data.asOf;
   data.source = source;
   reindex();

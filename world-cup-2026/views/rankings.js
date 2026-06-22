@@ -148,12 +148,11 @@ export function createRankings({ container, data, onTeam }) {
   }
 
   function render() {
-    // Use API scorers if available, otherwise aggregate from match data
-    const baseRows = apiScorers || goalRanking(data.matches);
+    const baseRows = data.scorers?.length ? data.scorers : (apiScorers || goalRanking(data.matches));
     const ranking = rankedRows(baseRows);
     renderTable(ranking);
 
-    if (!apiFetched) {
+    if (!apiFetched && !data.scorers?.length) {
       apiFetched = true;
       fetchTopScorers(data.teams)
         .then((scorers) => {
@@ -169,7 +168,7 @@ export function createRankings({ container, data, onTeam }) {
       loadSquads(data.teams)
         .then((s) => {
           squads = s;
-          const rows = apiScorers || goalRanking(data.matches);
+          const rows = data.scorers?.length ? data.scorers : (apiScorers || goalRanking(data.matches));
           renderTable(rankedRows(rows));
         })
         .catch(() => {});
