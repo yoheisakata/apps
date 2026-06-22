@@ -127,7 +127,7 @@ export function createCities({ container, data }) {
     // CARTO "Voyager" tiles — a clean, light, colourful basemap (roads/labels
     // clearly visible) that's much easier to read than the dark variant.
     L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
       {
         maxZoom: 18,
         subdomains: "abcd",

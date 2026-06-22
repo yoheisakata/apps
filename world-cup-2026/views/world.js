@@ -158,7 +158,7 @@ export function createWorld({ container, data, onTeam }) {
       worldCopyJump: false,
     });
     L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
       {
         maxZoom: 18,
         noWrap: true,
