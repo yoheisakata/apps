@@ -184,10 +184,11 @@ export function createSchedule({ container, data }) {
   }
 
   function todaySection() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
+    const now = new Date();
+    const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const yyyy = ny.getFullYear();
+    const mm = String(ny.getMonth() + 1).padStart(2, "0");
+    const dd = String(ny.getDate()).padStart(2, "0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
     const todayMatches = data.matches.filter((m) => m.date === todayStr);
     if (todayMatches.length === 0) {
