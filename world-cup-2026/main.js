@@ -152,12 +152,45 @@ async function refreshLive({ silent } = {}) {
   try {
     let live;
     let source;
+    let wikiLive = null;
     try {
       live = await fetchFootballData(data.teams);
       source = "api";
     } catch (_) {
       live = await fetchLiveData();
       source = "wiki";
+    }
+    // API matches lack scorer details; merge them from Wikipedia.
+    if (source === "api") {
+      try {
+        wikiLive = await fetchLiveData();
+      } catch (_) {}
+      if (wikiLive?.matches) {
+        const wikiByKey = {};
+        for (const wm of wikiLive.matches) {
+          if (wm.home && wm.away && wm.date) {
+            wikiByKey[`${wm.date}|${wm.home}|${wm.away}`] = wm;
+          }
+        }
+        for (const m of live.matches) {
+          if (!m.home || !m.away || !m.date) continue;
+          const wm = wikiByKey[`${m.date}|${m.home}|${m.away}`]
+                   || wikiByKey[`${m.date}|${m.away}|${m.home}`];
+          if (!wm) continue;
+          if (!m.scorers1?.length && wm.scorers1?.length) m.scorers1 = wm.scorers1;
+          if (!m.scorers2?.length && wm.scorers2?.length) m.scorers2 = wm.scorers2;
+          if (!m.scorerDetails1?.length && wm.scorerDetails1?.length) m.scorerDetails1 = wm.scorerDetails1;
+          if (!m.scorerDetails2?.length && wm.scorerDetails2?.length) m.scorerDetails2 = wm.scorerDetails2;
+          if (!m.ownGoals1 && wm.ownGoals1) m.ownGoals1 = wm.ownGoals1;
+          if (!m.ownGoals2 && wm.ownGoals2) m.ownGoals2 = wm.ownGoals2;
+        }
+      }
+    }
+    // Build scorers from merged match data if /scorers endpoint was empty
+    if (!live.scorers?.length) {
+      const { goalRanking } = await import("./views/livedata.js?v=7");
+      const ranked = goalRanking(live.matches);
+      if (ranked.length) live.scorers = ranked;
     }
     applyLive(live, source);
     const fetchedAt = new Date().toISOString();
