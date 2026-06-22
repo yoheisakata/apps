@@ -2,8 +2,8 @@
 // caps/career goals) plus this tournament's goalscorers for the team.
 // Squad data is fetched lazily from Wikipedia on first open and cached.
 
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=4";
-import { fetchWiki } from "./wiki.js?v=4";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=5";
+import { fetchWiki } from "./wiki.js?v=5";
 
 const POS_ORDER = { GK: 0, DF: 1, MF: 2, FW: 3 };
 const POS_LABEL = { GK: "GK", DF: "DF", MF: "MF", FW: "FW" };

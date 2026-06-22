@@ -6,21 +6,21 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=4";
-import { createBracket } from "./views/bracket.js?v=4";
-import { createCities } from "./views/cities.js?v=4";
-import { createWorld } from "./views/world.js?v=4";
-import { createRankings } from "./views/rankings.js?v=4";
-import { createStandings } from "./views/standingstab.js?v=4";
-import { createTeamList } from "./views/teamlist.js?v=4";
-import { createJapan } from "./views/japan.js?v=4";
-import { createMatchModal } from "./views/matchmodal.js?v=4";
-import { fetchLiveData } from "./views/livedata.js?v=4";
-import { fetchFootballData } from "./views/footballapi.js?v=4";
+import { createSchedule } from "./views/schedule.js?v=5";
+import { createBracket } from "./views/bracket.js?v=5";
+import { createCities } from "./views/cities.js?v=5";
+import { createWorld } from "./views/world.js?v=5";
+import { createRankings } from "./views/rankings.js?v=5";
+import { createStandings } from "./views/standingstab.js?v=5";
+import { createTeamList } from "./views/teamlist.js?v=5";
+import { createJapan } from "./views/japan.js?v=5";
+import { createMatchModal } from "./views/matchmodal.js?v=5";
+import { fetchLiveData } from "./views/livedata.js?v=5";
+import { fetchFootballData } from "./views/footballapi.js?v=5";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 4;
-const LIVE_CACHE_KEY = "wc2026-livedata-v4";
+const APP_VERSION = 5;
+const LIVE_CACHE_KEY = "wc2026-livedata-v5";
 
 // ---- shared data, loaded once ----
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
@@ -233,6 +233,7 @@ function bind() {
   // Clean up old localStorage keys from previous versions
   try { localStorage.removeItem("wc2026-livedata"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v3"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v4"); } catch (_) {}
 
   try {
     await loadStatic();

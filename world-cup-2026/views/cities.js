@@ -2,7 +2,7 @@
 // Clicking a marker opens a popup that lazily loads the city's photo + summary
 // from Wikipedia, alongside static facts (country, stadium, capacity, population).
 
-import { fetchWiki, formatPop } from "./wiki.js?v=4";
+import { fetchWiki, formatPop } from "./wiki.js?v=5";
 
 const COUNTRY_NAME = { USA: "アメリカ", CAN: "カナダ", MEX: "メキシコ" };
 const COUNTRY_COLOR = { USA: "#4a90e2", CAN: "#e25555", MEX: "#3cba54" };
