@@ -28,7 +28,7 @@ export function createTeamList({ container, data, onTeam }) {
         <span class="tl-name">${esc(t.name)}</span>
         <span class="tl-grp">${esc(t.group)}組${t.host ? " · 🏠開催国" : ""}</span>
       </span>
-      <span class="tl-rank">${t.rank ? `#${t.rank}` : "—"}</span>
+      <span class="tl-rank">${t.rank ? `${t.rank}位` : "—"}</span>
     </button>`;
   }
 
