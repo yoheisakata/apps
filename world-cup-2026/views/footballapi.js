@@ -163,22 +163,45 @@ function mapStatus(status) {
 // The v4 API returns head2head and match details including statistics.
 const STATS_CACHE = new Map();
 
-export async function fetchMatchStats(matchApiId) {
+export async function fetchMatchDetails(matchApiId) {
   if (!matchApiId) return null;
   if (STATS_CACHE.has(matchApiId)) return STATS_CACHE.get(matchApiId);
   try {
     const json = await apiFetch(`/matches/${matchApiId}`);
-    const stats = {};
+    const details = {};
+
+    // Goals — OGs by team A count as goals for team B
+    const homeId = json.homeTeam?.id;
+    const awayId = json.awayTeam?.id;
+    const goals = json.goals || [];
+    const toDetail = (g) => ({
+      name: g.scorer?.name?.split(" ").pop() || "Unknown",
+      fullName: g.scorer?.name || "Unknown",
+      minute: g.minute ?? null,
+      injuryTime: g.injuryTime ?? null,
+      type: g.type || "REGULAR",
+      assist: g.assist?.name || null,
+    });
+    // Home scorers: home team's non-OG goals + away team's OGs
+    details.goalDetails1 = [
+      ...goals.filter(g => g.team?.id === homeId && g.type !== "OWN").map(toDetail),
+      ...goals.filter(g => g.team?.id === awayId && g.type === "OWN").map(toDetail),
+    ].sort((a, b) => (a.minute || 0) - (b.minute || 0));
+    // Away scorers: away team's non-OG goals + home team's OGs
+    details.goalDetails2 = [
+      ...goals.filter(g => g.team?.id === awayId && g.type !== "OWN").map(toDetail),
+      ...goals.filter(g => g.team?.id === homeId && g.type === "OWN").map(toDetail),
+    ].sort((a, b) => (a.minute || 0) - (b.minute || 0));
+
+    // Stats
     if (json.homeTeam?.statistics && json.awayTeam?.statistics) {
-      const hStats = json.homeTeam.statistics;
-      const aStats = json.awayTeam.statistics;
       const mapStat = (arr) => {
         const obj = {};
         if (Array.isArray(arr)) arr.forEach((s) => { obj[s.type] = s.value; });
         return obj;
       };
-      const h = mapStat(hStats);
-      const a = mapStat(aStats);
+      const h = mapStat(json.homeTeam.statistics);
+      const a = mapStat(json.awayTeam.statistics);
       const keys = [
         ["ball_possession", "ポゼッション", "%"],
         ["shots", "シュート", ""],
@@ -190,10 +213,10 @@ export async function fetchMatchStats(matchApiId) {
         ["red_cards", "レッドカード", ""],
         ["saves", "セーブ", ""],
       ];
-      stats.rows = [];
+      details.stats = [];
       for (const [key, label, unit] of keys) {
         if (h[key] != null || a[key] != null) {
-          stats.rows.push({
+          details.stats.push({
             label,
             home: h[key] != null ? `${h[key]}${unit}` : "-",
             away: a[key] != null ? `${a[key]}${unit}` : "-",
@@ -203,13 +226,23 @@ export async function fetchMatchStats(matchApiId) {
         }
       }
     }
-    const result = stats.rows?.length ? stats : null;
-    STATS_CACHE.set(matchApiId, result);
-    return result;
+
+    // Referees (in case not in match list)
+    details.referees = parseReferees(json.referees);
+
+    STATS_CACHE.set(matchApiId, details);
+    return details;
   } catch (e) {
     STATS_CACHE.set(matchApiId, null);
     return null;
   }
+}
+
+// Backwards-compatible alias
+export async function fetchMatchStats(matchApiId) {
+  const d = await fetchMatchDetails(matchApiId);
+  if (!d?.stats?.length) return null;
+  return { rows: d.stats };
 }
 
 // Fetch matches + standings from Football-Data.org and return the same

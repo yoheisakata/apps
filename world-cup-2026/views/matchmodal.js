@@ -1,4 +1,4 @@
-import { fetchMatchStats } from "./footballapi.js?v=4";
+import { fetchMatchDetails } from "./footballapi.js?v=4";
 
 const STAGE_LABEL = {
   group: "グループステージ",
@@ -191,38 +191,7 @@ export function createMatchModal({ onTeam } = {}) {
     if (m.penalties) subScores += `<span class="mm-sub-score mm-pk-score">PK ${m.penalties[0]}-${m.penalties[1]}</span>`;
     const subScoreSection = subScores ? `<div class="mm-sub-scores">${subScores}</div>` : "";
 
-    // Use rich goal details if available (from Football-Data.org API),
-    // then Wikipedia scorer details (with minutes), else simple name list.
-    let scorersSection = "";
-    if (hasRichGoals) {
-      const homeGoals = goalDetailList(m.goalDetails1);
-      const awayGoals = goalDetailList(m.goalDetails2);
-      scorersSection = `<div class="mm-scorers rich">
-        <div class="mm-scorers-side home">${homeGoals || '<span class="mm-no-goal">—</span>'}</div>
-        <div class="mm-scorers-divider"></div>
-        <div class="mm-scorers-side away">${awayGoals || '<span class="mm-no-goal">—</span>'}</div>
-      </div>`;
-    } else if (hasWikiDetails) {
-      const homeGoals = wikiScorerDetailList(m.scorerDetails1);
-      const awayGoals = wikiScorerDetailList(m.scorerDetails2);
-      scorersSection = `<div class="mm-scorers rich">
-        <div class="mm-scorers-side home">${homeGoals || '<span class="mm-no-goal">—</span>'}</div>
-        <div class="mm-scorers-divider"></div>
-        <div class="mm-scorers-side away">${awayGoals || '<span class="mm-no-goal">—</span>'}</div>
-      </div>`;
-    } else {
-      const homeScorers = scorerList(m.scorers1);
-      const awayScorers = scorerList(m.scorers2);
-      scorersSection = (homeScorers || awayScorers)
-        ? `<div class="mm-scorers">
-            <div class="mm-scorers-side home">${homeScorers || '<span class="mm-no-goal">—</span>'}</div>
-            <div class="mm-scorers-divider"></div>
-            <div class="mm-scorers-side away">${awayScorers || '<span class="mm-no-goal">—</span>'}</div>
-          </div>`
-        : played
-          ? `<div class="mm-scorers"><div class="mm-scorers-empty">得点者データなし</div></div>`
-          : "";
-    }
+    // Scorer section is rendered dynamically after API fetch (see below).
 
     const statusText = STATUS_LABEL[m.status] || (played ? "試合終了" : m.date ? "未実施" : "日程未定");
     const statusClass = isLive ? "live" : played ? "finished" : "upcoming";
@@ -257,7 +226,6 @@ export function createMatchModal({ onTeam } = {}) {
         ${teamBlock(m.away, m.awayLabel, data)}
       </div>
       ${subScoreSection}
-      ${scorersSection}
       <div class="mm-details">
         ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(m.date)}${kickoffTime ? ` ${kickoffTime} (現地)` : ""}</span></div>` : ""}
         ${matchdayHtml}
@@ -266,26 +234,69 @@ export function createMatchModal({ onTeam } = {}) {
         ${venue?.capacity ? `<div class="mm-detail-row"><span class="mm-dk">収容人数</span><span class="mm-dv">${venue.capacity.toLocaleString()}人</span></div>` : ""}
         ${refHtml}
       </div>
+      ${played ? '<div id="mm-scorers-area"><div class="mm-scorers-loading">得点者を読み込み中…</div></div>' : ""}
       ${played ? '<div id="mm-stats-area"></div>' : ""}
       ${showHighlight ? '<div id="mm-yt-area"><div class="mm-yt-loading">🎬 ハイライト動画を検索中…</div></div>' : ""}
     `;
 
     overlay.classList.remove("hidden");
 
-    // Fetch stats and YouTube in parallel for played matches.
-    const statsPromise = played && m.apiId ? fetchMatchStats(m.apiId) : Promise.resolve(null);
+    // Fetch match details and YouTube in parallel for played matches.
+    const detailsPromise = played && m.apiId ? fetchMatchDetails(m.apiId) : Promise.resolve(null);
     const ytPromise = showHighlight ? searchYouTube(homeTeam.name, awayTeam.name) : Promise.resolve(null);
 
-    const [stats, ytResult] = await Promise.all([statsPromise, ytPromise]);
+    const [details, ytResult] = await Promise.all([detailsPromise, ytPromise]);
     if (overlay.classList.contains("hidden")) return;
+
+    // Render scorers — prefer API detail, then match data, then Wikipedia
+    const scorersArea = body.querySelector("#mm-scorers-area");
+    if (scorersArea) {
+      const apiHome = details?.goalDetails1;
+      const apiAway = details?.goalDetails2;
+      const hasApiGoals = apiHome?.length || apiAway?.length;
+
+      let scorersHtml = "";
+      if (hasApiGoals) {
+        scorersHtml = `<div class="mm-scorers rich">
+          <div class="mm-scorers-side home">${goalDetailList(apiHome) || '<span class="mm-no-goal">—</span>'}</div>
+          <div class="mm-scorers-divider"></div>
+          <div class="mm-scorers-side away">${goalDetailList(apiAway) || '<span class="mm-no-goal">—</span>'}</div>
+        </div>`;
+      } else if (hasRichGoals) {
+        scorersHtml = `<div class="mm-scorers rich">
+          <div class="mm-scorers-side home">${goalDetailList(m.goalDetails1) || '<span class="mm-no-goal">—</span>'}</div>
+          <div class="mm-scorers-divider"></div>
+          <div class="mm-scorers-side away">${goalDetailList(m.goalDetails2) || '<span class="mm-no-goal">—</span>'}</div>
+        </div>`;
+      } else if (hasWikiDetails) {
+        scorersHtml = `<div class="mm-scorers rich">
+          <div class="mm-scorers-side home">${wikiScorerDetailList(m.scorerDetails1) || '<span class="mm-no-goal">—</span>'}</div>
+          <div class="mm-scorers-divider"></div>
+          <div class="mm-scorers-side away">${wikiScorerDetailList(m.scorerDetails2) || '<span class="mm-no-goal">—</span>'}</div>
+        </div>`;
+      } else {
+        const homeScorers = scorerList(m.scorers1);
+        const awayScorers = scorerList(m.scorers2);
+        if (homeScorers || awayScorers) {
+          scorersHtml = `<div class="mm-scorers">
+            <div class="mm-scorers-side home">${homeScorers || '<span class="mm-no-goal">—</span>'}</div>
+            <div class="mm-scorers-divider"></div>
+            <div class="mm-scorers-side away">${awayScorers || '<span class="mm-no-goal">—</span>'}</div>
+          </div>`;
+        } else {
+          scorersHtml = `<div class="mm-scorers"><div class="mm-scorers-empty">得点者データなし</div></div>`;
+        }
+      }
+      scorersArea.innerHTML = scorersHtml;
+    }
 
     // Render match stats
     const statsArea = body.querySelector("#mm-stats-area");
-    if (statsArea && stats?.rows?.length) {
+    if (statsArea && details?.stats?.length) {
       statsArea.innerHTML = `
         <div class="mm-stats">
           <div class="mm-stats-title">📊 試合スタッツ</div>
-          ${stats.rows.map((r) => {
+          ${details.stats.map((r) => {
             const total = r.homeVal + r.awayVal;
             const hPct = total > 0 ? (r.homeVal / total) * 100 : 50;
             return `<div class="mm-stat-row">

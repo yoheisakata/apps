@@ -1068,7 +1068,7 @@ tr.japan-row td { font-weight: 700; }
   font-size: 12px;
   color: var(--muted);
 }
-.mm-scorers-empty {
+.mm-scorers-empty, .mm-scorers-loading {
   grid-column: 1 / -1;
   text-align: center;
   font-size: 12px;
