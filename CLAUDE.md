@@ -15,7 +15,7 @@ Most apps are **single self-contained HTML files** (inline CSS + JS) in their ow
 - **receipt/** — Single HTML file integrating **Firebase Auth + Firestore** for cloud sync. Users supply their own Firebase config at runtime (stored in localStorage).
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
 
-Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (かけざんクエスト/九九), `gomi` (ゴミクエスト), `earth`, `tetris`, `tarot`, `shinkansen`.
+Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (かけざんクエスト/九九), `earth`, `tetris`, `tarot`, `shinkansen`.
 
 ## Build / Dev Commands
 
@@ -40,7 +40,7 @@ The committed `assets/` are build output. Rebuild only from the upstream Vite so
 - Commit messages are in Japanese.
 - Apps use the Nunito font (Google Fonts), dark gradient themes, and CSS custom properties for colors.
 - Mobile-first: `viewport` meta with `user-scalable=no`, touch-optimized interactions.
-- State persistence via `localStorage` (tashizan, kakeizan, gomi save game progress).
+- State persistence via `localStorage` (tashizan, kakeizan save game progress).
 - Icons are emoji or inline SVG data URIs — no external image assets.
 - world-cup-2026 uses cache-buster version constants; bump them when changing cached behavior.
 
