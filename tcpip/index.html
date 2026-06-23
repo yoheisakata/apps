@@ -101,6 +101,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 /* Payload wrapper – nesting box */
 .encap-payload{display:flex;align-items:stretch;gap:0;border:2.5px dashed rgba(251,191,36,0.5);border-radius:8px;padding:5px;background:rgba(251,191,36,0.04);position:relative;flex:1;}
 .encap-payload>.payload-label{position:absolute;top:-9px;left:10px;font-family:var(--mono);font-size:0.55rem;color:var(--yellow);background:var(--surface);padding:0 6px;font-weight:700;letter-spacing:0.05em;}
+/* Per-row layer label */
+.encap-layer-tag{flex-shrink:0;width:120px;padding:2px 10px 2px 8px;display:flex;flex-direction:column;justify-content:center;border-left:3px solid var(--border);}
+.encap-layer-tag .lname{font-size:0.62rem;font-weight:700;line-height:1.25;color:var(--text);}
+.encap-layer-tag .lpdu{font-family:var(--mono);font-size:0.55rem;color:var(--muted);margin-top:2px;}
+.encap-layer-tag.eth{border-left-color:var(--yellow);} .encap-layer-tag.eth .lname{color:var(--yellow);}
+.encap-layer-tag.ip{border-left-color:var(--purple);} .encap-layer-tag.ip .lname{color:var(--purple);}
+.encap-layer-tag.tcp{border-left-color:var(--blue);} .encap-layer-tag.tcp .lname{color:var(--blue);}
+.encap-layer-tag.data{border-left-color:var(--green);} .encap-layer-tag.data .lname{color:var(--green);}
+.encap-row-content{display:flex;flex:1;align-items:stretch;gap:0;min-width:0;}
 /* Selected header block highlight */
 .encap-block.selected{filter:none;box-shadow:0 0 0 2px currentColor, 0 4px 16px rgba(0,0,0,0.4);transform:translateY(-1px);}
 /* Encap header inspector */
@@ -560,16 +569,16 @@ const HEADER_DETAILS={
 };
 
 const ENCAP_STEPS=[
-  {inner:['data'],label:'④ アプリケーション層',desc:'アプリがHTTPリクエストデータを生成します。'},
-  {head:'tcp',inner:['data'],label:'③ トランスポート層',desc:'TCPヘッダーを付加。上位のHTTP Dataが Payload になります → セグメント'},
-  {head:'ip',inner:['tcp','data'],label:'② インターネット層',desc:'IPヘッダーを付加。上位のセグメント全体が Payload になります → パケット'},
-  {head:'eth',inner:['ip','tcp','data'],tail:'fcs',label:'① ネットワークインターフェース層',desc:'Ethernetヘッダー+FCSを付加。上位のパケット全体が Payload → フレーム完成！'},
+  {inner:['data'],layer:'④ アプリケーション層',pdu:'データ',lcls:'data',desc:'アプリがHTTPリクエストデータを生成します。'},
+  {head:'tcp',inner:['data'],layer:'③ トランスポート層',pdu:'セグメント',lcls:'tcp',desc:'TCPヘッダーを付加。上位のHTTP Dataが Payload になります → セグメント'},
+  {head:'ip',inner:['tcp','data'],layer:'② インターネット層',pdu:'パケット',lcls:'ip',desc:'IPヘッダーを付加。上位のセグメント全体が Payload になります → パケット'},
+  {head:'eth',inner:['ip','tcp','data'],tail:'fcs',layer:'① ネットワークインターフェース層',pdu:'フレーム',lcls:'eth',desc:'Ethernetヘッダー+FCSを付加。上位のパケット全体が Payload → フレーム完成！'},
 ];
 const DECAP_STEPS=[
-  {head:'eth',inner:['ip','tcp','data'],tail:'fcs',label:'① ネットワークインターフェース層',desc:'フレームを受信。Ethernetヘッダー+FCSを除去して Payload を取り出す'},
-  {head:'ip',inner:['tcp','data'],label:'② インターネット層',desc:'IPヘッダーを読み取り除去。Payload からセグメントを取り出す'},
-  {head:'tcp',inner:['data'],label:'③ トランスポート層',desc:'TCPヘッダーを読み取り除去。Payload からアプリデータを取り出す'},
-  {inner:['data'],label:'④ アプリケーション層',desc:'HTTPデータのみがアプリに渡されます。デカプセル化完了！'},
+  {head:'eth',inner:['ip','tcp','data'],tail:'fcs',layer:'① ネットワークインターフェース層',pdu:'フレーム',lcls:'eth',desc:'フレームを受信。Ethernetヘッダー+FCSを除去して Payload を取り出す'},
+  {head:'ip',inner:['tcp','data'],layer:'② インターネット層',pdu:'パケット',lcls:'ip',desc:'IPヘッダーを読み取り除去。Payload からセグメントを取り出す'},
+  {head:'tcp',inner:['data'],layer:'③ トランスポート層',pdu:'セグメント',lcls:'tcp',desc:'TCPヘッダーを読み取り除去。Payload からアプリデータを取り出す'},
+  {inner:['data'],layer:'④ アプリケーション層',pdu:'データ',lcls:'data',desc:'HTTPデータのみがアプリに渡されます。デカプセル化完了！'},
 ];
 
 function buildEncapUI(){
@@ -588,7 +597,6 @@ function buildEncapUI(){
     </div>
   </div>
   <div class="encap-diagram" id="encapDiagram">
-    <div class="encap-label" id="encapLabel"></div>
     <div id="encapRow0" class="encap-step"></div>
     <div id="encapArrow0" class="encap-arrow"></div>
     <div id="encapRow1" class="encap-step"></div>
@@ -625,8 +633,6 @@ function resetEncap(){
     const arr=document.getElementById('encapArrow'+i);
     if(arr){arr.textContent='';arr.classList.remove('visible');}
   }
-  const label=document.getElementById('encapLabel');
-  if(label){label.textContent='';label.classList.remove('visible');}
   const desc=document.getElementById('encapDescText');
   if(desc) desc.innerHTML='<span style="color:var(--muted)">▶ 再生 または ⏭ ステップ で開始</span>';
   encapSelected=null;
@@ -672,33 +678,39 @@ function showEncapInspector(e,t){
 
 function renderEncapRow(s){
   const innerHtml=s.inner.map(t=>makeBlock(t)).join('');
-  if(!s.head&&!s.tail) return `<div style="margin-left:0">${innerHtml}</div>`;
-  const payloadLabel=s.inner.map(t=>{const p=HEADER_DETAILS[t].title.split('(')[0].trim();return p;}).join(' + ');
-  let html='';
-  if(s.head) html+=makeBlock(s.head);
-  html+=`<div class="encap-payload"><span class="payload-label">Payload: ${payloadLabel}</span>${innerHtml}</div>`;
-  if(s.tail) html+=makeBlock(s.tail);
-  return html;
+  const tag=`<div class="encap-layer-tag ${s.lcls}"><span class="lname">${s.layer}</span><span class="lpdu">${s.pdu}</span></div>`;
+  let body;
+  if(!s.head&&!s.tail){
+    body=innerHtml;
+  } else {
+    const payloadLabel=s.inner.map(t=>{const p=HEADER_DETAILS[t].title.split('(')[0].trim();return p;}).join(' + ');
+    let html='';
+    if(s.head) html+=makeBlock(s.head);
+    html+=`<div class="encap-payload"><span class="payload-label">Payload: ${payloadLabel}</span>${innerHtml}</div>`;
+    if(s.tail) html+=makeBlock(s.tail);
+    body=html;
+  }
+  return tag+`<div class="encap-row-content">${body}</div>`;
 }
 
 function stepEncap(){
   if(encapStep>=4) return;
   const steps=encapMode==='encap'?ENCAP_STEPS:DECAP_STEPS;
   const s=steps[encapStep];
+  const isDecap=encapMode==='decap';
 
-  const row=document.getElementById('encapRow'+encapStep);
+  // encap fills top→bottom; decap fills bottom→top
+  const rowIdx=isDecap?3-encapStep:encapStep;
+  const row=document.getElementById('encapRow'+rowIdx);
   row.innerHTML=renderEncapRow(s);
   row.classList.add('visible');
 
   if(encapStep>0){
-    const arr=document.getElementById('encapArrow'+(encapStep-1));
-    arr.textContent=encapMode==='encap'?'⬇ ヘッダー追加':'⬇ ヘッダー除去';
+    const arrIdx=isDecap?3-encapStep:encapStep-1;
+    const arr=document.getElementById('encapArrow'+arrIdx);
+    arr.textContent=isDecap?'⬆ ヘッダー除去':'⬇ ヘッダー追加';
     arr.classList.add('visible');
   }
-
-  const label=document.getElementById('encapLabel');
-  label.textContent=s.label;
-  label.classList.add('visible');
 
   document.getElementById('encapDescText').innerHTML=s.desc;
   // keep the currently inspected header highlighted across newly rendered blocks
