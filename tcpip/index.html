@@ -49,7 +49,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 .node-ip{font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-top:2px;}
 .node-state{font-size:0.65rem;color:var(--green);margin-top:2px;}
 .node-state.passive{color:var(--muted);}
-.sim-arena{position:relative;height:220px;overflow:hidden;}
+.sim-arena{position:relative;min-height:120px;overflow:hidden;}
 /* Timeline lines */
 .timeline{position:absolute;top:0;bottom:0;width:2px;background:var(--border);}
 .timeline.client{left:120px;}
@@ -217,8 +217,6 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
     <div class="sim-arena" id="simArena">
       <div class="timeline client"></div>
       <div class="timeline server"></div>
-      <div class="node-icon client">💻</div>
-      <div class="node-icon server">🖥️</div>
       <!-- Packets injected by JS -->
     </div>
     <div class="step-log" id="stepLog">
@@ -474,7 +472,9 @@ function resetSim(){
   stepIdx=0;
   simSteps=SCENARIOS[currentTab]||[];
   document.getElementById('stepInfo').textContent=`ステップ 0 / ${simSteps.length}`;
-  document.getElementById('simArena').querySelectorAll('.packet').forEach(p=>p.remove());
+  const arena=document.getElementById('simArena');
+  arena.querySelectorAll('.packet').forEach(p=>p.remove());
+  arena.style.height=(simSteps.length*48+30)+'px';
   document.getElementById('stepLog').innerHTML='<div style="color:var(--muted);font-size:0.75rem;padding:4px 0;">▶ 再生 または ⏭ ステップ を押して開始してください</div>';
   document.getElementById('inspBody').innerHTML='<div class="insp-empty">パケットを選択してください</div>';
   setStateDisplay('CLOSED','LISTEN',null,null);
@@ -508,7 +508,9 @@ function animatePacket(step){
 
   const pkt=document.createElement('div');
   pkt.className='packet';
-  pkt.style.top='80px';
+  const y=15+(stepIdx-1)*48;
+  pkt.style.top=y+'px';
+  arena.style.height=(simSteps.length*48+30)+'px';
   const startX=isRight?clientX:serverX;
   const endX  =isRight?serverX:clientX;
   pkt.style.left=startX+'px';
