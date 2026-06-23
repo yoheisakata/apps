@@ -101,14 +101,34 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 /* Payload wrapper – nesting box */
 .encap-payload{display:flex;align-items:stretch;gap:0;border:2.5px dashed rgba(251,191,36,0.5);border-radius:8px;padding:5px;background:rgba(251,191,36,0.04);position:relative;flex:1;}
 .encap-payload>.payload-label{position:absolute;top:-9px;left:10px;font-family:var(--mono);font-size:0.55rem;color:var(--yellow);background:var(--surface);padding:0 6px;font-weight:700;letter-spacing:0.05em;}
-/* Header detail popup */
-.encap-detail{display:none;position:absolute;left:50%;transform:translateX(-50%);top:calc(100% + 6px);z-index:20;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:240px;white-space:normal;box-shadow:0 8px 24px rgba(0,0,0,0.5);}
-.encap-detail.open{display:block;}
-.encap-detail-title{font-family:var(--mono);font-size:0.7rem;font-weight:700;margin-bottom:6px;}
-.encap-detail table{width:100%;border-collapse:collapse;}
-.encap-detail td{padding:2px 6px;font-family:var(--mono);font-size:0.64rem;vertical-align:top;}
-.encap-detail td:first-child{color:var(--muted);white-space:nowrap;min-width:70px;}
-.encap-detail td:last-child{color:var(--text);}
+/* Selected header block highlight */
+.encap-block.selected{filter:none;box-shadow:0 0 0 2px currentColor, 0 4px 16px rgba(0,0,0,0.4);transform:translateY(-1px);}
+/* Encap header inspector */
+.encap-insp-body{padding:0;}
+.encap-insp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);border-left:3px solid var(--border);}
+.encap-insp-head .encap-insp-name{font-family:var(--mono);font-size:0.85rem;font-weight:700;}
+.encap-insp-head .encap-insp-size{font-family:var(--mono);font-size:0.72rem;color:var(--muted);}
+.encap-insp-head.eth{border-left-color:var(--yellow);}
+.encap-insp-head.eth .encap-insp-name{color:var(--yellow);}
+.encap-insp-head.ip{border-left-color:var(--purple);}
+.encap-insp-head.ip .encap-insp-name{color:var(--purple);}
+.encap-insp-head.tcp{border-left-color:var(--blue);}
+.encap-insp-head.tcp .encap-insp-name{color:var(--blue);}
+.encap-insp-head.data{border-left-color:var(--green);}
+.encap-insp-head.data .encap-insp-name{color:var(--green);}
+.encap-insp-head.fcs{border-left-color:var(--yellow);}
+.encap-insp-head.fcs .encap-insp-name{color:var(--yellow);}
+.encap-insp-desc{padding:10px 16px;font-size:0.74rem;color:var(--text);border-bottom:1px solid var(--border);line-height:1.5;}
+.encap-insp-table{width:100%;border-collapse:collapse;}
+.encap-insp-table th{text-align:left;padding:6px 16px;font-size:0.62rem;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.encap-insp-table th:nth-child(2){width:80px;}
+.encap-insp-table th:last-child{text-align:right;}
+.encap-insp-table td{padding:7px 16px;font-size:0.72rem;vertical-align:top;border-bottom:1px solid rgba(55,65,81,0.4);}
+.encap-insp-table tr:last-child td{border-bottom:none;}
+.encap-insp-table td.fld{color:var(--text);font-weight:700;}
+.encap-insp-table td.fld .fld-d{color:var(--muted);font-weight:400;font-size:0.64rem;margin-top:2px;}
+.encap-insp-table td.sz{font-family:var(--mono);color:var(--muted);font-size:0.68rem;}
+.encap-insp-table td.val{font-family:var(--mono);color:var(--yellow);text-align:right;word-break:break-all;}
 .encap-arrow{color:var(--muted);font-size:0.8rem;padding:4px 0;opacity:0;transition:opacity 0.3s;}
 .encap-arrow.visible{opacity:1;}
 .encap-label{font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:2px;text-align:center;opacity:0;transition:opacity 0.3s;}
@@ -490,13 +510,53 @@ function toggleLayer(id){
 }
 
 /* ── Encapsulation Simulation ── */
-let encapMode='encap', encapStep=0, encapTimer=null;
+let encapMode='encap', encapStep=0, encapTimer=null, encapSelected=null;
 const HEADER_DETAILS={
-  eth:{title:'Ethernet Header (14B)',color:'var(--yellow)',rows:[['Dst MAC','aa:bb:cc:dd:ee:ff'],['Src MAC','11:22:33:44:55:66'],['EtherType','0x0800 (IPv4)']]},
-  ip:{title:'IP Header (20B)',color:'var(--purple)',rows:[['Version','4'],['Src IP','192.168.1.10'],['Dst IP','10.0.0.1'],['TTL','64'],['Protocol','TCP (6)'],['Total Len','96']]},
-  tcp:{title:'TCP Header (20B)',color:'var(--blue)',rows:[['Src Port','54321'],['Dst Port','80'],['Seq','1001'],['Ack','4001'],['Flags','PSH, ACK'],['Window','65535']]},
-  data:{title:'HTTP Data (56B)',color:'var(--green)',rows:[['内容','GET / HTTP/1.1'],['Host','example.com'],['サイズ','56 bytes']]},
-  fcs:{title:'FCS (4B)',color:'var(--yellow)',rows:[['役割','フレームの誤り検出'],['方式','CRC-32'],['値','0x3A2B1C0D']]},
+  eth:{title:'Ethernet Header (14B)',short:'Ethernet Header',cls:'eth',color:'var(--yellow)',size:'14 bytes',
+    desc:'L2フレームの先頭。同一リンク内で物理アドレス（MAC）を使って相手を識別します。',
+    fields:[
+      {f:'Dst MAC',sz:'48 bit',v:'aa:bb:cc:dd:ee:ff',d:'宛先MACアドレス（次のホップ）'},
+      {f:'Src MAC',sz:'48 bit',v:'11:22:33:44:55:66',d:'送信元MACアドレス'},
+      {f:'EtherType',sz:'16 bit',v:'0x0800 (IPv4)',d:'上位プロトコルの種別'},
+    ]},
+  ip:{title:'IP Header (20B)',short:'IP Header',cls:'ip',color:'var(--purple)',size:'20 bytes',
+    desc:'L3ヘッダー。論理アドレス（IP）でネットワーク間のルーティングを担います。',
+    fields:[
+      {f:'Version / IHL',sz:'8 bit',v:'4 / 5 (20B)',d:'IPバージョンとヘッダー長'},
+      {f:'Total Length',sz:'16 bit',v:'96',d:'ヘッダー＋ペイロードの総バイト数'},
+      {f:'Identification',sz:'16 bit',v:'0x1c46',d:'フラグメント識別子'},
+      {f:'TTL',sz:'8 bit',v:'64',d:'ルーター通過ごとに-1、0で破棄'},
+      {f:'Protocol',sz:'8 bit',v:'TCP (6)',d:'上位プロトコル'},
+      {f:'Checksum',sz:'16 bit',v:'0xb1e6',d:'ヘッダーの誤り検出'},
+      {f:'Src IP',sz:'32 bit',v:'192.168.1.10',d:'送信元IPアドレス'},
+      {f:'Dst IP',sz:'32 bit',v:'10.0.0.1',d:'宛先IPアドレス'},
+    ]},
+  tcp:{title:'TCP Header (20B)',short:'TCP Header',cls:'tcp',color:'var(--blue)',size:'20 bytes',
+    desc:'L4ヘッダー。ポート番号で通信を識別し、順序保証・再送・フロー制御を提供します。',
+    fields:[
+      {f:'Src Port',sz:'16 bit',v:'54321',d:'送信元ポート'},
+      {f:'Dst Port',sz:'16 bit',v:'80',d:'宛先ポート（HTTP）'},
+      {f:'Sequence',sz:'32 bit',v:'1001',d:'送信バイト位置'},
+      {f:'Acknowledgment',sz:'32 bit',v:'4001',d:'次に期待するSeq'},
+      {f:'Data Offset',sz:'4 bit',v:'5 (20B)',d:'TCPヘッダー長'},
+      {f:'Flags',sz:'9 bit',v:'PSH, ACK',d:'制御フラグ'},
+      {f:'Window',sz:'16 bit',v:'65535',d:'受信可能サイズ（フロー制御）'},
+      {f:'Checksum',sz:'16 bit',v:'0x4f2a',d:'ヘッダー＋データの誤り検出'},
+    ]},
+  data:{title:'HTTP Data (56B)',short:'HTTP Data',cls:'data',color:'var(--green)',size:'56 bytes',
+    desc:'アプリケーション層のペイロード。下位層はこの中身を解釈しません。',
+    fields:[
+      {f:'Method / Path',sz:'—',v:'GET / HTTP/1.1',d:'リクエストライン'},
+      {f:'Host',sz:'—',v:'example.com',d:'対象ホスト'},
+      {f:'Body',sz:'56 byte',v:'(リクエストヘッダー)',d:'アプリが受け取る実データ'},
+    ]},
+  fcs:{title:'FCS (4B)',short:'Ethernet FCS',cls:'fcs',color:'var(--yellow)',size:'4 bytes',
+    desc:'フレーム末尾の誤り検出フィールド。受信側で再計算し破損を検出します。',
+    fields:[
+      {f:'役割',sz:'—',v:'フレームの誤り検出',d:'破損フレームを破棄'},
+      {f:'方式',sz:'32 bit',v:'CRC-32',d:'巡回冗長検査'},
+      {f:'値',sz:'32 bit',v:'0x3A2B1C0D',d:'算出されたチェック値'},
+    ]},
 };
 
 const ENCAP_STEPS=[
@@ -539,6 +599,12 @@ function buildEncapUI(){
   </div>
   <div class="encap-desc" id="encapDesc">
     <div class="encap-desc-text" id="encapDescText" style="color:var(--muted);font-size:0.78rem;">▶ 再生 または ⏭ ステップ で開始</div>
+  </div>
+  <div class="inspector" id="encapInspector" style="margin-top:12px;">
+    <div class="insp-header">🔬 ヘッダー インスペクター <span style="color:var(--muted);font-size:0.7rem;font-weight:400;">ヘッダーブロックをクリックして詳細を確認</span></div>
+    <div class="encap-insp-body" id="encapInspBody">
+      <div class="insp-empty">ヘッダーブロックをクリックしてください</div>
+    </div>
   </div>`;
   main.appendChild(div);
 }
@@ -563,6 +629,9 @@ function resetEncap(){
   if(label){label.textContent='';label.classList.remove('visible');}
   const desc=document.getElementById('encapDescText');
   if(desc) desc.innerHTML='<span style="color:var(--muted)">▶ 再生 または ⏭ ステップ で開始</span>';
+  encapSelected=null;
+  const ib=document.getElementById('encapInspBody');
+  if(ib) ib.innerHTML='<div class="insp-empty">ヘッダーブロックをクリックしてください</div>';
 }
 
 function startEncap(){
@@ -576,23 +645,29 @@ function startEncap(){
 }
 
 function makeBlock(t){
-  return `<div class="encap-block ${t}" onclick="showEncapDetail(event,'${t}')" style="position:relative;">${HEADER_DETAILS[t].title.split(' ')[0]+' '+HEADER_DETAILS[t].title.split(' ')[1]}</div>`;
+  return `<div class="encap-block ${t}" data-type="${t}" onclick="showEncapInspector(event,'${t}')">${HEADER_DETAILS[t].short}</div>`;
 }
 
-function showEncapDetail(e,t){
+function showEncapInspector(e,t){
   e.stopPropagation();
-  document.querySelectorAll('.encap-detail.open').forEach(d=>d.classList.remove('open'));
-  const block=e.currentTarget;
-  let detail=block.querySelector('.encap-detail');
-  if(!detail){
-    const info=HEADER_DETAILS[t];
-    detail=document.createElement('div');
-    detail.className='encap-detail';
-    detail.innerHTML=`<div class="encap-detail-title" style="color:${info.color}">${info.title}</div><table>${info.rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
-    detail.onclick=ev=>ev.stopPropagation();
-    block.appendChild(detail);
-  }
-  detail.classList.toggle('open');
+  encapSelected=t;
+  // highlight all blocks of this type, clear others
+  document.querySelectorAll('.encap-block').forEach(b=>{
+    b.classList.toggle('selected',b.dataset.type===t);
+  });
+  const info=HEADER_DETAILS[t];
+  document.getElementById('encapInspBody').innerHTML=`
+    <div class="encap-insp-head ${info.cls}">
+      <span class="encap-insp-name">${info.short}</span>
+      <span class="encap-insp-size">${info.size}</span>
+    </div>
+    <div class="encap-insp-desc">${info.desc}</div>
+    <table class="encap-insp-table">
+      <thead><tr><th>フィールド</th><th>サイズ</th><th>値</th></tr></thead>
+      <tbody>
+        ${info.fields.map(r=>`<tr><td class="fld">${r.f}<div class="fld-d">${r.d}</div></td><td class="sz">${r.sz}</td><td class="val">${r.v}</td></tr>`).join('')}
+      </tbody>
+    </table>`;
 }
 
 function renderEncapRow(s){
@@ -626,6 +701,12 @@ function stepEncap(){
   label.classList.add('visible');
 
   document.getElementById('encapDescText').innerHTML=s.desc;
+  // keep the currently inspected header highlighted across newly rendered blocks
+  if(encapSelected){
+    row.querySelectorAll('.encap-block').forEach(b=>{
+      if(b.dataset.type===encapSelected) b.classList.add('selected');
+    });
+  }
   encapStep++;
 }
 
@@ -781,7 +862,6 @@ function showInspector(step){
 }
 
 /* Init */
-document.addEventListener('click',()=>{document.querySelectorAll('.encap-detail.open').forEach(d=>d.classList.remove('open'));});
 resetSim();
 </script>
 </body>
