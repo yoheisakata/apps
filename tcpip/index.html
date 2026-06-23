@@ -280,21 +280,6 @@ const SCENARIOS = {
   ],
   data:[
     {
-      from:'client',dir:'right',type:'syn',label:'SYN',
-      pkt:{ip:{src:CLIENT_IP,dst:SERVER_IP,ttl:64,proto:'TCP(6)',len:60},tcp:{sport:CLIENT_PORT,dport:SERVER_PORT,seq:CLIENT_ISN,ack:0,flags:{SYN:1,ACK:0,FIN:0,RST:0,PSH:0},win:65535,opts:'MSS=1460'}},
-      cState:'SYN_SENT',sState:'LISTEN',log:'SYN — 接続確立（3ウェイハンドシェイク省略表示）',
-    },
-    {
-      from:'server',dir:'left',type:'synack',label:'SYN-ACK',
-      pkt:{ip:{src:SERVER_IP,dst:CLIENT_IP,ttl:64,proto:'TCP(6)',len:60},tcp:{sport:SERVER_PORT,dport:CLIENT_PORT,seq:SERVER_ISN,ack:CLIENT_ISN+1,flags:{SYN:1,ACK:1,FIN:0,RST:0,PSH:0},win:65535,opts:'MSS=1460'}},
-      cState:'SYN_SENT',sState:'SYN_RCVD',log:'SYN-ACK',
-    },
-    {
-      from:'client',dir:'right',type:'ack',label:'ACK',
-      pkt:{ip:{src:CLIENT_IP,dst:SERVER_IP,ttl:64,proto:'TCP(6)',len:40},tcp:{sport:CLIENT_PORT,dport:SERVER_PORT,seq:CLIENT_ISN+1,ack:SERVER_ISN+1,flags:{SYN:0,ACK:1,FIN:0,RST:0,PSH:0},win:65535,opts:''}},
-      cState:'ESTABLISHED',sState:'ESTABLISHED',log:'ACK → ESTABLISHED',
-    },
-    {
       from:'client',dir:'right',type:'data',label:'DATA [PSH,ACK]',
       pkt:{ip:{src:CLIENT_IP,dst:SERVER_IP,ttl:64,proto:'TCP(6)',len:96},tcp:{sport:CLIENT_PORT,dport:SERVER_PORT,seq:CLIENT_ISN+1,ack:SERVER_ISN+1,flags:{SYN:0,ACK:1,FIN:0,RST:0,PSH:1},win:65535,opts:'',data:'GET / HTTP/1.1\\r\\nHost: example.com\\r\\n\\r\\n',len:56}},
       cState:'ESTABLISHED',sState:'ESTABLISHED',
@@ -320,12 +305,6 @@ const SCENARIOS = {
     },
   ],
   close:[
-    {
-      from:'client',dir:'right',type:'data',label:'(ESTABLISHED)',
-      pkt:{ip:{src:CLIENT_IP,dst:SERVER_IP,ttl:64,proto:'TCP(6)',len:40},tcp:{sport:CLIENT_PORT,dport:SERVER_PORT,seq:CLIENT_ISN+57,ack:SERVER_ISN+201,flags:{SYN:0,ACK:1,FIN:0,RST:0,PSH:0},win:65535,opts:''}},
-      cState:'ESTABLISHED',sState:'ESTABLISHED',
-      log:'接続確立中（ESTABLISHED）— クライアントがアクティブクローズを開始',
-    },
     {
       from:'client',dir:'right',type:'fin',label:'FIN [FIN,ACK]',
       pkt:{ip:{src:CLIENT_IP,dst:SERVER_IP,ttl:64,proto:'TCP(6)',len:40},tcp:{sport:CLIENT_PORT,dport:SERVER_PORT,seq:CLIENT_ISN+57,ack:SERVER_ISN+201,flags:{SYN:0,ACK:1,FIN:1,RST:0,PSH:0},win:65535,opts:''}},
@@ -476,9 +455,17 @@ function resetSim(){
   const arena=document.getElementById('simArena');
   arena.querySelectorAll('.pkt-row').forEach(p=>p.remove());
   arena.style.height=(simSteps.length*50+20)+'px';
-  document.getElementById('stepLog').innerHTML='<div style="color:var(--muted);font-size:0.75rem;padding:4px 0;">▶ 再生 または ⏭ ステップ を押して開始してください</div>';
+  const isEstab=currentTab==='data'||currentTab==='close';
+  const hint=isEstab
+    ?'✅ 3ウェイハンドシェイク完了済（ESTABLISHED）— ▶ 再生 または ⏭ ステップ で開始'
+    :'▶ 再生 または ⏭ ステップ を押して開始してください';
+  document.getElementById('stepLog').innerHTML=`<div style="color:var(--muted);font-size:0.75rem;padding:4px 0;">${hint}</div>`;
   document.getElementById('inspBody').innerHTML='<div class="insp-empty">パケットを選択してください</div>';
-  setStateDisplay('CLOSED','LISTEN',null,null);
+  if(isEstab){
+    setStateDisplay('ESTABLISHED','ESTABLISHED',CLIENT_ISN,SERVER_ISN);
+  } else {
+    setStateDisplay('CLOSED','LISTEN',null,null);
+  }
 }
 
 function startSim(){
