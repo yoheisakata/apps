@@ -59,20 +59,18 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 .node-icon.client{left:84px;}
 .node-icon.server{right:84px;}
 /* Packet row – sequence-diagram style */
-.pkt-row{position:absolute;left:0;right:0;height:40px;display:flex;align-items:center;cursor:pointer;z-index:10;opacity:0;animation:fadeInPkt 0.4s forwards;}
-@keyframes fadeInPkt{to{opacity:1;}}
+.pkt-row{position:absolute;left:0;right:0;height:40px;display:flex;align-items:center;cursor:pointer;z-index:10;}
 .pkt-row:hover{filter:brightness(1.25);}
-.pkt-line{position:absolute;height:2px;border-radius:1px;}
-.pkt-arrow-tip{position:absolute;width:0;height:0;border-style:solid;}
-.pkt-arrow-tip.right{border-width:6px 0 6px 10px;right:0;}
-.pkt-arrow-tip.left {border-width:6px 10px 6px 0;left:0;}
-.pkt-tag{position:absolute;left:50%;transform:translateX(-50%);top:-2px;font-family:var(--mono);font-size:0.72rem;font-weight:700;white-space:nowrap;padding:3px 10px;border-radius:6px;}
-.pkt-tag.syn  {background:rgba(168,139,250,0.2);color:var(--purple);}
-.pkt-tag.synack{background:rgba(56,189,248,0.2);color:var(--blue);}
-.pkt-tag.ack  {background:rgba(52,211,153,0.2);color:var(--green);}
-.pkt-tag.data {background:rgba(251,191,36,0.2);color:var(--yellow);}
-.pkt-tag.fin  {background:rgba(248,113,113,0.2);color:var(--red);}
-.pkt-tag.rst  {background:rgba(248,113,113,0.3);color:var(--red);}
+.pkt-line{position:absolute;height:2px;border-radius:1px;transform-origin:left center;}
+.pkt-line.grow-right{animation:growRight 0.5s ease-out forwards;}
+.pkt-line.grow-left {transform-origin:right center;animation:growLeft 0.5s ease-out forwards;}
+@keyframes growRight{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+@keyframes growLeft {from{transform:scaleX(0);}to{transform:scaleX(1);}}
+.pkt-arrow-tip{position:absolute;width:0;height:0;border-style:solid;opacity:0;animation:tipAppear 0.15s 0.45s forwards;}
+@keyframes tipAppear{to{opacity:1;}}
+.pkt-arrow-tip.right{border-width:6px 0 6px 10px;}
+.pkt-arrow-tip.left {border-width:6px 10px 6px 0;}
+.pkt-tag{position:absolute;left:50%;transform:translateX(-50%);top:-2px;font-family:var(--mono);font-size:0.72rem;font-weight:700;white-space:nowrap;padding:3px 10px;border-radius:6px;opacity:0;animation:tipAppear 0.2s 0.25s forwards;}
 
 /* Step log */
 .step-log{display:flex;flex-direction:column;gap:4px;padding:10px 16px;max-height:160px;overflow-y:auto;border-top:1px solid var(--border);}
@@ -488,6 +486,9 @@ function stepSim(){
   addLog(step);
 }
 
+const CLR_CLIENT='#38bdf8';
+const CLR_SERVER='#c084fc';
+
 function animatePacket(step){
   const arena=document.getElementById('simArena');
   const W=arena.offsetWidth||600;
@@ -497,6 +498,9 @@ function animatePacket(step){
   const y=10+(stepIdx-1)*rowH;
   arena.style.height=(simSteps.length*rowH+20)+'px';
 
+  const color=isRight?CLR_CLIENT:CLR_SERVER;
+  const tagBg=isRight?'rgba(56,189,248,0.15)':'rgba(192,132,252,0.15)';
+
   const row=document.createElement('div');
   row.className='pkt-row';
   row.style.top=y+'px';
@@ -504,10 +508,9 @@ function animatePacket(step){
 
   const left=Math.min(clientX,serverX);
   const right=Math.max(clientX,serverX);
-  const color=typeColor(step.type);
 
   const line=document.createElement('div');
-  line.className='pkt-line';
+  line.className='pkt-line '+(isRight?'grow-right':'grow-left');
   line.style.left=left+'px';
   line.style.width=(right-left)+'px';
   line.style.background=color;
@@ -520,7 +523,9 @@ function animatePacket(step){
   row.appendChild(tip);
 
   const tag=document.createElement('div');
-  tag.className='pkt-tag '+step.type;
+  tag.className='pkt-tag';
+  tag.style.background=tagBg;
+  tag.style.color=color;
   tag.textContent=step.label;
   line.appendChild(tag);
 
