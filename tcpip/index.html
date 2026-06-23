@@ -81,6 +81,29 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 .log-msg{color:var(--text);}
 .log-detail{color:var(--muted);font-family:var(--mono);font-size:0.68rem;margin-top:1px;}
 
+/* Encap simulation */
+.encap-wrap{display:none;}
+.encap-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.encap-mode-btns{display:flex;gap:4px;}
+.encap-mode-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Nunito',sans-serif;font-size:0.78rem;font-weight:700;padding:6px 14px;cursor:pointer;transition:all 0.15s;}
+.encap-mode-btn:hover{color:var(--text);border-color:var(--blue);}
+.encap-mode-btn.active{background:linear-gradient(135deg,var(--blue),var(--purple));border-color:transparent;color:#fff;}
+.encap-diagram{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;align-items:center;}
+.encap-step{display:flex;align-items:center;justify-content:center;gap:0;width:100%;transition:all 0.4s ease;opacity:0;transform:translateY(-8px);max-height:0;overflow:hidden;}
+.encap-step.visible{opacity:1;transform:translateY(0);max-height:60px;}
+.encap-block{font-family:var(--mono);font-size:0.68rem;font-weight:700;padding:8px 12px;border-radius:6px;white-space:nowrap;text-align:center;border:1px solid;}
+.encap-block.eth{background:rgba(251,191,36,0.12);color:var(--yellow);border-color:rgba(251,191,36,0.3);}
+.encap-block.ip{background:rgba(167,139,250,0.12);color:var(--purple);border-color:rgba(167,139,250,0.3);}
+.encap-block.tcp{background:rgba(56,189,248,0.12);color:var(--blue);border-color:rgba(56,189,248,0.3);}
+.encap-block.data{background:rgba(52,211,153,0.12);color:var(--green);border-color:rgba(52,211,153,0.3);}
+.encap-block.fcs{background:rgba(251,191,36,0.12);color:var(--yellow);border-color:rgba(251,191,36,0.3);}
+.encap-arrow{color:var(--muted);font-size:0.8rem;padding:4px 0;opacity:0;transition:opacity 0.3s;}
+.encap-arrow.visible{opacity:1;}
+.encap-label{font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:2px;text-align:center;opacity:0;transition:opacity 0.3s;}
+.encap-label.visible{opacity:1;}
+.encap-desc{margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;}
+.encap-desc-text{font-size:0.78rem;color:var(--text);min-height:40px;}
+
 /* Packet Inspector */
 .inspector{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
 .insp-header{padding:10px 16px;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);font-size:0.8rem;font-weight:700;color:var(--blue);display:flex;align-items:center;gap:8px;}
@@ -156,6 +179,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
   <div class="tab" onclick="switchTab('data')">② データ転送</div>
   <div class="tab" onclick="switchTab('close')">③ 接続終了</div>
   <div class="tab" onclick="switchTab('layers')">④ レイヤー構造</div>
+  <div class="tab" onclick="switchTab('encap')">⑤ カプセル化</div>
 </div>
 
 <div class="main">
@@ -332,13 +356,15 @@ const SCENARIOS = {
 
 function switchTab(tab){
   currentTab=tab;
+  const tabKeys=['handshake','data','close','layers','encap'];
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',['handshake','data','close','layers'][i]===tab);
+    t.classList.toggle('active',tabKeys[i]===tab);
   });
-  document.getElementById('simControls').style.display=tab==='layers'?'none':'flex';
-  document.getElementById('stateRow').style.display=tab==='layers'?'none':'flex';
-  document.getElementById('simArena').parentElement.style.display=tab==='layers'?'none':'block';
-  document.getElementById('inspector').style.display=tab==='layers'?'none':'block';
+  const isSim=tab!=='layers'&&tab!=='encap';
+  document.getElementById('simControls').style.display=isSim?'flex':'none';
+  document.getElementById('stateRow').style.display=isSim?'flex':'none';
+  document.getElementById('simArena').parentElement.style.display=isSim?'block':'none';
+  document.getElementById('inspector').style.display=isSim?'block':'none';
 
   const layersUI=document.getElementById('layersUI');
   if(tab==='layers'){
@@ -348,7 +374,16 @@ function switchTab(tab){
     if(layersUI) layersUI.style.display='none';
   }
 
-  resetSim();
+  const encapUI=document.getElementById('encapUI');
+  if(tab==='encap'){
+    if(!encapUI){buildEncapUI();}
+    else encapUI.style.display='block';
+    resetEncap();
+  } else {
+    if(encapUI) encapUI.style.display='none';
+  }
+
+  if(isSim) resetSim();
 }
 
 function buildLayersUI(){
@@ -440,6 +475,108 @@ function buildLayersUI(){
 function toggleLayer(id){
   const el=document.getElementById(id);
   el.classList.toggle('open');
+}
+
+/* ── Encapsulation Simulation ── */
+let encapMode='encap', encapStep=0, encapTimer=null;
+const ENCAP_STEPS=[
+  {blocks:['data'],label:'④ アプリケーション層',desc:'アプリがHTTPリクエストデータを生成します。'},
+  {blocks:['tcp','data'],label:'③ トランスポート層',desc:'TCPヘッダー（送信元/宛先ポート, Seq, Flags）を付加 → セグメント'},
+  {blocks:['ip','tcp','data'],label:'② インターネット層',desc:'IPヘッダー（送信元/宛先IP, TTL, Protocol）を付加 → パケット'},
+  {blocks:['eth','ip','tcp','data','fcs'],label:'① ネットワークインターフェース層',desc:'Ethernetヘッダー（MAC）+ FCSを付加 → フレーム完成。ネットワークへ送出！'},
+];
+const DECAP_STEPS=[
+  {blocks:['eth','ip','tcp','data','fcs'],label:'① ネットワークインターフェース層',desc:'フレームを受信。FCSでエラーチェック後、Ethernetヘッダー+FCSを除去'},
+  {blocks:['ip','tcp','data'],label:'② インターネット層',desc:'IPヘッダーを読み取り（宛先IPが自分か確認）、IPヘッダーを除去'},
+  {blocks:['tcp','data'],label:'③ トランスポート層',desc:'TCPヘッダーを読み取り（ポート番号でアプリ特定, Seq/ACK処理）、TCPヘッダーを除去'},
+  {blocks:['data'],label:'④ アプリケーション層',desc:'HTTPデータのみがアプリケーションに渡されます。デカプセル化完了！'},
+];
+const BLOCK_LABELS={eth:'Ethernet Header',ip:'IP Header',tcp:'TCP Header',data:'HTTP Data',fcs:'FCS'};
+
+function buildEncapUI(){
+  const main=document.querySelector('.main');
+  const div=document.createElement('div');div.id='encapUI';
+  div.innerHTML=`
+  <div class="encap-controls">
+    <div class="encap-mode-btns">
+      <button class="encap-mode-btn active" id="btnEncap" onclick="setEncapMode('encap')">📦 カプセル化（送信）</button>
+      <button class="encap-mode-btn" id="btnDecap" onclick="setEncapMode('decap')">📭 デカプセル化（受信）</button>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;">
+      <button class="ctrl-btn primary" onclick="startEncap()">▶ 再生</button>
+      <button class="ctrl-btn" onclick="stepEncap()">⏭ 1ステップ</button>
+      <button class="ctrl-btn" onclick="resetEncap()">↺ リセット</button>
+    </div>
+  </div>
+  <div class="encap-diagram" id="encapDiagram">
+    <div class="encap-label" id="encapLabel"></div>
+    <div id="encapRow0" class="encap-step"></div>
+    <div id="encapArrow0" class="encap-arrow"></div>
+    <div id="encapRow1" class="encap-step"></div>
+    <div id="encapArrow1" class="encap-arrow"></div>
+    <div id="encapRow2" class="encap-step"></div>
+    <div id="encapArrow2" class="encap-arrow"></div>
+    <div id="encapRow3" class="encap-step"></div>
+  </div>
+  <div class="encap-desc" id="encapDesc">
+    <div class="encap-desc-text" id="encapDescText" style="color:var(--muted);font-size:0.78rem;">▶ 再生 または ⏭ ステップ で開始</div>
+  </div>`;
+  main.appendChild(div);
+}
+
+function setEncapMode(mode){
+  encapMode=mode;
+  document.getElementById('btnEncap').classList.toggle('active',mode==='encap');
+  document.getElementById('btnDecap').classList.toggle('active',mode==='decap');
+  resetEncap();
+}
+
+function resetEncap(){
+  if(encapTimer){clearInterval(encapTimer);encapTimer=null;}
+  encapStep=0;
+  for(let i=0;i<4;i++){
+    const row=document.getElementById('encapRow'+i);
+    if(row){row.innerHTML='';row.classList.remove('visible');}
+    const arr=document.getElementById('encapArrow'+i);
+    if(arr){arr.textContent='';arr.classList.remove('visible');}
+  }
+  const label=document.getElementById('encapLabel');
+  if(label){label.textContent='';label.classList.remove('visible');}
+  const desc=document.getElementById('encapDescText');
+  if(desc) desc.innerHTML='<span style="color:var(--muted)">▶ 再生 または ⏭ ステップ で開始</span>';
+}
+
+function startEncap(){
+  if(encapTimer){clearInterval(encapTimer);encapTimer=null;return;}
+  if(encapStep>=4) resetEncap();
+  encapTimer=setInterval(()=>{
+    stepEncap();
+    if(encapStep>=4){clearInterval(encapTimer);encapTimer=null;}
+  },1200);
+  stepEncap();
+}
+
+function stepEncap(){
+  if(encapStep>=4) return;
+  const steps=encapMode==='encap'?ENCAP_STEPS:DECAP_STEPS;
+  const s=steps[encapStep];
+
+  const row=document.getElementById('encapRow'+encapStep);
+  row.innerHTML=s.blocks.map(b=>`<div class="encap-block ${b}">${BLOCK_LABELS[b]}</div>`).join('');
+  row.classList.add('visible');
+
+  if(encapStep>0){
+    const arr=document.getElementById('encapArrow'+(encapStep-1));
+    arr.textContent=encapMode==='encap'?'⬇ ヘッダー追加':'⬇ ヘッダー除去';
+    arr.classList.add('visible');
+  }
+
+  const label=document.getElementById('encapLabel');
+  label.textContent=s.label;
+  label.classList.add('visible');
+
+  document.getElementById('encapDescText').innerHTML=s.desc;
+  encapStep++;
 }
 
 /* ── Simulation ── */
