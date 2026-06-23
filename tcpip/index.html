@@ -97,6 +97,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 .encap-block.tcp{background:rgba(56,189,248,0.12);color:var(--blue);border-color:rgba(56,189,248,0.3);}
 .encap-block.data{background:rgba(52,211,153,0.12);color:var(--green);border-color:rgba(52,211,153,0.3);}
 .encap-block.fcs{background:rgba(251,191,36,0.12);color:var(--yellow);border-color:rgba(251,191,36,0.3);}
+.encap-block.payload{background:rgba(255,255,255,0.04);color:var(--muted);border-color:rgba(255,255,255,0.12);border-style:dashed;position:relative;}
+.encap-block.payload .payload-hint{font-size:0.56rem;color:var(--muted);display:block;margin-top:1px;font-weight:400;}
 .encap-arrow{color:var(--muted);font-size:0.8rem;padding:4px 0;opacity:0;transition:opacity 0.3s;}
 .encap-arrow.visible{opacity:1;}
 .encap-label{font-size:0.7rem;font-weight:700;color:var(--muted);margin-bottom:2px;text-align:center;opacity:0;transition:opacity 0.3s;}
@@ -480,18 +482,17 @@ function toggleLayer(id){
 /* ── Encapsulation Simulation ── */
 let encapMode='encap', encapStep=0, encapTimer=null;
 const ENCAP_STEPS=[
-  {blocks:['data'],label:'④ アプリケーション層',desc:'アプリがHTTPリクエストデータを生成します。'},
-  {blocks:['tcp','data'],label:'③ トランスポート層',desc:'TCPヘッダー（送信元/宛先ポート, Seq, Flags）を付加 → セグメント'},
-  {blocks:['ip','tcp','data'],label:'② インターネット層',desc:'IPヘッダー（送信元/宛先IP, TTL, Protocol）を付加 → パケット'},
-  {blocks:['eth','ip','tcp','data','fcs'],label:'① ネットワークインターフェース層',desc:'Ethernetヘッダー（MAC）+ FCSを付加 → フレーム完成。ネットワークへ送出！'},
+  {blocks:[{t:'data',l:'HTTP Data'}],label:'④ アプリケーション層',desc:'アプリがHTTPリクエストデータを生成します。'},
+  {blocks:[{t:'tcp',l:'TCP Header'},{t:'payload',l:'Payload',hint:'HTTP Data'}],label:'③ トランスポート層',desc:'TCPヘッダーを付加。上位のHTTP Dataが Payload になります → セグメント'},
+  {blocks:[{t:'ip',l:'IP Header'},{t:'payload',l:'Payload',hint:'TCP Header + HTTP Data'}],label:'② インターネット層',desc:'IPヘッダーを付加。上位のセグメント全体が Payload になります → パケット'},
+  {blocks:[{t:'eth',l:'Eth Header'},{t:'payload',l:'Payload',hint:'IP Header + TCP Header + HTTP Data'},{t:'fcs',l:'FCS'}],label:'① ネットワークインターフェース層',desc:'Ethernetヘッダー+FCSを付加。上位のパケット全体が Payload になります → フレーム完成！'},
 ];
 const DECAP_STEPS=[
-  {blocks:['eth','ip','tcp','data','fcs'],label:'① ネットワークインターフェース層',desc:'フレームを受信。FCSでエラーチェック後、Ethernetヘッダー+FCSを除去'},
-  {blocks:['ip','tcp','data'],label:'② インターネット層',desc:'IPヘッダーを読み取り（宛先IPが自分か確認）、IPヘッダーを除去'},
-  {blocks:['tcp','data'],label:'③ トランスポート層',desc:'TCPヘッダーを読み取り（ポート番号でアプリ特定, Seq/ACK処理）、TCPヘッダーを除去'},
-  {blocks:['data'],label:'④ アプリケーション層',desc:'HTTPデータのみがアプリケーションに渡されます。デカプセル化完了！'},
+  {blocks:[{t:'eth',l:'Eth Header'},{t:'payload',l:'Payload',hint:'IP + TCP + HTTP Data'},{t:'fcs',l:'FCS'}],label:'① ネットワークインターフェース層',desc:'フレームを受信。FCSでエラーチェック後、Ethernetヘッダー+FCSを除去して Payload を取り出す'},
+  {blocks:[{t:'ip',l:'IP Header'},{t:'payload',l:'Payload',hint:'TCP Header + HTTP Data'}],label:'② インターネット層',desc:'IPヘッダーを読み取り除去。Payload からトランスポート層のセグメントを取り出す'},
+  {blocks:[{t:'tcp',l:'TCP Header'},{t:'payload',l:'Payload',hint:'HTTP Data'}],label:'③ トランスポート層',desc:'TCPヘッダーを読み取り除去。Payload からアプリデータを取り出す'},
+  {blocks:[{t:'data',l:'HTTP Data'}],label:'④ アプリケーション層',desc:'HTTPデータのみがアプリケーションに渡されます。デカプセル化完了！'},
 ];
-const BLOCK_LABELS={eth:'Ethernet Header',ip:'IP Header',tcp:'TCP Header',data:'HTTP Data',fcs:'FCS'};
 
 function buildEncapUI(){
   const main=document.querySelector('.main');
@@ -562,7 +563,12 @@ function stepEncap(){
   const s=steps[encapStep];
 
   const row=document.getElementById('encapRow'+encapStep);
-  row.innerHTML=s.blocks.map(b=>`<div class="encap-block ${b}">${BLOCK_LABELS[b]}</div>`).join('');
+  row.innerHTML=s.blocks.map(b=>{
+    if(b.t==='payload'){
+      return `<div class="encap-block payload">${b.l}<span class="payload-hint">${b.hint}</span></div>`;
+    }
+    return `<div class="encap-block ${b.t}">${b.l}</div>`;
+  }).join('');
   row.classList.add('visible');
 
   if(encapStep>0){
