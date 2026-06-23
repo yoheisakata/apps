@@ -43,6 +43,14 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .save-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(46,213,115,0.9);color:#000;font-family:'Nunito',sans-serif;font-size:0.85rem;font-weight:900;padding:8px 20px;border-radius:100px;z-index:999;opacity:0;pointer-events:none;transition:opacity 0.3s;}
 .save-toast.show{opacity:1;}
 
+/* ── ACHIEVEMENT TOAST ── */
+.ach-toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-family:'Nunito',sans-serif;border-radius:14px;padding:10px 16px;z-index:1000;pointer-events:none;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(168,85,247,0.4);white-space:nowrap;}
+.ach-toast.show{transform:translateX(-50%) translateY(0);}
+.ach-toast-emoji{font-size:1.5rem;}
+.ach-toast-text{display:flex;flex-direction:column;}
+.ach-toast-label{font-size:0.6rem;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px;}
+.ach-toast-name{font-size:0.85rem;font-weight:900;}
+
 /* ── CHAR SELECT ── */
 .char-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;width:100%;max-width:360px;margin:12px 0;}
 .char-card{background:var(--card);border:2px solid rgba(255,255,255,0.1);border-radius:16px;padding:12px 8px;text-align:center;cursor:pointer;transition:all 0.15s;}
@@ -226,6 +234,14 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 </div>
 <!-- save toast -->
 <div class="save-toast" id="saveToast">💾 セーブした！</div>
+<!-- achievement toast -->
+<div class="ach-toast" id="achToast">
+  <div class="ach-toast-emoji" id="achEmoji">🏆</div>
+  <div class="ach-toast-text">
+    <div class="ach-toast-label">じつりょく かいほう！</div>
+    <div class="ach-toast-name" id="achName"></div>
+  </div>
+</div>
 
 <!-- ══ CHAR SELECT ══ -->
 <div class="screen" id="screenCharSelect">
@@ -393,6 +409,93 @@ function getLvCfg(){return LEVEL_CONFIG[Math.min(quizLevel-1,LEVEL_CONFIG.length
 function getEmoji(){return EMOJIS[Math.min(quizLevel-1,EMOJIS.length-1)];}
 function coinSVG(s=18){return `<svg width="${s}" height="${s}" viewBox="0 0 28 28"><defs><radialGradient id="cgi" cx="35%" cy="35%"><stop offset="0%" stop-color="#ffe066"/><stop offset="60%" stop-color="#e6a817"/><stop offset="100%" stop-color="#b8860b"/></radialGradient></defs><circle cx="14" cy="14" r="13" fill="url(#cgi)" stroke="#c8860a" stroke-width="1.5"/><circle cx="14" cy="14" r="9" fill="none" stroke="rgba(255,220,80,0.5)" stroke-width="1.5"/><text x="14" y="18" text-anchor="middle" font-size="9" font-weight="bold" fill="#7a5500" font-family="sans-serif">G</text></svg>`;}
 
+// ══ SOUND SYSTEM ══
+let _audioCtx=null;
+function getAudioCtx(){
+  if(!_audioCtx) _audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(_audioCtx.state==='suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+function playTone(freq,dur,type='sine',vol=0.25,delay=0){
+  try{
+    const ctx=getAudioCtx();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=freq;osc.type=type;
+    gain.gain.setValueAtTime(vol,ctx.currentTime+delay);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+dur);
+    osc.start(ctx.currentTime+delay);
+    osc.stop(ctx.currentTime+delay+dur);
+  }catch(e){}
+}
+function playSound(type){
+  try{
+    switch(type){
+      case 'correct': playTone(880,0.1);playTone(1320,0.15,undefined,undefined,0.08); break;
+      case 'wrong': playTone(180,0.25,'sawtooth',0.18); break;
+      case 'levelup': [523,659,784,1047].forEach((f,i)=>playTone(f,0.18,undefined,0.22,i*0.1)); break;
+      case 'attack': playTone(440,0.08,'square',0.15);playTone(330,0.12,'square',0.1,0.06); break;
+      case 'hit': playTone(200,0.15,'sawtooth',0.12); break;
+      case 'win': [523,659,784,1047,1047].forEach((f,i)=>playTone(f,0.15,undefined,0.2,i*0.09)); break;
+      case 'lose': [330,277,220].forEach((f,i)=>playTone(f,0.25,undefined,0.18,i*0.15)); break;
+      case 'achievement': playTone(1047,0.1);playTone(1319,0.1,undefined,undefined,0.1);playTone(1568,0.2,undefined,undefined,0.2); break;
+      case 'coin': playTone(1200,0.06,undefined,0.15);playTone(1600,0.08,undefined,0.12,0.05); break;
+    }
+  }catch(e){}
+}
+
+// ══ ACHIEVEMENTS ══
+const ACHIEVEMENTS=[
+  {id:'first_correct',   emoji:'⭐', name:'はじめてのせいかい！'},
+  {id:'streak_3',        emoji:'🔥', name:'3れんぞく！'},
+  {id:'streak_5',        emoji:'🔥🔥',name:'5れんぞく！'},
+  {id:'streak_10',       emoji:'💫', name:'10れんぞく！すごい！'},
+  {id:'level_3',         emoji:'🌟', name:'レベル3たっせい！'},
+  {id:'level_5',         emoji:'👑', name:'さいこうレベル！'},
+  {id:'first_battle_win',emoji:'⚔️', name:'はじめてのかちどき！'},
+  {id:'coins_50',        emoji:'💰', name:'50コインたっせい！'},
+  {id:'coins_100',       emoji:'💎', name:'100コインたっせい！'},
+];
+let unlockedAchievements=new Set();
+let _achQueue=[];
+let _achShowing=false;
+function checkAchievement(id){
+  if(unlockedAchievements.has(id))return;
+  const a=ACHIEVEMENTS.find(x=>x.id===id);
+  if(!a)return;
+  unlockedAchievements.add(id);
+  _achQueue.push(a);
+  if(!_achShowing) processAchQueue();
+}
+function processAchQueue(){
+  if(!_achQueue.length){_achShowing=false;return;}
+  _achShowing=true;
+  const a=_achQueue.shift();
+  const toast=document.getElementById('achToast');
+  document.getElementById('achEmoji').textContent=a.emoji;
+  document.getElementById('achName').textContent=a.name;
+  toast.classList.add('show');
+  playSound('achievement');
+  setTimeout(()=>{
+    toast.classList.remove('show');
+    setTimeout(processAchQueue, 500);
+  }, 2800);
+}
+function checkStreakAch(){
+  if(streak>=3) checkAchievement('streak_3');
+  if(streak>=5) checkAchievement('streak_5');
+  if(streak>=10) checkAchievement('streak_10');
+}
+function checkLevelAch(){
+  if(hero.lv>=3) checkAchievement('level_3');
+  if(hero.lv>=5) checkAchievement('level_5');
+}
+function checkCoinAch(){
+  if(coins>=50) checkAchievement('coins_50');
+  if(coins>=100) checkAchievement('coins_100');
+}
+
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const el=document.getElementById(id);
@@ -487,6 +590,8 @@ function answer(idx){
     if(streak%5===0&&hero.hp<hero.hpMax) hero.hp=Math.min(hero.hpMax,hero.hp+3);
     let msg=streak>=5?`🔥 ${streak}れんぞく！ +${earned}G`:`⭕ せいかい！ +${earned}G +${expGain}EXP`;
     showFeedback(msg,'correct');spawnCoin(earned,btns[idx]);
+    playSound('correct');
+    checkAchievement('first_correct');checkStreakAch();checkCoinAch();
     checkHeroLevelUp();
     if(hero.lv>quizLevel&&quizLevel<5) quizLevel=Math.min(5,hero.lv);
     updateHeroUI();
@@ -496,6 +601,7 @@ function answer(idx){
     btns[idx].classList.add('wrong');streak=0;
     const dmg=Math.max(1,4-Math.floor(heroTotalDef()/3));
     hero.hp=Math.max(0,hero.hp-dmg);
+    playSound('wrong');
     showFeedback(`❌ ちがうよ！ -${dmg}HP`,'wrong');
     highlightCorrect();updateHeroUI();
     setTimeout(generateQuestion,1400);
@@ -530,6 +636,8 @@ function displayNextLvup(){
   document.getElementById('lvupDesc').textContent='キャラがつよくなったよ！HPもかいふく！';
   document.getElementById('lvupStats').innerHTML=`<div class="lvup-stat"><b>+${ag}</b>こうげき</div><div class="lvup-stat"><b>+${dg}</b>ぼうぐ</div><div class="lvup-stat"><b>+${hg}</b>HP</div>`;
   document.getElementById('lvupOverlay').classList.add('show');
+  playSound('levelup');
+  checkLevelAch();
 }
 function closeLvup(){
   document.getElementById('lvupOverlay').classList.remove('show');
@@ -612,6 +720,7 @@ function runBattleTurn(){
   heroSprite.style.animation='none';
   void heroSprite.offsetWidth;
   heroSprite.style.animation='heroAtk 0.5s ease';
+  playSound('attack');
   setTimeout(()=>{
     monSprite.style.animation='none';
     void monSprite.offsetWidth;
@@ -637,6 +746,7 @@ function runBattleTurn(){
       monSprite.style.animation='none';
       void monSprite.offsetWidth;
       monSprite.style.animation='monsterAtk 0.5s ease';
+      playSound('attack');
       setTimeout(()=>{
         heroSprite.style.animation='none';
         void heroSprite.offsetWidth;
@@ -667,6 +777,8 @@ function battleWin(){
   hero.hp=Math.max(1,battleHeroHp);
   hero.exp+=battleMon.exp;
   coins+=battleMon.gold;
+  playSound('win');
+  checkAchievement('first_battle_win');checkCoinAch();
   checkHeroLevelUp();
   updateHeroUI();
   document.getElementById('resultEmoji').textContent='🏆';
@@ -677,6 +789,7 @@ function battleWin(){
 function battleLose(){
   battleRunning=false;
   hero.hp=Math.max(1,Math.floor(hero.hpMax*0.3));
+  playSound('lose');
   updateHeroUI();
   document.getElementById('resultEmoji').textContent='💀';
   document.getElementById('resultTitle').textContent='まけた…';document.getElementById('resultTitle').className='result-title lose';
@@ -738,7 +851,7 @@ function equipItem(type,id){
 
 const SAVE_KEY = 'tashizan_save';
 function saveGame(){
-  const data = {hero,coins,quizLevel,savedAt:new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})};
+  const data = {hero,coins,quizLevel,achievements:[...unlockedAchievements],savedAt:new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})};
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(data));showSaveToast();}catch(e){alert('セーブできなかった…');}
 }
 function loadSave(){
@@ -746,6 +859,7 @@ function loadSave(){
 }
 function loadGame(data){
   hero=data.hero;coins=data.coins;quizLevel=data.quizLevel||1;streak=0;
+  unlockedAchievements=new Set(data.achievements||[]);
   updateHeroUI();showGame();generateQuestion();
 }
 function deleteSave(){
