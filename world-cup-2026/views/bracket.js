@@ -9,7 +9,7 @@
 // advance the predicted winners by folding the bracket (the same order
 // resolveKnockout uses), so the connector lines stay consistent.
 
-import { createPredictor } from "./predict.js?v=11";
+import { createPredictor } from "./predict.js?v=12";
 
 const KO_STAGES = ["r32", "r16", "qf", "sf", "final"];
 const ROUND_NAMES = {

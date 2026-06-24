@@ -1,8 +1,8 @@
 // Rankings view: tournament goalscorer ranking, aggregated from match data.
 // Top 10 displayed. Player names open a centered modal with Wikipedia data.
 
-import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=11";
-import { fetchWiki } from "./wiki.js?v=11";
+import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=12";
+import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=12";
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
@@ -54,7 +54,7 @@ export function createRankings({ container, data, onTeam }) {
     ov.classList.remove("hidden");
   }
 
-  function playerCard(name, code, goals, w, loading) {
+  function playerCard(name, code, goals, w, info, loading) {
     const t = data.byCode[code];
     const flag = t ? t.flag : "🏳️";
     const teamName = t ? t.name : code;
@@ -71,15 +71,16 @@ export function createRankings({ container, data, onTeam }) {
       </div>
       <figure class="cm-photo cm-photo-single">${img}</figure>
       ${text ? `<p class="popup-text">${esc(text)}</p>` : `<p class="sub">${loading ? "" : "情報が見つかりませんでした。"}</p>`}
+      ${renderPlayerInfoHtml(info)}
       <div class="cm-links">${link}</div>
     </div>`;
   }
 
   async function openPlayer(wiki, name, code, goals) {
     openWiki = wiki;
-    showPlayer(playerCard(name, code, goals, null, true));
-    const w = await fetchWiki(wiki, "en");
-    if (openWiki === wiki) showPlayer(playerCard(name, code, goals, w, false));
+    showPlayer(playerCard(name, code, goals, null, null, true));
+    const [w, info] = await Promise.all([fetchWiki(wiki, "en"), fetchPlayerInfo(wiki, "en")]);
+    if (openWiki === wiki) showPlayer(playerCard(name, code, goals, w, info, false));
   }
 
   function bindEvents() {

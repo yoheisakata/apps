@@ -1,6 +1,6 @@
-import { groupStandings } from "./standings.js?v=11";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=11";
-import { fetchWiki } from "./wiki.js?v=11";
+import { groupStandings } from "./standings.js?v=12";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=12";
+import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=12";
 
 const CODE = "JPN";
 const GROUP = "F";
@@ -468,7 +468,7 @@ export function createJapan({ container, data }) {
     ov.classList.remove("hidden");
   }
 
-  function playerCard(name, w, loading) {
+  function playerCard(name, w, info, loading) {
     const img = w?.thumb
       ? `<img class="cm-img cm-img-portrait" src="${esc(w.thumb)}" alt="${esc(name)}" />`
       : `<div class="cm-img placeholder">${loading ? "🖼️ 読み込み中…" : "📷 写真なし"}</div>`;
@@ -482,15 +482,16 @@ export function createJapan({ container, data }) {
       </div>
       <figure class="cm-photo cm-photo-single">${img}</figure>
       ${text ? `<p class="popup-text">${esc(text)}</p>` : `<p class="sub">${loading ? "" : "情報が見つかりませんでした。"}</p>`}
+      ${renderPlayerInfoHtml(info)}
       <div class="cm-links">${link}</div>
     </div>`;
   }
 
   async function openPlayer(wiki, name) {
     openWiki = wiki;
-    showPlayer(playerCard(name, null, true));
-    const w = await fetchWiki(wiki, "en");
-    if (openWiki === wiki) showPlayer(playerCard(name, w, false));
+    showPlayer(playerCard(name, null, null, true));
+    const [w, info] = await Promise.all([fetchWiki(wiki, "en"), fetchPlayerInfo(wiki, "en")]);
+    if (openWiki === wiki) showPlayer(playerCard(name, w, info, false));
   }
 
   function bindPlayerLinks() {

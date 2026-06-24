@@ -577,6 +577,20 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .popup-link { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--accent); text-decoration: none; }
 .popup-link:hover { text-decoration: underline; }
 
+/* Player infobox (Wikipedia biography) */
+.pinfo { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.pinfo-grid { display: grid; gap: 4px; }
+.pinfo-row { display: flex; gap: 10px; font-size: 12px; line-height: 1.4; }
+.pinfo-row .pk { flex: 0 0 84px; color: var(--muted); }
+.pinfo-row .pv { flex: 1; font-weight: 500; }
+.pinfo-sub { font-size: 12px; font-weight: 700; color: var(--accent); margin: 12px 0 6px; }
+.pinfo-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.pinfo-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.pinfo-table td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+.pinfo-table .pc-yr { color: var(--muted); white-space: nowrap; }
+.pinfo-table .pc-team { font-weight: 500; }
+.pinfo-table .pc-num { text-align: right; white-space: nowrap; }
+
 /* ---- Buttons general ---- */
 .btn {
   background: var(--panel2);

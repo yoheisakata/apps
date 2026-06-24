@@ -6,20 +6,20 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=11";
-import { createBracket } from "./views/bracket.js?v=11";
-import { createCities } from "./views/cities.js?v=11";
-import { createWorld } from "./views/world.js?v=11";
-import { createRankings } from "./views/rankings.js?v=11";
-import { createStandings } from "./views/standingstab.js?v=11";
-import { createTeamList } from "./views/teamlist.js?v=11";
-import { createJapan } from "./views/japan.js?v=11";
-import { createMatchModal } from "./views/matchmodal.js?v=11";
-import { fetchLiveData } from "./views/livedata.js?v=11";
-import { fetchFootballData } from "./views/footballapi.js?v=11";
+import { createSchedule } from "./views/schedule.js?v=12";
+import { createBracket } from "./views/bracket.js?v=12";
+import { createCities } from "./views/cities.js?v=12";
+import { createWorld } from "./views/world.js?v=12";
+import { createRankings } from "./views/rankings.js?v=12";
+import { createStandings } from "./views/standingstab.js?v=12";
+import { createTeamList } from "./views/teamlist.js?v=12";
+import { createJapan } from "./views/japan.js?v=12";
+import { createMatchModal } from "./views/matchmodal.js?v=12";
+import { fetchLiveData } from "./views/livedata.js?v=12";
+import { fetchFootballData } from "./views/footballapi.js?v=12";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 14; // bump on every release; shown in the header.
+const APP_VERSION = 15; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v11";
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
@@ -221,7 +221,7 @@ async function refreshLive({ silent } = {}) {
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=11");
+      const { goalRanking } = await import("./views/livedata.js?v=12");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && wikiLive?.matches) {
         const wikiRanked = goalRanking(wikiLive.matches);
