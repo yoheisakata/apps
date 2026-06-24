@@ -256,9 +256,21 @@ export async function fetchMatchStats(matchApiId) {
 // `knownTeams` is data.teams (used to validate/map codes).
 export async function fetchFootballData(knownTeams) {
   // Fetch sequentially to stay within the 10 req/min rate limit.
-  // Scorers come from Wikipedia (merged in main.js), not from this API.
   const matchData = await apiFetch(`/competitions/${COMP}/matches`);
   const standingsData = await apiFetch(`/competitions/${COMP}/standings`);
+
+  // Authoritative goal totals. The match list/detail endpoints don't expose a
+  // `goals` array on this tier, so the /scorers endpoint is the accurate source
+  // for per-player goal counts. (Per-match scorer detail — who scored at which
+  // minute — still comes from Wikipedia, merged in main.js.) Tolerate failure:
+  // if this 404s (e.g. an older Worker without the path), scorers stay empty and
+  // the caller rebuilds them from the Wikipedia-merged match data.
+  let scorerData = null;
+  try {
+    scorerData = await apiFetch(`/competitions/${COMP}/scorers?limit=100`);
+  } catch (_) {
+    scorerData = null;
+  }
 
   const codeByName = {};
   for (const t of knownTeams) {
@@ -366,5 +378,15 @@ export async function fetchFootballData(knownTeams) {
     if (result && date && (!latestDate || date > latestDate)) latestDate = date;
   }
 
-  return { groups, matches, scorers: [], asOf: latestDate || fmtDate(new Date().toISOString()) };
+  // Authoritative scorer ranking ({ name, code, goals }), shaped like
+  // goalRanking() in livedata.js so the rankings + Japan views can consume it.
+  const scorers = [];
+  for (const s of scorerData?.scorers || []) {
+    const code = resolveCode(s.team);
+    if (!code || !s.player?.name) continue;
+    scorers.push({ name: s.player.name, code, goals: s.goals || 0 });
+  }
+  scorers.sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+
+  return { groups, matches, scorers, asOf: latestDate || fmtDate(new Date().toISOString()) };
 }

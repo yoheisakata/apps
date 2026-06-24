@@ -1,6 +1,6 @@
-import { groupStandings } from "./standings.js?v=7";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=7";
-import { fetchWiki } from "./wiki.js?v=7";
+import { groupStandings } from "./standings.js?v=8";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=8";
+import { fetchWiki } from "./wiki.js?v=8";
 
 const CODE = "JPN";
 const GROUP = "F";
@@ -430,7 +430,16 @@ export function createJapan({ container, data }) {
     }
 
     const players = squads.byCode[CODE] || [];
-    const teamScorers = tournamentScorers(data.matches)[CODE] || {};
+    // Prefer Football-Data's authoritative goal totals (data.scorers); fall back
+    // to counting Wikipedia per-match scorers when the API list is unavailable.
+    const apiScorers = (data.scorers || []).filter((s) => s.code === CODE);
+    let teamScorers;
+    if (apiScorers.length) {
+      teamScorers = {};
+      for (const s of apiScorers) teamScorers[s.name] = (teamScorers[s.name] || 0) + (s.goals || 0);
+    } else {
+      teamScorers = tournamentScorers(data.matches)[CODE] || {};
+    }
     goalsMap = teamGoalsByPlayer(squads, CODE, teamScorers);
     const ownGoals = teamOwnGoals(data.matches)[CODE] || 0;
 

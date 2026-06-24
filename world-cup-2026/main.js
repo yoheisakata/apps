@@ -6,21 +6,21 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=7";
-import { createBracket } from "./views/bracket.js?v=7";
-import { createCities } from "./views/cities.js?v=7";
-import { createWorld } from "./views/world.js?v=7";
-import { createRankings } from "./views/rankings.js?v=7";
-import { createStandings } from "./views/standingstab.js?v=7";
-import { createTeamList } from "./views/teamlist.js?v=7";
-import { createJapan } from "./views/japan.js?v=7";
-import { createMatchModal } from "./views/matchmodal.js?v=7";
-import { fetchLiveData } from "./views/livedata.js?v=7";
-import { fetchFootballData } from "./views/footballapi.js?v=7";
+import { createSchedule } from "./views/schedule.js?v=8";
+import { createBracket } from "./views/bracket.js?v=8";
+import { createCities } from "./views/cities.js?v=8";
+import { createWorld } from "./views/world.js?v=8";
+import { createRankings } from "./views/rankings.js?v=8";
+import { createStandings } from "./views/standingstab.js?v=8";
+import { createTeamList } from "./views/teamlist.js?v=8";
+import { createJapan } from "./views/japan.js?v=8";
+import { createMatchModal } from "./views/matchmodal.js?v=8";
+import { fetchLiveData } from "./views/livedata.js?v=8";
+import { fetchFootballData } from "./views/footballapi.js?v=8";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 9;
-const LIVE_CACHE_KEY = "wc2026-livedata-v9";
+const APP_VERSION = 10;
+const LIVE_CACHE_KEY = "wc2026-livedata-v10";
 
 // ---- shared data, loaded once ----
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
@@ -199,7 +199,7 @@ async function refreshLive({ silent } = {}) {
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=7");
+      const { goalRanking } = await import("./views/livedata.js?v=8");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && wikiLive?.matches) {
         const wikiRanked = goalRanking(wikiLive.matches);
@@ -315,6 +315,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v6"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v7"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v8"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v9"); } catch (_) {}
 
   try {
     await loadStatic();
