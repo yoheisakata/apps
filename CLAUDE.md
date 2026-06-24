@@ -15,7 +15,7 @@ Most apps are **single self-contained HTML files** (inline CSS + JS) in their ow
 - **receipt/** — Single HTML file integrating **Firebase Auth + Firestore** for cloud sync. Users supply their own Firebase config at runtime (stored in localStorage).
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
 
-Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (かけざんクエスト/九九), `earth`, `tetris`, `tarot`, `shinkansen`.
+Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (かけざんクエスト/九九), `earth`, `tarot`, `shinkansen`.
 
 ## Build / Dev Commands
 

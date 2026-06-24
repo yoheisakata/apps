@@ -19,9 +19,6 @@
 ### 🌏 ちきゅうをまなぼう — `earth/`
 地球や自然について学べる子ども向け学習アプリ。
 
-### 🧩 かわいいテトリス — `tetris/`
-ブラウザで遊べるかわいいテトリス。
-
 ### 🚄 新幹線マップ — `shinkansen/`
 日本の新幹線の路線をマップで見られるアプリ。
 
@@ -56,7 +53,7 @@ Firebase（Auth + Firestore）でデバイス間のクラウド同期に対応�
 
 | アプリ | 構成 |
 |--------|------|
-| たしざん／かけざん／ちきゅう／テトリス／新幹線／タロット／TCP-IP | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
+| たしざん／かけざん／ちきゅう／新幹線／タロット／TCP-IP | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ JSON データ + Cloudflare Worker（API プロキシ） |
 | PostgreSQL 学習ラボ | Vite ビルド + pglite（WASM） |
 | レシート確定申告 | 単一HTMLファイル + Firebase（Auth / Firestore） |
