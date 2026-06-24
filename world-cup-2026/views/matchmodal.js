@@ -1,4 +1,5 @@
-import { fetchMatchDetails } from "./footballapi.js?v=9";
+import { fetchMatchDetails } from "./footballapi.js?v=10";
+import { createPredictor } from "./predict.js?v=10";
 
 const STAGE_LABEL = {
   group: "グループステージ",
@@ -80,6 +81,53 @@ function goalDetailList(details) {
       <span class="mm-goal-name">${esc(g.name)}${tag}${assist}</span>
     </div>`;
   }).join("");
+}
+
+// Pre-match prediction card. Only meaningful when BOTH teams are decided
+// (real codes, not "Winner Group X" placeholders) and the match hasn't started.
+function predictionSection(m, data) {
+  const home = data.byCode?.[m.home];
+  const away = data.byCode?.[m.away];
+  if (!home || !away) return "";
+  const c = createPredictor(data).compare(m.home, m.away);
+  if (!c) return "";
+
+  const pct = (x) => Math.round(x * 100);
+  const hW = pct(c.pWinA);
+  const dr = pct(c.pDraw);
+  const aW = pct(c.pWinB);
+
+  // Verdict: even when the two win chances are close, else the higher one.
+  const even = Math.abs(hW - aW) <= 5;
+  const favTeam = even ? null : hW > aW ? home : away;
+  const verdict = even
+    ? `<span class="mm-pred-even">互角の勝負</span>`
+    : `予想: <span class="mm-pred-fav">${favTeam.flag} ${esc(favTeam.name)}</span> 有利`;
+
+  const rankRow = c.rankA && c.rankB
+    ? `<div class="mm-pred-factor"><span>FIFAランク</span><b>${c.rankA}位</b><i>vs</i><b>${c.rankB}位</b></div>`
+    : "";
+  const fSign = (n) => (n > 0 ? `+${n}` : `${n}`);
+  const formRow = `<div class="mm-pred-factor"><span>本大会</span><b>勝点${c.formA.pts}/${fSign(c.formA.gd)}</b><i>vs</i><b>勝点${c.formB.pts}/${fSign(c.formB.gd)}</b></div>`;
+  const h2hRow = c.h2h
+    ? `<div class="mm-pred-factor h2h"><span>直接対戦</span><b>${esc(home.name)} が ${c.h2h === "W" ? "勝利" : c.h2h === "D" ? "引分" : "敗戦"}</b></div>`
+    : "";
+
+  return `<div class="mm-pred">
+    <div class="mm-pred-title">🔮 試合予想 — ${verdict}</div>
+    <div class="mm-pred-bar">
+      <div class="mm-pred-seg home" style="width:${hW}%" title="${esc(home.name)} 勝利 ${hW}%">${hW >= 12 ? hW + "%" : ""}</div>
+      <div class="mm-pred-seg draw" style="width:${dr}%" title="引き分け ${dr}%">${dr >= 12 ? dr + "%" : ""}</div>
+      <div class="mm-pred-seg away" style="width:${aW}%" title="${esc(away.name)} 勝利 ${aW}%">${aW >= 12 ? aW + "%" : ""}</div>
+    </div>
+    <div class="mm-pred-legend">
+      <span><i class="dot home"></i>${esc(home.name)} 勝</span>
+      <span><i class="dot draw"></i>引分</span>
+      <span><i class="dot away"></i>${esc(away.name)} 勝</span>
+    </div>
+    <div class="mm-pred-factors">${rankRow}${formRow}${h2hRow}</div>
+    <div class="mm-pred-note">FIFAランキング・本大会の成績・直接対戦から自動算出（予想）。</div>
+  </div>`;
 }
 
 function formatKickoff(iso) {
@@ -234,6 +282,7 @@ export function createMatchModal({ onTeam } = {}) {
         ${venue?.capacity ? `<div class="mm-detail-row"><span class="mm-dk">収容人数</span><span class="mm-dv">${venue.capacity.toLocaleString()}人</span></div>` : ""}
         ${refHtml}
       </div>
+      ${!played && !isLive && m.home && m.away ? predictionSection(m, data) : ""}
       ${played ? '<div id="mm-scorers-area"><div class="mm-scorers-loading">得点者を読み込み中…</div></div>' : ""}
       ${played ? '<div id="mm-stats-area"></div>' : ""}
       ${showHighlight ? '<div id="mm-yt-area"><div class="mm-yt-loading">🎬 ハイライト動画を検索中…</div></div>' : ""}

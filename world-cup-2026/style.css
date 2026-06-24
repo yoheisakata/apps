@@ -1195,6 +1195,67 @@ tr.japan-row td { font-weight: 700; }
 .mm-dk { color: var(--muted); }
 .mm-dv { font-weight: 500; text-align: right; }
 
+/* Pre-match prediction */
+.mm-pred {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+.mm-pred-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.mm-pred-fav { color: var(--accent); font-weight: 800; }
+.mm-pred-even { color: var(--accent2); font-weight: 800; }
+.mm-pred-bar {
+  display: flex;
+  height: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel2);
+}
+.mm-pred-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  min-width: 0;
+  transition: width .4s ease;
+}
+.mm-pred-seg.home { background: var(--accent); }
+.mm-pred-seg.draw { background: var(--muted); }
+.mm-pred-seg.away { background: var(--accent2); }
+.mm-pred-legend {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mm-pred-legend i.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.mm-pred-legend .dot.home { background: var(--accent); }
+.mm-pred-legend .dot.draw { background: var(--muted); }
+.mm-pred-legend .dot.away { background: var(--accent2); }
+.mm-pred-factors { margin-top: 12px; display: grid; gap: 4px; }
+.mm-pred-factor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.mm-pred-factor > span { color: var(--muted); flex: 0 0 70px; }
+.mm-pred-factor > b { flex: 1; text-align: center; font-weight: 700; }
+.mm-pred-factor > i { color: var(--muted); font-style: normal; font-size: 11px; }
+.mm-pred-factor.h2h > b { text-align: left; }
+.mm-pred-note { margin-top: 10px; font-size: 10px; color: var(--muted); }
+
 /* Match stats */
 .mm-stats {
   border-top: 1px solid var(--line);

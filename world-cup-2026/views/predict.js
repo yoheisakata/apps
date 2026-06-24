@@ -10,7 +10,7 @@
 //
 // The weights are deliberately simple and transparent; tweak WEIGHTS to taste.
 
-import { groupStandings } from "./standings.js?v=9";
+import { groupStandings } from "./standings.js?v=10";
 
 const WEIGHTS = {
   ranking: 1.0, // per ranking-position-better (relative to worst rank)
@@ -215,5 +215,41 @@ export function createPredictor(data) {
     return resolved;
   }
 
-  return { resolveKnockout, championInfo };
+  // --- Single-match prediction (for the pre-match modal) -------------------
+  // FIFA rank -> Elo-like rating (lower rank = stronger). Calibrated so a
+  // ~50-place gap yields a clear-but-not-certain favourite.
+  function rankElo(code) {
+    const r = data.byCode[code]?.rank ?? maxRank;
+    return 2100 - r * 6;
+  }
+
+  // Win / draw / loss probabilities for `a` (home) vs `b` (away), blending
+  // FIFA rank, this tournament's form, and any head-to-head into one rating
+  // gap. Returns null if a side is missing or both are the same team.
+  function compare(a, b) {
+    if (!a || !b || a === b) return null;
+    const fA = form[a] || { pts: 0, gd: 0, gf: 0 };
+    const fB = form[b] || { pts: 0, gd: 0, gf: 0 };
+    const formElo = (f) => f.pts * 15 + f.gd * 8;
+    const h2hElo = (x, y) => (h2h[x]?.[y] === "W" ? 60 : h2h[x]?.[y] === "D" ? 12 : 0);
+    const eloA = rankElo(a) + formElo(fA) + h2hElo(a, b);
+    const eloB = rankElo(b) + formElo(fB) + h2hElo(b, a);
+    const e = 1 / (1 + Math.pow(10, (eloB - eloA) / 400)); // expected score for a
+    const pDraw = Math.max(0.1, 0.27 * (1 - Math.abs(e - 0.5) * 1.2));
+    const rem = 1 - pDraw;
+    return {
+      a, b,
+      pWinA: rem * e,
+      pDraw,
+      pWinB: rem * (1 - e),
+      rankA: data.byCode[a]?.rank ?? null,
+      rankB: data.byCode[b]?.rank ?? null,
+      formA: fA,
+      formB: fB,
+      h2h: h2h[a]?.[b] || null, // "W" | "D" | "L" from a's perspective
+      favorite: winner(a, b),
+    };
+  }
+
+  return { resolveKnockout, championInfo, compare };
 }
