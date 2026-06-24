@@ -19,8 +19,14 @@ import { fetchLiveData } from "./views/livedata.js?v=8";
 import { fetchFootballData } from "./views/footballapi.js?v=8";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 10;
+const APP_VERSION = 11; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v10";
+
+// Show the app version in the header. Single source of truth: APP_VERSION.
+function showVersion() {
+  const el = $("app-ver");
+  if (el) el.textContent = `v${APP_VERSION}`;
+}
 
 // ---- shared data, loaded once ----
 const data = { teams: null, groups: null, venues: null, matches: null, byCode: {} };
@@ -307,6 +313,7 @@ function bind() {
 }
 
 (async function boot() {
+  showVersion();
   // Clean up old localStorage keys from previous versions
   try { localStorage.removeItem("wc2026-livedata"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v3"); } catch (_) {}

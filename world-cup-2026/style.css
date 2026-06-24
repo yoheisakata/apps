@@ -56,6 +56,18 @@ body { display: flex; flex-direction: column; height: 100vh; }
 .brand { font-size: 18px; letter-spacing: .5px; white-space: nowrap; cursor: pointer; }
 .brand strong { color: var(--accent2); }
 .brand .ball { font-size: 22px; }
+.app-ver {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  vertical-align: middle;
+  color: var(--accent2);
+  background: color-mix(in srgb, var(--accent2) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent2) 35%, transparent);
+}
 
 /* live-update status + refresh button */
 .update-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
