@@ -2,8 +2,8 @@
 // Group results come from live data; knockout fixtures show real dates/venues
 // with predicted teams filled in (from the prediction engine).
 
-import { groupStandings } from "./standings.js?v=10";
-import { createCountry } from "./country.js?v=10";
+import { groupStandings } from "./standings.js?v=11";
+import { createCountry } from "./country.js?v=11";
 
 const STAGE_LABELS = {
   group: "Group",
@@ -128,7 +128,7 @@ export function createSchedule({ container, data }) {
       <div class="m-side away">${side(m.away, m.awayLabel)}</div>
       <div class="m-meta">
         ${timeStr ? `<span class="m-date">${timeStr}</span>` : ""}
-        ${venue ? `<span class="m-venue">${venue.city}</span>` : ""}
+        ${venue ? `<span class="m-venue">🏟 ${venue.stadium ? venue.stadium + " · " : ""}${venue.city}</span>` : ""}
       </div>
     </div>`;
   }
