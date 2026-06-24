@@ -83,9 +83,22 @@ function cleanSlotLabel(s) {
     .trim();
 }
 
+// Extract a CONFIRMED team code from a knockout slot field. On Wikipedia an
+// unfilled slot is a commented-out flag with a placeholder label, e.g.
+//   <!--{{#invoke:flag|fb-rt|}}-->Runner-up Group A
+// whereas a confirmed slot has a live flag invoke with a 3-letter code:
+//   {{#invoke:flag|fb-rt|GER}}
+// Strip HTML comments first so the empty commented invoke can't false-match,
+// then read the code. Returns the code (e.g. "GER") or null when still a slot.
+function knockoutTeamCode(s) {
+  return flagCode(s.replace(/<!--[\s\S]*?-->/g, ""));
+}
+
 // Parse the knockout-stage article. Each football box has a date, stadium,
-// a match number (in the score link) and two slot labels. Returns an array of
-// { stage, matchNo, date, city, label1, label2 } ordered as in the article.
+// a match number (in the score link) and two slots. A slot is either a
+// confirmed team (code1/code2) or, until then, a placeholder (label1/label2).
+// Also captures the result + scorers once a knockout match is played. Returns
+// an array ordered as in the article (bracket order).
 function parseKnockoutArticle(wikitext) {
   const stageFor = (sec) =>
     sec.startsWith("R32") ? "r32"
@@ -105,14 +118,27 @@ function parseKnockoutArticle(wikitext) {
     const pre = wikitext.slice(0, m.index);
     const secs = [...pre.matchAll(/<section begin="?([A-Za-z0-9-]+)"?/g)];
     const sec = secs.length ? secs[secs.length - 1][1] : "?";
+    const t1 = field(body, "team1");
+    const t2 = field(body, "team2");
+    const g1 = field(body, "goals1");
+    const g2 = field(body, "goals2");
     out.push({
       stage: stageFor(sec),
       matchNo: parseMatchNo(field(body, "score")),
       date: parseDate(field(body, "date")),
       time: parseTime(field(body, "time")),
       city: parseCity(field(body, "stadium")),
-      label1: cleanSlotLabel(field(body, "team1")),
-      label2: cleanSlotLabel(field(body, "team2")),
+      code1: knockoutTeamCode(t1),
+      code2: knockoutTeamCode(t2),
+      label1: cleanSlotLabel(t1),
+      label2: cleanSlotLabel(t2),
+      result: parseScore(field(body, "score")),
+      scorers1: parseScorers(g1),
+      scorers2: parseScorers(g2),
+      scorerDetails1: parseScorerDetails(g1),
+      scorerDetails2: parseScorerDetails(g2),
+      ownGoals1: countOwnGoals(g1),
+      ownGoals2: countOwnGoals(g2),
     });
   }
   return out;
@@ -299,13 +325,22 @@ export async function fetchLiveData() {
         date: b?.date ?? null,
         time: b?.time ?? null,
         venue: b ? CITY_TO_VENUE[b.city] || null : null,
-        home: null,
-        away: null,
-        homeLabel: b?.label1 ?? null,
-        awayLabel: b?.label2 ?? null,
-        result: null,
+        // A confirmed slot resolves to a real team code; otherwise stays a
+        // placeholder label ("Winner Group C", "3rd Group A/B/…").
+        home: b?.code1 || null,
+        away: b?.code2 || null,
+        homeLabel: b?.label1 || null,
+        awayLabel: b?.label2 || null,
+        result: b?.result ?? null,
+        scorers1: b?.scorers1 || [],
+        scorers2: b?.scorers2 || [],
+        scorerDetails1: b?.scorerDetails1 || [],
+        scorerDetails2: b?.scorerDetails2 || [],
+        ownGoals1: b?.ownGoals1 || 0,
+        ownGoals2: b?.ownGoals2 || 0,
       });
       mid++;
+      if (b?.result && b?.date && (!latestDate || b.date > latestDate)) latestDate = b.date;
     }
   }
 

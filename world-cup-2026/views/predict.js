@@ -10,7 +10,7 @@
 //
 // The weights are deliberately simple and transparent; tweak WEIGHTS to taste.
 
-import { groupStandings } from "./standings.js?v=8";
+import { groupStandings } from "./standings.js?v=9";
 
 const WEIGHTS = {
   ranking: 1.0, // per ranking-position-better (relative to worst rank)
@@ -183,8 +183,10 @@ export function createPredictor(data) {
     };
     const resolveSlot = (lbl) => (lbl ? resolveR32Label(lbl) : fillBlank());
 
+    // A confirmed team (m.home/m.away set from Wikipedia) wins over a prediction;
+    // otherwise predict the slot from current standings.
     let prevWinners = r32.map((m, i) =>
-      setRes("r32", i, resolveSlot(m.homeLabel), resolveSlot(m.awayLabel))
+      setRes("r32", i, m.home || resolveSlot(m.homeLabel), m.away || resolveSlot(m.awayLabel))
     );
 
     // Fold each subsequent round: winners[2k] vs winners[2k+1].

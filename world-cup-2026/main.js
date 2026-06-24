@@ -6,21 +6,21 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=8";
-import { createBracket } from "./views/bracket.js?v=8";
-import { createCities } from "./views/cities.js?v=8";
-import { createWorld } from "./views/world.js?v=8";
-import { createRankings } from "./views/rankings.js?v=8";
-import { createStandings } from "./views/standingstab.js?v=8";
-import { createTeamList } from "./views/teamlist.js?v=8";
-import { createJapan } from "./views/japan.js?v=8";
-import { createMatchModal } from "./views/matchmodal.js?v=8";
-import { fetchLiveData } from "./views/livedata.js?v=8";
-import { fetchFootballData } from "./views/footballapi.js?v=8";
+import { createSchedule } from "./views/schedule.js?v=9";
+import { createBracket } from "./views/bracket.js?v=9";
+import { createCities } from "./views/cities.js?v=9";
+import { createWorld } from "./views/world.js?v=9";
+import { createRankings } from "./views/rankings.js?v=9";
+import { createStandings } from "./views/standingstab.js?v=9";
+import { createTeamList } from "./views/teamlist.js?v=9";
+import { createJapan } from "./views/japan.js?v=9";
+import { createMatchModal } from "./views/matchmodal.js?v=9";
+import { fetchLiveData } from "./views/livedata.js?v=9";
+import { fetchFootballData } from "./views/footballapi.js?v=9";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 11; // bump on every release; shown in the header.
-const LIVE_CACHE_KEY = "wc2026-livedata-v10";
+const APP_VERSION = 12; // bump on every release; shown in the header.
+const LIVE_CACHE_KEY = "wc2026-livedata-v11";
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
 function showVersion() {
@@ -203,9 +203,22 @@ async function refreshLive({ silent } = {}) {
         }
       }
     }
+    // Knockout teams: Football-Data leaves R32+ slots empty (no teams, no
+    // official match numbers to join on), while Wikipedia carries the real
+    // bracket — confirmed teams as they qualify, plus dates/venues/labels in
+    // bracket order. So for the knockout stages, prefer Wikipedia's matches.
+    // Group matches keep the API's accurate results. Re-id the merged list so
+    // match-card lookups stay unique.
+    if (source === "api" && wikiLive?.matches) {
+      const wikiKo = wikiLive.matches.filter((m) => m.stage !== "group");
+      if (wikiKo.length) {
+        live.matches = [...live.matches.filter((m) => m.stage === "group"), ...wikiKo];
+        live.matches.forEach((m, i) => { m.id = `M${String(i + 1).padStart(3, "0")}`; });
+      }
+    }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=8");
+      const { goalRanking } = await import("./views/livedata.js?v=9");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && wikiLive?.matches) {
         const wikiRanked = goalRanking(wikiLive.matches);
@@ -323,6 +336,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v7"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v8"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v9"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v10"); } catch (_) {}
 
   try {
     await loadStatic();

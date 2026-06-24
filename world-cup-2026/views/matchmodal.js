@@ -1,4 +1,4 @@
-import { fetchMatchDetails } from "./footballapi.js?v=8";
+import { fetchMatchDetails } from "./footballapi.js?v=9";
 
 const STAGE_LABEL = {
   group: "グループステージ",
