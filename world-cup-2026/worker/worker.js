@@ -1,4 +1,5 @@
 const API_BASE = "https://api.football-data.org/v4";
+const FIFA_API_BASE = "https://api.fifa.com/api/v3";
 const ALLOWED_PATHS = [
   /^\/competitions\/WC\/matches/,
   /^\/competitions\/WC\/standings/,
@@ -14,6 +15,10 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
+
+    if (path === "/fifa-rankings") {
+      return handleFifaRankings(url, ctx);
+    }
 
     if (!ALLOWED_PATHS.some((re) => re.test(path))) {
       return json({ error: "Not found" }, 404);
@@ -61,6 +66,35 @@ export default {
     }
   },
 };
+
+async function handleFifaRankings(url, ctx) {
+  const cache = caches.default;
+  const cacheKey = new Request(url.toString(), { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) return addCors(cached);
+
+  const fifaUrl = `${FIFA_API_BASE}/fifarankings/rankings/live?gender=1&sportType=0&language=en`;
+  try {
+    const res = await fetch(fifaUrl, {
+      headers: { "Accept": "application/json" },
+    });
+    const body = await res.text();
+    const response = new Response(body, {
+      status: res.status,
+      headers: {
+        ...corsHeaders(),
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+    if (res.ok) {
+      ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    }
+    return response;
+  } catch (e) {
+    return json({ error: e.message }, 502);
+  }
+}
 
 function corsHeaders() {
   return {
