@@ -1,6 +1,7 @@
-// Team list view: all 48 participating nations grouped by confederation,
-// each card showing the flag, name, group, and FIFA ranking. Clicking a team
-// opens its country page (owned by the schedule tab) via the onTeam callback.
+// Team list view: all 48 participating nations in one FIFA-ranking order list,
+// with a confederation filter (multi-select chips + ALL). Unselected
+// confederations are hidden. Clicking a team opens its country page (owned by
+// the schedule tab) via the onTeam callback.
 
 const CONFED_NAME = {
   UEFA: "欧州 (UEFA)",
@@ -11,7 +12,7 @@ const CONFED_NAME = {
   OFC: "オセアニア (OFC)",
   TBD: "未定 (大陸間プレーオフ)",
 };
-// Display order (largest allocations first, host confederation grouped in).
+// Chip display order (largest allocations first).
 const CONFED_ORDER = ["UEFA", "CONMEBOL", "CONCACAF", "CAF", "AFC", "OFC", "TBD"];
 
 function esc(s) {
@@ -21,39 +22,71 @@ function esc(s) {
 }
 
 export function createTeamList({ container, data, onTeam }) {
-  function teamCard(t) {
+  // Confederations actually present, in display order.
+  function confeds() {
+    const set = new Set(data.teams.map((t) => t.confed));
+    return [
+      ...CONFED_ORDER.filter((c) => set.has(c)),
+      ...[...set].filter((c) => !CONFED_ORDER.includes(c)),
+    ];
+  }
+
+  // Selected confederations — all by default.
+  let selected = new Set(confeds());
+
+  function teamCard(t, pos) {
     return `<button class="tl-card team-link" data-team="${esc(t.code)}">
+      <span class="tl-pos">${pos}</span>
       <span class="tl-flag">${t.flag}</span>
       <span class="tl-info">
         <span class="tl-name">${esc(t.name)}</span>
-        <span class="tl-grp">${esc(t.group)}組${t.host ? " · 🏠開催国" : ""}</span>
+        <span class="tl-grp">${esc(t.group)}組 · ${esc(t.confed)}${t.host ? " · 🏠開催国" : ""}</span>
       </span>
       <span class="tl-rank">${t.rank ? `${t.rank}位` : "—"}</span>
     </button>`;
   }
 
-  function section(confed, teams) {
-    // sort by FIFA ranking ascending (best first); unranked last
-    const sorted = [...teams].sort((a, b) => (a.rank || 999) - (b.rank || 999));
-    return `<div class="tl-section">
-      <h3 class="tl-confed">${CONFED_NAME[confed] || confed} <span class="sub">${teams.length}チーム</span></h3>
-      <div class="tl-grid">${sorted.map(teamCard).join("")}</div>
-    </div>`;
+  function chipBar() {
+    const all = confeds();
+    const allActive = all.every((c) => selected.has(c));
+    const chip = (key, label, active) =>
+      `<button class="chip ${active ? "active" : ""}" data-c="${key}">${label}</button>`;
+    return [
+      chip("ALL", "ALL", allActive),
+      ...all.map((c) => chip(c, c, selected.has(c))),
+    ].join("");
   }
 
   function render() {
-    const byConfed = {};
-    for (const t of data.teams) (byConfed[t.confed] ||= []).push(t);
-    const order = [
-      ...CONFED_ORDER.filter((c) => byConfed[c]),
-      ...Object.keys(byConfed).filter((c) => !CONFED_ORDER.includes(c)),
-    ];
+    const teams = data.teams
+      .filter((t) => selected.has(t.confed))
+      .sort((a, b) => (a.rank || 999) - (b.rank || 999));
+
+    const list = teams.length
+      ? `<div class="tl-grid">${teams.map((t, i) => teamCard(t, i + 1)).join("")}</div>`
+      : `<p class="sub">表示する連盟（カンファレンス）が選択されていません。</p>`;
 
     container.innerHTML = `
-      <h2 class="section-title">👥 出場チーム一覧 <span class="sub">${data.teams.length}チーム</span></h2>
-      <div class="banner">連盟（カンファレンス）ごとに、FIFAランキング順で表示。チームをクリックすると登録メンバー・本大会得点のページへ。<br>※ FIFAランキングは概数（2025年後半時点の目安）。</div>
-      ${order.map((c) => section(c, byConfed[c])).join("")}
+      <h2 class="section-title">👥 出場チーム一覧 <span class="sub">${teams.length} / ${data.teams.length}チーム</span></h2>
+      <div class="banner">FIFAランキング順に表示。連盟（カンファレンス）で絞り込めます（複数選択可・ALLで全選択）。チームをクリックすると登録メンバー・本大会得点のページへ。<br>※ FIFAランキングは概数（2025年後半時点の目安）。</div>
+      <div class="toolbar">${chipBar()}</div>
+      ${list}
     `;
+
+    container.querySelectorAll(".chip").forEach((el) =>
+      el.addEventListener("click", () => {
+        const c = el.dataset.c;
+        const all = confeds();
+        if (c === "ALL") {
+          selected = all.every((x) => selected.has(x)) ? new Set() : new Set(all);
+        } else if (selected.has(c)) {
+          selected.delete(c);
+        } else {
+          selected.add(c);
+        }
+        render();
+      })
+    );
 
     container.querySelectorAll(".team-link").forEach((el) =>
       el.addEventListener("click", () => onTeam?.(el.dataset.team))
