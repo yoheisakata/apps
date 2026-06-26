@@ -6,21 +6,22 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=15";
-import { createBracket } from "./views/bracket.js?v=15";
-import { createCities } from "./views/cities.js?v=15";
-import { createWorld } from "./views/world.js?v=15";
-import { createRankings } from "./views/rankings.js?v=15";
-import { createStandings } from "./views/standingstab.js?v=15";
-import { createTeamList } from "./views/teamlist.js?v=15";
-import { createJapan } from "./views/japan.js?v=15";
-import { createMatchModal } from "./views/matchmodal.js?v=15";
-import { fetchLiveData } from "./views/livedata.js?v=15";
-import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=15";
+import { createSchedule } from "./views/schedule.js?v=16";
+import { createBracket } from "./views/bracket.js?v=16";
+import { createCities } from "./views/cities.js?v=16";
+import { createWorld } from "./views/world.js?v=16";
+import { createRankings } from "./views/rankings.js?v=16";
+import { createStandings } from "./views/standingstab.js?v=16";
+import { createTeamList } from "./views/teamlist.js?v=16";
+import { createJapan } from "./views/japan.js?v=16";
+import { createMatchModal } from "./views/matchmodal.js?v=16";
+import { fetchLiveData } from "./views/livedata.js?v=16";
+import { fetchOpenFootball } from "./views/openfootball.js?v=16";
+import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=16";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 18; // bump on every release; shown in the header.
-const LIVE_CACHE_KEY = "wc2026-livedata-v12";
+const APP_VERSION = 19; // bump on every release; shown in the header.
+const LIVE_CACHE_KEY = "wc2026-livedata-v13";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v1";
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
@@ -159,33 +160,44 @@ async function refreshLive({ silent } = {}) {
   try {
     let live;
     let source;
-    let wikiLive = null;
+    let suppLive = null;
     try {
       live = await fetchFootballData(data.teams);
       source = "api";
     } catch (_) {
-      live = await fetchLiveData();
-      source = "wiki";
-    }
-    // API matches lack scorer details; merge them from Wikipedia.
-    if (source === "api") {
+      // Fallbacks when the primary API is unreachable: Wikipedia, then the
+      // openfootball static dataset (CORS-friendly, no key).
       try {
-        wikiLive = await fetchLiveData();
-      } catch (e) {
-        console.warn("[live] wiki fetch for scorers failed:", e.message);
+        live = await fetchLiveData();
+        source = "wiki";
+      } catch (_) {
+        live = await fetchOpenFootball(data.teams);
+        source = "openfootball";
       }
-      if (wikiLive?.matches) {
-        // Index wiki matches by team pair (no date — timezone can cause mismatches)
-        const wikiByTeams = {};
-        for (const wm of wikiLive.matches) {
-          if (wm.home && wm.away) {
-            wikiByTeams[`${wm.home}|${wm.away}`] = wm;
-          }
+    }
+    // Football-Data gives results/standings but no per-match scorers or venues.
+    // Fill those from supplementary sources, in priority order: openfootball
+    // (clean structured goals with minute/penalty/own-goal flags) first, then
+    // Wikipedia to cover the freshest matches openfootball hasn't generated yet.
+    // Each pass only fills still-empty fields, so openfootball wins where it has
+    // data and Wikipedia patches the rest.
+    if (source === "api") {
+      const supps = [];
+      try { supps.push(await fetchOpenFootball(data.teams)); } catch (_) {}
+      try { supps.push(await fetchLiveData()); } catch (e) { console.warn("[live] wiki supplement failed:", e.message); }
+      suppLive = supps[0] || null;
+
+      for (const supp of supps) {
+        if (!supp?.matches) continue;
+        // Index supplementary matches by team pair (no date — timezone mismatch)
+        const byTeams = {};
+        for (const wm of supp.matches) {
+          if (wm.home && wm.away) byTeams[`${wm.home}|${wm.away}`] = wm;
         }
         for (const m of live.matches) {
           if (!m.home || !m.away) continue;
-          const exact = wikiByTeams[`${m.home}|${m.away}`];
-          const swapped = wikiByTeams[`${m.away}|${m.home}`];
+          const exact = byTeams[`${m.home}|${m.away}`];
+          const swapped = byTeams[`${m.away}|${m.home}`];
           if (exact) {
             if (!m.scorers1?.length && exact.scorers1?.length) m.scorers1 = exact.scorers1;
             if (!m.scorers2?.length && exact.scorers2?.length) m.scorers2 = exact.scorers2;
@@ -193,7 +205,6 @@ async function refreshLive({ silent } = {}) {
             if (!m.scorerDetails2?.length && exact.scorerDetails2?.length) m.scorerDetails2 = exact.scorerDetails2;
             if (!m.ownGoals1 && exact.ownGoals1) m.ownGoals1 = exact.ownGoals1;
             if (!m.ownGoals2 && exact.ownGoals2) m.ownGoals2 = exact.ownGoals2;
-            // Football-Data doesn't return venues; take Wikipedia's.
             if (!m.venue && exact.venue) m.venue = exact.venue;
           } else if (swapped) {
             if (!m.scorers1?.length && swapped.scorers2?.length) m.scorers1 = swapped.scorers2;
@@ -208,25 +219,25 @@ async function refreshLive({ silent } = {}) {
       }
     }
     // Knockout teams: Football-Data leaves R32+ slots empty (no teams, no
-    // official match numbers to join on), while Wikipedia carries the real
-    // bracket — confirmed teams as they qualify, plus dates/venues/labels in
-    // bracket order. So for the knockout stages, prefer Wikipedia's matches.
+    // official match numbers to join on), while the supplementary source carries
+    // the real bracket — confirmed teams as they qualify, plus dates/venues/
+    // labels in bracket order. So for the knockout stages, prefer that bracket.
     // Group matches keep the API's accurate results. Re-id the merged list so
     // match-card lookups stay unique.
-    if (source === "api" && wikiLive?.matches) {
-      const wikiKo = wikiLive.matches.filter((m) => m.stage !== "group");
-      if (wikiKo.length) {
-        live.matches = [...live.matches.filter((m) => m.stage === "group"), ...wikiKo];
+    if (source === "api" && suppLive?.matches) {
+      const suppKo = suppLive.matches.filter((m) => m.stage !== "group");
+      if (suppKo.length) {
+        live.matches = [...live.matches.filter((m) => m.stage === "group"), ...suppKo];
         live.matches.forEach((m, i) => { m.id = `M${String(i + 1).padStart(3, "0")}`; });
       }
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=15");
+      const { goalRanking } = await import("./views/livedata.js?v=16");
       const ranked = goalRanking(live.matches);
-      if (!ranked.length && wikiLive?.matches) {
-        const wikiRanked = goalRanking(wikiLive.matches);
-        if (wikiRanked.length) live.scorers = wikiRanked;
+      if (!ranked.length && suppLive?.matches) {
+        const suppRanked = goalRanking(suppLive.matches);
+        if (suppRanked.length) live.scorers = suppRanked;
       } else if (ranked.length) {
         live.scorers = ranked;
       }
@@ -375,6 +386,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v9"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v10"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v11"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v12"); } catch (_) {}
 
   try {
     await loadStatic();

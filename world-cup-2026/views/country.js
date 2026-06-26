@@ -1,6 +1,6 @@
-import { groupStandings } from "./standings.js?v=15";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=15";
-import { fetchWiki } from "./wiki.js?v=15";
+import { groupStandings } from "./standings.js?v=16";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=16";
+import { fetchWiki } from "./wiki.js?v=16";
 
 const POS_ORDER = { GK: 0, DF: 1, MF: 2, FW: 3 };
 const POS_LABEL = { GK: "GK", DF: "DF", MF: "MF", FW: "FW" };
