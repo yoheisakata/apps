@@ -390,3 +390,57 @@ export async function fetchFootballData(knownTeams) {
 
   return { groups, matches, scorers, asOf: latestDate || fmtDate(new Date().toISOString()) };
 }
+
+const FIFA_NAME_TO_CODE = {
+  "argentina": "ARG", "algeria": "ALG", "australia": "AUS", "austria": "AUT",
+  "belgium": "BEL", "bosnia and herzegovina": "BIH", "bosnia-herzegovina": "BIH",
+  "brazil": "BRA", "canada": "CAN", "cape verde": "CPV", "cabo verde": "CPV",
+  "cape verde islands": "CPV", "colombia": "COL", "costa rica": "CRC",
+  "côte d'ivoire": "CIV", "cote d'ivoire": "CIV", "ivory coast": "CIV",
+  "croatia": "CRO", "curaçao": "CUW", "curacao": "CUW",
+  "czech republic": "CZE", "czechia": "CZE",
+  "dr congo": "COD", "congo dr": "COD", "democratic republic of the congo": "COD",
+  "ecuador": "ECU", "egypt": "EGY", "england": "ENG",
+  "france": "FRA", "germany": "GER", "ghana": "GHA", "haiti": "HAI",
+  "iran": "IRN", "ir iran": "IRN", "iraq": "IRQ",
+  "japan": "JPN", "jordan": "JOR",
+  "korea republic": "KOR", "south korea": "KOR", "republic of korea": "KOR",
+  "mexico": "MEX", "morocco": "MAR",
+  "netherlands": "NED", "new zealand": "NZL", "norway": "NOR",
+  "panama": "PAN", "paraguay": "PAR", "portugal": "POR",
+  "qatar": "QAT", "saudi arabia": "KSA",
+  "scotland": "SCO", "senegal": "SEN",
+  "south africa": "RSA", "spain": "ESP", "sweden": "SWE",
+  "switzerland": "SUI", "tunisia": "TUN",
+  "türkiye": "TUR", "turkey": "TUR",
+  "united states": "USA", "usa": "USA",
+  "uruguay": "URU", "uzbekistan": "UZB",
+};
+
+export async function fetchFifaRankings(knownTeams) {
+  const res = await fetch(`${BASE}/fifa-rankings`);
+  if (!res.ok) throw new Error(`FIFA rankings ${res.status}`);
+  const json = await res.json();
+  const rankings = json?.rankings || [];
+  if (!rankings.length) throw new Error("empty rankings");
+
+  const codeByName = {};
+  for (const t of knownTeams) {
+    codeByName[t.name.toLowerCase()] = t.code;
+  }
+
+  const result = {};
+  for (const entry of rankings) {
+    const item = entry.rankingItem || entry;
+    const rank = item.rank ?? item.Rank;
+    const name = item.name ?? item.teamName ?? item.TeamName ?? "";
+    const totalPoints = item.totalPoints ?? item.TotalPoints ?? null;
+    if (!rank || !name) continue;
+    const code = FIFA_NAME_TO_CODE[name.toLowerCase()] ||
+      codeByName[name.toLowerCase()] || null;
+    if (code) {
+      result[code] = { rank, points: totalPoints };
+    }
+  }
+  return result;
+}

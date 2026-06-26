@@ -6,21 +6,22 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=12";
-import { createBracket } from "./views/bracket.js?v=12";
-import { createCities } from "./views/cities.js?v=12";
-import { createWorld } from "./views/world.js?v=12";
-import { createRankings } from "./views/rankings.js?v=12";
-import { createStandings } from "./views/standingstab.js?v=12";
-import { createTeamList } from "./views/teamlist.js?v=12";
-import { createJapan } from "./views/japan.js?v=12";
-import { createMatchModal } from "./views/matchmodal.js?v=12";
-import { fetchLiveData } from "./views/livedata.js?v=12";
-import { fetchFootballData } from "./views/footballapi.js?v=12";
+import { createSchedule } from "./views/schedule.js?v=13";
+import { createBracket } from "./views/bracket.js?v=13";
+import { createCities } from "./views/cities.js?v=13";
+import { createWorld } from "./views/world.js?v=13";
+import { createRankings } from "./views/rankings.js?v=13";
+import { createStandings } from "./views/standingstab.js?v=13";
+import { createTeamList } from "./views/teamlist.js?v=13";
+import { createJapan } from "./views/japan.js?v=13";
+import { createMatchModal } from "./views/matchmodal.js?v=13";
+import { fetchLiveData } from "./views/livedata.js?v=13";
+import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=13";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 15; // bump on every release; shown in the header.
-const LIVE_CACHE_KEY = "wc2026-livedata-v11";
+const APP_VERSION = 16; // bump on every release; shown in the header.
+const LIVE_CACHE_KEY = "wc2026-livedata-v12";
+const RANKINGS_CACHE_KEY = "wc2026-rankings-v1";
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
 function showVersion() {
@@ -221,7 +222,7 @@ async function refreshLive({ silent } = {}) {
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=12");
+      const { goalRanking } = await import("./views/livedata.js?v=13");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && wikiLive?.matches) {
         const wikiRanked = goalRanking(wikiLive.matches);
@@ -267,6 +268,39 @@ function loadCache() {
   return false;
 }
 
+
+async function refreshRankings() {
+  try {
+    const cached = localStorage.getItem(RANKINGS_CACHE_KEY);
+    if (cached) {
+      const { rankings, fetchedAt } = JSON.parse(cached);
+      if (Date.now() - new Date(fetchedAt).getTime() < 3600_000) {
+        applyRankings(rankings);
+        return;
+      }
+    }
+  } catch (_) {}
+  try {
+    const rankings = await fetchFifaRankings(data.teams);
+    applyRankings(rankings);
+    try {
+      localStorage.setItem(RANKINGS_CACHE_KEY, JSON.stringify({ rankings, fetchedAt: new Date().toISOString() }));
+    } catch (_) {}
+  } catch (e) {
+    console.warn("[rankings] FIFA rankings fetch failed:", e.message);
+  }
+}
+
+function applyRankings(rankings) {
+  let updated = 0;
+  for (const t of data.teams) {
+    if (rankings[t.code]?.rank) {
+      t.rank = rankings[t.code].rank;
+      updated++;
+    }
+  }
+  if (updated > 0) rerenderAll();
+}
 
 function applyThemeButton() {
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -340,6 +374,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v8"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v9"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v10"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v11"); } catch (_) {}
 
   try {
     await loadStatic();
@@ -352,4 +387,5 @@ function bind() {
   applyHash();
   $("loading").classList.add("hidden");
   refreshLive({ silent: false });
+  refreshRankings();
 })();
