@@ -34,15 +34,14 @@ export function createTeamList({ container, data, onTeam }) {
   // Selected confederations — all by default.
   let selected = new Set(confeds());
 
-  function teamCard(t, pos) {
+  function teamCard(t) {
     return `<button class="tl-card team-link" data-team="${esc(t.code)}">
-      <span class="tl-pos">${pos}</span>
       <span class="tl-flag">${t.flag}</span>
       <span class="tl-info">
         <span class="tl-name">${esc(t.name)}</span>
         <span class="tl-grp">${esc(t.group)}組 · ${esc(t.confed)}${t.host ? " · 🏠開催国" : ""}</span>
       </span>
-      <span class="tl-rank">${t.rank ? `${t.rank}位` : "—"}</span>
+      <span class="tl-rank">${t.rank ? `FIFA ${t.rank}位` : "—"}</span>
     </button>`;
   }
 
@@ -63,7 +62,7 @@ export function createTeamList({ container, data, onTeam }) {
       .sort((a, b) => (a.rank || 999) - (b.rank || 999));
 
     const list = teams.length
-      ? `<div class="tl-grid">${teams.map((t, i) => teamCard(t, i + 1)).join("")}</div>`
+      ? `<div class="tl-grid">${teams.map((t) => teamCard(t)).join("")}</div>`
       : `<p class="sub">表示する連盟（カンファレンス）が選択されていません。</p>`;
 
     container.innerHTML = `

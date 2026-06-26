@@ -693,8 +693,8 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .tl-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 .tl-card {
   display: flex;
@@ -711,15 +711,6 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   transition: border-color .12s, transform .12s;
 }
 .tl-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-.tl-pos {
-  flex: 0 0 auto;
-  min-width: 22px;
-  text-align: center;
-  font-weight: 800;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-}
 .tl-flag { font-size: 30px; line-height: 1; }
 .tl-info { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .tl-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1445,7 +1436,6 @@ tr.japan-row td { font-weight: 700; }
   .japan-grid { grid-template-columns: 1fr; }
   .country-grid { grid-template-columns: 1fr; }
   .card-list { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-  .tl-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 }
 
 /* ---- Mobile (≤760px) ---- */
