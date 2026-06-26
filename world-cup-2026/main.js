@@ -6,23 +6,23 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=16";
-import { createBracket } from "./views/bracket.js?v=16";
-import { createCities } from "./views/cities.js?v=16";
-import { createWorld } from "./views/world.js?v=16";
-import { createRankings } from "./views/rankings.js?v=16";
-import { createStandings } from "./views/standingstab.js?v=16";
-import { createTeamList } from "./views/teamlist.js?v=16";
-import { createJapan } from "./views/japan.js?v=16";
-import { createMatchModal } from "./views/matchmodal.js?v=16";
-import { fetchLiveData } from "./views/livedata.js?v=16";
-import { fetchOpenFootball } from "./views/openfootball.js?v=16";
-import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=16";
+import { createSchedule } from "./views/schedule.js?v=17";
+import { createBracket } from "./views/bracket.js?v=17";
+import { createCities } from "./views/cities.js?v=17";
+import { createWorld } from "./views/world.js?v=17";
+import { createRankings } from "./views/rankings.js?v=17";
+import { createStandings } from "./views/standingstab.js?v=17";
+import { createTeamList } from "./views/teamlist.js?v=17";
+import { createJapan } from "./views/japan.js?v=17";
+import { createMatchModal } from "./views/matchmodal.js?v=17";
+import { fetchLiveData } from "./views/livedata.js?v=17";
+import { fetchOpenFootball } from "./views/openfootball.js?v=17";
+import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=17";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 19; // bump on every release; shown in the header.
+const APP_VERSION = 20; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v13";
-const RANKINGS_CACHE_KEY = "wc2026-rankings-v1";
+const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
 function showVersion() {
@@ -233,7 +233,7 @@ async function refreshLive({ silent } = {}) {
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=16");
+      const { goalRanking } = await import("./views/livedata.js?v=17");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && suppLive?.matches) {
         const suppRanked = goalRanking(suppLive.matches);

@@ -421,26 +421,31 @@ export async function fetchFifaRankings(knownTeams) {
   const res = await fetch(`${BASE}/fifa-rankings`);
   if (!res.ok) throw new Error(`FIFA rankings ${res.status}`);
   const json = await res.json();
-  const rankings = json?.rankings || [];
+  // FIFA API v3 shape: { Results: [{ TeamName:[{Description}], IdCountry, Rank,
+  // TotalPoints }] }. Tolerate an older flat { rankings:[...] } shape too.
+  const rankings = json?.Results || json?.rankings || [];
   if (!rankings.length) throw new Error("empty rankings");
 
   const codeByName = {};
-  for (const t of knownTeams) {
-    codeByName[t.name.toLowerCase()] = t.code;
-  }
+  for (const t of knownTeams) codeByName[t.name.toLowerCase()] = t.code;
+  const knownCodes = new Set(knownTeams.map((t) => t.code));
 
   const result = {};
   for (const entry of rankings) {
     const item = entry.rankingItem || entry;
-    const rank = item.rank ?? item.Rank;
-    const name = item.name ?? item.teamName ?? item.TeamName ?? "";
-    const totalPoints = item.totalPoints ?? item.TotalPoints ?? null;
-    if (!rank || !name) continue;
-    const code = FIFA_NAME_TO_CODE[name.toLowerCase()] ||
-      codeByName[name.toLowerCase()] || null;
-    if (code) {
-      result[code] = { rank, points: totalPoints };
+    const rank = item.Rank ?? item.rank;
+    const name =
+      (Array.isArray(item.TeamName) ? item.TeamName[0]?.Description : item.TeamName) ||
+      item.name || item.teamName || "";
+    const points = item.TotalPoints ?? item.totalPoints ?? null;
+    if (!rank) continue;
+    // Resolve to our code: FIFA's 3-letter IdCountry when it's one we use,
+    // otherwise map by team name.
+    let code = item.IdCountry && knownCodes.has(item.IdCountry) ? item.IdCountry : null;
+    if (!code && name) {
+      code = FIFA_NAME_TO_CODE[name.toLowerCase()] || codeByName[name.toLowerCase()] || null;
     }
+    if (code && !result[code]) result[code] = { rank, points };
   }
   return result;
 }
