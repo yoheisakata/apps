@@ -1,6 +1,6 @@
-import { groupStandings } from "./standings.js?v=20";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=20";
-import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=20";
+import { groupStandings } from "./standings.js?v=21";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=21";
+import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=21";
 
 const POS_ORDER = { GK: 0, DF: 1, MF: 2, FW: 3 };
 const POS_LABEL = { GK: "GK", DF: "DF", MF: "MF", FW: "FW" };
@@ -258,46 +258,56 @@ export function createCountry({ container, data, onBack }) {
     </div>`;
   }
 
+  // One match card — an upcoming fixture or a played result.
+  function matchCardHtml(m) {
+    const isHome = m.home === code;
+    const played = Array.isArray(m.result);
+    const venue = data.venueById[m.venue];
+    const timeStr = m.time || "";
+    const left = isHome ? m.home : m.away;
+    const right = isHome ? m.away : m.home;
+    if (!played) {
+      return `<div class="japan-match-card upcoming" data-match-id="${m.id}" role="button" tabindex="0">
+        <div class="jm-date">${m.date || "未定"}${timeStr ? ` ${timeStr}` : ""}</div>
+        <div class="jm-teams">
+          <span class="jm-team">${teamName(left)}</span>
+          <span class="jm-vs">vs</span>
+          <span class="jm-team">${teamName(right)}</span>
+        </div>
+        <div class="jm-venue">${venue ? esc(venue.city) + " · " + esc(venue.stadium) : ""}</div>
+        <div class="jm-status">未実施</div>
+      </div>`;
+    }
+    const [hs, as] = m.result;
+    const myGoals = isHome ? hs : as;
+    const opGoals = isHome ? as : hs;
+    const outcome = myGoals > opGoals ? "win" : myGoals < opGoals ? "loss" : "draw";
+    const outcomeLabel = outcome === "win" ? "勝ち" : outcome === "loss" ? "負け" : "引き分け";
+    return `<div class="japan-match-card ${outcome}" data-match-id="${m.id}" role="button" tabindex="0">
+      <div class="jm-date">${m.date || ""}${timeStr ? ` ${timeStr}` : ""}</div>
+      <div class="jm-teams">
+        <span class="jm-team">${teamName(left)}</span>
+        <span class="jm-score">${myGoals} - ${opGoals}</span>
+        <span class="jm-team">${teamName(right)}</span>
+      </div>
+      <div class="jm-venue">${venue ? esc(venue.city) : ""}</div>
+      <div class="jm-result-label ${outcome}">${outcomeLabel}</div>
+    </div>`;
+  }
+
+  // Split into 日程 (upcoming, on top) and 結果 (played, below).
   function matchesCard() {
     const all = teamMatches();
+    const upcoming = all.filter((m) => !Array.isArray(m.result));
+    const results = all.filter((m) => Array.isArray(m.result));
+    const section = (title, list, emptyMsg) =>
+      `<h3>${title}</h3>` +
+      (list.length
+        ? `<div class="japan-match-list">${list.map(matchCardHtml).join("")}</div>`
+        : `<p class="sub">${emptyMsg}</p>`);
     return `<div class="japan-matches">
-      <h3>📋 全試合日程・結果</h3>
-      <div class="japan-match-list">${all.map((m) => {
-        const isHome = m.home === code;
-        const opp = isHome ? m.away : m.home;
-        const played = Array.isArray(m.result);
-        const venue = data.venueById[m.venue];
-        const timeStr = m.time || "";
-        const left = isHome ? m.home : m.away;
-        const right = isHome ? m.away : m.home;
-        if (!played) {
-          return `<div class="japan-match-card upcoming" data-match-id="${m.id}" role="button" tabindex="0">
-            <div class="jm-date">${m.date || "未定"}${timeStr ? ` ${timeStr}` : ""}</div>
-            <div class="jm-teams">
-              <span class="jm-team">${teamName(left)}</span>
-              <span class="jm-vs">vs</span>
-              <span class="jm-team">${teamName(right)}</span>
-            </div>
-            <div class="jm-venue">${venue ? esc(venue.city) + " · " + esc(venue.stadium) : ""}</div>
-            <div class="jm-status">未実施</div>
-          </div>`;
-        }
-        const [hs, as] = m.result;
-        const myGoals = isHome ? hs : as;
-        const opGoals = isHome ? as : hs;
-        const outcome = myGoals > opGoals ? "win" : myGoals < opGoals ? "loss" : "draw";
-        const outcomeLabel = outcome === "win" ? "勝ち" : outcome === "loss" ? "負け" : "引き分け";
-        return `<div class="japan-match-card ${outcome}" data-match-id="${m.id}" role="button" tabindex="0">
-          <div class="jm-date">${m.date || ""}${timeStr ? ` ${timeStr}` : ""}</div>
-          <div class="jm-teams">
-            <span class="jm-team">${teamName(left)}</span>
-            <span class="jm-score">${myGoals} - ${opGoals}</span>
-            <span class="jm-team">${teamName(right)}</span>
-          </div>
-          <div class="jm-venue">${venue ? esc(venue.city) : ""}</div>
-          <div class="jm-result-label ${outcome}">${outcomeLabel}</div>
-        </div>`;
-      }).join("")}</div>
+      ${section("📅 日程（今後の試合）", upcoming, "今後の試合はありません。")}
+      ${section("✅ これまでの結果", results, "まだ結果がありません。")}
     </div>`;
   }
 
