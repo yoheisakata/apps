@@ -6,21 +6,21 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=17";
-import { createBracket } from "./views/bracket.js?v=17";
-import { createCities } from "./views/cities.js?v=17";
-import { createWorld } from "./views/world.js?v=17";
-import { createRankings } from "./views/rankings.js?v=17";
-import { createStandings } from "./views/standingstab.js?v=17";
-import { createTeamList } from "./views/teamlist.js?v=17";
-import { createJapan } from "./views/japan.js?v=17";
-import { createMatchModal } from "./views/matchmodal.js?v=17";
-import { fetchLiveData } from "./views/livedata.js?v=17";
-import { fetchOpenFootball } from "./views/openfootball.js?v=17";
-import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=17";
+import { createSchedule } from "./views/schedule.js?v=18";
+import { createBracket } from "./views/bracket.js?v=18";
+import { createCities } from "./views/cities.js?v=18";
+import { createWorld } from "./views/world.js?v=18";
+import { createRankings } from "./views/rankings.js?v=18";
+import { createStandings } from "./views/standingstab.js?v=18";
+import { createTeamList } from "./views/teamlist.js?v=18";
+import { createJapan } from "./views/japan.js?v=18";
+import { createMatchModal } from "./views/matchmodal.js?v=18";
+import { fetchLiveData } from "./views/livedata.js?v=18";
+import { fetchOpenFootball } from "./views/openfootball.js?v=18";
+import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=18";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 20; // bump on every release; shown in the header.
+const APP_VERSION = 21; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v13";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
@@ -233,7 +233,7 @@ async function refreshLive({ silent } = {}) {
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=17");
+      const { goalRanking } = await import("./views/livedata.js?v=18");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && suppLive?.matches) {
         const suppRanked = goalRanking(suppLive.matches);
@@ -244,11 +244,13 @@ async function refreshLive({ silent } = {}) {
     }
     applyLive(live, source);
     const fetchedAt = new Date().toISOString();
+    data.fetchedAt = fetchedAt;
     try {
       localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify({ ...live, fetchedAt }));
     } catch (_) {}
     const played = live.matches.filter((m) => m.result).length;
     setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
+    updateProvenance();
     rerenderAll();
   } catch (e) {
     console.warn("[live] fetch failed:", e.message);
@@ -258,6 +260,7 @@ async function refreshLive({ silent } = {}) {
     } else {
       setStatus(`オフラインモード — 静的データ (${data.asOf || "—"}) / ${played}試合`, "");
     }
+    updateProvenance();
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -270,9 +273,11 @@ function loadCache() {
     const live = JSON.parse(raw);
     if (live.groups && live.matches) {
       applyLive(live, "cache");
+      data.fetchedAt = live.fetchedAt || null;
       const played = live.matches.filter((m) => m.result).length;
       const when = fmtDateTime(live.fetchedAt);
       setStatus(`保存データ${when ? ` (${when})` : ""} / ${played}試合`, "");
+      updateProvenance();
       return true;
     }
   } catch (_) {}
@@ -286,23 +291,24 @@ async function refreshRankings() {
     if (cached) {
       const { rankings, fetchedAt } = JSON.parse(cached);
       if (Date.now() - new Date(fetchedAt).getTime() < 3600_000) {
-        applyRankings(rankings);
+        applyRankings(rankings, fetchedAt);
         return;
       }
     }
   } catch (_) {}
   try {
     const rankings = await fetchFifaRankings(data.teams);
-    applyRankings(rankings);
+    const fetchedAt = new Date().toISOString();
+    applyRankings(rankings, fetchedAt);
     try {
-      localStorage.setItem(RANKINGS_CACHE_KEY, JSON.stringify({ rankings, fetchedAt: new Date().toISOString() }));
+      localStorage.setItem(RANKINGS_CACHE_KEY, JSON.stringify({ rankings, fetchedAt }));
     } catch (_) {}
   } catch (e) {
     console.warn("[rankings] FIFA rankings fetch failed:", e.message);
   }
 }
 
-function applyRankings(rankings) {
+function applyRankings(rankings, fetchedAt) {
   let updated = 0;
   for (const t of data.teams) {
     if (rankings[t.code]?.rank) {
@@ -310,7 +316,37 @@ function applyRankings(rankings) {
       updated++;
     }
   }
-  if (updated > 0) rerenderAll();
+  if (updated > 0) {
+    // Record provenance so the footer can show source + when.
+    data.rankingsSource = "FIFA公式 (api.fifa.com)";
+    data.rankingsAsOf = fetchedAt || new Date().toISOString();
+    updateProvenance();
+    rerenderAll();
+  }
+}
+
+// Render the global data-provenance footer: which sources are in use and when
+// the data was fetched. Shown on every tab.
+function updateProvenance() {
+  const el = $("data-provenance");
+  if (!el) return;
+  const SRC = {
+    api: "Football-Data.org",
+    wiki: "Wikipedia",
+    openfootball: "openfootball",
+    cache: "保存データ（キャッシュ）",
+  };
+  const main = SRC[data.source] || "同梱データ";
+  const parts = [`試合・順位: ${main}`];
+  if (data.source === "api") parts.push("得点者: openfootball＋Wikipedia");
+  parts.push(`FIFAランク: ${data.rankingsSource || "同梱データ（暫定値）"}`);
+  const when = [];
+  if (data.fetchedAt) when.push(`データ取得 ${fmtDateTime(data.fetchedAt)}`);
+  if (data.asOf) when.push(`試合データ基準 ${data.asOf}`);
+  if (data.rankingsAsOf) when.push(`ランク取得 ${fmtDateTime(data.rankingsAsOf)}`);
+  el.innerHTML =
+    `<span class="dp-src">📡 出典 — ${parts.join(" ・ ")}</span>` +
+    (when.length ? `<span class="dp-when">🕒 ${when.join(" / ")}</span>` : "");
 }
 
 function applyThemeButton() {
@@ -397,6 +433,7 @@ function bind() {
   loadCache();
   bind();
   applyHash();
+  updateProvenance();
   $("loading").classList.add("hidden");
   refreshLive({ silent: false });
   refreshRankings();

@@ -123,6 +123,33 @@ h2.section-title { font-size: 18px; margin: 4px 0 14px; }
   margin-bottom: 16px;
 }
 
+/* Global data-provenance footer (shown on every tab) */
+.data-note {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 18px auto 8px;
+  padding: 8px 14px;
+  max-width: 920px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+.data-note .dp-when { opacity: .85; }
+.data-note:empty { display: none; }
+
+/* Knockout tie date/kickoff (bracket view) */
+.tie-meta {
+  font-size: 9.5px;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ---- Buttons / chips ---- */
 .chip {
   display: inline-flex;

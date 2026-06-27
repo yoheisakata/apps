@@ -67,7 +67,7 @@ export function createTeamList({ container, data, onTeam }) {
 
     container.innerHTML = `
       <h2 class="section-title">👥 出場チーム一覧 <span class="sub">${teams.length} / ${data.teams.length}チーム</span></h2>
-      <div class="banner">FIFAランキング順に表示。連盟（カンファレンス）で絞り込めます（複数選択可・ALLで全選択）。チームをクリックすると登録メンバー・本大会得点のページへ。<br>※ FIFAランキングは概数（2025年後半時点の目安）。</div>
+      <div class="banner">FIFAランキング順に表示。連盟（カンファレンス）で絞り込めます（複数選択可・ALLで全選択）。チームをクリックすると登録メンバー・本大会得点のページへ。<br>※ 順位は FIFA 公式ランキング（最新）。出典・取得時刻はページ下部に表示。</div>
       <div class="toolbar">${chipBar()}</div>
       ${list}
     `;

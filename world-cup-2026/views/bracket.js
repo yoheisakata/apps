@@ -9,7 +9,7 @@
 // advance the predicted winners by folding the bracket (the same order
 // resolveKnockout uses), so the connector lines stay consistent.
 
-import { createPredictor } from "./predict.js?v=17";
+import { createPredictor } from "./predict.js?v=18";
 
 const KO_STAGES = ["r32", "r16", "qf", "sf", "final"];
 const ROUND_NAMES = {
@@ -43,6 +43,14 @@ export function createBracket({ container, data }) {
   // A group-position label (only meaningful in the Round of 32).
   const isGroupLabel = (label) => label && /Group [A-L]/.test(label);
 
+  // Compact match date + kickoff for a knockout tie, e.g. "6/28 13:00".
+  function tieMeta(m) {
+    if (!m.date) return "";
+    const md = m.date.slice(5).replace("-", "/").replace(/^0/, "");
+    const t = (m.time || "").match(/\d{1,2}:\d{2}/)?.[0] || "";
+    return `<div class="tie-meta">📅 ${md}${t ? ` ${t}` : ""}</div>`;
+  }
+
   function slotBox(code, label, picked) {
     const cls = picked ? "slot picked" : "slot";
     const teamHtml = code
@@ -70,6 +78,7 @@ export function createBracket({ container, data }) {
           const away = res.away || null;
           const win = res.winner || null;
           return `<div class="tie" data-r="${r}" data-i="${i}">
+            ${tieMeta(m)}
             ${slotBox(home, m.homeLabel, win && home && win === home)}
             ${slotBox(away, m.awayLabel, win && away && win === away)}
           </div>`;
