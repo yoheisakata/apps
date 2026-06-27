@@ -9,7 +9,8 @@
 // advance the predicted winners by folding the bracket (the same order
 // resolveKnockout uses), so the connector lines stay consistent.
 
-import { createPredictor } from "./predict.js?v=18";
+import { createPredictor } from "./predict.js?v=19";
+import { groupStandings } from "./standings.js?v=19";
 
 const KO_STAGES = ["r32", "r16", "qf", "sf", "final"];
 const ROUND_NAMES = {
@@ -51,14 +52,25 @@ export function createBracket({ container, data }) {
     return `<div class="tie-meta">📅 ${md}${t ? ` ${t}` : ""}</div>`;
   }
 
-  function slotBox(code, label, picked) {
+  // How an R32 team qualified, e.g. "I組 1位". Prefer the slot label (for
+  // still-predicted slots); for a CONFIRMED team the source drops the label, so
+  // derive the group position from the standings.
+  function qualText(code, label) {
+    if (isGroupLabel(label)) return jpLabel(label);
+    const t = data.byCode[code];
+    if (!t || !t.group || !data.groups?.[t.group]) return "";
+    const pos = groupStandings(data, t.group).findIndex((r) => r.code === code);
+    return pos >= 0 ? `${t.group}組 ${pos + 1}位` : "";
+  }
+
+  function slotBox(code, label, picked, isR32) {
     const cls = picked ? "slot picked" : "slot";
     const teamHtml = code
       ? name(code)
       : `<span class="tbd">${isGroupLabel(label) ? jpLabel(label) : "勝者待ち"}</span>`;
-    // For a resolved R32 team, also show how it qualified (e.g. "A組 1位").
-    const qual = code && isGroupLabel(label) ? `<span class="slot-qual">${jpLabel(label)}</span>` : "";
-    return `<div class="${cls}">${teamHtml}${qual}</div>`;
+    // For an R32 team (confirmed or predicted), show how it qualified.
+    const qual = code && isR32 ? qualText(code, label) : "";
+    return `<div class="${cls}">${teamHtml}${qual ? `<span class="slot-qual">${qual}</span>` : ""}</div>`;
   }
 
   function render() {
@@ -71,6 +83,7 @@ export function createBracket({ container, data }) {
     const roundsHtml = [];
     KO_STAGES.forEach((stage, r) => {
       const ms = stageMatches(stage);
+      const isR32 = stage === "r32";
       const ties = ms
         .map((m, i) => {
           const res = resolved.get(`${stage}:${i}`) || {};
@@ -79,8 +92,8 @@ export function createBracket({ container, data }) {
           const win = res.winner || null;
           return `<div class="tie" data-r="${r}" data-i="${i}">
             ${tieMeta(m)}
-            ${slotBox(home, m.homeLabel, win && home && win === home)}
-            ${slotBox(away, m.awayLabel, win && away && win === away)}
+            ${slotBox(home, m.homeLabel, win && home && win === home, isR32)}
+            ${slotBox(away, m.awayLabel, win && away && win === away, isR32)}
           </div>`;
         })
         .join("");
