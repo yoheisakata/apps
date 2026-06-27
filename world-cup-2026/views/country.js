@@ -1,6 +1,6 @@
-import { groupStandings } from "./standings.js?v=19";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=19";
-import { fetchWiki } from "./wiki.js?v=19";
+import { groupStandings } from "./standings.js?v=20";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=20";
+import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=20";
 
 const POS_ORDER = { GK: 0, DF: 1, MF: 2, FW: 3 };
 const POS_LABEL = { GK: "GK", DF: "DF", MF: "MF", FW: "FW" };
@@ -369,7 +369,7 @@ export function createCountry({ container, data, onBack }) {
 
     container.innerHTML = `
       <div class="japan-page">
-        <button class="btn" id="country-back">${esc(backLabel)}</button>
+        ${onBack ? `<button class="btn" id="country-back">${esc(backLabel)}</button>` : ""}
         <div class="japan-header">
           <span class="japan-flag">${t.flag}</span>
           <div>
@@ -411,7 +411,7 @@ export function createCountry({ container, data, onBack }) {
       </div>
     `;
 
-    container.querySelector("#country-back").addEventListener("click", () => onBack());
+    if (onBack) container.querySelector("#country-back")?.addEventListener("click", () => onBack());
     startCountdown(next);
 
     let squads;
@@ -454,7 +454,7 @@ export function createCountry({ container, data, onBack }) {
     ov.classList.remove("hidden");
   }
 
-  function playerCard(name, w, loading) {
+  function playerCard(name, w, info, loading) {
     const t = data.byCode[code];
     const flag = t ? t.flag : "⭐";
     const img = w?.thumb
@@ -470,15 +470,16 @@ export function createCountry({ container, data, onBack }) {
       </div>
       <figure class="cm-photo cm-photo-single">${img}</figure>
       ${text ? `<p class="popup-text">${esc(text)}</p>` : `<p class="sub">${loading ? "" : "情報が見つかりませんでした。"}</p>`}
+      ${renderPlayerInfoHtml(info)}
       <div class="cm-links">${link}</div>
     </div>`;
   }
 
   async function openPlayer(wiki, name) {
     openWiki = wiki;
-    showPlayer(playerCard(name, null, true));
-    const w = await fetchWiki(wiki, "en");
-    if (openWiki === wiki) showPlayer(playerCard(name, w, false));
+    showPlayer(playerCard(name, null, null, true));
+    const [w, info] = await Promise.all([fetchWiki(wiki, "en"), fetchPlayerInfo(wiki, "en")]);
+    if (openWiki === wiki) showPlayer(playerCard(name, w, info, false));
   }
 
   function bindPlayerLinks() {
