@@ -2,7 +2,7 @@
 // Standings are computed from played results (see standings.js). Clicking a
 // team opens its country page (via the onTeam callback, like the other tabs).
 
-import { groupStandings } from "./standings.js?v=22";
+import { groupStandings } from "./standings.js?v=23";
 
 export function createStandings({ container, data, onTeam }) {
   function flagName(code) {
