@@ -321,6 +321,12 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   font-size: 11px;
   color: var(--muted);
 }
+.m-tz {
+  font-size: 9px;
+  font-weight: 700;
+  opacity: .8;
+  letter-spacing: .3px;
+}
 
 /* ---- Bracket ---- */
 .bracket-wrap { overflow-x: auto; padding-bottom: 10px; }

@@ -2,9 +2,9 @@
 // Group results come from live data; knockout fixtures show real dates/venues
 // with predicted teams filled in (from the prediction engine).
 
-import { groupStandings } from "./standings.js?v=24";
-import { createCountry } from "./country.js?v=24";
-import { localHM, localYMD } from "./util.js?v=24";
+import { groupStandings } from "./standings.js?v=25";
+import { createCountry } from "./country.js?v=25";
+import { localHM, localYMD, tzLabel } from "./util.js?v=25";
 
 const STAGE_LABELS = {
   group: "Group",
@@ -14,6 +14,15 @@ const STAGE_LABELS = {
   sf: "SF",
   third: "3rd",
   final: "Final",
+};
+// Full category headings shown above each section.
+const STAGE_HEADING = {
+  r32: "🏟 ラウンド32 (R32)",
+  r16: "🏟 ラウンド16 (R16)",
+  qf: "🏟 準々決勝 (QF)",
+  sf: "🏟 準決勝 (SF)",
+  third: "🥉 3位決定戦",
+  final: "🏆 決勝 (Final)",
 };
 const KO_STAGES = ["r32", "r16", "qf", "sf", "third", "final"];
 
@@ -31,6 +40,7 @@ function jpLabel(label) {
 export function createSchedule({ container, data }) {
   let filter = "groups"; // "groups" | "all" | group key A-L | a ko stage
   let mode = "list"; // "list" | "country"
+  const TZ = tzLabel(); // viewer's timezone label, shown next to times
 
   // Default "back" returns to the schedule list; overridden when opened from
   // another tab so the back button returns there instead.
@@ -128,7 +138,7 @@ export function createSchedule({ container, data }) {
       ${center}
       <div class="m-side away">${side(m.away, m.awayLabel)}</div>
       <div class="m-meta">
-        ${timeStr ? `<span class="m-date">${timeStr}</span>` : ""}
+        ${timeStr ? `<span class="m-date">${timeStr} <span class="m-tz">${TZ}</span></span>` : ""}
         ${venue ? `<span class="m-venue">🏟 ${venue.stadium ? venue.stadium + " · " : ""}${venue.city}</span>` : ""}
       </div>
     </div>`;
@@ -174,12 +184,25 @@ export function createSchedule({ container, data }) {
       .join("");
   }
 
-  // Knockout: one section per stage, in bracket order.
+  // Knockout: one section per stage, in bracket order, with a category heading.
   function renderKnockout(stage) {
     const ms = data.matches.filter((m) => m.stage === stage);
-    if (!ms.length) return `<p class="sub">該当する試合がありません。</p>`;
+    const heading = STAGE_HEADING[stage] || STAGE_LABELS[stage];
+    if (!ms.length) {
+      return `<div class="ko-section"><h3 class="ko-title">${heading}</h3><p class="sub">該当する試合がありません。</p></div>`;
+    }
     return `<div class="ko-section">
-      <h3 class="ko-title">${STAGE_LABELS[stage]}</h3>
+      <h3 class="ko-title">${heading}</h3>
+      ${cardsByDate(ms)}
+    </div>`;
+  }
+
+  // Group-stage matches/results, grouped by date, under one heading.
+  function renderGroupResults() {
+    const ms = data.matches.filter((m) => m.stage === "group");
+    if (!ms.length) return "";
+    return `<div class="ko-section">
+      <h3 class="ko-title">🏁 グループステージの結果</h3>
       ${cardsByDate(ms)}
     </div>`;
   }
@@ -235,8 +258,9 @@ export function createSchedule({ container, data }) {
 
     let body;
     if (filter === "groups") {
-      const groupMatches = data.matches.filter((m) => m.stage === "group");
-      body = cardsByDate(groupMatches);
+      // Overview order: 今日の試合(上で表示) → R32 → R16 → QF → SF → 3位 →
+      // 決勝 → グループステージの結果。
+      body = KO_STAGES.map((s) => renderKnockout(s)).join("") + renderGroupResults();
     } else if (groupKeys.includes(filter)) {
       const ms = data.matches.filter((m) => m.stage === "group" && m.group === filter);
       body = `<div class="groups-grid single">${renderGroupCard(filter)}</div>${cardsByDate(ms)}`;

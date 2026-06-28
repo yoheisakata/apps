@@ -28,6 +28,20 @@ export function localYMD(m) {
   return (m && m.date) || "";
 }
 
+// Short label for the viewer's timezone, e.g. "JST" or "UTC+9".
+export function tzLabel() {
+  try {
+    const parts = new Intl.DateTimeFormat("ja-JP", { timeZoneName: "short" }).formatToParts(new Date());
+    const v = parts.find((x) => x.type === "timeZoneName")?.value;
+    if (v && !/^GMT$/i.test(v) && !/^UTC$/i.test(v)) return v;
+  } catch (_) {}
+  const off = -new Date().getTimezoneOffset();
+  const s = off >= 0 ? "+" : "-";
+  const h = Math.floor(Math.abs(off) / 60);
+  const mm = Math.abs(off) % 60;
+  return `UTC${s}${h}${mm ? ":" + String(mm).padStart(2, "0") : ""}`;
+}
+
 // "M/D(曜)" in the viewer's timezone.
 export function localMDW(m) {
   const d = kickoffDate(m);

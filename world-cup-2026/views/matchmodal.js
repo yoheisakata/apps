@@ -1,6 +1,6 @@
-import { fetchMatchDetails } from "./footballapi.js?v=24";
-import { createPredictor } from "./predict.js?v=24";
-import { localHM, localYMD } from "./util.js?v=24";
+import { fetchMatchDetails } from "./footballapi.js?v=25";
+import { createPredictor } from "./predict.js?v=25";
+import { localHM, localYMD, tzLabel } from "./util.js?v=25";
 
 const STAGE_LABEL = {
   group: "グループステージ",
@@ -276,7 +276,7 @@ export function createMatchModal({ onTeam } = {}) {
       </div>
       ${subScoreSection}
       <div class="mm-details">
-        ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(localYMD(m))}${kickoffTime ? ` ${kickoffTime}` : ""}</span></div>` : ""}
+        ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(localYMD(m))}${kickoffTime ? ` ${kickoffTime} (${esc(tzLabel())})` : ""}</span></div>` : ""}
         ${matchdayHtml}
         ${venue ? `<div class="mm-detail-row"><span class="mm-dk">スタジアム</span><span class="mm-dv">${esc(venue.stadium)}</span></div>` : ""}
         ${venue ? `<div class="mm-detail-row"><span class="mm-dk">都市</span><span class="mm-dv">${esc(venue.city)}</span></div>` : ""}
