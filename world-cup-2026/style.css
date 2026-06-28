@@ -847,11 +847,25 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tl-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tl-grp { font-size: 11px; color: var(--muted); }
 .tl-rank {
-  font-weight: 700;
+  flex: 0 0 46px;
+  text-align: center;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--accent2);
-  font-size: 14px;
+  font-size: 15px;
 }
+/* Ranking header above the team list */
+.tl-rank-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 4px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.tl-rank-title { font-size: 15px; font-weight: 800; }
+.tl-rank-src { font-size: 11px; color: var(--muted); }
 
 /* ---- Country match results ---- */
 .result-list { display: flex; flex-direction: column; gap: 6px; }

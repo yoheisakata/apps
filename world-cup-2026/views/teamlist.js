@@ -36,13 +36,32 @@ export function createTeamList({ container, data, onTeam }) {
 
   function teamCard(t) {
     return `<button class="tl-card team-link" data-team="${esc(t.code)}">
+      <span class="tl-rank">${t.rank ? `${t.rank}位` : "—"}</span>
       <span class="tl-flag">${t.flag}</span>
       <span class="tl-info">
         <span class="tl-name">${esc(t.name)}</span>
         <span class="tl-grp">${esc(t.group)}組 · ${esc(t.confed)}${t.host ? " · 🏠開催国" : ""}</span>
       </span>
-      <span class="tl-rank">${t.rank ? `FIFA ${t.rank}位` : "—"}</span>
     </button>`;
+  }
+
+  // "YYYY/M/D HH:MM" for the ranking fetch time.
+  function fmtWhen(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  // Header above the ranked list: "FIFAランキング" + where it came from.
+  function rankHead() {
+    const src = data.rankingsSource || "同梱データ（暫定値）";
+    const when = fmtWhen(data.rankingsAsOf);
+    return `<div class="tl-rank-head">
+      <span class="tl-rank-title">🏅 FIFAランキング</span>
+      <span class="tl-rank-src">出典: ${esc(src)}${when ? ` ／ 取得: ${esc(when)}` : ""}</span>
+    </div>`;
   }
 
   function chipBar() {
@@ -67,8 +86,9 @@ export function createTeamList({ container, data, onTeam }) {
 
     container.innerHTML = `
       <h2 class="section-title">👥 出場チーム一覧 <span class="sub">${teams.length} / ${data.teams.length}チーム</span></h2>
-      <div class="banner">FIFAランキング順に表示。連盟（カンファレンス）で絞り込めます（複数選択可・ALLで全選択）。チームをクリックすると登録メンバー・本大会得点のページへ。<br>※ 順位は FIFA 公式ランキング（最新）。出典・取得時刻はページ下部に表示。</div>
+      <div class="banner">FIFAランキング順に表示。連盟（カンファレンス）で絞り込めます（複数選択可・ALLで全選択）。チームをクリックすると登録メンバー・本大会得点のページへ。</div>
       <div class="toolbar">${chipBar()}</div>
+      ${rankHead()}
       ${list}
     `;
 

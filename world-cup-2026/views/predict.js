@@ -10,7 +10,7 @@
 //
 // The weights are deliberately simple and transparent; tweak WEIGHTS to taste.
 
-import { groupStandings } from "./standings.js?v=26";
+import { groupStandings } from "./standings.js?v=27";
 
 const WEIGHTS = {
   ranking: 1.0, // per ranking-position-better (relative to worst rank)

@@ -6,21 +6,21 @@
 // try to refresh groups + results live from Wikipedia. Live data is cached in
 // localStorage so a cold start shows the last fetched results immediately.
 
-import { createSchedule } from "./views/schedule.js?v=26";
-import { createBracket } from "./views/bracket.js?v=26";
-import { createCities } from "./views/cities.js?v=26";
-import { createWorld } from "./views/world.js?v=26";
-import { createRankings } from "./views/rankings.js?v=26";
-import { createStandings } from "./views/standingstab.js?v=26";
-import { createTeamList } from "./views/teamlist.js?v=26";
-import { createCountry } from "./views/country.js?v=26";
-import { createMatchModal } from "./views/matchmodal.js?v=26";
-import { fetchLiveData } from "./views/livedata.js?v=26";
-import { fetchOpenFootball } from "./views/openfootball.js?v=26";
-import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=26";
+import { createSchedule } from "./views/schedule.js?v=27";
+import { createBracket } from "./views/bracket.js?v=27";
+import { createCities } from "./views/cities.js?v=27";
+import { createWorld } from "./views/world.js?v=27";
+import { createRankings } from "./views/rankings.js?v=27";
+import { createStandings } from "./views/standingstab.js?v=27";
+import { createTeamList } from "./views/teamlist.js?v=27";
+import { createCountry } from "./views/country.js?v=27";
+import { createMatchModal } from "./views/matchmodal.js?v=27";
+import { fetchLiveData } from "./views/livedata.js?v=27";
+import { fetchOpenFootball } from "./views/openfootball.js?v=27";
+import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=27";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 30; // bump on every release; shown in the header.
+const APP_VERSION = 31; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v13";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
@@ -236,7 +236,7 @@ async function refreshLive({ silent } = {}) {
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=26");
+      const { goalRanking } = await import("./views/livedata.js?v=27");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && suppLive?.matches) {
         const suppRanked = goalRanking(suppLive.matches);
