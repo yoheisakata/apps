@@ -1,6 +1,7 @@
-import { groupStandings } from "./standings.js?v=23";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=23";
-import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=23";
+import { groupStandings } from "./standings.js?v=24";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=24";
+import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=24";
+import { localHM, localYMD } from "./util.js?v=24";
 
 const POS_ORDER = { GK: 0, DF: 1, MF: 2, FW: 3 };
 const POS_LABEL = { GK: "GK", DF: "DF", MF: "MF", FW: "FW" };
@@ -56,8 +57,8 @@ export function createCountry({ container, data, onBack }) {
     const oppTeam = data.byCode[opp];
     const venue = data.venueById[m.venue];
     const stageText = STAGE_LABEL[m.stage] || "";
-    const kickoffLocal = m.kickoff ? new Date(m.kickoff).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : (m.time || "");
-    const timeStr = kickoffLocal ? ` ${kickoffLocal}` : "";
+    const hm = localHM(m);
+    const timeStr = hm ? ` ${hm}` : "";
     return `<div class="japan-countdown" id="country-countdown" data-match-id="${m.id}" role="button" tabindex="0">
       <div class="jc-label">次の試合まで</div>
       <div class="jc-timer" id="cc-timer">--:--:--:--</div>
@@ -66,7 +67,7 @@ export function createCountry({ container, data, onBack }) {
         <span class="jc-vs">vs</span>
         <span class="jc-team">${oppTeam ? oppTeam.flag + " " + oppTeam.name : "未定"}</span>
       </div>
-      <div class="jc-info">${m.date || ""}${timeStr}${venue ? " · " + esc(venue.city) + " · " + esc(venue.stadium) : ""}${stageText ? " · " + stageText : ""}${m.group ? " " + m.group : ""}</div>
+      <div class="jc-info">${localYMD(m)}${timeStr}${venue ? " · " + esc(venue.city) + " · " + esc(venue.stadium) : ""}${stageText ? " · " + stageText : ""}${m.group ? " " + m.group : ""}</div>
     </div>`;
   }
 
@@ -121,12 +122,13 @@ export function createCountry({ container, data, onBack }) {
     const isHome = m.home === code;
     const played = Array.isArray(m.result);
     const venue = data.venueById[m.venue];
-    const timeStr = m.time || "";
+    const timeStr = localHM(m);
+    const dateStr = localYMD(m);
     const left = isHome ? m.home : m.away;
     const right = isHome ? m.away : m.home;
     if (!played) {
       return `<div class="japan-match-card upcoming" data-match-id="${m.id}" role="button" tabindex="0">
-        <div class="jm-date">${m.date || "未定"}${timeStr ? ` ${timeStr}` : ""}</div>
+        <div class="jm-date">${dateStr || "未定"}${timeStr ? ` ${timeStr}` : ""}</div>
         <div class="jm-teams">
           <span class="jm-team">${teamName(left)}</span>
           <span class="jm-vs">vs</span>
@@ -142,7 +144,7 @@ export function createCountry({ container, data, onBack }) {
     const outcome = myGoals > opGoals ? "win" : myGoals < opGoals ? "loss" : "draw";
     const outcomeLabel = outcome === "win" ? "勝ち" : outcome === "loss" ? "負け" : "引き分け";
     return `<div class="japan-match-card ${outcome}" data-match-id="${m.id}" role="button" tabindex="0">
-      <div class="jm-date">${m.date || ""}${timeStr ? ` ${timeStr}` : ""}</div>
+      <div class="jm-date">${dateStr || ""}${timeStr ? ` ${timeStr}` : ""}</div>
       <div class="jm-teams">
         <span class="jm-team">${teamName(left)}</span>
         <span class="jm-score">${myGoals} - ${opGoals}</span>

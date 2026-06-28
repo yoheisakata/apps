@@ -51,6 +51,17 @@ function venueForGround(ground) {
   return null;
 }
 
+// Build an absolute UTC kickoff (ISO) from openfootball's date + venue-local
+// time string, e.g. "2026-06-28" + "12:00 UTC-7" -> "...T19:00:00.000Z". This
+// lets every view render kickoff in the viewer's own timezone.
+function toKickoff(date, time) {
+  const m = /(\d{1,2}):(\d{2})\s*UTC([+-]\d+)/.exec(time || "");
+  if (!date || !m) return null;
+  const [y, mo, d] = date.split("-").map(Number);
+  const utcMs = Date.UTC(y, mo - 1, d, Number(m[1]) - Number(m[3]), Number(m[2]));
+  return isNaN(utcMs) ? null : new Date(utcMs).toISOString();
+}
+
 // A still-undecided slot, e.g. "1I" (group winner), "3A/B/C/D/F" (a 3rd place),
 // "W73"/"L101" (winner/loser of match N). Map to the app's English label form so
 // the existing predictor/label code resolves them.
@@ -125,6 +136,7 @@ export async function fetchOpenFootball(knownTeams) {
       stage,
       date: m.date || null,
       time: m.time || null,
+      kickoff: toKickoff(m.date, m.time),
       venue: venueForGround(m.ground),
       home: home || null,
       away: away || null,

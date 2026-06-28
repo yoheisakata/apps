@@ -1,5 +1,6 @@
-import { fetchMatchDetails } from "./footballapi.js?v=23";
-import { createPredictor } from "./predict.js?v=23";
+import { fetchMatchDetails } from "./footballapi.js?v=24";
+import { createPredictor } from "./predict.js?v=24";
+import { localHM, localYMD } from "./util.js?v=24";
 
 const STAGE_LABEL = {
   group: "グループステージ",
@@ -249,7 +250,7 @@ export function createMatchModal({ onTeam } = {}) {
     const showHighlight = played && homeTeam && awayTeam;
 
     // Kickoff time: prefer Wikipedia's local time, fall back to API's UTC
-    const kickoffTime = m.time || formatKickoff(m.kickoff);
+    const kickoffTime = localHM(m);
 
     // Referee info
     const mainRef = m.referees?.find((r) => r.type === "REFEREE");
@@ -275,7 +276,7 @@ export function createMatchModal({ onTeam } = {}) {
       </div>
       ${subScoreSection}
       <div class="mm-details">
-        ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(m.date)}${kickoffTime ? ` ${kickoffTime} (現地)` : ""}</span></div>` : ""}
+        ${m.date ? `<div class="mm-detail-row"><span class="mm-dk">日付</span><span class="mm-dv">${esc(localYMD(m))}${kickoffTime ? ` ${kickoffTime}` : ""}</span></div>` : ""}
         ${matchdayHtml}
         ${venue ? `<div class="mm-detail-row"><span class="mm-dk">スタジアム</span><span class="mm-dv">${esc(venue.stadium)}</span></div>` : ""}
         ${venue ? `<div class="mm-detail-row"><span class="mm-dk">都市</span><span class="mm-dv">${esc(venue.city)}</span></div>` : ""}

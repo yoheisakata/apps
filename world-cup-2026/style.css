@@ -368,10 +368,13 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .bk-lines .conn {
   fill: none;
-  stroke: var(--line);
+  stroke: var(--muted);
+  stroke-opacity: .55;
   stroke-width: 1.5;
   stroke-linejoin: round;
 }
+/* Every tie is the same fixed height so the two sides line up and the fold
+   lines stay symmetric, regardless of 1- vs 2-line qualification labels. */
 .bk-side {
   position: relative;
   z-index: 1;
@@ -380,7 +383,7 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   justify-content: space-around;
   padding: 6px 0;
 }
-.bk-tie { display: flex; align-items: center; }
+.bk-tie { display: flex; align-items: stretch; height: 84px; }
 .bk-side.left .bk-tie { padding-right: 6px; }
 .bk-side.right .bk-tie { padding-left: 6px; }
 .bk-teams {
@@ -391,7 +394,14 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
 }
-.bk-team { padding: 5px 9px; }
+.bk-team {
+  padding: 5px 9px;
+  height: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+}
 .bk-team + .bk-team { border-top: 1px solid var(--line); }
 .bk-team.picked { background: color-mix(in srgb, var(--accent) 15%, transparent); }
 .bk-line1 { display: flex; align-items: baseline; gap: 6px; }
@@ -402,6 +412,10 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .bk-team.tbd .bk-tname { color: var(--muted); font-weight: 600; }
 .bk-time {
   flex: 0 0 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-size: 10px;
   line-height: 1.35;

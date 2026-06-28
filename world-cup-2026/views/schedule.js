@@ -2,8 +2,9 @@
 // Group results come from live data; knockout fixtures show real dates/venues
 // with predicted teams filled in (from the prediction engine).
 
-import { groupStandings } from "./standings.js?v=23";
-import { createCountry } from "./country.js?v=23";
+import { groupStandings } from "./standings.js?v=24";
+import { createCountry } from "./country.js?v=24";
+import { localHM, localYMD } from "./util.js?v=24";
 
 const STAGE_LABELS = {
   group: "Group",
@@ -120,7 +121,7 @@ export function createSchedule({ container, data }) {
       center = `<div class="m-vs">vs</div>`;
     }
 
-    const timeStr = m.time || (m.kickoff ? fmtTime(m.kickoff) : "");
+    const timeStr = localHM(m);
 
     return `<div class="m-card${isLive ? " m-card-live" : ""}" data-match-id="${m.id}" role="button" tabindex="0">
       <div class="m-side home">${side(m.home, m.homeLabel)}</div>
@@ -156,7 +157,7 @@ export function createSchedule({ container, data }) {
   function cardsByDate(matches) {
     const byDate = new Map();
     for (const m of matches) {
-      const key = m.date || "日程未定";
+      const key = localYMD(m) || "日程未定";
       if (!byDate.has(key)) byDate.set(key, []);
       byDate.get(key).push(m);
     }
@@ -193,7 +194,7 @@ export function createSchedule({ container, data }) {
     const dayLabel = dayNum >= 1 ? ` — 大会${dayNum}日目` : "";
 
     const groupKeys = Object.keys(data.groups);
-    let todayMatches = data.matches.filter((m) => m.date === todayStr);
+    let todayMatches = data.matches.filter((m) => localYMD(m) === todayStr);
     if (filter !== "groups" && groupKeys.includes(filter)) {
       todayMatches = todayMatches.filter((m) => m.group === filter);
     } else if (KO_STAGES.includes(filter)) {

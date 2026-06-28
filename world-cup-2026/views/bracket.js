@@ -2,11 +2,11 @@
 // right, folding inward to the predicted CHAMPION in the centre). Slots are
 // filled with confirmed teams where known, otherwise predicted via predict.js.
 
-import { createPredictor } from "./predict.js?v=23";
-import { groupStandings } from "./standings.js?v=23";
+import { createPredictor } from "./predict.js?v=24";
+import { groupStandings } from "./standings.js?v=24";
+import { localHM, localMDW } from "./util.js?v=24";
 
 const KO_STAGES = ["r32", "r16", "qf", "sf", "final"];
-const WD = ["日", "月", "火", "水", "木", "金", "土"];
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
@@ -42,14 +42,12 @@ export function createBracket({ container, data }) {
     return pos >= 0 ? `${t.group}組 ${pos + 1}位` : "";
   }
 
-  // Match date + kickoff, stacked: "6/30(火)" / "05:30".
+  // Match date + kickoff in the viewer's timezone, stacked: "6/30(火)" / "05:30".
   function fmtDT(m) {
-    if (!m.date) return "";
-    const d = new Date(m.date + "T00:00:00");
-    const wd = isNaN(d) ? "" : WD[d.getDay()];
-    const md = m.date.slice(5).replace("-", "/").replace(/^0/, "");
-    const t = (m.time || "").match(/\d{1,2}:\d{2}/)?.[0] || "";
-    return `${md}${wd ? `(${wd})` : ""}${t ? `<br>${t}` : ""}`;
+    const md = localMDW(m);
+    const t = localHM(m);
+    if (!md) return "";
+    return `${md}${t ? `<br>${t}` : ""}`;
   }
 
   function teamRow(code, label, picked) {
