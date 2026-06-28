@@ -1,27 +1,20 @@
-// Bracket view: the real 32-team knockout bracket with AUTOMATIC predictions.
-//
-// Structure (matchups, dates) comes from the actual tournament bracket fetched
-// from Wikipedia — the same Round-of-32 layout shown on ESPN (2A v 2B, 1E v a
-// 3rd-placed team, …). Each slot is then filled with a PREDICTED team using
-// FIFA ranking + tournament form + head-to-head (see predict.js).
-//
-// The R32 fixtures are resolved from real group-position labels; later rounds
-// advance the predicted winners by folding the bracket (the same order
-// resolveKnockout uses), so the connector lines stay consistent.
+// Bracket view: a symmetric two-sided knockout bracket (R32 on the left and
+// right, folding inward to the predicted CHAMPION in the centre). Slots are
+// filled with confirmed teams where known, otherwise predicted via predict.js.
 
-import { createPredictor } from "./predict.js?v=21";
-import { groupStandings } from "./standings.js?v=21";
+import { createPredictor } from "./predict.js?v=22";
+import { groupStandings } from "./standings.js?v=22";
 
 const KO_STAGES = ["r32", "r16", "qf", "sf", "final"];
-const ROUND_NAMES = {
-  r32: "ラウンド32",
-  r16: "ラウンド16",
-  qf: "準々決勝",
-  sf: "準決勝",
-  final: "決勝",
-};
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
 
-// English slot label -> short Japanese (for unresolved R32 slots).
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
+  );
+}
+
+// English slot label -> short Japanese (for still-unresolved R32 slots).
 function jpLabel(label) {
   if (!label) return "未定";
   return label
@@ -31,30 +24,16 @@ function jpLabel(label) {
 }
 
 export function createBracket({ container, data }) {
-  function name(code) {
-    const t = data.byCode[code];
-    return t ? `${t.flag} ${t.name}` : null;
-  }
-
-  // Matches for a stage, in bracket (article) order.
-  function stageMatches(stage) {
-    return data.matches.filter((m) => m.stage === stage);
-  }
-
-  // A group-position label (only meaningful in the Round of 32).
   const isGroupLabel = (label) => label && /Group [A-L]/.test(label);
 
-  // Compact match date + kickoff for a knockout tie, e.g. "6/28 13:00".
-  function tieMeta(m) {
-    if (!m.date) return "";
-    const md = m.date.slice(5).replace("-", "/").replace(/^0/, "");
-    const t = (m.time || "").match(/\d{1,2}:\d{2}/)?.[0] || "";
-    return `<div class="tie-meta">📅 ${md}${t ? ` ${t}` : ""}</div>`;
+  // Japanese country name (teams.json `wiki` holds it), falling back to name.
+  function jpName(code) {
+    const t = data.byCode[code];
+    return t ? t.wiki || t.name : null;
   }
 
-  // How an R32 team qualified, e.g. "I組 1位". Prefer the slot label (for
-  // still-predicted slots); for a CONFIRMED team the source drops the label, so
-  // derive the group position from the standings.
+  // How an R32 team qualified, e.g. "I組 1位". Prefer the slot label; for a
+  // confirmed team (label dropped) derive the group position from standings.
   function qualText(code, label) {
     if (isGroupLabel(label)) return jpLabel(label);
     const t = data.byCode[code];
@@ -63,14 +42,43 @@ export function createBracket({ container, data }) {
     return pos >= 0 ? `${t.group}組 ${pos + 1}位` : "";
   }
 
-  function slotBox(code, label, picked, isR32) {
-    const cls = picked ? "slot picked" : "slot";
-    const teamHtml = code
-      ? name(code)
-      : `<span class="tbd">${isGroupLabel(label) ? jpLabel(label) : "勝者待ち"}</span>`;
-    // For an R32 team (confirmed or predicted), show how it qualified.
-    const qual = code && isR32 ? qualText(code, label) : "";
-    return `<div class="${cls}">${teamHtml}${qual ? `<span class="slot-qual">${qual}</span>` : ""}</div>`;
+  // Match date + kickoff, stacked: "6/30(火)" / "05:30".
+  function fmtDT(m) {
+    if (!m.date) return "";
+    const d = new Date(m.date + "T00:00:00");
+    const wd = isNaN(d) ? "" : WD[d.getDay()];
+    const md = m.date.slice(5).replace("-", "/").replace(/^0/, "");
+    const t = (m.time || "").match(/\d{1,2}:\d{2}/)?.[0] || "";
+    return `${md}${wd ? `(${wd})` : ""}${t ? `<br>${t}` : ""}`;
+  }
+
+  function teamRow(code, label, picked) {
+    const t = code ? data.byCode[code] : null;
+    if (!t) {
+      const tbd = isGroupLabel(label) ? jpLabel(label) : "勝者待ち";
+      return `<div class="bk-team tbd"><div class="bk-line1"><span class="bk-tname">${esc(tbd)}</span></div></div>`;
+    }
+    const rank = t.rank ? ` <span class="bk-rank">(${t.rank}位)</span>` : "";
+    const qual = qualText(code, label);
+    return `<div class="bk-team${picked ? " picked" : ""}">
+      <div class="bk-line1"><span class="bk-flag">${t.flag}</span><span class="bk-tname">${esc(t.wiki || t.name)}</span>${rank}</div>
+      ${qual ? `<div class="bk-qual">${esc(qual)}</div>` : ""}
+    </div>`;
+  }
+
+  function tieHtml(m, i, side, resolved) {
+    const res = resolved.get(`r32:${i}`) || {};
+    const home = res.home || null;
+    const away = res.away || null;
+    const win = res.winner || null;
+    const teams = `<div class="bk-teams">
+      ${teamRow(home, m.homeLabel, win && home === win)}
+      ${teamRow(away, m.awayLabel, win && away === win)}
+    </div>`;
+    const time = `<div class="bk-time">${fmtDT(m)}</div>`;
+    return `<div class="bk-tie" data-side="${side}" data-i="${i}">${
+      side === "L" ? teams + time : time + teams
+    }</div>`;
   }
 
   function render() {
@@ -79,28 +87,14 @@ export function createBracket({ container, data }) {
       data.matches.filter((m) => KO_STAGES.includes(m.stage) || m.stage === "third")
     );
 
-    // Build each round from the real matches, resolving predicted teams.
-    const roundsHtml = [];
-    KO_STAGES.forEach((stage, r) => {
-      const ms = stageMatches(stage);
-      const isR32 = stage === "r32";
-      const ties = ms
-        .map((m, i) => {
-          const res = resolved.get(`${stage}:${i}`) || {};
-          const home = res.home || null;
-          const away = res.away || null;
-          const win = res.winner || null;
-          return `<div class="tie" data-r="${r}" data-i="${i}">
-            ${tieMeta(m)}
-            ${slotBox(home, m.homeLabel, win && home && win === home, isR32)}
-            ${slotBox(away, m.awayLabel, win && away && win === away, isR32)}
-          </div>`;
-        })
-        .join("");
-      roundsHtml.push(`<div class="round"><h4>${ROUND_NAMES[stage]}</h4><div class="ties">${ties}</div></div>`);
-    });
+    const r32 = data.matches.filter((m) => m.stage === "r32");
+    const left = r32.slice(0, 8);
+    const right = r32.slice(8, 16);
 
-    // Champion = predicted winner of the final, with a clear summary callout.
+    const leftHtml = left.map((m, i) => tieHtml(m, i, "L", resolved)).join("");
+    const rightHtml = right.map((m, i) => tieHtml(m, i + 8, "R", resolved)).join("");
+
+    // Predicted champion (winner of the final).
     const finalRes = resolved.get("final:0") || {};
     const champ = finalRes.winner || null;
     const finalOpp = champ ? (finalRes.home === champ ? finalRes.away : finalRes.home) : null;
@@ -111,78 +105,103 @@ export function createBracket({ container, data }) {
       const chips = [
         `<span class="cr-chip">🥇 ${info.rankTxt}</span>`,
         `<span class="cr-chip">📊 ${info.formTxt}</span>`,
-        info.oppCode && name(info.oppCode)
-          ? `<span class="cr-chip">⚔️ 決勝で ${name(info.oppCode)} を撃破</span>`
+        info.oppCode && jpName(info.oppCode)
+          ? `<span class="cr-chip">⚔️ 決勝で ${data.byCode[info.oppCode].flag} ${esc(jpName(info.oppCode))} を撃破</span>`
           : "",
       ].join("");
       calloutHtml = `<div class="champ-callout">
         <div class="cc-head">🏆 優勝予想</div>
-        <div class="cc-team">${name(champ)}</div>
+        <div class="cc-team">${data.byCode[champ].flag} ${esc(jpName(champ))}</div>
         <div class="cc-reasons">${chips}</div>
         <div class="cc-note">FIFAランキング・本大会の成績・直接対戦から自動算出（暫定）</div>
       </div>`;
     }
 
-    const champBox = `<div class="round champion-box">
-      <h4>優勝予想</h4>
-      <div class="ties" id="champ-box">
-        <div class="trophy">🏆</div>
-        <div class="name">${champ ? name(champ) : "?"}</div>
-      </div>
+    const champBox = `<div class="bk-champ">
+      <div class="bk-trophy">🏆</div>
+      <div class="bk-champ-label">優勝<br><small>(CHAMPION)</small></div>
+      ${champ ? `<div class="bk-champ-team">${data.byCode[champ].flag} ${esc(jpName(champ))}</div>` : ""}
     </div>`;
 
     container.innerHTML = `
       <h2 class="section-title">🔮 優勝予想ブラケット <span class="sub">ラウンド32 → 決勝</span></h2>
       ${calloutHtml}
-      <div class="bracket-wrap"><div class="bracket">
-        <svg class="bracket-lines" aria-hidden="true"></svg>
-        ${roundsHtml.join("")}${champBox}
+      <div class="bracket2-wrap"><div class="bracket2">
+        <svg class="bk-lines" aria-hidden="true"></svg>
+        <div class="bk-side left">${leftHtml}</div>
+        <div class="bk-center">${champBox}</div>
+        <div class="bk-side right">${rightHtml}</div>
       </div></div>
     `;
 
     requestAnimationFrame(drawLines);
   }
 
-  // Connector lines: each tie feeds tie floor(i/2) of the next round; the final
-  // feeds the champion box. Highlight a line when the feeding tie's predicted
-  // winner advanced into the next round's pick.
+  // Right-angle connector between two points.
+  function conn(x1, y1, x2, y2) {
+    const mx = (x1 + x2) / 2;
+    return `<path d="M${x1},${y1} H${mx} V${y2} H${x2}" class="conn"/>`;
+  }
+
+  // Fold the connector tree for the bracket: every R32 tie's inner edge folds
+  // pairwise toward the champion in the centre.
   function drawLines() {
-    const svg = container.querySelector(".bracket-lines");
-    const bracket = container.querySelector(".bracket");
-    if (!svg || !bracket) return;
-    const base = bracket.getBoundingClientRect();
+    const svg = container.querySelector(".bk-lines");
+    const wrap = container.querySelector(".bracket2");
+    const champEl = container.querySelector(".bk-champ");
+    if (!svg || !wrap || !champEl) return;
+    const base = wrap.getBoundingClientRect();
     svg.setAttribute("viewBox", `0 0 ${base.width} ${base.height}`);
     svg.setAttribute("width", base.width);
     svg.setAttribute("height", base.height);
 
-    const rel = (el) => {
-      const r = el.getBoundingClientRect();
-      return { left: r.left - base.left, right: r.right - base.left, midY: r.top - base.top + r.height / 2 };
-    };
-    const tie = (r, i) => container.querySelector(`.tie[data-r="${r}"][data-i="${i}"]`);
+    const cr = champEl.getBoundingClientRect();
+    const champLeftX = cr.left - base.left;
+    const champRightX = cr.right - base.left;
+    const champY = cr.top - base.top + cr.height / 2;
+
+    const collect = (side) =>
+      [...container.querySelectorAll(`.bk-tie[data-side="${side}"]`)].map((t) => {
+        const r = t.getBoundingClientRect();
+        return {
+          x: (side === "L" ? r.right : r.left) - base.left,
+          y: r.top - base.top + r.height / 2,
+        };
+      });
 
     const lines = [];
-    for (let r = 0; r < KO_STAGES.length; r++) {
-      const ms = stageMatches(KO_STAGES[r]);
-      for (let i = 0; i < ms.length; i++) {
-        const from = tie(r, i);
-        if (!from) continue;
-        const target =
-          r < KO_STAGES.length - 1 ? tie(r + 1, Math.floor(i / 2)) : container.querySelector("#champ-box");
-        if (!target) continue;
-        const a = rel(from);
-        const b = rel(target);
-        const x1 = a.right, y1 = a.midY, x2 = b.left, y2 = b.midY;
-        const mx = (x1 + x2) / 2;
-        lines.push(`<path d="M${x1},${y1} H${mx} V${y2} H${x2}" class="conn"/>`);
+    const fold = (pts, targetX, targetY) => {
+      if (pts.length < 2) {
+        if (pts[0]) lines.push(conn(pts[0].x, pts[0].y, targetX, targetY));
+        return;
       }
-    }
+      const innerX = pts[0].x;
+      const folds = Math.round(Math.log2(pts.length));
+      const span = targetX - innerX;
+      let level = pts.map((p) => ({ ...p }));
+      for (let f = 1; f <= folds; f++) {
+        const px = innerX + (span * f) / folds;
+        const next = [];
+        for (let k = 0; k + 1 < level.length; k += 2) {
+          const a = level[k], b = level[k + 1];
+          const py = (a.y + b.y) / 2;
+          lines.push(conn(a.x, a.y, px, py));
+          lines.push(conn(b.x, b.y, px, py));
+          next.push({ x: px, y: py });
+        }
+        level = next;
+      }
+      if (level[0]) lines.push(conn(level[0].x, level[0].y, targetX, targetY));
+    };
+
+    fold(collect("L"), champLeftX, champY);
+    fold(collect("R"), champRightX, champY);
     svg.innerHTML = lines.join("");
   }
 
   if (typeof window !== "undefined") {
     window.addEventListener("resize", () => {
-      if (container.querySelector(".bracket-lines")) drawLines();
+      if (container.querySelector(".bk-lines")) drawLines();
     });
   }
 

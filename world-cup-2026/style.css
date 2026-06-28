@@ -349,6 +349,85 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   stroke: var(--accent);
   stroke-width: 2.5;
 }
+
+/* Symmetric two-sided bracket (R32 → champion in the centre) */
+.bracket2-wrap { overflow-x: auto; padding-bottom: 10px; }
+.bracket2 {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  min-width: 760px;
+}
+.bk-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible;
+}
+.bk-lines .conn {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.bk-side {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: 6px 0;
+}
+.bk-tie { display: flex; align-items: center; }
+.bk-side.left .bk-tie { padding-right: 6px; }
+.bk-side.right .bk-tie { padding-left: 6px; }
+.bk-teams {
+  flex: 1 1 auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+.bk-team { padding: 5px 9px; }
+.bk-team + .bk-team { border-top: 1px solid var(--line); }
+.bk-team.picked { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.bk-line1 { display: flex; align-items: baseline; gap: 6px; }
+.bk-flag { font-size: 17px; line-height: 1; }
+.bk-tname { font-weight: 700; font-size: 14px; white-space: nowrap; }
+.bk-rank { color: var(--muted); font-weight: 600; font-size: 11px; }
+.bk-qual { font-size: 10px; color: var(--muted); margin-top: 1px; padding-left: 23px; }
+.bk-team.tbd .bk-tname { color: var(--muted); font-weight: 600; }
+.bk-time {
+  flex: 0 0 54px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.bk-center {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 104px;
+  padding: 0 6px;
+}
+.bk-champ {
+  text-align: center;
+  padding: 12px 10px;
+  border: 1px solid var(--accent2);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent2) 12%, var(--panel));
+}
+.bk-trophy { font-size: 30px; line-height: 1; }
+.bk-champ-label { font-weight: 800; font-size: 13px; margin-top: 2px; }
+.bk-champ-label small { color: var(--muted); font-size: 9px; font-weight: 700; }
+.bk-champ-team { margin-top: 6px; font-weight: 800; font-size: 13px; color: var(--accent); white-space: nowrap; }
 .bracket .round,
 .bracket .champion-box { position: relative; z-index: 1; }
 .round { display: flex; flex-direction: column; min-width: 134px; }

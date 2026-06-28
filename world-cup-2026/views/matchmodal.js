@@ -1,5 +1,5 @@
-import { fetchMatchDetails } from "./footballapi.js?v=21";
-import { createPredictor } from "./predict.js?v=21";
+import { fetchMatchDetails } from "./footballapi.js?v=22";
+import { createPredictor } from "./predict.js?v=22";
 
 const STAGE_LABEL = {
   group: "グループステージ",
