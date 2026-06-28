@@ -20,7 +20,7 @@ import { fetchOpenFootball } from "./views/openfootball.js?v=25";
 import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=25";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 28; // bump on every release; shown in the header.
+const APP_VERSION = 29; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v13";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
