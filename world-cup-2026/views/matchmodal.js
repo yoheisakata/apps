@@ -1,6 +1,6 @@
-import { fetchMatchDetails } from "./footballapi.js?v=25";
-import { createPredictor } from "./predict.js?v=25";
-import { localHM, localYMD, tzLabel } from "./util.js?v=25";
+import { fetchMatchDetails } from "./footballapi.js?v=26";
+import { createPredictor } from "./predict.js?v=26";
+import { localHM, localYMD, tzLabel } from "./util.js?v=26";
 
 const STAGE_LABEL = {
   group: "グループステージ",

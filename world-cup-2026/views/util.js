@@ -28,10 +28,11 @@ export function localYMD(m) {
   return (m && m.date) || "";
 }
 
-// Short label for the viewer's timezone, e.g. "JST" or "UTC+9".
+// Short label for the viewer's timezone, e.g. "PDT" or "JST". en-US gives
+// proper abbreviations (PDT/EDT/JST/…) rather than "GMT±H".
 export function tzLabel() {
   try {
-    const parts = new Intl.DateTimeFormat("ja-JP", { timeZoneName: "short" }).formatToParts(new Date());
+    const parts = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date());
     const v = parts.find((x) => x.type === "timeZoneName")?.value;
     if (v && !/^GMT$/i.test(v) && !/^UTC$/i.test(v)) return v;
   } catch (_) {}

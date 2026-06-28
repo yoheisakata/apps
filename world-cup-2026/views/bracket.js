@@ -2,9 +2,9 @@
 // right, folding inward to the predicted CHAMPION in the centre). Slots are
 // filled with confirmed teams where known, otherwise predicted via predict.js.
 
-import { createPredictor } from "./predict.js?v=25";
-import { groupStandings } from "./standings.js?v=25";
-import { localHM, localMDW } from "./util.js?v=25";
+import { createPredictor } from "./predict.js?v=26";
+import { groupStandings } from "./standings.js?v=26";
+import { localHM, localMDW } from "./util.js?v=26";
 
 const KO_STAGES = ["r32", "r16", "qf", "sf", "final"];
 
