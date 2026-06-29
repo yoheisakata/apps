@@ -20,6 +20,18 @@ const ROUND_NAMES = {
   final: "Final",
 };
 
+// FIFA Annex C: which group's third-placed team each group winner faces in the
+// R32, keyed by the SORTED set of the eight groups whose thirds qualify. The full
+// official table has 495 combinations; the per-slot candidate lists alone never
+// pin down a unique pairing, so we encode the combinations we can verify against
+// the official source. Unlisted combinations fall back to TBD (awaiting live
+// data). Value: { winnerGroup: thirdGroup }.
+const THIRD_ASSIGN = {
+  // Combination #67 — thirds of B, D, E, F, I, J, K, L qualify (2026 outcome).
+  // Verified against the 2026 FIFA World Cup knockout-stage bracket.
+  BDEFIJKL: { A: "E", B: "J", D: "B", E: "D", G: "I", I: "F", K: "L", L: "K" },
+};
+
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
@@ -68,14 +80,16 @@ export function createKnockout({ container, data }) {
     return t ? t.name : null;
   }
 
-  // How an R32 team qualified, e.g. "1I". Prefer the slot label; for a
-  // confirmed team (label dropped) derive the group position from standings.
+  // How an R32 team qualified, e.g. "1I" (winner I), "2B" (runner-up B), "3E"
+  // (third of E). When the team is known, derive its real group position from the
+  // standings; otherwise fall back to the slot label.
   function qualText(code, label) {
-    if (isGroupLabel(label)) return shortLabel(label);
-    const t = data.byCode[code];
-    if (!t || !t.group || !data.groups?.[t.group]) return "";
-    const pos = groupStandings(data, t.group).findIndex((r) => r.code === code);
-    return pos >= 0 ? `${pos + 1}${t.group}` : "";
+    const t = code && data.byCode[code];
+    if (t && t.group && data.groups?.[t.group]) {
+      const pos = groupStandings(data, t.group).findIndex((r) => r.code === code);
+      if (pos >= 0) return `${pos + 1}${t.group}`;
+    }
+    return isGroupLabel(label) ? shortLabel(label) : "";
   }
 
   // Compact match date + kickoff in the viewer's timezone, e.g. "6/28(日) 13:00".
@@ -121,7 +135,7 @@ export function createKnockout({ container, data }) {
   // When a group has finished all its matches, fill an R32 slot from our own
   // standings instead of waiting for the live bracket source: "Winner Group X" ->
   // that group's 1st place, "Runner-up Group X" -> 2nd. Third-placed-team slots
-  // ("3rd Group …") need the cross-group combination table, so they're left alone.
+  // ("3rd Group …") need the cross-group combination table — see fillThirds().
   // Returns a team code, or null while the group is still in progress / not a
   // group-position label.
   function teamFromGroupLabel(label) {
@@ -135,10 +149,54 @@ export function createKnockout({ container, data }) {
     return (mt[1] === "Winner" ? rows[0] : rows[1])?.code || null;
   }
 
+  // Fill the eight "3rd Group …" R32 slots once every group is complete: rank all
+  // twelve third-placed teams (pts, gd, gf), take the best eight, then look up the
+  // Annex C pairing for that exact set of qualifying groups and drop each third
+  // into its winner's slot. No-op until all groups are done (the qualifying set
+  // isn't known before then) or if the combination isn't in THIRD_ASSIGN.
+  function fillThirds(r32) {
+    const groupKeys = Object.keys(data.groups || {});
+    const thirds = [];
+    for (const g of groupKeys) {
+      const teams = data.groups[g];
+      const rows = groupStandings(data, g);
+      const complete = rows.length === teams.length && rows.every((r) => r.pld === teams.length - 1);
+      if (!complete) return; // qualifying set unknown until every group has finished
+      if (rows[2]) thirds.push({ group: g, ...rows[2] });
+    }
+    const best = thirds
+      .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+      .slice(0, 8);
+    if (best.length < 8) return;
+    const map = THIRD_ASSIGN[best.map((t) => t.group).sort().join("")];
+    if (!map) return; // combination not encoded yet — leave the slots as TBD
+    const codeOfThird = Object.fromEntries(best.map((t) => [t.group, t.code]));
+
+    // The opposing side of a third-place slot is a group winner. Read its group
+    // from the "Winner Group X" label, or — when the live source has confirmed the
+    // winner and dropped the label — from the resolved team's own group.
+    const winnerGroupOf = (code, label) => {
+      const ml = /^Winner Group ([A-L])$/.exec(label || "");
+      return ml ? ml[1] : (code && data.byCode[code]?.group) || null;
+    };
+    for (const t of r32) {
+      // A third-place slot pairs a group winner with a "3rd Group …" placeholder;
+      // handle the third on either side (data currently always puts it on away).
+      if (!t.away && /^3rd Group/.test(t.m.awayLabel || "")) {
+        const wg = winnerGroupOf(t.home, t.m.homeLabel);
+        if (wg && map[wg]) t.away = codeOfThird[map[wg]] || null;
+      } else if (!t.home && /^3rd Group/.test(t.m.homeLabel || "")) {
+        const wg = winnerGroupOf(t.away, t.m.awayLabel);
+        if (wg && map[wg]) t.home = codeOfThird[map[wg]] || null;
+      }
+    }
+  }
+
   // Resolve every round's two teams. R32 uses confirmed teams, falling back to the
-  // group winner/runner-up once that group is complete; later rounds take the
-  // confirmed team if the source has it, else fold the winner of the feeding tie
-  // forward. Returns { r32:[...], r16:[...], ..., final:[...], third }.
+  // group winner/runner-up once that group is complete, plus the Annex C third-
+  // place assignment; later rounds take the confirmed team if the source has it,
+  // else fold the winner of the feeding tie forward.
+  // Returns { r32:[...], r16:[...], ..., final:[...], third }.
   function resolveBracket() {
     const byStage = (s) => data.matches.filter((m) => m.stage === s);
     const out = {};
@@ -147,6 +205,7 @@ export function createKnockout({ container, data }) {
       away: m.away || teamFromGroupLabel(m.awayLabel) || null,
       m,
     }));
+    fillThirds(prev);
     out.r32 = prev;
     for (const stage of ["r16", "qf", "sf", "final"]) {
       const cur = byStage(stage).map((m, i) => ({

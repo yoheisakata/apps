@@ -7,7 +7,7 @@
 // localStorage so a cold start shows the last fetched results immediately.
 
 import { createSchedule } from "./views/schedule.js?v=27";
-import { createKnockout } from "./views/knockout.js?v=30";
+import { createKnockout } from "./views/knockout.js?v=32";
 import { createCities } from "./views/cities.js?v=27";
 import { createWorld } from "./views/world.js?v=27";
 import { createRankings } from "./views/rankings.js?v=27";
@@ -20,7 +20,7 @@ import { fetchOpenFootball } from "./views/openfootball.js?v=27";
 import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=27";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 37; // bump on every release; shown in the header.
+const APP_VERSION = 39; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v13";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
