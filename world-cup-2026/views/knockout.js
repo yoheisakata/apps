@@ -118,13 +118,35 @@ export function createKnockout({ container, data }) {
     </div>`;
   }
 
-  // Resolve every round's two teams. R32 uses confirmed teams; later rounds take
-  // the confirmed team if the source has it, else fold the winner of the feeding
-  // tie forward. Returns { r32:[...], r16:[...], ..., final:[...], third }.
+  // When a group has finished all its matches, fill an R32 slot from our own
+  // standings instead of waiting for the live bracket source: "Winner Group X" ->
+  // that group's 1st place, "Runner-up Group X" -> 2nd. Third-placed-team slots
+  // ("3rd Group …") need the cross-group combination table, so they're left alone.
+  // Returns a team code, or null while the group is still in progress / not a
+  // group-position label.
+  function teamFromGroupLabel(label) {
+    const mt = label && /^(Winner|Runner-up) Group ([A-L])$/.exec(label);
+    if (!mt) return null;
+    const teams = data.groups?.[mt[2]];
+    if (!teams) return null;
+    const rows = groupStandings(data, mt[2]);
+    const complete = rows.length === teams.length && rows.every((r) => r.pld === teams.length - 1);
+    if (!complete) return null;
+    return (mt[1] === "Winner" ? rows[0] : rows[1])?.code || null;
+  }
+
+  // Resolve every round's two teams. R32 uses confirmed teams, falling back to the
+  // group winner/runner-up once that group is complete; later rounds take the
+  // confirmed team if the source has it, else fold the winner of the feeding tie
+  // forward. Returns { r32:[...], r16:[...], ..., final:[...], third }.
   function resolveBracket() {
     const byStage = (s) => data.matches.filter((m) => m.stage === s);
     const out = {};
-    let prev = byStage("r32").map((m) => ({ home: m.home || null, away: m.away || null, m }));
+    let prev = byStage("r32").map((m) => ({
+      home: m.home || teamFromGroupLabel(m.homeLabel) || null,
+      away: m.away || teamFromGroupLabel(m.awayLabel) || null,
+      m,
+    }));
     out.r32 = prev;
     for (const stage of ["r16", "qf", "sf", "final"]) {
       const cur = byStage(stage).map((m, i) => ({
