@@ -7,7 +7,7 @@
 // localStorage so a cold start shows the last fetched results immediately.
 
 import { createSchedule } from "./views/schedule.js?v=27";
-import { createKnockout } from "./views/knockout.js?v=27";
+import { createKnockout } from "./views/knockout.js?v=28";
 import { createCities } from "./views/cities.js?v=27";
 import { createWorld } from "./views/world.js?v=27";
 import { createRankings } from "./views/rankings.js?v=27";
@@ -20,7 +20,7 @@ import { fetchOpenFootball } from "./views/openfootball.js?v=27";
 import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=27";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 34; // bump on every release; shown in the header.
+const APP_VERSION = 35; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v13";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
@@ -164,6 +164,7 @@ async function refreshLive({ silent } = {}) {
     let live;
     let source;
     let suppLive = null;
+    let wikiSupp = null;
     try {
       live = await fetchFootballData(data.teams);
       source = "api";
@@ -189,6 +190,7 @@ async function refreshLive({ silent } = {}) {
       try { supps.push(await fetchOpenFootball(data.teams)); } catch (_) {}
       try { supps.push(await fetchLiveData()); } catch (e) { console.warn("[live] wiki supplement failed:", e.message); }
       suppLive = supps[0] || null;
+      wikiSupp = supps[1] || null;
 
       for (const supp of supps) {
         if (!supp?.matches) continue;
@@ -232,6 +234,29 @@ async function refreshLive({ silent } = {}) {
       if (suppKo.length) {
         live.matches = [...live.matches.filter((m) => m.stage === "group"), ...suppKo];
         live.matches.forEach((m, i) => { m.id = `M${String(i + 1).padStart(3, "0")}`; });
+      }
+      // openfootball carries the R32 fixtures (teams/dates/venues) but can lag on
+      // advancement; Wikipedia fills later-round slots the moment a team qualifies
+      // (e.g. it places the winner into the next round before openfootball does).
+      // Overlay Wikipedia's confirmed knockout teams/results onto the bracket,
+      // matched by stage + position, filling only still-empty fields so it never
+      // overwrites openfootball's data — it just adds who has advanced.
+      if (wikiSupp?.matches) {
+        const wikiByStage = {};
+        for (const wm of wikiSupp.matches) {
+          if (wm.stage === "group") continue;
+          (wikiByStage[wm.stage] ||= []).push(wm);
+        }
+        const seen = {};
+        for (const m of live.matches) {
+          if (m.stage === "group") continue;
+          const idx = (seen[m.stage] = (seen[m.stage] ?? -1) + 1);
+          const wm = wikiByStage[m.stage]?.[idx];
+          if (!wm) continue;
+          if (!m.home && wm.home) m.home = wm.home;
+          if (!m.away && wm.away) m.away = wm.away;
+          if (!m.result && wm.result) m.result = wm.result;
+        }
       }
     }
     // Build scorers from merged match data, or directly from wiki matches

@@ -192,6 +192,11 @@ export function createKnockout({ container, data }) {
     const playedKo = data.matches.filter(
       (m) => ["r32", "r16", "qf", "sf", "third", "final"].includes(m.stage) && Array.isArray(m.result)
     ).length;
+    // A team confirmed in R16+ means the knockout is under way even if a score
+    // hasn't been recorded yet (some sources advance teams before the result).
+    const advanced = data.matches.some(
+      (m) => ["r16", "qf", "sf", "third", "final"].includes(m.stage) && (m.home || m.away)
+    );
 
     let calloutHtml;
     if (champ) {
@@ -201,13 +206,13 @@ export function createKnockout({ container, data }) {
         <div class="cc-note">決勝トーナメントの実際の結果（自動取得）</div>
       </div>`;
     } else {
+      let note;
+      if (playedKo > 0) note = `これまでに ${playedKo} 試合が終了。勝者が次のラウンドへ進みます。各試合をタップで詳細。`;
+      else if (advanced) note = "決勝トーナメント進行中。勝ち上がったチームが各ラウンドに表示されます。各試合をタップで詳細。";
+      else note = "決勝トーナメントはまだ始まっていません。各試合をタップで詳細を表示します。";
       calloutHtml = `<div class="champ-callout">
         <div class="cc-head">⚽ 決勝トーナメント</div>
-        <div class="cc-note">${
-          playedKo > 0
-            ? `これまでに ${playedKo} 試合が終了。勝者が次のラウンドへ進みます。各試合をタップで詳細。`
-            : "決勝トーナメントはまだ始まっていません。各試合をタップで詳細を表示します。"
-        }</div>
+        <div class="cc-note">${note}</div>
       </div>`;
     }
 
