@@ -458,6 +458,13 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 .bracket .round,
 .bracket .champion-box { position: relative; z-index: 1; }
 .round { display: flex; flex-direction: column; min-width: 134px; }
+/* Knockout (two-sided) bracket: narrower columns + tighter gaps so the whole
+   32-team draw stays compact. */
+.bracket-2sided { gap: 9px; }
+.bracket-2sided .round { min-width: 104px; }
+.bracket-2sided .slot { padding: 3px 6px; font-size: 12px; }
+.bracket-2sided .slot-team .bk-flag { font-size: 14px; }
+.bracket-2sided .slot-qual { font-size: 9px; }
 .round h4 { text-align: center; color: var(--muted); font-size: 12px; margin: 0 0 4px; flex: 0 0 auto; }
 /* the match column flexes to full height and distributes ties evenly, so each
    next-round tie sits exactly between the two ties that feed it */
@@ -1720,6 +1727,9 @@ tr.japan-row td { font-weight: 700; }
   .round { min-width: 110px; }
   .slot { font-size: 11px; padding: 3px 5px; }
   .bracket { gap: 10px; }
+  .bracket-2sided { gap: 7px; }
+  .bracket-2sided .round { min-width: 92px; }
+  .bracket-2sided .slot { font-size: 10px; padding: 2px 4px; }
   .champion-box { min-width: 100px; }
   .champion-box .trophy { font-size: 24px; }
   .champion-box .name { font-size: 13px; }

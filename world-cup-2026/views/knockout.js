@@ -2,7 +2,7 @@
 // column (R32 → R16 → QF → SF → 決勝 → 優勝), so you can follow each team as it
 // advances. Filled with real data only — confirmed teams, actual dates, and
 // final scores. No predictions: a slot stays as its qualification label
-// (e.g. "A組 2位") or "勝者待ち" until the result that fills it is in.
+// (e.g. "2A") or "TBD" until the result that fills it is in.
 //
 // Teams flow forward structurally (winner of tie i feeds tie ⌊i/2⌋ of the next
 // round — the standard single-elim fold), the same ordering the 優勝予想 bracket
@@ -13,11 +13,11 @@ import { groupStandings } from "./standings.js?v=27";
 import { localHM, localMDW, tzLabel } from "./util.js?v=27";
 
 const ROUND_NAMES = {
-  r32: "ラウンド32",
-  r16: "ラウンド16",
-  qf: "準々決勝",
-  sf: "準決勝",
-  final: "決勝",
+  r32: "Round of 32",
+  r16: "Round of 16",
+  qf: "Quarter-finals",
+  sf: "Semi-finals",
+  final: "Final",
 };
 
 function esc(s) {
@@ -26,13 +26,14 @@ function esc(s) {
   );
 }
 
-// English slot label -> short Japanese (for unresolved R32 slots).
-function jpLabel(label) {
-  if (!label) return "未定";
+// Source slot label -> compact bracket notation (for unresolved R32 slots).
+// "Winner Group A" -> "1A", "Runner-up Group B" -> "2B", "3rd Group A/B" -> "3rd A/B".
+function shortLabel(label) {
+  if (!label) return "TBD";
   return label
-    .replace(/Winner Group ([A-L])/, "$1組 1位")
-    .replace(/Runner-up Group ([A-L])/, "$1組 2位")
-    .replace(/3rd Group ([A-L/]+)/, "3位 ($1組)");
+    .replace(/Winner Group ([A-L])/, "1$1")
+    .replace(/Runner-up Group ([A-L])/, "2$1")
+    .replace(/3rd Group ([A-L/]+)/, "3rd $1");
 }
 
 // The team that advanced from a played match: higher score, or the penalty
@@ -59,22 +60,22 @@ export function createKnockout({ container, data }) {
   function name(code) {
     const t = data.byCode[code];
     return t
-      ? `<span class="slot-team"><span class="bk-flag">${t.flag}</span><span class="slot-tname">${esc(t.wiki || t.name)}</span></span>`
+      ? `<span class="slot-team"><span class="bk-flag">${t.flag}</span><span class="slot-tname">${esc(t.name)}</span></span>`
       : null;
   }
-  function jpName(code) {
+  function enName(code) {
     const t = data.byCode[code];
-    return t ? t.wiki || t.name : null;
+    return t ? t.name : null;
   }
 
-  // How an R32 team qualified, e.g. "I組 1位". Prefer the slot label; for a
+  // How an R32 team qualified, e.g. "1I". Prefer the slot label; for a
   // confirmed team (label dropped) derive the group position from standings.
   function qualText(code, label) {
-    if (isGroupLabel(label)) return jpLabel(label);
+    if (isGroupLabel(label)) return shortLabel(label);
     const t = data.byCode[code];
     if (!t || !t.group || !data.groups?.[t.group]) return "";
     const pos = groupStandings(data, t.group).findIndex((r) => r.code === code);
-    return pos >= 0 ? `${t.group}組 ${pos + 1}位` : "";
+    return pos >= 0 ? `${pos + 1}${t.group}` : "";
   }
 
   // Compact match date + kickoff in the viewer's timezone, e.g. "6/28(日) 13:00".
@@ -91,7 +92,7 @@ export function createKnockout({ container, data }) {
   function slotBox(code, label, { won, score, isR32, tbd } = {}) {
     const teamHtml =
       (code && name(code)) ||
-      `<span class="slot-team tbd">${esc(isGroupLabel(label) ? jpLabel(label) : tbd || "勝者待ち")}</span>`;
+      `<span class="slot-team tbd">${esc(isGroupLabel(label) ? shortLabel(label) : tbd || "TBD")}</span>`;
     let right = "";
     if (score != null) right = `<span class="slot-score">${score}</span>`;
     else if (code && isR32) {
@@ -157,7 +158,7 @@ export function createKnockout({ container, data }) {
     const range = (a, b) => Array.from({ length: b - a }, (_, k) => a + k);
     const col = (stage, indices, side) => {
       const ties = indices
-        .map((i) => tieHtml(br[stage][i], stage, i, { tbdHome: "勝者待ち", tbdAway: "勝者待ち" }))
+        .map((i) => tieHtml(br[stage][i], stage, i, { tbdHome: "TBD", tbdAway: "TBD" }))
         .join("");
       return `<div class="round" data-side="${side}"><h4>${ROUND_NAMES[stage]}</h4><div class="ties">${ties}</div></div>`;
     };
@@ -172,7 +173,7 @@ export function createKnockout({ container, data }) {
     const centerCol = `<div class="round kc-center">
       <h4>${ROUND_NAMES.final}</h4>
       <div class="ties"><div class="center-stack">
-        ${tieHtml(br.final[0], "final", 0, { tbdHome: "勝者待ち", tbdAway: "勝者待ち" })}
+        ${tieHtml(br.final[0], "final", 0, { tbdHome: "TBD", tbdAway: "TBD" })}
         <div class="kc-champ" id="champ-box">
           <div class="trophy">🏆</div>
           <div class="kc-champ-name">${champ ? name(champ) : "?"}</div>
@@ -184,8 +185,8 @@ export function createKnockout({ container, data }) {
     let thirdHtml = "";
     if (br.third) {
       thirdHtml = `<div class="ko-third">
-        <h4 class="ko-third-title">🥉 3位決定戦</h4>
-        ${tieHtml(br.third, "third", 0, { tbdHome: "敗者待ち", tbdAway: "敗者待ち" })}
+        <h4 class="ko-third-title">🥉 Third-place Play-off</h4>
+        ${tieHtml(br.third, "third", 0, { tbdHome: "TBD", tbdAway: "TBD" })}
       </div>`;
     }
 
@@ -201,23 +202,23 @@ export function createKnockout({ container, data }) {
     let calloutHtml;
     if (champ) {
       calloutHtml = `<div class="champ-callout">
-        <div class="cc-head">🏆 優勝</div>
-        <div class="cc-team">${data.byCode[champ].flag} ${esc(jpName(champ))}</div>
-        <div class="cc-note">決勝トーナメントの実際の結果（自動取得）</div>
+        <div class="cc-head">🏆 Champion</div>
+        <div class="cc-team">${data.byCode[champ].flag} ${esc(enName(champ))}</div>
+        <div class="cc-note">Actual knockout-stage result (auto-updated)</div>
       </div>`;
     } else {
       let note;
-      if (playedKo > 0) note = `これまでに ${playedKo} 試合が終了。勝者が次のラウンドへ進みます。各試合をタップで詳細。`;
-      else if (advanced) note = "決勝トーナメント進行中。勝ち上がったチームが各ラウンドに表示されます。各試合をタップで詳細。";
-      else note = "決勝トーナメントはまだ始まっていません。各試合をタップで詳細を表示します。";
+      if (playedKo > 0) note = `${playedKo} ${playedKo === 1 ? "match" : "matches"} played so far. Winners advance to the next round. Tap a match for details.`;
+      else if (advanced) note = "Knockout stage under way. Teams that have advanced appear in each round. Tap a match for details.";
+      else note = "The knockout stage hasn't started yet. Tap a match for details.";
       calloutHtml = `<div class="champ-callout">
-        <div class="cc-head">⚽ 決勝トーナメント</div>
+        <div class="cc-head">⚽ Knockout Stage</div>
         <div class="cc-note">${note}</div>
       </div>`;
     }
 
     container.innerHTML = `
-      <h2 class="section-title">🏆 決勝トーナメント表 <span class="sub">ラウンド32 → 決勝</span></h2>
+      <h2 class="section-title">🏆 Knockout Stage <span class="sub">Round of 32 → Final</span></h2>
       ${calloutHtml}
       <div class="bracket-wrap"><div class="bracket bracket-2sided">
         <svg class="bracket-lines" aria-hidden="true"></svg>
