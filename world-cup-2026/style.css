@@ -433,6 +433,8 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.bk-score { font-weight: 800; font-size: 14px; color: var(--text); margin-top: 3px; }
+.bk-pen { font-size: 9px; color: var(--muted); font-weight: 700; }
 .bk-center {
   position: relative;
   z-index: 1;
@@ -483,6 +485,9 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
 }
 .slot:first-child { border-bottom: 1px solid var(--line); }
 .slot.picked { background: rgba(0,212,160,.16); color: var(--accent); font-weight: 600; }
+.slot-team { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.slot-team .bk-flag { font-size: 15px; line-height: 1; flex: 0 0 auto; }
+.slot-tname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .slot-qual {
   font-size: 10px;
   color: var(--muted);
@@ -490,6 +495,27 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   white-space: nowrap;
   flex: 0 0 auto;
 }
+/* Final score for a knockout slot, right-aligned next to the team name. */
+.slot-score {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+.slot.picked .slot-score { color: var(--accent); }
+.tie-pk {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  padding: 1px 0 2px;
+  border-top: 1px solid var(--line);
+}
+/* Third-place play-off: a single standalone tie below the main bracket. */
+.ko-third { max-width: 260px; margin: 14px auto 0; }
+.ko-third-title { text-align: center; color: var(--muted); font-size: 12px; margin: 0 0 4px; }
+.ko-third .tie { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
 /* Champion prediction callout at the top of the bracket page. */
 .champ-callout {
   margin: 0 0 10px;

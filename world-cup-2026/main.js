@@ -7,7 +7,7 @@
 // localStorage so a cold start shows the last fetched results immediately.
 
 import { createSchedule } from "./views/schedule.js?v=27";
-import { createBracket } from "./views/bracket.js?v=27";
+import { createKnockout } from "./views/knockout.js?v=27";
 import { createCities } from "./views/cities.js?v=27";
 import { createWorld } from "./views/world.js?v=27";
 import { createRankings } from "./views/rankings.js?v=27";
@@ -20,7 +20,7 @@ import { fetchOpenFootball } from "./views/openfootball.js?v=27";
 import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=27";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 31; // bump on every release; shown in the header.
+const APP_VERSION = 33; // bump on every release; shown in the header.
 const LIVE_CACHE_KEY = "wc2026-livedata-v13";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
@@ -36,7 +36,7 @@ const data = { teams: null, groups: null, venues: null, matches: null, byCode: {
 // ---- tab state ----
 let activeTab = "japan";
 const views = {}; // lazily created view instances
-const VALID_TABS = ["schedule", "bracket", "standings", "cities", "world", "teams", "rankings", "japan"];
+const VALID_TABS = ["schedule", "knockout", "standings", "cities", "world", "teams", "rankings", "japan"];
 
 async function loadStatic() {
   const cb = `?_=${Date.now()}`;
@@ -120,7 +120,7 @@ function ensureView(name) {
   }
   const container = $(`tab-${name}`);
   if (name === "schedule") views[name] = createSchedule({ container, data });
-  else if (name === "bracket") views[name] = createBracket({ container, data });
+  else if (name === "knockout") views[name] = createKnockout({ container, data });
   else if (name === "cities") views[name] = createCities({ container, data });
   else if (name === "world")
     views[name] = createWorld({ container, data, onTeam: (c) => goToCountry(c, "world") });
