@@ -51,17 +51,23 @@ function shortLabel(label) {
 // The team that advanced from a played match: higher score, or the penalty
 // winner on a draw. Uses the match's own home/away orientation (which the live
 // source always sets together with the result). Null while unplayed/undecided.
-function winnerOf(m) {
-  if (!m || !Array.isArray(m.result) || !m.home || !m.away) return null;
+// Winner / loser of a resolved tie { home, away, m }: uses the tie's resolved
+// teams (which may have been filled from group/third labels rather than the raw
+// match's home/away) together with the match result. A result is recorded in the
+// same home/away orientation as the slots, so this stays correct even when the raw
+// match.home/away are still empty. Null while the tie is undecided.
+function tieWinner(t) {
+  const m = t && t.m;
+  if (!t || !m || !Array.isArray(m.result) || !t.home || !t.away) return null;
   const [h, a] = m.result;
-  if (h !== a) return h > a ? m.home : m.away;
-  if (m.penalties) return m.penalties[0] > m.penalties[1] ? m.home : m.away;
+  if (h !== a) return h > a ? t.home : t.away;
+  if (m.penalties) return m.penalties[0] > m.penalties[1] ? t.home : t.away;
   return null;
 }
-function loserOf(m) {
-  const w = winnerOf(m);
+function tieLoser(t) {
+  const w = tieWinner(t);
   if (!w) return null;
-  return w === m.home ? m.away : m.home;
+  return w === t.home ? t.away : t.home;
 }
 
 export function createKnockout({ container, data }) {
@@ -121,7 +127,7 @@ export function createKnockout({ container, data }) {
   function tieHtml(t, stage, i, { tbdHome, tbdAway } = {}) {
     const m = t.m;
     const isR32 = stage === "r32";
-    const win = winnerOf(m);
+    const win = tieWinner(t);
     const played = Array.isArray(m.result);
     const pen = m.penalties ? `<div class="tie-pk">PK ${m.penalties[0]}-${m.penalties[1]}</div>` : "";
     return `<div class="tie" data-stage="${stage}" data-i="${i}" data-match-id="${m.id}" role="button" tabindex="0">
@@ -192,35 +198,76 @@ export function createKnockout({ container, data }) {
     }
   }
 
+  // Order each round to match the REAL bracket tree, not the sequential match
+  // numbers. The tree is read from the "Winner Match N" labels (match N feeds this
+  // slot); an in-order walk from the final lays every round out left-to-right so
+  // that ties 2k and 2k+1 of one round always feed tie k of the next. That single
+  // invariant is what makes the i*2 folding, the connector lines, and the two-
+  // sided split below all line up. Returns { r32:[m…], r16, qf, sf, final }; any
+  // stage the walk can't fully cover (e.g. a feed without Match labels) falls back
+  // to source order.
+  function bracketOrder() {
+    const byNum = {};
+    for (const m of data.matches) {
+      const n = +String(m.id).replace(/\D/g, "");
+      if (n) byNum[n] = m;
+    }
+    const feeders = (m) =>
+      [m.homeLabel, m.awayLabel].map((lbl) => {
+        const wm = /^Winner Match (\d+)$/.exec(lbl || "");
+        return wm ? byNum[+wm[1]] : null;
+      });
+    const order = {};
+    const seen = new Set();
+    (function visit(m) {
+      if (!m || seen.has(m)) return;
+      seen.add(m);
+      const [hf, af] = feeders(m);
+      visit(hf);
+      (order[m.stage] ||= []).push(m);
+      visit(af);
+    })(data.matches.find((m) => m.stage === "final"));
+    for (const s of ["r32", "r16", "qf", "sf", "final"]) {
+      const all = data.matches.filter((m) => m.stage === s);
+      if (!order[s] || order[s].length !== all.length) order[s] = all;
+    }
+    return order;
+  }
+
   // Resolve every round's two teams. R32 uses confirmed teams, falling back to the
   // group winner/runner-up once that group is complete, plus the Annex C third-
   // place assignment; later rounds take the confirmed team if the source has it,
   // else fold the winner of the feeding tie forward.
   // Returns { r32:[...], r16:[...], ..., final:[...], third }.
   function resolveBracket() {
-    const byStage = (s) => data.matches.filter((m) => m.stage === s);
+    const order = bracketOrder();
     const out = {};
-    let prev = byStage("r32").map((m) => ({
+    let prev = order.r32.map((m) => ({
       home: m.home || teamFromGroupLabel(m.homeLabel) || null,
       away: m.away || teamFromGroupLabel(m.awayLabel) || null,
       m,
     }));
     fillThirds(prev);
     out.r32 = prev;
+    // A team only advances to a later round once its feeding tie is actually
+    // decided. We deliberately ignore any team the live source pre-seeds into a
+    // later-round slot whose feeder has no result yet: such seeds turned out to be
+    // unfounded (e.g. teams placed in the R16 before a single R32 game was played),
+    // so trusting only played results keeps the bracket honest.
     for (const stage of ["r16", "qf", "sf", "final"]) {
-      const cur = byStage(stage).map((m, i) => ({
-        home: m.home || winnerOf(prev[i * 2]?.m) || null,
-        away: m.away || winnerOf(prev[i * 2 + 1]?.m) || null,
+      const cur = order[stage].map((m, i) => ({
+        home: tieWinner(prev[i * 2]) || null,
+        away: tieWinner(prev[i * 2 + 1]) || null,
         m,
       }));
       out[stage] = cur;
       prev = cur;
     }
-    const thirdM = byStage("third")[0];
+    const thirdM = data.matches.find((m) => m.stage === "third");
     if (thirdM && out.sf.length === 2) {
       out.third = {
-        home: thirdM.home || loserOf(out.sf[0].m) || null,
-        away: thirdM.away || loserOf(out.sf[1].m) || null,
+        home: tieLoser(out.sf[0]) || null,
+        away: tieLoser(out.sf[1]) || null,
         m: thirdM,
       };
     }
@@ -250,7 +297,7 @@ export function createKnockout({ container, data }) {
       col("sf", [1], "R") + col("qf", range(2, 4), "R") + col("r16", range(4, 8), "R") + col("r32", range(8, 16), "R");
 
     // Champion = winner of the played final; shown in the centre under the final.
-    const champ = winnerOf(br.final[0]?.m);
+    const champ = tieWinner(br.final[0]);
     const centerCol = `<div class="round kc-center">
       <h4>${ROUND_NAMES.final}</h4>
       <div class="ties"><div class="center-stack">
@@ -348,7 +395,7 @@ export function createKnockout({ container, data }) {
         const x1 = left ? a.right : a.left;
         const x2 = left ? b.left : b.right;
         const mx = (x1 + x2) / 2;
-        const live = winnerOf(arr[i].m) ? " live" : "";
+        const live = tieWinner(arr[i]) ? " live" : "";
         lines.push(`<path d="M${x1},${a.midY} H${mx} V${b.midY} H${x2}" class="conn${live}"/>`);
       }
     }
