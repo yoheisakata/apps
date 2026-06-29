@@ -12,7 +12,6 @@
 import { groupStandings } from "./standings.js?v=27";
 import { localHM, localMDW, tzLabel } from "./util.js?v=27";
 
-const KO_STAGES = ["r32", "r16", "qf", "sf", "final"];
 const ROUND_NAMES = {
   r32: "ラウンド32",
   r16: "ラウンド16",
@@ -90,9 +89,9 @@ export function createKnockout({ container, data }) {
   // slot label, `won` whether it advanced, `score` its goals (or null), and
   // `tbd` the placeholder text when no team is resolved yet.
   function slotBox(code, label, { won, score, isR32, tbd } = {}) {
-    const teamHtml = code
-      ? name(code)
-      : `<span class="slot-team tbd">${esc(isGroupLabel(label) ? jpLabel(label) : tbd || "勝者待ち")}</span>`;
+    const teamHtml =
+      (code && name(code)) ||
+      `<span class="slot-team tbd">${esc(isGroupLabel(label) ? jpLabel(label) : tbd || "勝者待ち")}</span>`;
     let right = "";
     if (score != null) right = `<span class="slot-score">${score}</span>`;
     else if (code && isR32) {
@@ -103,12 +102,14 @@ export function createKnockout({ container, data }) {
   }
 
   // Render one tie (two slots + date), wired to open the match-detail modal.
-  function tieHtml(t, r, i, { isR32, tbdHome, tbdAway } = {}) {
+  // Keyed by stage + index so the symmetric two-sided line-drawing can find it.
+  function tieHtml(t, stage, i, { tbdHome, tbdAway } = {}) {
     const m = t.m;
+    const isR32 = stage === "r32";
     const win = winnerOf(m);
     const played = Array.isArray(m.result);
     const pen = m.penalties ? `<div class="tie-pk">PK ${m.penalties[0]}-${m.penalties[1]}</div>` : "";
-    return `<div class="tie" data-r="${r}" data-i="${i}" data-match-id="${m.id}" role="button" tabindex="0">
+    return `<div class="tie" data-stage="${stage}" data-i="${i}" data-match-id="${m.id}" role="button" tabindex="0">
       ${tieMeta(m)}
       ${slotBox(t.home, m.homeLabel, { won: win && t.home === win, score: played ? m.result[0] : null, isR32, tbd: tbdHome })}
       ${slotBox(t.away, m.awayLabel, { won: win && t.away === win, score: played ? m.result[1] : null, isR32, tbd: tbdAway })}
@@ -148,22 +149,35 @@ export function createKnockout({ container, data }) {
     const br = resolveBracket();
     lastBr = br;
 
-    const roundsHtml = KO_STAGES.map((stage, r) => {
-      const isR32 = stage === "r32";
-      const ties = br[stage]
-        .map((t, i) => tieHtml(t, r, i, { isR32, tbdHome: "勝者待ち", tbdAway: "勝者待ち" }))
+    // Symmetric two-sided bracket (like the old 優勝予想): the half of the draw
+    // that feeds the left semi-final fans out on the LEFT, the other half on the
+    // RIGHT, both folding inward to the final + champion in the CENTRE.
+    //   Left  half: r32[0..7]  → r16[0..3] → qf[0..1] → sf[0]
+    //   Right half: r32[8..15] → r16[4..7] → qf[2..3] → sf[1]
+    const range = (a, b) => Array.from({ length: b - a }, (_, k) => a + k);
+    const col = (stage, indices, side) => {
+      const ties = indices
+        .map((i) => tieHtml(br[stage][i], stage, i, { tbdHome: "勝者待ち", tbdAway: "勝者待ち" }))
         .join("");
-      return `<div class="round"><h4>${ROUND_NAMES[stage]}</h4><div class="ties">${ties}</div></div>`;
-    });
+      return `<div class="round" data-side="${side}"><h4>${ROUND_NAMES[stage]}</h4><div class="ties">${ties}</div></div>`;
+    };
+    const leftCols =
+      col("r32", range(0, 8), "L") + col("r16", range(0, 4), "L") + col("qf", range(0, 2), "L") + col("sf", [0], "L");
+    // Right side runs center-outward: SF nearest the centre, R32 furthest out.
+    const rightCols =
+      col("sf", [1], "R") + col("qf", range(2, 4), "R") + col("r16", range(4, 8), "R") + col("r32", range(8, 16), "R");
 
-    // Champion = winner of the played final.
+    // Champion = winner of the played final; shown in the centre under the final.
     const champ = winnerOf(br.final[0]?.m);
-    const champBox = `<div class="round champion-box">
-      <h4>優勝</h4>
-      <div class="ties" id="champ-box">
-        <div class="trophy">🏆</div>
-        <div class="name">${champ ? name(champ) : "?"}</div>
-      </div>
+    const centerCol = `<div class="round kc-center">
+      <h4>${ROUND_NAMES.final}</h4>
+      <div class="ties"><div class="center-stack">
+        ${tieHtml(br.final[0], "final", 0, { tbdHome: "勝者待ち", tbdAway: "勝者待ち" })}
+        <div class="kc-champ" id="champ-box">
+          <div class="trophy">🏆</div>
+          <div class="kc-champ-name">${champ ? name(champ) : "?"}</div>
+        </div>
+      </div></div>
     </div>`;
 
     // Third-place play-off, shown as a standalone card under the bracket.
@@ -171,7 +185,7 @@ export function createKnockout({ container, data }) {
     if (br.third) {
       thirdHtml = `<div class="ko-third">
         <h4 class="ko-third-title">🥉 3位決定戦</h4>
-        ${tieHtml(br.third, -1, 0, { tbdHome: "敗者待ち", tbdAway: "敗者待ち" })}
+        ${tieHtml(br.third, "third", 0, { tbdHome: "敗者待ち", tbdAway: "敗者待ち" })}
       </div>`;
     }
 
@@ -200,9 +214,9 @@ export function createKnockout({ container, data }) {
     container.innerHTML = `
       <h2 class="section-title">🏆 決勝トーナメント表 <span class="sub">ラウンド32 → 決勝</span></h2>
       ${calloutHtml}
-      <div class="bracket-wrap"><div class="bracket">
+      <div class="bracket-wrap"><div class="bracket bracket-2sided">
         <svg class="bracket-lines" aria-hidden="true"></svg>
-        ${roundsHtml.join("")}${champBox}
+        ${leftCols}${centerCol}${rightCols}
       </div></div>
       ${thirdHtml}
     `;
@@ -210,9 +224,11 @@ export function createKnockout({ container, data }) {
     requestAnimationFrame(() => drawLines(br));
   }
 
-  // Connector lines: each tie feeds tie ⌊i/2⌋ of the next round; the final feeds
-  // the champion box. A line goes green once the feeding tie has a winner, so the
-  // advancement path lights up as results come in.
+  // Connector lines for the symmetric bracket: each tie feeds tie ⌊i/2⌋ of the
+  // next round, folding inward toward the centre final. A tie is on the LEFT half
+  // when its index is in the lower half of the round (i < count/2), else RIGHT;
+  // left ties connect right-edge→left-edge, right ties left-edge→right-edge. A
+  // line goes green once the feeding tie has a winner, lighting up the path.
   function drawLines(br) {
     const svg = container.querySelector(".bracket-lines");
     const bracket = container.querySelector(".bracket");
@@ -226,22 +242,27 @@ export function createKnockout({ container, data }) {
       const r = el.getBoundingClientRect();
       return { left: r.left - base.left, right: r.right - base.left, midY: r.top - base.top + r.height / 2 };
     };
-    const tie = (r, i) => container.querySelector(`.tie[data-r="${r}"][data-i="${i}"]`);
+    const tie = (stage, i) => container.querySelector(`.tie[data-stage="${stage}"][data-i="${i}"]`);
+    const finalEl = tie("final", 0);
 
+    const FOLD = ["r32", "r16", "qf", "sf"];
     const lines = [];
-    for (let r = 0; r < KO_STAGES.length; r++) {
-      const arr = br[KO_STAGES[r]];
+    for (let s = 0; s < FOLD.length; s++) {
+      const stage = FOLD[s];
+      const arr = br[stage];
+      const next = s < FOLD.length - 1 ? FOLD[s + 1] : "final";
       for (let i = 0; i < arr.length; i++) {
-        const from = tie(r, i);
-        if (!from) continue;
-        const target =
-          r < KO_STAGES.length - 1 ? tie(r + 1, Math.floor(i / 2)) : container.querySelector("#champ-box");
-        if (!target) continue;
+        const from = tie(stage, i);
+        const target = next === "final" ? finalEl : tie(next, Math.floor(i / 2));
+        if (!from || !target) continue;
+        const left = i < arr.length / 2; // left half of this round
         const a = rel(from);
         const b = rel(target);
-        const mx = (a.right + b.left) / 2;
+        const x1 = left ? a.right : a.left;
+        const x2 = left ? b.left : b.right;
+        const mx = (x1 + x2) / 2;
         const live = winnerOf(arr[i].m) ? " live" : "";
-        lines.push(`<path d="M${a.right},${a.midY} H${mx} V${b.midY} H${b.left}" class="conn${live}"/>`);
+        lines.push(`<path d="M${x1},${a.midY} H${mx} V${b.midY} H${x2}" class="conn${live}"/>`);
       }
     }
     svg.innerHTML = lines.join("");

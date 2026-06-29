@@ -512,6 +512,21 @@ table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
   padding: 1px 0 2px;
   border-top: 1px solid var(--line);
 }
+/* Centre column of the symmetric two-sided knockout bracket: the final tie with
+   the champion trophy directly beneath it, vertically centred between the two
+   semi-finals that fold into it. */
+.kc-center .ties { justify-content: center; }
+.kc-center .center-stack { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.kc-champ {
+  text-align: center;
+  padding: 10px 8px;
+  border: 1px solid var(--accent2);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent2) 12%, var(--panel));
+}
+.kc-champ .trophy { font-size: 30px; line-height: 1; }
+.kc-champ-name { margin-top: 4px; font-weight: 800; font-size: 14px; color: var(--accent); }
+.kc-champ-name .slot-team { justify-content: center; }
 /* Third-place play-off: a single standalone tie below the main bracket. */
 .ko-third { max-width: 260px; margin: 14px auto 0; }
 .ko-third-title { text-align: center; color: var(--muted); font-size: 12px; margin: 0 0 4px; }
