@@ -37,10 +37,20 @@ cd apps/cleanmac
 # 開発中（ウィンドウが立ち上がる）
 swift run
 
-# .app バンドルを作成して起動
+# .app バンドルをその場に作成して起動
 ./build_app.sh
 open CleanMac.app
+
+# /Applications にインストール（ダブルクリックで起動できるようになる）
+./install.sh
 ```
+
+`./install.sh` はビルド → アドホック署名 → `/Applications/CleanMac.app` へコピー →
+起動まで一括で行います。以降は **Launchpad / アプリケーションフォルダから
+ダブルクリックで起動**できます。更新したいときは再度 `./install.sh` を実行するだけです。
+
+> ローカルビルドなので Gatekeeper には基本ブロックされませんが、もし
+> 「開発元を確認できません」と出た場合は、アプリを **右クリック → 開く** を一度だけ実行してください。
 
 ## 補足
 
