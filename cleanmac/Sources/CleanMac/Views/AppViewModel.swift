@@ -49,9 +49,14 @@ final class AppViewModel: ObservableObject {
         isCleaning = true
         let appURLs = selectedApps.map { $0.url }
         let urls = appURLs + pendingLeftovers
-        let result = await Task.detached(priority: .userInitiated) {
+        var result = await Task.detached(priority: .userInitiated) {
             FileRemover.moveToTrash(urls)
         }.value
+        // 権限エラーなどで失敗した分は Finder 経由で再試行する
+        // （App Store 製の root 所有アプリは管理者認証ダイアログが出る）
+        if !result.failures.isEmpty {
+            result = FileRemover.retryWithFinder(result)
+        }
         pendingLeftovers = []
         await scan()
         isCleaning = false
@@ -64,7 +69,9 @@ final class AppViewModel: ObservableObject {
 
         if var detail = result.failureMessage(appURLs: Set(appURLs)) {
             detail += "\n\nアプリが起動中の場合は終了してから再実行してください。"
-                + "システム標準アプリや管理者権限が必要なものは Finder から削除してください。"
+                + "「Finder の制御が許可されていません」と出た場合は、"
+                + "システム設定 › プライバシーとセキュリティ › オートメーション で許可すると"
+                + "再実行で削除できるようになります。"
             errorMessage = detail
         }
     }

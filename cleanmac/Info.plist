@@ -24,5 +24,7 @@
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>通常の方法で削除できないアプリ（App Store 製など）を Finder 経由でゴミ箱へ移動するために使用します。</string>
 </dict>
 </plist>

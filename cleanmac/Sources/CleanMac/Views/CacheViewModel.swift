@@ -34,9 +34,13 @@ final class CacheViewModel: ObservableObject {
         let urls = categories.flatMap { category in
             category.items.filter { $0.isSelected }.map { $0.url }
         }
-        let result = await Task.detached(priority: .userInitiated) {
+        var result = await Task.detached(priority: .userInitiated) {
             FileRemover.moveToTrash(urls)
         }.value
+        // 権限エラーなどで失敗した分は Finder 経由で再試行する
+        if !result.failures.isEmpty {
+            result = FileRemover.retryWithFinder(result)
+        }
         await scan()
         isCleaning = false
 

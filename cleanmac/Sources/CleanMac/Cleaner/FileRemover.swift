@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// 削除はすべて「ゴミ箱へ移動」。完全削除は行わない（復元可能）。
 enum FileRemover {
@@ -24,6 +25,59 @@ enum FileRemover {
             }
         }
         return result
+    }
+
+    /// trashItem で失敗した分を Finder 経由（AppleScript）で再試行する。
+    /// Finder は root 所有のアプリ（App Store 製など）でも管理者認証を出して
+    /// ゴミ箱へ移動でき、他アプリのコンテナも扱える。
+    /// 初回は「CleanMac が Finder を制御しようとしています」の許可ダイアログが出る。
+    /// NSAppleScript を使うためメインスレッドで呼ぶこと。
+    static func retryWithFinder(_ result: Result) -> Result {
+        guard !result.failures.isEmpty else { return result }
+        var result = result
+
+        let retryURLs = result.failures.map { $0.url }
+        let finderError = finderTrash(retryURLs)
+
+        // Finder 実行後に実際に消えたかどうかで成否を判定し直す
+        var stillFailed: [Failure] = []
+        for failure in result.failures {
+            if FileManager.default.fileExists(atPath: failure.url.path) {
+                stillFailed.append(Failure(url: failure.url,
+                                           message: finderError ?? failure.message))
+            } else {
+                result.trashed.append(failure.url)
+            }
+        }
+        result.failures = stillFailed
+        return result
+    }
+
+    /// Finder にゴミ箱への移動を依頼する。エラーがあればメッセージを返す。
+    private static func finderTrash(_ urls: [URL]) -> String? {
+        let items = urls.map { url -> String in
+            let escaped = url.path
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+            return "POSIX file \"\(escaped)\""
+        }.joined(separator: ", ")
+        let source = "tell application \"Finder\" to delete { \(items) }"
+
+        guard let script = NSAppleScript(source: source) else {
+            return "AppleScript を作成できませんでした"
+        }
+        var errorInfo: NSDictionary?
+        script.executeAndReturnError(&errorInfo)
+        if let errorInfo {
+            let number = errorInfo[NSAppleScript.errorNumber] as? Int ?? 0
+            if number == -1743 {
+                return "Finder の制御が許可されていません。"
+                    + "システム設定 › プライバシーとセキュリティ › オートメーション で"
+                    + " CleanMac → Finder をオンにしてください。"
+            }
+            return errorInfo[NSAppleScript.errorMessage] as? String ?? "Finder での削除に失敗しました"
+        }
+        return nil
     }
 }
 
