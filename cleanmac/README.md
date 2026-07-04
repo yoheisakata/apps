@@ -1,7 +1,8 @@
 # CleanMac 🧹
 
 macOS 用のシンプルなお掃除アプリ（SwiftUI 製ネイティブ GUI）。
-不要なキャッシュの削除と、アプリのアンインストール（関連ファイルごと）ができます。
+不要なキャッシュの削除、アプリのアンインストール（関連ファイルごと）、
+重複写真の検索・整理ができます。
 
 > ⚠️ このリポジトリの他アプリは Web アプリですが、CleanMac だけは
 > ネイティブ macOS アプリのため GitHub Pages では動きません。ローカルでビルドして使います。
@@ -26,6 +27,20 @@ macOS 用のシンプルなお掃除アプリ（SwiftUI 製ネイティブ GUI�
 - `/Applications` と `~/Applications` のアプリを一覧・サイズ表示
 - 選択したアプリ本体に加え、`Application Support` / `Preferences` /
   `Caches` / `Containers` などに残る関連ファイルもまとめてゴミ箱へ移動
+
+### 3. 重複写真（Duplicate Photos Fixer Pro の代替）
+- 写真の入ったフォルダをドラッグ＆ドロップ（複数可）してスキャン
+- **マッチレベル 4 段階**
+  - **完全一致** — バイト単位で同一のファイルのみ（サイズ → SHA-256 の二段階判定）
+  - **厳密 / 標準 / ゆるい** — 知覚ハッシュ（dHash）のハミング距離で類似画像を検出。
+    リサイズ・再圧縮・軽微な編集をされたコピーも見つかる
+- グループごとにサムネイル一覧表示（完全一致 / 類似のバッジ、節約可能サイズ付き）
+- **残す 1 枚の自動選択** — 解像度最大 / ファイルサイズ最大 / 最新 / 最古 から選べる。
+  手動でチェックの付け外しも可能
+- 対応形式: JPEG, PNG, HEIC/HEIF, TIFF, GIF, BMP, WebP, 主要 RAW（ARW, CR2/CR3, NEF, RAF, ORF, DNG ほか）
+- マルチコア並列スキャン + 進捗バー + キャンセル
+- 「写真」アプリのライブラリ（`.photoslibrary`）内部は対象外。ライブラリ内の重複は
+  macOS 標準の「写真 → アルバム → 重複項目」を使うこと
 
 ## ビルド & 実行
 
@@ -66,6 +81,7 @@ Sources/CleanMac/
   CleanMacApp.swift        # @main / アプリのエントリ
   Models/                  # CleanupItem, InstalledApp
   Cleaner/                 # スキャン & ゴミ箱移動ロジック
+  DupPhotos/               # 重複写真の検出エンジン（dHash / SHA-256）
   Views/                   # SwiftUI 画面 + ViewModel
   Utils/                   # サイズ整形など
 ```
