@@ -2,3 +2,5 @@
 .swiftpm/
 *.app
 .DS_Store
+AppIcon.icns
+AppIcon.iconset/

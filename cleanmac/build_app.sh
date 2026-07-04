@@ -9,6 +9,11 @@ CONFIG=release
 APP_NAME=CleanMac
 APP_BUNDLE="${APP_NAME}.app"
 
+# アイコンがなければ生成する。
+if [[ ! -f AppIcon.icns ]]; then
+    swift make-icon.swift
+fi
+
 echo "==> swift build (${CONFIG})"
 swift build -c "${CONFIG}"
 
