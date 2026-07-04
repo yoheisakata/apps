@@ -18,6 +18,14 @@ struct AppUninstallerView: View {
         } message: {
             Text(confirmMessage)
         }
+        .alert("削除できなかった項目があります", isPresented: Binding(
+            get: { vm.errorMessage != nil },
+            set: { if !$0 { vm.errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(vm.errorMessage ?? "")
+        }
     }
 
     private var confirmMessage: String {

@@ -8,6 +8,8 @@ final class CacheViewModel: ObservableObject {
     @Published var isCleaning = false
     @Published var hasScanned = false
     @Published var status = ""
+    /// 削除に失敗した項目があるときのエラーダイアログ用メッセージ。
+    @Published var errorMessage: String?
 
     var totalSize: Int64 { categories.reduce(0) { $0 + $1.totalSize } }
     var selectedSize: Int64 { categories.reduce(0) { $0 + $1.selectedSize } }
@@ -43,6 +45,11 @@ final class CacheViewModel: ObservableObject {
             message += " \(result.failures.count) 項目は権限などの理由で移動できませんでした。"
         }
         status = message
+
+        if var detail = result.failureMessage() {
+            detail += "\n\n使用中のファイルや、フルディスクアクセスの許可が必要な場所は移動できないことがあります。"
+            errorMessage = detail
+        }
     }
 
     func setAllSelected(in categoryID: UUID, to value: Bool) {

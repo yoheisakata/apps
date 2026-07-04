@@ -18,6 +18,14 @@ struct CacheCleanerView: View {
         } message: {
             Text("選択した約 \(ByteFmt.string(vm.selectedSize)) 分のファイルをゴミ箱へ移動します。ゴミ箱を空にするまで復元できます。")
         }
+        .alert("削除できなかった項目があります", isPresented: Binding(
+            get: { vm.errorMessage != nil },
+            set: { if !$0 { vm.errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(vm.errorMessage ?? "")
+        }
     }
 
     private var header: some View {

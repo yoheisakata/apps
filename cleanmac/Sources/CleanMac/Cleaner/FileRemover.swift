@@ -26,3 +26,25 @@ enum FileRemover {
         return result
     }
 }
+
+extension FileRemover.Result {
+    /// 失敗した項目をユーザー向けのエラーメッセージに整形する（失敗がなければ nil）。
+    /// `highlight` に含まれる URL は「アプリ本体」、それ以外は「関連ファイル」と表示する。
+    func failureMessage(appURLs highlight: Set<URL> = []) -> String? {
+        guard !failures.isEmpty else { return nil }
+        var lines: [String] = []
+        for failure in failures.prefix(8) {
+            if highlight.isEmpty {
+                lines.append("・\(failure.url.lastPathComponent)\n　→ \(failure.message)")
+            } else {
+                let kind = highlight.contains(failure.url) ? "アプリ本体" : "関連ファイル"
+                lines.append("・\(failure.url.lastPathComponent)（\(kind)）\n　→ \(failure.message)")
+            }
+        }
+        var text = lines.joined(separator: "\n")
+        if failures.count > 8 {
+            text += "\nほか \(failures.count - 8) 件"
+        }
+        return text
+    }
+}

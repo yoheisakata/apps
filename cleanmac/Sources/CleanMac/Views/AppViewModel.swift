@@ -9,6 +9,8 @@ final class AppViewModel: ObservableObject {
     @Published var isCleaning = false
     @Published var hasScanned = false
     @Published var status = ""
+    /// 削除に失敗した項目があるときのエラーダイアログ用メッセージ。
+    @Published var errorMessage: String?
     /// 確認ダイアログ用: 削除予定の残存ファイル一覧。
     @Published var pendingLeftovers: [URL] = []
 
@@ -56,9 +58,15 @@ final class AppViewModel: ObservableObject {
 
         var message = "\(result.trashed.count) 項目をゴミ箱に移動しました。"
         if !result.failures.isEmpty {
-            message += " \(result.failures.count) 項目は移動できませんでした（管理者権限が必要な場合があります）。"
+            message += " \(result.failures.count) 項目は移動できませんでした。"
         }
         status = message
+
+        if var detail = result.failureMessage(appURLs: Set(appURLs)) {
+            detail += "\n\nアプリが起動中の場合は終了してから再実行してください。"
+                + "システム標準アプリや管理者権限が必要なものは Finder から削除してください。"
+            errorMessage = detail
+        }
     }
 }
 
