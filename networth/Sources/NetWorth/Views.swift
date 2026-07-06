@@ -122,19 +122,26 @@ struct DashboardView: View {
                 DashboardTab {
                     NetWorthCard(d: d)
                     AccountsCard(rows: d.accountRows)
-                    StocksCard(d: d)
                 }
                 .tabItem { Label("メイン", systemImage: "chart.line.uptrend.xyaxis") }
 
                 DashboardTab {
-                    MonthlyCashflowCard(d: d)
-                    MonthlyBreakdownCard(d: d)
-                    RecentTxnsCard(d: d)
+                    StocksCard(d: d)
+                }
+                .tabItem { Label("投資", systemImage: "chart.bar.xaxis") }
+
+                DashboardTab {
+                    CashflowCard(unitLabel: "か月", data: d.monthly)
+                    BreakdownCard(title: "月の収支の内訳", data: d.monthly)
+                    TxnsCard(title: "月ごとの支出", d: d, data: d.monthly)
                 }
                 .tabItem { Label("月", systemImage: "calendar") }
 
                 DashboardTab {
                     SpendingCard(d: d)
+                    CashflowCard(unitLabel: "週", data: d.weekly)
+                    BreakdownCard(title: "週の収支の内訳", data: d.weekly)
+                    TxnsCard(title: "週ごとの支出", d: d, data: d.weekly)
                 }
                 .tabItem { Label("週", systemImage: "clock") }
             }
@@ -265,57 +272,56 @@ struct StocksCard: View {
     }
 }
 
-// 月ごとの収支: 収入(上向き棒)・支出(下向き棒)・差引(折れ線)。
-struct MonthlyCashflowCard: View {
-    var d: Dashboard
+// 期間ごとの収支: 収入(上向き棒)・支出(下向き棒)・差引(折れ線)。月・週で共用。
+struct CashflowCard: View {
+    var unitLabel: String  // "か月" / "週"
+    var data: Dashboard.PeriodData
 
     var body: some View {
-        Card(title: "月ごとの収支") {
-            if d.months.isEmpty {
+        Card(title: "過去\(data.rows.count)\(unitLabel)の推移") {
+            if data.rows.isEmpty {
                 Text("取引データがたまると表示されます")
                     .foregroundStyle(.secondary)
             } else {
                 HStack(spacing: 14) {
                     LegendDot(color: .green, label: "収入")
                     LegendDot(color: .red, label: "支出")
-                    LegendDot(color: .accentColor, label: "差引(収入−支出)")
                 }
                 .font(.caption)
                 Chart {
-                    ForEach(d.months) { m in
-                        BarMark(x: .value("月", m.month),
+                    ForEach(data.rows) { m in
+                        BarMark(x: .value("期間", m.month),
                                 y: .value("金額", m.income),
                                 width: .ratio(0.32))
                             .foregroundStyle(.green.opacity(0.7))
                             .annotation(position: .top, spacing: 2) {
-                                Text(usdCompact(m.income))
+                                Text(usd(m.income))
                                     .font(.caption2.bold())
                                     .foregroundStyle(.green)
                             }
-                        BarMark(x: .value("月", m.month),
+                        BarMark(x: .value("期間", m.month),
                                 y: .value("金額", -m.spend),
                                 width: .ratio(0.32))
                             .foregroundStyle(.red.opacity(0.7))
                             .annotation(position: .bottom, spacing: 2) {
-                                Text(usdCompact(m.spend))
+                                Text(usd(m.spend))
                                     .font(.caption2.bold())
                                     .foregroundStyle(.red)
                             }
-                        LineMark(x: .value("月", m.month), y: .value("差引", m.net))
-                            .foregroundStyle(Color.accentColor)
-                            .lineStyle(StrokeStyle(lineWidth: 2))
-                        PointMark(x: .value("月", m.month), y: .value("差引", m.net))
-                            .foregroundStyle(Color.accentColor)
-                            .symbolSize(30)
-                            .annotation(position: .bottomTrailing, spacing: 3) {
-                                Text(usdCompact(m.net))
-                                    .font(.caption2.bold())
-                                    .foregroundStyle(Color.accentColor)
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let key = value.as(String.self) {
+                                Text(data.labels[key] ?? key)
                             }
+                        }
                     }
                 }
                 .frame(height: 210)
-                Text("※ 口座間送金・カード引き落とし・401(k) 拠出は除外。月の途中は集計中の値です。")
+                Text("※ 口座間送金・カード引き落とし・401(k) 拠出は除外。期間の途中は集計中の値です。")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -323,26 +329,27 @@ struct MonthlyCashflowCard: View {
     }
 }
 
-// 月を選んで収入と支出の内訳をまとめて見るカード。
-struct MonthlyBreakdownCard: View {
-    var d: Dashboard
+// 期間を選んで収入と支出の内訳をまとめて見るカード。月・週で共用。
+struct BreakdownCard: View {
+    var title: String
+    var data: Dashboard.PeriodData
     @State private var selectedMonth: String?
 
     private var currentMonth: String? {
-        selectedMonth ?? d.months.last?.month
+        selectedMonth ?? data.rows.last?.month
     }
 
     var body: some View {
-        Card(title: "月の収支の内訳") {
+        Card(title: title) {
             if let m = currentMonth {
-                let income = d.incomeByMonth[m] ?? []
-                let spend = d.spendByMonth[m] ?? []
+                let income = data.income[m] ?? []
+                let spend = data.spend[m] ?? []
                 let incomeTotal = income.reduce(0) { $0 + $1.total }
                 let spendTotal = spend.reduce(0) { $0 + $1.total }
                 HStack(alignment: .center) {
-                    Picker("月", selection: Binding(get: { m }, set: { selectedMonth = $0 })) {
-                        ForEach(d.months.reversed()) { row in
-                            Text(row.month).tag(row.month)
+                    Picker("期間", selection: Binding(get: { m }, set: { selectedMonth = $0 })) {
+                        ForEach(data.rows.reversed()) { row in
+                            Text(data.labels[row.month] ?? row.month).tag(row.month)
                         }
                     }
                     .labelsHidden()
@@ -575,16 +582,54 @@ struct SpendStat: View {
     }
 }
 
-struct RecentTxnsCard: View {
+struct TxnsCard: View {
+    var title: String
     var d: Dashboard
+    var data: Dashboard.PeriodData
     @State private var selectedMonth: String?
     @State private var expandedDays: Set<String> = []
     @State private var didSetDefault = false
     @State private var keyword = ""
     @State private var category: String?  // categoryIcon の絵文字。nil = すべて
+    @State private var sort: TxnSort = .date
+
+    enum TxnSort: String, CaseIterable {
+        case date = "日付順"
+        case amountDesc = "金額が大きい順"
+        case amountAsc = "金額が小さい順"
+        case category = "カテゴリ順"
+    }
+
+    // フラット表示(日付順以外)の並び替え。カテゴリ順は categoryList の並びでまとめ、
+    // 同カテゴリ内は金額が大きい順。
+    private func sortedFlat(_ txns: [Txn]) -> [Txn] {
+        switch sort {
+        case .date:
+            return txns
+        case .amountDesc:
+            return txns.sorted { $0.amount < $1.amount }
+        case .amountAsc:
+            return txns.sorted { $0.amount > $1.amount }
+        case .category:
+            let order = Dictionary(uniqueKeysWithValues:
+                Dashboard.categoryList.enumerated().map { ($0.element.icon, $0.offset) })
+            return txns.sorted {
+                let a = order[Dashboard.categoryIcon($0)] ?? .max
+                let b = order[Dashboard.categoryIcon($1)] ?? .max
+                return a != b ? a < b : $0.amount < $1.amount
+            }
+        }
+    }
 
     private var currentMonth: String? {
-        selectedMonth ?? d.daysByMonth.keys.max()
+        selectedMonth ?? data.days.keys.max()
+    }
+
+    // "yyyy-MM-dd" → "7/3" のような短い日付表示(金額順の一覧用)。
+    private func shortDay(_ day: String) -> String {
+        let parts = day.split(separator: "-")
+        guard parts.count == 3, let m = Int(parts[1]), let d = Int(parts[2]) else { return day }
+        return "\(m)/\(d)"
     }
 
     private var filterActive: Bool {
@@ -602,9 +647,9 @@ struct RecentTxnsCard: View {
     }
 
     var body: some View {
-        Card(title: "月ごとの支出") {
+        Card(title: title) {
             let month = currentMonth
-            let baseGroups = month.flatMap { d.daysByMonth[$0] } ?? []
+            let baseGroups = month.flatMap { data.days[$0] } ?? []
             let groups: [Dashboard.DayGroup] = filterActive
                 ? baseGroups.compactMap { g in
                     let txns = g.txns.filter(matches)
@@ -619,15 +664,15 @@ struct RecentTxnsCard: View {
                 && groups.allSatisfy { expandedDays.contains($0.day) }
             if let m = month {
                 HStack {
-                    Picker("月", selection: Binding(
+                    Picker("期間", selection: Binding(
                         get: { m },
                         set: { newMonth in
                             selectedMonth = newMonth
-                            // 月を切り替えたら、その月の最新日だけ開く。
-                            expandedDays = Set((d.daysByMonth[newMonth]?.first?.day).map { [$0] } ?? [])
+                            // 期間を切り替えたら、その期間の最新日だけ開く。
+                            expandedDays = Set((data.days[newMonth]?.first?.day).map { [$0] } ?? [])
                         })) {
-                        ForEach(d.daysByMonth.keys.sorted(by: >), id: \.self) { key in
-                            Text(key).tag(key)
+                        ForEach(data.days.keys.sorted(by: >), id: \.self) { key in
+                            Text(data.labels[key] ?? key).tag(key)
                         }
                     }
                     .labelsHidden()
@@ -641,7 +686,7 @@ struct RecentTxnsCard: View {
                                   : "rectangle.expand.vertical")
                             .font(.caption)
                     }
-                    .disabled(groups.isEmpty || filterActive)
+                    .disabled(groups.isEmpty || filterActive || sort != .date)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(usd(groups.reduce(0) { $0 + $1.total }))
@@ -653,6 +698,13 @@ struct RecentTxnsCard: View {
                     }
                 }
                 HStack(spacing: 8) {
+                    Picker("並び替え", selection: $sort) {
+                        ForEach(TxnSort.allCases, id: \.self) { s in
+                            Text(s.rawValue).tag(s)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
                     Picker("カテゴリ", selection: $category) {
                         Text("すべてのカテゴリ").tag(String?.none)
                         ForEach(Dashboard.categoryList, id: \.icon) { c in
@@ -674,55 +726,84 @@ struct RecentTxnsCard: View {
                 }
             }
             if groups.isEmpty {
-                Text(filterActive ? "条件に合う支出はありません" : "この月の支出はありません")
+                Text(filterActive ? "条件に合う支出はありません" : "この期間の支出はありません")
                     .foregroundStyle(.secondary)
             }
-            ForEach(groups) { g in
-                DisclosureGroup(isExpanded: Binding(
-                    get: { filterActive || expandedDays.contains(g.day) },
-                    set: { open in
-                        if open { expandedDays.insert(g.day) }
-                        else { expandedDays.remove(g.day) }
-                    })) {
-                    ForEach(g.txns) { t in
-                        HStack(spacing: 8) {
-                            Text(Dashboard.categoryIcon(t))
-                                .font(.system(size: 17))
-                                .frame(width: 24)
-                            Text(t.payee.isEmpty ? t.detail : t.payee)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(d.accountShort[t.account] ?? t.account)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(usd(t.amount))
-                                .monospacedDigit()
-                                .foregroundStyle(.red)
-                                .frame(width: 90, alignment: .trailing)
-                        }
-                        .font(.callout)
-                        .padding(.vertical, 1)
-                    }
-                } label: {
-                    HStack {
-                        Text(g.day)
-                            .font(.callout.bold())
-                            .foregroundStyle(Color.accentColor)
-                        Text("\(g.txns.count)件")
+            if sort != .date {
+                // 金額順・カテゴリ順: 日別グループを崩し、期間内の全明細を1本の一覧で表示する。
+                let txns = sortedFlat(groups.flatMap(\.txns))
+                ForEach(txns) { t in
+                    HStack(spacing: 8) {
+                        Text(shortDay(t.posted))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 40, alignment: .leading)
+                        Text(Dashboard.categoryIcon(t))
+                            .font(.system(size: 17))
+                            .frame(width: 24)
+                        Text(t.payee.isEmpty ? t.detail : t.payee)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(d.accountShort[t.account] ?? t.account)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(usd(g.total))
-                            .font(.callout.bold())
+                        Text(usd(t.amount))
                             .monospacedDigit()
+                            .foregroundStyle(.red)
+                            .frame(width: 90, alignment: .trailing)
+                    }
+                    .font(.callout)
+                    .padding(.vertical, 1)
+                }
+            } else {
+                ForEach(groups) { g in
+                    DisclosureGroup(isExpanded: Binding(
+                        get: { filterActive || expandedDays.contains(g.day) },
+                        set: { open in
+                            if open { expandedDays.insert(g.day) }
+                            else { expandedDays.remove(g.day) }
+                        })) {
+                        ForEach(g.txns) { t in
+                            HStack(spacing: 8) {
+                                Text(Dashboard.categoryIcon(t))
+                                    .font(.system(size: 17))
+                                    .frame(width: 24)
+                                Text(t.payee.isEmpty ? t.detail : t.payee)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(d.accountShort[t.account] ?? t.account)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(usd(t.amount))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.red)
+                                    .frame(width: 90, alignment: .trailing)
+                            }
+                            .font(.callout)
+                            .padding(.vertical, 1)
+                        }
+                    } label: {
+                        HStack {
+                            Text(g.day)
+                                .font(.callout.bold())
+                                .foregroundStyle(Color.accentColor)
+                            Text("\(g.txns.count)件")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(usd(g.total))
+                                .font(.callout.bold())
+                                .monospacedDigit()
+                        }
                     }
                 }
             }
         }
         .onAppear {
-            // 初期状態は最新月の最新日だけ開いておく。
+            // 初期状態は最新期間の最新日だけ開いておく。
             if !didSetDefault,
-               let m = currentMonth, let first = d.daysByMonth[m]?.first {
+               let m = currentMonth, let first = data.days[m]?.first {
                 expandedDays = [first.day]
                 didSetDefault = true
             }

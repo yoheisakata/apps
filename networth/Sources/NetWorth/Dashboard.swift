@@ -48,12 +48,19 @@ struct Dashboard {
     var spendWeek = 0.0
     var spendPrevWeek = 0.0
     var spendMonth = 0.0
+    // 月・週共通の期間集計。キーは月なら "yyyy-MM"、週なら週初日の "yyyy-MM-dd"。
+    struct PeriodData {
+        var rows: [MonthRow] = []                 // 期間ごとの収支(古い順)
+        var income: [String: [IncomeRow]] = [:]   // 期間 -> 収入源の内訳
+        var spend: [String: [IncomeRow]] = [:]    // 期間 -> 支出先の内訳
+        var days: [String: [DayGroup]] = [:]      // 期間 -> 日別の支出明細(新しい日が先頭)
+        var labels: [String: String] = [:]        // 期間キー -> 表示ラベル
+    }
+
     var topMerchants: [MerchantRow] = []
-    var daysByMonth: [String: [DayGroup]] = [:]  // "yyyy-MM" -> 日別の支出明細(新しい日が先頭)
-    var months: [MonthRow] = []
+    var monthly = PeriodData()
+    var weekly = PeriodData()
     var dailySpend: [Point] = []                // 直近30日の日別支出(なしの日は0)
-    var incomeByMonth: [String: [IncomeRow]] = [:]  // "yyyy-MM" -> 収入源の内訳
-    var spendByMonth: [String: [IncomeRow]] = [:]   // "yyyy-MM" -> 支出先の内訳
     var accountPoints: [String: [Point]] = [:]  // 口座ごとの残高推移
     var accountNames: [String: String] = [:]
     var accountShort: [String: String] = [:]    // 明細表示用の短縮名
@@ -208,13 +215,12 @@ struct Dashboard {
             .sorted { $0.total > $1.total }
             .prefix(5).map { $0 }
 
-        // --- 明細: 月 -> 日別グループ(新しい日が先頭) ---
+        // --- 日別の支出グループ(月・週の明細で共用) ---
         let grouped = Dictionary(grouping: spends, by: \.posted)
         let dayGroups = grouped.keys.sorted(by: >).map { day -> DayGroup in
             let txns = grouped[day]!.sorted { $0.amount < $1.amount }
             return DayGroup(day: day, total: sum(txns), txns: txns)
         }
-        daysByMonth = Dictionary(grouping: dayGroups) { String($0.day.prefix(7)) }
 
         // --- 日ごとの支出(直近30日、支出がない日は0で埋める) ---
         var spendByDay: [String: Double] = [:]
@@ -228,38 +234,63 @@ struct Dashboard {
                          total: spendByDay[day] ?? 0)
         }
 
-        // --- 月ごとの収支(直近12ヶ月)と収入の内訳 ---
+        // --- 期間ごとの収支と内訳(月・週) ---
         // 負債口座(カード・ローン)へのプラス取引は返済の受け側なので収入に数えない。
         let liabilities = Set(h.accounts.map(\.id).filter { (series[$0]?.last ?? 0) < 0 })
         let incomes = h.transactions.values.filter {
             $0.amount > 0 && !liabilities.contains($0.account) && !Self.isIncomeExcluded($0)
         }
-        var byMonth: [String: (income: Double, spend: Double)] = [:]
-        for t in h.transactions.values where t.amount < 0 && !Self.isTransfer(t) {
-            byMonth[String(t.posted.prefix(7)), default: (0, 0)].spend -= t.amount
+
+        func monthKey(_ day: String) -> String { String(day.prefix(7)) }
+        func weekKey(_ day: String) -> String {
+            guard let date = History.dayFormatter.date(from: day),
+                  let start = Calendar.current.dateInterval(of: .weekOfYear, for: date)?.start
+            else { return day }
+            return History.dayFormatter.string(from: start)
         }
-        for t in incomes {
-            byMonth[String(t.posted.prefix(7)), default: (0, 0)].income += t.amount
-        }
-        months = byMonth.keys.sorted().suffix(12).map { key in
-            MonthRow(month: key, income: byMonth[key]!.income, spend: byMonth[key]!.spend)
+        func weekLabel(_ key: String) -> String {
+            guard let date = History.dayFormatter.date(from: key) else { return key }
+            let c = Calendar.current.dateComponents([.month, .day], from: date)
+            return "\(c.month ?? 0)/\(c.day ?? 0)週"
         }
 
-        func breakdown<S: Sequence>(_ txns: S) -> [String: [IncomeRow]] where S.Element == Txn {
-            var src: [String: [String: (count: Int, total: Double)]] = [:]
-            for t in txns {
-                let m = String(t.posted.prefix(7))
-                let name = t.payee.isEmpty ? t.detail : t.payee
-                src[m, default: [:]][name, default: (0, 0)].count += 1
-                src[m, default: [:]][name, default: (0, 0)].total += abs(t.amount)
+        func build(keyOf: (String) -> String,
+                   label: (String) -> String,
+                   limit: Int) -> PeriodData {
+            var p = PeriodData()
+            var byPeriod: [String: (income: Double, spend: Double)] = [:]
+            for t in spends {
+                byPeriod[keyOf(t.posted), default: (0, 0)].spend -= t.amount
             }
-            return src.mapValues { dict in
-                dict.map { IncomeRow(name: $0.key, count: $0.value.count, total: $0.value.total) }
+            for t in incomes {
+                byPeriod[keyOf(t.posted), default: (0, 0)].income += t.amount
+            }
+            p.rows = byPeriod.keys.sorted().suffix(limit).map { key in
+                MonthRow(month: key, income: byPeriod[key]!.income, spend: byPeriod[key]!.spend)
+            }
+            func breakdown(_ txns: [Txn]) -> [String: [IncomeRow]] {
+                var src: [String: [String: (count: Int, total: Double)]] = [:]
+                for t in txns {
+                    let k = keyOf(t.posted)
+                    let name = t.payee.isEmpty ? t.detail : t.payee
+                    src[k, default: [:]][name, default: (0, 0)].count += 1
+                    src[k, default: [:]][name, default: (0, 0)].total += abs(t.amount)
+                }
+                return src.mapValues { dict in
+                    dict.map {
+                        IncomeRow(name: $0.key, count: $0.value.count, total: $0.value.total)
+                    }
                     .sorted { $0.total > $1.total }
+                }
             }
+            p.income = breakdown(incomes)
+            p.spend = breakdown(spends)
+            p.days = Dictionary(grouping: dayGroups) { keyOf($0.day) }
+            p.labels = Dictionary(uniqueKeysWithValues: byPeriod.keys.map { ($0, label($0)) })
+            return p
         }
-        incomeByMonth = breakdown(incomes)
-        spendByMonth = breakdown(
-            h.transactions.values.filter { $0.amount < 0 && !Self.isTransfer($0) })
+
+        monthly = build(keyOf: monthKey, label: { $0 }, limit: 12)
+        weekly = build(keyOf: weekKey, label: weekLabel, limit: 12)
     }
 }
