@@ -90,8 +90,8 @@ struct DashboardView: View {
 
     var body: some View {
         let d = store.dashboard
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
                 if let last = store.history.lastFetch {
                     HStack {
                         Spacer()
@@ -114,13 +114,43 @@ struct DashboardView: View {
                         .font(.callout)
                         .foregroundStyle(.red)
                 }
-                NetWorthCard(d: d)
-                AccountsCard(rows: d.accountRows)
-                StocksCard(d: d)
-                SpendingCard(d: d)
-                MonthlyCashflowCard(d: d)
-                MonthlyBreakdownCard(d: d)
-                RecentTxnsCard(d: d)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+
+            TabView {
+                DashboardTab {
+                    NetWorthCard(d: d)
+                    AccountsCard(rows: d.accountRows)
+                    StocksCard(d: d)
+                }
+                .tabItem { Label("メイン", systemImage: "chart.line.uptrend.xyaxis") }
+
+                DashboardTab {
+                    MonthlyCashflowCard(d: d)
+                    MonthlyBreakdownCard(d: d)
+                    RecentTxnsCard(d: d)
+                }
+                .tabItem { Label("月", systemImage: "calendar") }
+
+                DashboardTab {
+                    SpendingCard(d: d)
+                }
+                .tabItem { Label("週", systemImage: "clock") }
+            }
+            .padding(.top, 4)
+        }
+    }
+}
+
+// 各タブ共通のスクロールレイアウト。
+struct DashboardTab<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                content
             }
             .padding(20)
         }
