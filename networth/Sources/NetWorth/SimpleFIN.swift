@@ -60,7 +60,8 @@ struct SFTransaction: Decodable {
 }
 
 enum SimpleFIN {
-    static let fetchDays = 60
+    // 月ごとの収支グラフ用に、銀行が許す範囲で最大1年分の取引を取得する。
+    static let fetchDays = 365
 
     /// セットアップトークン(base64 の claim URL)をアクセスURLに交換する。交換は一度きり。
     static func claim(setupToken: String) async throws -> String {

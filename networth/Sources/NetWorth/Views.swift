@@ -9,6 +9,16 @@ func usdSigned(_ v: Double) -> String {
     (v >= 0 ? "+" : "") + usd(v)
 }
 
+// グラフ注釈用の短い表記("$27.4K" など)。
+// FormatStyle の .notation(.compactName) は macOS 15+ のため自前で組む。
+func usdCompact(_ v: Double) -> String {
+    let sign = v < 0 ? "-" : ""
+    let a = abs(v)
+    if a >= 100_000 { return sign + "$" + String(format: "%.0fK", a / 1000) }
+    if a >= 1_000 { return sign + "$" + String(format: "%.1fK", a / 1000) }
+    return sign + "$" + String(format: "%.0f", a)
+}
+
 func deltaColor(_ v: Double) -> Color {
     v >= 0 ? .green : .red
 }
@@ -82,6 +92,15 @@ struct DashboardView: View {
         let d = store.dashboard
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if let last = store.history.lastFetch {
+                    HStack {
+                        Spacer()
+                        Label("データ取得: \(last.formatted(date: .abbreviated, time: .shortened))",
+                              systemImage: "clock.arrow.circlepath")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 if store.history.isDemo {
                     Label("デモデータを表示中。SimpleFIN を接続すると実データに切り替わります。",
                           systemImage: "exclamationmark.triangle")
@@ -97,13 +116,11 @@ struct DashboardView: View {
                 }
                 NetWorthCard(d: d)
                 AccountsCard(rows: d.accountRows)
+                StocksCard(d: d)
                 SpendingCard(d: d)
+                MonthlyCashflowCard(d: d)
+                MonthlyBreakdownCard(d: d)
                 RecentTxnsCard(d: d)
-                if let last = store.history.lastFetch {
-                    Text("最終更新: \(last.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
             .padding(20)
         }
@@ -136,39 +153,276 @@ struct NetWorthCard: View {
                 DeltaChip(label: "今週", value: d.weekDelta)
                 DeltaChip(label: "今月", value: d.monthDelta)
             }
-            if d.points.count < 2 {
-                Text("推移グラフは残高の記録が2日分たまると表示されます(毎朝7時に自動記録)")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(height: 60)
-            } else {
-                chart(d)
-            }
+            BalanceChart(points: d.points)
         }
     }
+}
 
-    @ViewBuilder
-    private func chart(_ d: Dashboard) -> some View {
+// 残高推移の折れ線チャート。総資産と株セクションで共用する。
+struct BalanceChart: View {
+    var points: [Dashboard.Point]
+    var height: CGFloat = 170
+
+    var body: some View {
+        if points.count < 2 {
+            Text("推移グラフは残高の記録が2日分たまると表示されます(毎朝7時に自動記録)")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(height: 60)
+        } else {
             // AreaMark は0を含むY軸を強制するため、余白込みのドメインを明示して
             // 変化が見えるスケールにする。
-            let values = d.points.map(\.total)
+            let values = points.map(\.total)
             let lo = values.min() ?? 0
             let hi = values.max() ?? 1
             let margin = max((hi - lo) * 0.08, 1)
-            Chart(d.points) { p in
+            Chart(points) { p in
                 AreaMark(x: .value("日付", p.date),
                          yStart: .value("下限", lo - margin),
-                         yEnd: .value("総資産", p.total))
+                         yEnd: .value("残高", p.total))
                     .foregroundStyle(
                         .linearGradient(
                             colors: [.accentColor.opacity(0.3), .clear],
                             startPoint: .top, endPoint: .bottom))
-                LineMark(x: .value("日付", p.date), y: .value("総資産", p.total))
+                LineMark(x: .value("日付", p.date), y: .value("残高", p.total))
                     .foregroundStyle(Color.accentColor)
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
             }
             .chartYScale(domain: (lo - margin)...(hi + margin))
-            .frame(height: 170)
+            .frame(height: height)
+        }
+    }
+}
+
+// 株・投資口座の推移(最大1年)。口座はメニューで切り替えられる。
+struct StocksCard: View {
+    var d: Dashboard
+    @State private var selectedId: String?
+
+    private var currentId: String? {
+        selectedId
+            ?? d.accountRows.first {
+                $0.info.name.localizedCaseInsensitiveContains("stock")
+            }?.info.id
+            ?? d.accountRows.first?.info.id
+    }
+
+    var body: some View {
+        Card(title: "株・投資の推移(最大1年)") {
+            if let id = currentId, let row = d.accountRows.first(where: { $0.info.id == id }) {
+                HStack {
+                    Picker("口座", selection: Binding(
+                        get: { id }, set: { selectedId = $0 })) {
+                        ForEach(d.accountRows) { r in
+                            Text("\(r.info.org) — \(r.info.name)").tag(r.info.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    Spacer()
+                    Text(usd(row.balance))
+                        .font(.title3.bold())
+                        .monospacedDigit()
+                }
+                HStack(spacing: 12) {
+                    DeltaChip(label: "今週", value: row.week)
+                    DeltaChip(label: "今月", value: row.month)
+                }
+                BalanceChart(points: Array((d.accountPoints[id] ?? []).suffix(365)),
+                             height: 150)
+            }
+        }
+    }
+}
+
+// 月ごとの収支: 収入(上向き棒)・支出(下向き棒)・差引(折れ線)。
+struct MonthlyCashflowCard: View {
+    var d: Dashboard
+
+    var body: some View {
+        Card(title: "月ごとの収支") {
+            if d.months.isEmpty {
+                Text("取引データがたまると表示されます")
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 14) {
+                    LegendDot(color: .green, label: "収入")
+                    LegendDot(color: .red, label: "支出")
+                    LegendDot(color: .accentColor, label: "差引(収入−支出)")
+                }
+                .font(.caption)
+                Chart {
+                    ForEach(d.months) { m in
+                        BarMark(x: .value("月", m.month),
+                                y: .value("金額", m.income),
+                                width: .ratio(0.32))
+                            .foregroundStyle(.green.opacity(0.7))
+                            .annotation(position: .top, spacing: 2) {
+                                Text(usdCompact(m.income))
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.green)
+                            }
+                        BarMark(x: .value("月", m.month),
+                                y: .value("金額", -m.spend),
+                                width: .ratio(0.32))
+                            .foregroundStyle(.red.opacity(0.7))
+                            .annotation(position: .bottom, spacing: 2) {
+                                Text(usdCompact(m.spend))
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.red)
+                            }
+                        LineMark(x: .value("月", m.month), y: .value("差引", m.net))
+                            .foregroundStyle(Color.accentColor)
+                            .lineStyle(StrokeStyle(lineWidth: 2))
+                        PointMark(x: .value("月", m.month), y: .value("差引", m.net))
+                            .foregroundStyle(Color.accentColor)
+                            .symbolSize(30)
+                            .annotation(position: .bottomTrailing, spacing: 3) {
+                                Text(usdCompact(m.net))
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(Color.accentColor)
+                            }
+                    }
+                }
+                .frame(height: 210)
+                Text("※ 口座間送金・カード引き落とし・401(k) 拠出は除外。月の途中は集計中の値です。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// 月を選んで収入と支出の内訳をまとめて見るカード。
+struct MonthlyBreakdownCard: View {
+    var d: Dashboard
+    @State private var selectedMonth: String?
+
+    private var currentMonth: String? {
+        selectedMonth ?? d.months.last?.month
+    }
+
+    var body: some View {
+        Card(title: "月の収支の内訳") {
+            if let m = currentMonth {
+                let income = d.incomeByMonth[m] ?? []
+                let spend = d.spendByMonth[m] ?? []
+                let incomeTotal = income.reduce(0) { $0 + $1.total }
+                let spendTotal = spend.reduce(0) { $0 + $1.total }
+                HStack(alignment: .center) {
+                    Picker("月", selection: Binding(get: { m }, set: { selectedMonth = $0 })) {
+                        ForEach(d.months.reversed()) { row in
+                            Text(row.month).tag(row.month)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    Spacer()
+                    HStack(spacing: 20) {
+                        BreakdownStat(label: "収入", value: incomeTotal, color: .green)
+                        BreakdownStat(label: "支出", value: spendTotal, color: .red)
+                        BreakdownStat(label: "差引", value: incomeTotal - spendTotal,
+                                      color: incomeTotal >= spendTotal ? .green : .red,
+                                      signed: true)
+                    }
+                }
+                Text("収入")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.green)
+                    .padding(.top, 6)
+                BreakdownRows(rows: income, color: .green)
+                Text("支出")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.red)
+                    .padding(.top, 6)
+                BreakdownRows(rows: spend, color: .red)
+            } else {
+                Text("取引データがたまると表示されます").foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct BreakdownStat: View {
+    var label: String
+    var value: Double
+    var color: Color
+    var signed = false
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(signed ? usdSigned(value) : usd(value))
+                .font(.title3.bold())
+                .monospacedDigit()
+                .foregroundStyle(color)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// 相手先ごとの合計リスト(割合バー付き、上位 maxRows + その他)。
+struct BreakdownRows: View {
+    var rows: [Dashboard.IncomeRow]
+    var color: Color
+    var maxRows = 12
+
+    var body: some View {
+        if rows.isEmpty {
+            Text("この月のデータはありません")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        } else {
+            let maxV = rows.first?.total ?? 1
+            ForEach(rows.prefix(maxRows)) { r in
+                HStack(spacing: 8) {
+                    Text(r.name)
+                        .lineLimit(1)
+                        .frame(width: 220, alignment: .leading)
+                    if r.count > 1 {
+                        Text("×\(r.count)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    GeometryReader { geo in
+                        Capsule()
+                            .fill(color.opacity(0.65))
+                            .frame(width: max(6, geo.size.width * r.total / maxV),
+                                   height: 10)
+                            .frame(maxHeight: .infinity, alignment: .center)
+                    }
+                    Text(usd(r.total))
+                        .monospacedDigit()
+                        .frame(width: 100, alignment: .trailing)
+                }
+                .font(.callout)
+                .frame(height: 18)
+            }
+            if rows.count > maxRows {
+                let rest = rows.dropFirst(maxRows)
+                HStack {
+                    Text("その他 \(rest.count) 件")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(usd(rest.reduce(0) { $0 + $1.total }))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 100, alignment: .trailing)
+                }
+                .font(.callout)
+            }
+        }
+    }
+}
+
+struct LegendDot: View {
+    var color: Color
+    var label: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -234,6 +488,18 @@ struct SpendingCard: View {
                 SpendStat(label: "先週(その前の7日)", value: d.spendPrevWeek)
                 SpendStat(label: "直近30日", value: d.spendMonth)
             }
+            if !d.dailySpend.isEmpty {
+                Text("日ごとの支出(直近30日)")
+                    .font(.subheadline.bold())
+                    .padding(.top, 6)
+                Chart(d.dailySpend) { p in
+                    BarMark(x: .value("日", p.date, unit: .day),
+                            y: .value("支出", p.total))
+                        .foregroundStyle(.red.opacity(0.65))
+                        .cornerRadius(2)
+                }
+                .frame(height: 110)
+            }
             if !d.topMerchants.isEmpty {
                 Text("今週の使い先 Top 5")
                     .font(.subheadline.bold())
@@ -281,6 +547,8 @@ struct SpendStat: View {
 
 struct RecentTxnsCard: View {
     var d: Dashboard
+    @State private var expandedDays: Set<String> = []
+    @State private var didSetDefault = false
 
     var body: some View {
         Card(title: "最近の明細(直近14日)") {
@@ -288,25 +556,52 @@ struct RecentTxnsCard: View {
                 Text("直近14日の支出はありません").foregroundStyle(.secondary)
             }
             ForEach(d.recentDays) { g in
-                Text("\(g.day)(計 \(usd(g.total)))")
-                    .font(.caption.bold())
-                    .foregroundStyle(Color.accentColor)
-                    .padding(.top, 4)
-                ForEach(g.txns) { t in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 1) {
+                DisclosureGroup(isExpanded: Binding(
+                    get: { expandedDays.contains(g.day) },
+                    set: { open in
+                        if open { expandedDays.insert(g.day) }
+                        else { expandedDays.remove(g.day) }
+                    })) {
+                    ForEach(g.txns) { t in
+                        HStack(spacing: 8) {
+                            Text(Dashboard.categoryIcon(t))
+                                .font(.system(size: 17))
+                                .frame(width: 24)
                             Text(t.payee.isEmpty ? t.detail : t.payee)
-                            Text(d.accountNames[t.account] ?? t.account)
-                                .font(.caption2)
+                                .lineLimit(1)
+                            Spacer()
+                            Text(d.accountShort[t.account] ?? t.account)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
+                            Text(usd(t.amount))
+                                .monospacedDigit()
+                                .foregroundStyle(.red)
+                                .frame(width: 90, alignment: .trailing)
                         }
-                        Spacer()
-                        Text(usd(t.amount))
-                            .monospacedDigit()
-                            .foregroundStyle(.red)
+                        .font(.callout)
+                        .padding(.vertical, 1)
                     }
-                    .font(.callout)
+                } label: {
+                    HStack {
+                        Text(g.day)
+                            .font(.callout.bold())
+                            .foregroundStyle(Color.accentColor)
+                        Text("\(g.txns.count)件")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(usd(g.total))
+                            .font(.callout.bold())
+                            .monospacedDigit()
+                    }
                 }
+            }
+        }
+        .onAppear {
+            // 初期状態は最新の日だけ開いておく。
+            if !didSetDefault, let first = d.recentDays.first {
+                expandedDays = [first.day]
+                didSetDefault = true
             }
         }
     }

@@ -26,6 +26,19 @@ struct Dashboard {
         var total: Double
         var txns: [Txn]
     }
+    struct MonthRow: Identifiable {
+        var id: String { month }
+        var month: String   // "yyyy-MM"(ソート・X軸用)
+        var income: Double
+        var spend: Double
+        var net: Double { income - spend }
+    }
+    struct IncomeRow: Identifiable {
+        var id: String { name }
+        var name: String
+        var count: Int
+        var total: Double
+    }
 
     var points: [Point] = []
     var totalNow = 0.0
@@ -37,7 +50,13 @@ struct Dashboard {
     var spendMonth = 0.0
     var topMerchants: [MerchantRow] = []
     var recentDays: [DayGroup] = []
+    var months: [MonthRow] = []
+    var dailySpend: [Point] = []                // 直近30日の日別支出(なしの日は0)
+    var incomeByMonth: [String: [IncomeRow]] = [:]  // "yyyy-MM" -> 収入源の内訳
+    var spendByMonth: [String: [IncomeRow]] = [:]   // "yyyy-MM" -> 支出先の内訳
+    var accountPoints: [String: [Point]] = [:]  // 口座ごとの残高推移
     var accountNames: [String: String] = [:]
+    var accountShort: [String: String] = [:]    // 明細表示用の短縮名
 
     // カード引き落とし・送金・給与など、「支出」に数えない取引のパターン。
     // "chase ach" は追跡済みの住宅ローン引き落とし、"contribution" は 401(k) 内の拠出処理。
@@ -50,8 +69,62 @@ struct Dashboard {
             of: transferPattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
+    // 「収入」に数えないプラス取引(口座間送金・カードへの入金など)。
+    // 給与 (payroll/deposit) は収入なので transferPattern と違い除外しない。
+    static let incomeExcludePattern =
+        "card payment|online payment|payment.*thank you|autopay|transfer|xfer"
+        + "|chase ach|contribution|振替"
+
+    static func isIncomeExcluded(_ t: Txn) -> Bool {
+        (t.payee + " " + t.detail).range(
+            of: incomeExcludePattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    // 明細用の短縮口座名: "Costco Anywhere Visa® Card by Citi-1676 (1676)" → "Citi •1676"
+    static func shortName(_ a: AccountInfo) -> String {
+        let orgShort = [
+            "Bank of America": "BofA", "Chase Bank": "Chase",
+            "Citibank": "Citi", "Fidelity Investments": "Fidelity",
+        ]
+        let org = orgShort[a.org] ?? a.org
+        if let r = a.name.range(of: #"\d{4}\)$"#, options: .regularExpression) {
+            return "\(org) •\(a.name[r].dropLast())"
+        }
+        return org.isEmpty ? a.name : "\(org) \(a.name.prefix(14))"
+    }
+
+    // カテゴリ推定(ベストエフォート)。上から順に最初にマッチした絵文字を使う。
+    static func categoryIcon(_ t: Txn) -> String {
+        let s = (t.payee + " " + t.detail).lowercased()
+        let rules: [(String, String)] = [
+            ("costco gas|shell|chevron|arco|exxon|mobil|76 gas", "⛽️"),
+            ("costco|trader joe|whole foods|safeway|qfc|kroger|uwajimaya|h mart|grocer|market",
+             "🛒"),
+            ("alaska air|delta|united|american air|airline|airbnb|hotel|marriott|hilton|expedia",
+             "✈️"),
+            ("uber eats|doordash|grubhub|ramen|sushi|restaurant|cafe|coffee|starbucks|pizza"
+             + "|grill|chili|dining|bakery|kitchen|bar ", "🍽️"),
+            ("netflix|spotify|hulu|disney|youtube|audible|subscription", "📺"),
+            ("cvs|walgreens|pharmacy|clinic|dental|medical|psychotherap|hospital|vision", "🏥"),
+            ("home depot|lowes|lowe's|ace hardware|ikea", "🔨"),
+            ("amazon|target|apple store|apple.com|best buy|walmart", "🛍️"),
+            ("uber|lyft|parking|tow |toll|dmv", "🚗"),
+            ("rent|mortgage|hoa", "🏠"),
+            ("comcast|xfinity|verizon|t-mobile|at&t|electric|water|utility|internet", "💡"),
+            ("school|tuition|playtorium|museum|zoo|cinema|amc|theat|game", "🎟️"),
+        ]
+        for (pat, icon) in rules
+        where s.range(of: pat, options: .regularExpression) != nil {
+            return icon
+        }
+        return "💳"
+    }
+
     init(_ h: History) {
-        for a in h.accounts { accountNames[a.id] = a.name }
+        for a in h.accounts {
+            accountNames[a.id] = a.name
+            accountShort[a.id] = Self.shortName(a)
+        }
 
         // --- 残高系列(日付の欠けは直前の値で埋める) ---
         let days = Set(h.balances.values.flatMap { $0.keys }).sorted()
@@ -73,6 +146,11 @@ struct Dashboard {
         }
         points = zip(days, totals).map {
             Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
+        }
+        for (id, arr) in series {
+            accountPoints[id] = zip(days, arr).map {
+                Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
+            }
         }
 
         // --- 期間比較のインデックス ---
@@ -129,5 +207,51 @@ struct Dashboard {
             let txns = grouped[day]!.sorted { $0.amount < $1.amount }
             return DayGroup(day: day, total: sum(txns), txns: txns)
         }
+
+        // --- 日ごとの支出(直近30日、支出がない日は0で埋める) ---
+        var spendByDay: [String: Double] = [:]
+        for t in spends where t.posted > ago30 {
+            spendByDay[t.posted, default: 0] -= t.amount
+        }
+        dailySpend = (0..<30).reversed().map { n in
+            let day = dayString(ago: n)
+            return Point(day: day,
+                         date: History.dayFormatter.date(from: day) ?? Date(),
+                         total: spendByDay[day] ?? 0)
+        }
+
+        // --- 月ごとの収支(直近12ヶ月)と収入の内訳 ---
+        // 負債口座(カード・ローン)へのプラス取引は返済の受け側なので収入に数えない。
+        let liabilities = Set(h.accounts.map(\.id).filter { (series[$0]?.last ?? 0) < 0 })
+        let incomes = h.transactions.values.filter {
+            $0.amount > 0 && !liabilities.contains($0.account) && !Self.isIncomeExcluded($0)
+        }
+        var byMonth: [String: (income: Double, spend: Double)] = [:]
+        for t in h.transactions.values where t.amount < 0 && !Self.isTransfer(t) {
+            byMonth[String(t.posted.prefix(7)), default: (0, 0)].spend -= t.amount
+        }
+        for t in incomes {
+            byMonth[String(t.posted.prefix(7)), default: (0, 0)].income += t.amount
+        }
+        months = byMonth.keys.sorted().suffix(12).map { key in
+            MonthRow(month: key, income: byMonth[key]!.income, spend: byMonth[key]!.spend)
+        }
+
+        func breakdown<S: Sequence>(_ txns: S) -> [String: [IncomeRow]] where S.Element == Txn {
+            var src: [String: [String: (count: Int, total: Double)]] = [:]
+            for t in txns {
+                let m = String(t.posted.prefix(7))
+                let name = t.payee.isEmpty ? t.detail : t.payee
+                src[m, default: [:]][name, default: (0, 0)].count += 1
+                src[m, default: [:]][name, default: (0, 0)].total += abs(t.amount)
+            }
+            return src.mapValues { dict in
+                dict.map { IncomeRow(name: $0.key, count: $0.value.count, total: $0.value.total) }
+                    .sorted { $0.total > $1.total }
+            }
+        }
+        incomeByMonth = breakdown(incomes)
+        spendByMonth = breakdown(
+            h.transactions.values.filter { $0.amount < 0 && !Self.isTransfer($0) })
     }
 }
