@@ -126,9 +126,11 @@ struct DashboardView: View {
                 .tabItem { Label("メイン", systemImage: "chart.line.uptrend.xyaxis") }
 
                 DashboardTab {
-                    StocksCard(d: d)
+                    CashflowCard(unitLabel: "週", data: d.weekly)
+                    BreakdownCard(title: "週の収支の内訳", data: d.weekly)
+                    TxnsCard(title: "週ごとの支出", d: d, data: d.weekly)
                 }
-                .tabItem { Label("投資", systemImage: "chart.bar.xaxis") }
+                .tabItem { Label("週", systemImage: "clock") }
 
                 DashboardTab {
                     CashflowCard(unitLabel: "か月", data: d.monthly)
@@ -138,12 +140,12 @@ struct DashboardView: View {
                 .tabItem { Label("月", systemImage: "calendar") }
 
                 DashboardTab {
-                    SpendingCard(d: d)
-                    CashflowCard(unitLabel: "週", data: d.weekly)
-                    BreakdownCard(title: "週の収支の内訳", data: d.weekly)
-                    TxnsCard(title: "週ごとの支出", d: d, data: d.weekly)
+                    StocksCard(d: d)
+                    if !d.holdingRows.isEmpty {
+                        HoldingsCard(rows: d.holdingRows)
+                    }
                 }
-                .tabItem { Label("週", systemImage: "clock") }
+                .tabItem { Label("投資", systemImage: "chart.bar.xaxis") }
             }
             .padding(.top, 4)
         }
@@ -515,69 +517,77 @@ struct AccountsCard: View {
     }
 }
 
-struct SpendingCard: View {
-    var d: Dashboard
+// SimpleFIN の holdings から作る保有銘柄一覧(全投資口座まとめ、時価の大きい順)。
+struct HoldingsCard: View {
+    var rows: [Dashboard.HoldingRow]
 
     var body: some View {
-        Card(title: "支出(カード・引き落とし)") {
-            HStack(spacing: 28) {
-                SpendStat(label: "今週(直近7日)", value: d.spendWeek)
-                SpendStat(label: "先週(その前の7日)", value: d.spendPrevWeek)
-                SpendStat(label: "直近30日", value: d.spendMonth)
-            }
-            if !d.dailySpend.isEmpty {
-                Text("日ごとの支出(直近30日)")
-                    .font(.subheadline.bold())
-                    .padding(.top, 6)
-                Chart(d.dailySpend) { p in
-                    BarMark(x: .value("日", p.date, unit: .day),
-                            y: .value("支出", p.total))
-                        .foregroundStyle(.red.opacity(0.65))
-                        .cornerRadius(2)
+        Card(title: "保有銘柄") {
+            HStack {
+                Text("\(rows.count)銘柄")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(usd(rows.reduce(0) { $0 + $1.marketValue }))
+                        .font(.title3.bold())
+                        .monospacedDigit()
+                    Text("時価合計").font(.caption).foregroundStyle(.secondary)
                 }
-                .frame(height: 110)
             }
-            if !d.topMerchants.isEmpty {
-                Text("今週の使い先 Top 5")
-                    .font(.subheadline.bold())
-                    .padding(.top, 6)
-                let maxV = d.topMerchants.first?.total ?? 1
-                ForEach(d.topMerchants) { m in
-                    HStack {
-                        Text(m.name)
-                            .frame(width: 180, alignment: .leading)
-                            .lineLimit(1)
-                        GeometryReader { geo in
-                            Capsule()
-                                .fill(.linearGradient(
-                                    colors: [.blue, .indigo],
-                                    startPoint: .leading, endPoint: .trailing))
-                                .frame(width: max(6, geo.size.width * m.total / maxV),
-                                       height: 10)
-                                .frame(maxHeight: .infinity, alignment: .center)
+            Grid(alignment: .trailing, horizontalSpacing: 14, verticalSpacing: 7) {
+                GridRow {
+                    Text("銘柄").gridColumnAlignment(.leading)
+                    Text("口座").gridColumnAlignment(.leading)
+                    Text("株数")
+                    Text("時価")
+                    Text("損益")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Divider()
+                ForEach(rows) { r in
+                    GridRow {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(r.symbol.isEmpty ? r.name : r.symbol)
+                                .fontWeight(.semibold)
+                                .lineLimit(1)
+                            if !r.symbol.isEmpty {
+                                Text(r.name)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
-                        Text(usd(m.total))
+                        .gridColumnAlignment(.leading)
+                        Text(r.account)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .gridColumnAlignment(.leading)
+                        Text(r.shares.formatted(.number.precision(.fractionLength(0...3))))
                             .monospacedDigit()
-                            .frame(width: 90, alignment: .trailing)
+                        Text(usd(r.marketValue)).monospacedDigit()
+                        // 401(k) などは取得原価が来ない(0)ので損益は出さない。
+                        if r.costBasis > 0 {
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text(usdSigned(r.gain))
+                                    .monospacedDigit()
+                                    .foregroundStyle(deltaColor(r.gain))
+                                Text((r.gain >= 0 ? "+" : "")
+                                    + (r.gain / r.costBasis)
+                                        .formatted(.percent.precision(.fractionLength(1))))
+                                    .font(.caption2)
+                                    .foregroundStyle(deltaColor(r.gain))
+                            }
+                        } else {
+                            Text("—").foregroundStyle(.secondary)
+                        }
                     }
-                    .font(.callout)
-                    .frame(height: 18)
                 }
             }
-        }
-    }
-}
-
-struct SpendStat: View {
-    var label: String
-    var value: Double
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(usd(value))
-                .font(.title2.bold())
-                .monospacedDigit()
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text("※ 時価・損益は SimpleFIN の最終同期時点の値です(おおむね1日1回更新)。")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }

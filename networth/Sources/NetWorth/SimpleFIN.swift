@@ -49,6 +49,23 @@ struct SFAccount: Decodable {
     var balance: SFMoney
     var org: SFOrg?
     var transactions: [SFTransaction]?
+    var holdings: [SFHolding]?
+}
+
+// 投資口座の保有銘柄。プロトコル仕様外だが SimpleFIN Bridge が返す拡張フィールド。
+struct SFHolding: Decodable {
+    var id: String
+    var symbol: String?
+    var description: String?
+    var shares: SFMoney?
+    var marketValue: SFMoney?
+    var costBasis: SFMoney?
+
+    enum CodingKeys: String, CodingKey {
+        case id, symbol, description, shares
+        case marketValue = "market_value"
+        case costBasis = "cost_basis"
+    }
 }
 
 struct SFTransaction: Decodable {

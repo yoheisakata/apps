@@ -16,13 +16,38 @@ struct Txn: Codable, Identifiable, Hashable {
     var detail: String
 }
 
+// 投資口座の保有銘柄。最新の取得結果だけを保持する(履歴は残高でカバー)。
+struct Holding: Codable, Identifiable, Hashable {
+    var id: String       // "口座ID|銘柄ID"
+    var symbol: String   // ティッカー。529 などティッカーが無い銘柄は空
+    var name: String
+    var shares: Double
+    var marketValue: Double
+    var costBasis: Double
+}
+
 // 蓄積データ本体。~/Library/Application Support/NetWorth/history.json に保存する。
 struct History: Codable {
     var accounts: [AccountInfo] = []
     var balances: [String: [String: Double]] = [:]  // 口座ID -> 日付 -> 残高
     var transactions: [String: Txn] = [:]           // Txn.id -> Txn
+    var holdings: [String: [Holding]] = [:]         // 口座ID -> 保有銘柄(最新)
     var lastFetch: Date?
     var isDemo = false
+
+    init() {}
+
+    // 後から増えたキー(holdings など)が無い既存の history.json も
+    // デコード失敗で履歴を失わずに読めるよう、全キーを optional 扱いで読む。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        accounts = try c.decodeIfPresent([AccountInfo].self, forKey: .accounts) ?? []
+        balances = try c.decodeIfPresent([String: [String: Double]].self, forKey: .balances) ?? [:]
+        transactions = try c.decodeIfPresent([String: Txn].self, forKey: .transactions) ?? [:]
+        holdings = try c.decodeIfPresent([String: [Holding]].self, forKey: .holdings) ?? [:]
+        lastFetch = try c.decodeIfPresent(Date.self, forKey: .lastFetch)
+        isDemo = try c.decodeIfPresent(Bool.self, forKey: .isDemo) ?? false
+    }
 
     static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -47,6 +72,14 @@ struct History: Codable {
                 accounts.append(info)
             }
             balances[a.id, default: [:]][today] = a.balance.value
+            holdings[a.id] = (a.holdings ?? []).map { h in
+                Holding(id: a.id + "|" + h.id,
+                        symbol: h.symbol ?? "",
+                        name: h.description ?? "",
+                        shares: h.shares?.value ?? 0,
+                        marketValue: h.marketValue?.value ?? 0,
+                        costBasis: h.costBasis?.value ?? 0)
+            }
             for t in a.transactions ?? [] {
                 let key = a.id + "|" + t.id
                 transactions[key] = Txn(

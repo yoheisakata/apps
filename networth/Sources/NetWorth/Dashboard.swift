@@ -15,11 +15,6 @@ struct Dashboard {
         var week: Double
         var month: Double
     }
-    struct MerchantRow: Identifiable {
-        var id: String { name }
-        var name: String
-        var total: Double
-    }
     struct DayGroup: Identifiable {
         var id: String { day }
         var day: String
@@ -39,15 +34,22 @@ struct Dashboard {
         var count: Int
         var total: Double
     }
+    struct HoldingRow: Identifiable {
+        var id: String
+        var account: String  // 短縮口座名
+        var symbol: String
+        var name: String
+        var shares: Double
+        var marketValue: Double
+        var costBasis: Double
+        var gain: Double { marketValue - costBasis }
+    }
 
     var points: [Point] = []
     var totalNow = 0.0
     var weekDelta = 0.0
     var monthDelta = 0.0
     var accountRows: [AccountRow] = []
-    var spendWeek = 0.0
-    var spendPrevWeek = 0.0
-    var spendMonth = 0.0
     // 月・週共通の期間集計。キーは月なら "yyyy-MM"、週なら週初日の "yyyy-MM-dd"。
     struct PeriodData {
         var rows: [MonthRow] = []                 // 期間ごとの収支(古い順)
@@ -57,10 +59,9 @@ struct Dashboard {
         var labels: [String: String] = [:]        // 期間キー -> 表示ラベル
     }
 
-    var topMerchants: [MerchantRow] = []
     var monthly = PeriodData()
     var weekly = PeriodData()
-    var dailySpend: [Point] = []                // 直近30日の日別支出(なしの日は0)
+    var holdingRows: [HoldingRow] = []          // 全口座の保有銘柄(時価の大きい順)
     var accountPoints: [String: [Point]] = [:]  // 口座ごとの残高推移
     var accountNames: [String: String] = [:]
     var accountShort: [String: String] = [:]    // 明細表示用の短縮名
@@ -141,6 +142,20 @@ struct Dashboard {
             accountShort[a.id] = Self.shortName(a)
         }
 
+        // --- 保有銘柄(全口座をまとめて時価の大きい順) ---
+        holdingRows = h.holdings.flatMap { acct, list in
+            list.filter { $0.marketValue != 0 }.map {
+                HoldingRow(id: $0.id,
+                           account: accountShort[acct] ?? acct,
+                           symbol: $0.symbol,
+                           name: $0.name,
+                           shares: $0.shares,
+                           marketValue: $0.marketValue,
+                           costBasis: $0.costBasis)
+            }
+        }
+        .sorted { $0.marketValue > $1.marketValue }
+
         // --- 残高系列(日付の欠けは直前の値で埋める) ---
         let days = Set(h.balances.values.flatMap { $0.keys }).sorted()
         guard !days.isEmpty else { return }
@@ -197,41 +212,13 @@ struct Dashboard {
                 month: bal - s[min(iMonth, s.count - 1)])
         }
 
-        // --- 支出集計 ---
-        let spends = h.transactions.values.filter { $0.amount < 0 && !Self.isTransfer($0) }
-        let ago7 = dayString(ago: 7), ago14 = dayString(ago: 14), ago30 = dayString(ago: 30)
-        func sum(_ txns: [Txn]) -> Double { txns.reduce(0) { $0 - $1.amount } }
-        let week = spends.filter { $0.posted > ago7 }
-        spendWeek = sum(week)
-        spendPrevWeek = sum(spends.filter { $0.posted > ago14 && $0.posted <= ago7 })
-        spendMonth = sum(spends.filter { $0.posted > ago30 })
-
-        var byPayee: [String: Double] = [:]
-        for t in week {
-            let name = t.payee.isEmpty ? t.detail : t.payee
-            byPayee[name, default: 0] -= t.amount
-        }
-        topMerchants = byPayee.map { MerchantRow(name: $0.key, total: $0.value) }
-            .sorted { $0.total > $1.total }
-            .prefix(5).map { $0 }
-
         // --- 日別の支出グループ(月・週の明細で共用) ---
+        let spends = h.transactions.values.filter { $0.amount < 0 && !Self.isTransfer($0) }
+        func sum(_ txns: [Txn]) -> Double { txns.reduce(0) { $0 - $1.amount } }
         let grouped = Dictionary(grouping: spends, by: \.posted)
         let dayGroups = grouped.keys.sorted(by: >).map { day -> DayGroup in
             let txns = grouped[day]!.sorted { $0.amount < $1.amount }
             return DayGroup(day: day, total: sum(txns), txns: txns)
-        }
-
-        // --- 日ごとの支出(直近30日、支出がない日は0で埋める) ---
-        var spendByDay: [String: Double] = [:]
-        for t in spends where t.posted > ago30 {
-            spendByDay[t.posted, default: 0] -= t.amount
-        }
-        dailySpend = (0..<30).reversed().map { n in
-            let day = dayString(ago: n)
-            return Point(day: day,
-                         date: History.dayFormatter.date(from: day) ?? Date(),
-                         total: spendByDay[day] ?? 0)
         }
 
         // --- 期間ごとの収支と内訳(月・週) ---
