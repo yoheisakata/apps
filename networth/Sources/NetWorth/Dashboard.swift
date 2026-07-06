@@ -49,7 +49,7 @@ struct Dashboard {
     var spendPrevWeek = 0.0
     var spendMonth = 0.0
     var topMerchants: [MerchantRow] = []
-    var recentDays: [DayGroup] = []
+    var daysByMonth: [String: [DayGroup]] = [:]  // "yyyy-MM" -> 日別の支出明細(新しい日が先頭)
     var months: [MonthRow] = []
     var dailySpend: [Point] = []                // 直近30日の日別支出(なしの日は0)
     var incomeByMonth: [String: [IncomeRow]] = [:]  // "yyyy-MM" -> 収入源の内訳
@@ -200,13 +200,13 @@ struct Dashboard {
             .sorted { $0.total > $1.total }
             .prefix(5).map { $0 }
 
-        // --- 直近14日の明細を日付ごとに ---
-        let recent = spends.filter { $0.posted > ago14 }
-        let grouped = Dictionary(grouping: recent, by: \.posted)
-        recentDays = grouped.keys.sorted(by: >).map { day in
+        // --- 明細: 月 -> 日別グループ(新しい日が先頭) ---
+        let grouped = Dictionary(grouping: spends, by: \.posted)
+        let dayGroups = grouped.keys.sorted(by: >).map { day -> DayGroup in
             let txns = grouped[day]!.sorted { $0.amount < $1.amount }
             return DayGroup(day: day, total: sum(txns), txns: txns)
         }
+        daysByMonth = Dictionary(grouping: dayGroups) { String($0.day.prefix(7)) }
 
         // --- 日ごとの支出(直近30日、支出がない日は0で埋める) ---
         var spendByDay: [String: Double] = [:]

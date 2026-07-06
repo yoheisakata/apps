@@ -547,15 +547,58 @@ struct SpendStat: View {
 
 struct RecentTxnsCard: View {
     var d: Dashboard
+    @State private var selectedMonth: String?
     @State private var expandedDays: Set<String> = []
     @State private var didSetDefault = false
 
+    private var currentMonth: String? {
+        selectedMonth ?? d.daysByMonth.keys.max()
+    }
+
     var body: some View {
-        Card(title: "最近の明細(直近14日)") {
-            if d.recentDays.isEmpty {
-                Text("直近14日の支出はありません").foregroundStyle(.secondary)
+        Card(title: "月ごとの支出") {
+            let month = currentMonth
+            let groups = month.flatMap { d.daysByMonth[$0] } ?? []
+            let allExpanded = !groups.isEmpty
+                && groups.allSatisfy { expandedDays.contains($0.day) }
+            if let m = month {
+                HStack {
+                    Picker("月", selection: Binding(
+                        get: { m },
+                        set: { newMonth in
+                            selectedMonth = newMonth
+                            // 月を切り替えたら、その月の最新日だけ開く。
+                            expandedDays = Set((d.daysByMonth[newMonth]?.first?.day).map { [$0] } ?? [])
+                        })) {
+                        ForEach(d.daysByMonth.keys.sorted(by: >), id: \.self) { key in
+                            Text(key).tag(key)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    Button {
+                        expandedDays = allExpanded ? [] : Set(groups.map(\.day))
+                    } label: {
+                        Label(allExpanded ? "すべて閉じる" : "すべて開く",
+                              systemImage: allExpanded
+                                  ? "rectangle.compress.vertical"
+                                  : "rectangle.expand.vertical")
+                            .font(.caption)
+                    }
+                    .disabled(groups.isEmpty)
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(usd(groups.reduce(0) { $0 + $1.total }))
+                            .font(.title3.bold())
+                            .monospacedDigit()
+                        Text("支出合計").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
             }
-            ForEach(d.recentDays) { g in
+            if groups.isEmpty {
+                Text("この月の支出はありません").foregroundStyle(.secondary)
+            }
+            ForEach(groups) { g in
                 DisclosureGroup(isExpanded: Binding(
                     get: { expandedDays.contains(g.day) },
                     set: { open in
@@ -598,8 +641,9 @@ struct RecentTxnsCard: View {
             }
         }
         .onAppear {
-            // 初期状態は最新の日だけ開いておく。
-            if !didSetDefault, let first = d.recentDays.first {
+            // 初期状態は最新月の最新日だけ開いておく。
+            if !didSetDefault,
+               let m = currentMonth, let first = d.daysByMonth[m]?.first {
                 expandedDays = [first.day]
                 didSetDefault = true
             }
