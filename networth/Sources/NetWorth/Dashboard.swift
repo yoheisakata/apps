@@ -93,6 +93,14 @@ struct Dashboard {
         return org.isEmpty ? a.name : "\(org) \(a.name.prefix(14))"
     }
 
+    // フィルター UI 用のカテゴリ一覧(categoryIcon が返しうる絵文字と表示名)。
+    static let categoryList: [(icon: String, label: String)] = [
+        ("🛒", "食料品"), ("🍽️", "外食・カフェ"), ("⛽️", "ガソリン"), ("✈️", "旅行"),
+        ("🛍️", "買い物"), ("📺", "サブスク"), ("🏥", "医療・薬局"), ("🔨", "住まい・DIY"),
+        ("🚗", "交通"), ("🏠", "住居費"), ("💡", "光熱・通信"), ("🎟️", "レジャー"),
+        ("💳", "その他"),
+    ]
+
     // カテゴリ推定(ベストエフォート)。上から順に最初にマッチした絵文字を使う。
     static func categoryIcon(_ t: Txn) -> String {
         let s = (t.payee + " " + t.detail).lowercased()

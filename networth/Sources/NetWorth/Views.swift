@@ -550,15 +550,41 @@ struct RecentTxnsCard: View {
     @State private var selectedMonth: String?
     @State private var expandedDays: Set<String> = []
     @State private var didSetDefault = false
+    @State private var keyword = ""
+    @State private var category: String?  // categoryIcon の絵文字。nil = すべて
 
     private var currentMonth: String? {
         selectedMonth ?? d.daysByMonth.keys.max()
     }
 
+    private var filterActive: Bool {
+        category != nil || !keyword.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private func matches(_ t: Txn) -> Bool {
+        if let c = category, Dashboard.categoryIcon(t) != c { return false }
+        let kw = keyword.trimmingCharacters(in: .whitespaces)
+        if !kw.isEmpty,
+           !(t.payee + " " + t.detail).localizedCaseInsensitiveContains(kw) {
+            return false
+        }
+        return true
+    }
+
     var body: some View {
         Card(title: "月ごとの支出") {
             let month = currentMonth
-            let groups = month.flatMap { d.daysByMonth[$0] } ?? []
+            let baseGroups = month.flatMap { d.daysByMonth[$0] } ?? []
+            let groups: [Dashboard.DayGroup] = filterActive
+                ? baseGroups.compactMap { g in
+                    let txns = g.txns.filter(matches)
+                    guard !txns.isEmpty else { return nil }
+                    return Dashboard.DayGroup(
+                        day: g.day,
+                        total: txns.reduce(0) { $0 - $1.amount },
+                        txns: txns)
+                }
+                : baseGroups
             let allExpanded = !groups.isEmpty
                 && groups.allSatisfy { expandedDays.contains($0.day) }
             if let m = month {
@@ -585,22 +611,45 @@ struct RecentTxnsCard: View {
                                   : "rectangle.expand.vertical")
                             .font(.caption)
                     }
-                    .disabled(groups.isEmpty)
+                    .disabled(groups.isEmpty || filterActive)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(usd(groups.reduce(0) { $0 + $1.total }))
                             .font(.title3.bold())
                             .monospacedDigit()
-                        Text("支出合計").font(.caption).foregroundStyle(.secondary)
+                        Text(filterActive ? "絞り込み合計" : "支出合計")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                }
+                HStack(spacing: 8) {
+                    Picker("カテゴリ", selection: $category) {
+                        Text("すべてのカテゴリ").tag(String?.none)
+                        ForEach(Dashboard.categoryList, id: \.icon) { c in
+                            Text("\(c.icon) \(c.label)").tag(String?.some(c.icon))
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    TextField("キーワードで絞り込み(店名など)", text: $keyword)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 240)
+                    if filterActive {
+                        Button("クリア") {
+                            category = nil
+                            keyword = ""
+                        }
+                    }
+                    Spacer()
                 }
             }
             if groups.isEmpty {
-                Text("この月の支出はありません").foregroundStyle(.secondary)
+                Text(filterActive ? "条件に合う支出はありません" : "この月の支出はありません")
+                    .foregroundStyle(.secondary)
             }
             ForEach(groups) { g in
                 DisclosureGroup(isExpanded: Binding(
-                    get: { expandedDays.contains(g.day) },
+                    get: { filterActive || expandedDays.contains(g.day) },
                     set: { open in
                         if open { expandedDays.insert(g.day) }
                         else { expandedDays.remove(g.day) }
