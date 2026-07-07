@@ -29,6 +29,14 @@ mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
+
+# バージョンは Main.swift の appVersion が唯一の定義。Info.plist に反映する。
+VERSION=$(sed -n 's/^let appVersion = "\(.*\)"$/\1/p' Sources/NetWorth/Main.swift)
+if [[ -n "${VERSION}" ]]; then
+    plutil -replace CFBundleShortVersionString -string "${VERSION}" \
+        "${APP_BUNDLE}/Contents/Info.plist"
+    echo "==> バージョン: ${VERSION}"
+fi
 if [[ -f AppIcon.icns ]]; then
     cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 fi

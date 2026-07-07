@@ -830,7 +830,13 @@ struct SetupSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("SimpleFIN の設定").font(.title3.bold())
+            HStack(alignment: .firstTextBaseline) {
+                Text("SimpleFIN の設定").font(.title3.bold())
+                Spacer()
+                Text("NetWorth v\(appVersion)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Text("1. bridge.simplefin.org でアカウントを作成し、Bank of America / Fidelity を接続\n2. 「New App Connection」でセットアップトークンを発行\n3. 下に貼り付けて「接続」")
                 .font(.callout)
                 .foregroundStyle(.secondary)
