@@ -9,16 +9,6 @@ func usdSigned(_ v: Double) -> String {
     (v >= 0 ? "+" : "") + usd(v)
 }
 
-// グラフ注釈用の短い表記("$27.4K" など)。
-// FormatStyle の .notation(.compactName) は macOS 15+ のため自前で組む。
-func usdCompact(_ v: Double) -> String {
-    let sign = v < 0 ? "-" : ""
-    let a = abs(v)
-    if a >= 100_000 { return sign + "$" + String(format: "%.0fK", a / 1000) }
-    if a >= 1_000 { return sign + "$" + String(format: "%.1fK", a / 1000) }
-    return sign + "$" + String(format: "%.0f", a)
-}
-
 func deltaColor(_ v: Double) -> Color {
     v >= 0 ? .green : .red
 }
@@ -868,11 +858,14 @@ struct TxnsCard: View {
         case .category:
             let order = Dictionary(uniqueKeysWithValues:
                 Dashboard.categoryList.enumerated().map { ($0.element.icon, $0.offset) })
-            return txns.sorted {
-                let a = order[Dashboard.categoryIcon($0)] ?? .max
-                let b = order[Dashboard.categoryIcon($1)] ?? .max
-                return a != b ? a < b : $0.amount < $1.amount
+            // カテゴリ推定(正規表現)は比較のたびではなく1件1回で済ませる。
+            let keyed: [(txn: Txn, cat: Int)] = txns.map {
+                (txn: $0, cat: order[Dashboard.categoryIcon($0)] ?? Int.max)
             }
+            let sorted = keyed.sorted { a, b in
+                a.cat != b.cat ? a.cat < b.cat : a.txn.amount < b.txn.amount
+            }
+            return sorted.map(\.txn)
         }
     }
 

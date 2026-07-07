@@ -3,12 +3,23 @@ import SwiftUI
 
 @MainActor
 final class FinanceStore: ObservableObject {
-    @Published var history = HistoryFile.load()
+    @Published var history = HistoryFile.load() {
+        didSet { cachedDashboard = nil }
+    }
     @Published var isFetching = false
     @Published var lastError: String?
 
     var isConfigured: Bool { Keychain.load() != nil }
-    var dashboard: Dashboard { Dashboard(history) }
+
+    // Dashboard の集計は全取引を走査する重い処理なので、history が変わるまで使い回す
+    // (SwiftUI の再描画のたびに再計算しない)。
+    private var cachedDashboard: Dashboard?
+    var dashboard: Dashboard {
+        if let d = cachedDashboard { return d }
+        let d = Dashboard(history)
+        cachedDashboard = d
+        return d
+    }
 
     func refreshIfConfigured() async {
         if isConfigured { await refresh() }

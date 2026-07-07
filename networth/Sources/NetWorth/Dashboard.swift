@@ -102,7 +102,6 @@ struct Dashboard {
     var alerts: [SpendAlert] = []
     var holdingRows: [HoldingRow] = []          // 全口座の保有銘柄(時価の大きい順)
     var accountPoints: [String: [Point]] = [:]  // 口座ごとの残高推移
-    var accountNames: [String: String] = [:]
     var accountShort: [String: String] = [:]    // 明細表示用の短縮名
 
     // カード引き落とし・送金・給与など、「支出」に数えない取引のパターン。
@@ -113,9 +112,16 @@ struct Dashboard {
         "card payment|online payment|payment.*thank you|autopay|transfer|xfer|deposit|payroll"
         + "|chase ach|american express des|contribution|reinvestment|振替"
 
+    // 取引ごとに毎回コンパイルすると重いので、正規表現は static let で1回だけ作る。
+    private static let transferRegex = try! NSRegularExpression(
+        pattern: transferPattern, options: [.caseInsensitive])
+
+    private static func matches(_ re: NSRegularExpression, _ s: String) -> Bool {
+        re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
+    }
+
     static func isTransfer(_ t: Txn) -> Bool {
-        (t.payee + " " + t.detail).range(
-            of: transferPattern, options: [.regularExpression, .caseInsensitive]) != nil
+        matches(transferRegex, t.payee + " " + t.detail)
     }
 
     // 「収入」に数えないプラス取引(口座間送金・カードへの入金など)。
@@ -124,9 +130,11 @@ struct Dashboard {
         "card payment|online payment|payment.*thank you|autopay|transfer|xfer"
         + "|chase ach|contribution|振替"
 
+    private static let incomeExcludeRegex = try! NSRegularExpression(
+        pattern: incomeExcludePattern, options: [.caseInsensitive])
+
     static func isIncomeExcluded(_ t: Txn) -> Bool {
-        (t.payee + " " + t.detail).range(
-            of: incomeExcludePattern, options: [.regularExpression, .caseInsensitive]) != nil
+        matches(incomeExcludeRegex, t.payee + " " + t.detail)
     }
 
     static let orgShortNames = [
@@ -178,30 +186,33 @@ struct Dashboard {
         ("💳", "その他"),
     ]
 
-    // カテゴリ推定(ベストエフォート)。上から順に最初にマッチした絵文字を使う。
+    // カテゴリ推定のルール。上から順に最初にマッチした絵文字を使う(定義順が優先度)。
+    private static let categoryRules: [(re: NSRegularExpression, icon: String)] = [
+        ("costco gas|shell|chevron|arco|exxon|mobil|76 gas", "⛽️"),
+        ("costco|trader joe|whole foods|safeway|qfc|kroger|uwajimaya|h mart|grocer|market",
+         "🛒"),
+        ("alaska air|delta|united|american air|airline|airbnb|hotel|marriott|hilton|expedia",
+         "✈️"),
+        ("uber eats|doordash|grubhub|ramen|sushi|restaurant|cafe|coffee|starbucks|pizza"
+         + "|grill|chili|dining|bakery|kitchen|bar ", "🍽️"),
+        ("netflix|spotify|hulu|disney|youtube|audible|subscription", "📺"),
+        ("cvs|walgreens|pharmacy|clinic|dental|medical|psychotherap|hospital|vision", "🏥"),
+        ("home depot|lowes|lowe's|ace hardware|ikea", "🔨"),
+        ("amazon|target|apple store|apple.com|best buy|walmart", "🛍️"),
+        // "Central Park Tow" は HOA fee の引き落とし(交通の "tow" より先に判定)。
+        ("central park tow", "🏠"),
+        ("uber|lyft|parking|tow |toll|dmv", "🚗"),
+        ("rent|mortgage|hoa", "🏠"),
+        ("comcast|xfinity|verizon|t-mobile|at&t|electric|water|utility|internet", "💡"),
+        ("school|tuition|playtorium|museum|zoo|cinema|amc|theat|game", "🎟️"),
+    ].map { (try! NSRegularExpression(pattern: $0.0), $0.1) }
+
+    // カテゴリ推定(ベストエフォート)。
     static func categoryIcon(_ t: Txn) -> String {
         let s = (t.payee + " " + t.detail).lowercased()
-        let rules: [(String, String)] = [
-            ("costco gas|shell|chevron|arco|exxon|mobil|76 gas", "⛽️"),
-            ("costco|trader joe|whole foods|safeway|qfc|kroger|uwajimaya|h mart|grocer|market",
-             "🛒"),
-            ("alaska air|delta|united|american air|airline|airbnb|hotel|marriott|hilton|expedia",
-             "✈️"),
-            ("uber eats|doordash|grubhub|ramen|sushi|restaurant|cafe|coffee|starbucks|pizza"
-             + "|grill|chili|dining|bakery|kitchen|bar ", "🍽️"),
-            ("netflix|spotify|hulu|disney|youtube|audible|subscription", "📺"),
-            ("cvs|walgreens|pharmacy|clinic|dental|medical|psychotherap|hospital|vision", "🏥"),
-            ("home depot|lowes|lowe's|ace hardware|ikea", "🔨"),
-            ("amazon|target|apple store|apple.com|best buy|walmart", "🛍️"),
-            // "Central Park Tow" は HOA fee の引き落とし(交通の "tow" より先に判定)。
-            ("central park tow", "🏠"),
-            ("uber|lyft|parking|tow |toll|dmv", "🚗"),
-            ("rent|mortgage|hoa", "🏠"),
-            ("comcast|xfinity|verizon|t-mobile|at&t|electric|water|utility|internet", "💡"),
-            ("school|tuition|playtorium|museum|zoo|cinema|amc|theat|game", "🎟️"),
-        ]
-        for (pat, icon) in rules
-        where s.range(of: pat, options: .regularExpression) != nil {
+        let range = NSRange(s.startIndex..., in: s)
+        for (re, icon) in categoryRules
+        where re.firstMatch(in: s, range: range) != nil {
             return icon
         }
         return "💳"
@@ -209,7 +220,6 @@ struct Dashboard {
 
     init(_ h: History) {
         for a in h.accounts {
-            accountNames[a.id] = a.name
             accountShort[a.id] = Self.shortName(a)
         }
 
@@ -248,21 +258,21 @@ struct Dashboard {
         let totals = days.indices.map { i in
             series.values.reduce(0) { $0 + $1[i] }
         }
-        points = zip(days, totals).map {
-            Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
+        // DateFormatter のパースは遅いので、日付は1回だけ変換して全系列で使い回す。
+        let dateByDay = Dictionary(uniqueKeysWithValues:
+            days.map { ($0, History.dayFormatter.date(from: $0) ?? Date()) })
+        func makePoints(_ values: [Double]) -> [Point] {
+            zip(days, values).map { Point(day: $0, date: dateByDay[$0]!, total: $1) }
         }
+        points = makePoints(totals)
         let mortgageIds = Set(h.accounts.filter { Self.category($0) == .mortgage }.map(\.id))
         hasMortgage = !mortgageIds.isEmpty
         let totalsEx = days.indices.map { i in
             series.reduce(0) { mortgageIds.contains($1.key) ? $0 : $0 + $1.value[i] }
         }
-        pointsExMortgage = zip(days, totalsEx).map {
-            Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
-        }
+        pointsExMortgage = makePoints(totalsEx)
         for (id, arr) in series {
-            accountPoints[id] = zip(days, arr).map {
-                Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
-            }
+            accountPoints[id] = makePoints(arr)
         }
 
         // --- 期間比較のインデックス ---
@@ -315,7 +325,11 @@ struct Dashboard {
 
         // --- 期間ごとの収支と内訳(月・週) ---
         // 負債口座(カード・ローン)へのプラス取引は返済の受け側なので収入に数えない。
-        let liabilities = Set(h.accounts.map(\.id).filter { (series[$0]?.last ?? 0) < 0 })
+        // カードは返金などで一時的に残高がプラスになることがあるため、
+        // 残高の符号だけでなくカテゴリでも判定する。
+        let liabilities = Set(h.accounts.filter {
+            Self.category($0).isLiability || (series[$0.id]?.last ?? 0) < 0
+        }.map(\.id))
         let incomes = h.transactions.values.filter {
             $0.amount > 0 && !liabilities.contains($0.account) && !Self.isIncomeExcluded($0)
         }
@@ -336,13 +350,21 @@ struct Dashboard {
         func build(keyOf: (String) -> String,
                    label: (String) -> String,
                    limit: Int) -> PeriodData {
+            // 週キーは日付パースを伴い取引ごとに計算すると重いので、日付単位でキャッシュする。
+            var keyByDay: [String: String] = [:]
+            func key(_ day: String) -> String {
+                if let k = keyByDay[day] { return k }
+                let k = keyOf(day)
+                keyByDay[day] = k
+                return k
+            }
             var p = PeriodData()
             var byPeriod: [String: (income: Double, spend: Double)] = [:]
             for t in spends {
-                byPeriod[keyOf(t.posted), default: (0, 0)].spend -= t.amount
+                byPeriod[key(t.posted), default: (0, 0)].spend -= t.amount
             }
             for t in incomes {
-                byPeriod[keyOf(t.posted), default: (0, 0)].income += t.amount
+                byPeriod[key(t.posted), default: (0, 0)].income += t.amount
             }
             p.rows = byPeriod.keys.sorted().suffix(limit).map { key in
                 MonthRow(month: key, income: byPeriod[key]!.income, spend: byPeriod[key]!.spend)
@@ -350,7 +372,7 @@ struct Dashboard {
             func breakdown(_ txns: [Txn]) -> [String: [IncomeRow]] {
                 var src: [String: [String: (count: Int, total: Double)]] = [:]
                 for t in txns {
-                    let k = keyOf(t.posted)
+                    let k = key(t.posted)
                     let name = t.payee.isEmpty ? t.detail : t.payee
                     src[k, default: [:]][name, default: (0, 0)].count += 1
                     src[k, default: [:]][name, default: (0, 0)].total += abs(t.amount)
@@ -364,7 +386,7 @@ struct Dashboard {
             }
             p.income = breakdown(incomes)
             p.spend = breakdown(spends)
-            p.days = Dictionary(grouping: dayGroups) { keyOf($0.day) }
+            p.days = Dictionary(grouping: dayGroups) { key($0.day) }
             p.labels = Dictionary(uniqueKeysWithValues: byPeriod.keys.map { ($0, label($0)) })
             return p
         }

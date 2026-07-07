@@ -106,11 +106,14 @@ enum HistoryFile {
     static var url: URL { directory.appendingPathComponent("history.json") }
 
     static func load() -> History {
-        guard let data = try? Data(contentsOf: url),
-              let h = try? JSONDecoder().decode(History.self, from: data) else {
-            return History()
+        guard let data = try? Data(contentsOf: url) else { return History() }
+        if let h = try? JSONDecoder().decode(History.self, from: data) {
+            return h
         }
-        return h
+        // 読めない history.json は次回の保存で上書きされて消えるため、
+        // 蓄積した残高履歴を失わないよう先に退避しておく。
+        try? data.write(to: directory.appendingPathComponent("history-corrupt.json"))
+        return History()
     }
 
     static func save(_ h: History) throws {
