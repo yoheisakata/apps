@@ -106,10 +106,11 @@ struct Dashboard {
     var accountShort: [String: String] = [:]    // 明細表示用の短縮名
 
     // カード引き落とし・送金・給与など、「支出」に数えない取引のパターン。
-    // "chase ach" は追跡済みの住宅ローン引き落とし、"contribution" は 401(k) 内の拠出処理。
+    // "chase ach" は追跡済みの住宅ローン引き落とし、"american express des" は
+    // Amex カードの引き落とし(ACH PMT/RETRY PYMT)、"contribution" は 401(k) 内の拠出処理。
     static let transferPattern =
         "card payment|online payment|payment.*thank you|autopay|transfer|xfer|deposit|payroll"
-        + "|chase ach|contribution|振替"
+        + "|chase ach|american express des|contribution|振替"
 
     static func isTransfer(_ t: Txn) -> Bool {
         (t.payee + " " + t.detail).range(
