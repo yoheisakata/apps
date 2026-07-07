@@ -229,10 +229,16 @@ struct Dashboard {
         let holdingsAccounts = Set(h.accounts.filter {
             $0.name.contains("4806") || $0.org.localizedCaseInsensitiveContains("schwab")
         }.map(\.id))
+        // 口座列は「会社 口座名」で表示する(短縮名だけだと "Individual" などで
+        // どこの口座か分からないため)。
+        let infoById = Dictionary(uniqueKeysWithValues: h.accounts.map { ($0.id, $0) })
         holdingRows = h.holdings.filter { holdingsAccounts.contains($0.key) }.flatMap { acct, list in
-            list.filter { $0.marketValue != 0 }.map {
+            let label = infoById[acct].map {
+                "\(Self.orgShort($0.org)) \(Self.cleanName($0.name))"
+            } ?? acct
+            return list.filter { $0.marketValue != 0 }.map {
                 HoldingRow(id: $0.id,
-                           account: accountShort[acct] ?? acct,
+                           account: label,
                            symbol: $0.symbol,
                            name: $0.name,
                            shares: $0.shares,
