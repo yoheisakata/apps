@@ -238,43 +238,30 @@ struct BalanceChart: View {
     }
 }
 
-// 株・投資口座の推移(最大1年)。口座はメニューで切り替えられる。
+// 株・投資の推移(最大1年)。保有銘柄カードと同じ個別株口座の残高合計。
 struct StocksCard: View {
     var d: Dashboard
-    @State private var selectedId: String?
-
-    private var currentId: String? {
-        selectedId
-            ?? d.accountRows.first {
-                $0.info.name.localizedCaseInsensitiveContains("stock")
-            }?.info.id
-            ?? d.accountRows.first?.info.id
-    }
 
     var body: some View {
         Card(title: "株・投資の推移(最大1年)") {
-            if let id = currentId, let row = d.accountRows.first(where: { $0.info.id == id }) {
-                HStack {
-                    Picker("口座", selection: Binding(
-                        get: { id }, set: { selectedId = $0 })) {
-                        ForEach(d.accountRows) { r in
-                            Text("\(r.info.org) — \(Dashboard.cleanName(r.info.name))")
-                                .tag(r.info.id)
-                        }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+            if d.stocksPoints.isEmpty {
+                Text("個別株の口座が見つかりません")
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("保有銘柄の口座合計")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                     Spacer()
-                    Text(usd(row.balance))
+                    Text(usd(d.stocksNow))
                         .font(.title3.bold())
                         .monospacedDigit()
                 }
                 HStack(spacing: 12) {
-                    DeltaChip(label: "今週", value: row.week)
-                    DeltaChip(label: "今月", value: row.month)
+                    DeltaChip(label: "今週", value: d.stocksWeekDelta)
+                    DeltaChip(label: "今月", value: d.stocksMonthDelta)
                 }
-                BalanceChart(points: Array((d.accountPoints[id] ?? []).suffix(365)),
-                             height: 150)
+                BalanceChart(points: Array(d.stocksPoints.suffix(365)), height: 150)
             }
         }
     }

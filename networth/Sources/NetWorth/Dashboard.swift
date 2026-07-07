@@ -101,8 +101,12 @@ struct Dashboard {
     var weekly = PeriodData()
     var alerts: [SpendAlert] = []
     var holdingRows: [HoldingRow] = []          // 全口座の保有銘柄(時価の大きい順)
-    var accountPoints: [String: [Point]] = [:]  // 口座ごとの残高推移
     var accountShort: [String: String] = [:]    // 明細表示用の短縮名
+    // 投資タブの推移: 保有銘柄カードと同じ個別株口座の残高合計。
+    var stocksPoints: [Point] = []
+    var stocksNow = 0.0
+    var stocksWeekDelta = 0.0
+    var stocksMonthDelta = 0.0
 
     // カード引き落とし・送金・給与など、「支出」に数えない取引のパターン。
     // "chase ach" は追跡済みの住宅ローン引き落とし、"american express des" は
@@ -279,9 +283,6 @@ struct Dashboard {
             series.reduce(0) { mortgageIds.contains($1.key) ? $0 : $0 + $1.value[i] }
         }
         pointsExMortgage = makePoints(totalsEx)
-        for (id, arr) in series {
-            accountPoints[id] = makePoints(arr)
-        }
 
         // --- 期間比較のインデックス ---
         let lastDay = days.last!
@@ -305,6 +306,17 @@ struct Dashboard {
         totalNowExMortgage = totalsEx[iLast]
         weekDeltaExMortgage = totalsEx[iLast] - totalsEx[iWeek]
         monthDeltaExMortgage = totalsEx[iLast] - totalsEx[iMonth]
+
+        // --- 個別株口座(保有銘柄カードと同じ)の残高合計の推移 ---
+        if !holdingsAccounts.isEmpty {
+            let stockTotals = days.indices.map { i in
+                series.reduce(0) { holdingsAccounts.contains($1.key) ? $0 + $1.value[i] : $0 }
+            }
+            stocksPoints = makePoints(stockTotals)
+            stocksNow = stockTotals[iLast]
+            stocksWeekDelta = stockTotals[iLast] - stockTotals[iWeek]
+            stocksMonthDelta = stockTotals[iLast] - stockTotals[iMonth]
+        }
 
         accountRows = h.accounts.map { a in
             let s = series[a.id] ?? [0]
