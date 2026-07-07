@@ -133,8 +133,8 @@ struct DashboardView: View {
 
                 DashboardTab {
                     StocksCard(d: d)
-                    if !d.holdingRows.isEmpty {
-                        HoldingsCard(rows: d.holdingRows)
+                    if !d.holdingGroups.isEmpty {
+                        HoldingsCard(groups: d.holdingGroups)
                     }
                 }
                 .tabItem { Label("投資", systemImage: "chart.bar.xaxis") }
@@ -727,19 +727,35 @@ struct AlertsCard: View {
     }
 }
 
-// SimpleFIN の holdings から作る保有銘柄一覧(全投資口座まとめ、時価の大きい順)。
+// SimpleFIN の holdings から作る保有銘柄一覧(口座ごとに小計、時価の大きい順)。
 struct HoldingsCard: View {
-    var rows: [Dashboard.HoldingRow]
+    var groups: [Dashboard.HoldingGroup]
+
+    // 損益の金額+割合の2段表示(銘柄行・小計行で共用)。
+    private func gainCell(gain: Double, costBasis: Double) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(usdSigned(gain))
+                .monospacedDigit()
+                .foregroundStyle(deltaColor(gain))
+            Text((gain >= 0 ? "+" : "")
+                + (gain / costBasis)
+                    .formatted(.percent.precision(.fractionLength(1))))
+                .font(.caption2)
+                .foregroundStyle(deltaColor(gain))
+        }
+    }
 
     var body: some View {
+        let count = groups.reduce(0) { $0 + $1.rows.count }
+        let total = groups.reduce(0) { $0 + $1.total }
         Card(title: "保有銘柄") {
             HStack {
-                Text("\(rows.count)銘柄")
+                Text("\(groups.count)口座 / \(count)銘柄")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text(usd(rows.reduce(0) { $0 + $1.marketValue }))
+                    Text(usd(total))
                         .font(.title3.bold())
                         .monospacedDigit()
                     Text("時価合計").font(.caption).foregroundStyle(.secondary)
@@ -748,49 +764,53 @@ struct HoldingsCard: View {
             Grid(alignment: .trailing, horizontalSpacing: 14, verticalSpacing: 7) {
                 GridRow {
                     Text("銘柄").gridColumnAlignment(.leading)
-                    Text("口座").gridColumnAlignment(.leading)
                     Text("株数")
                     Text("時価")
                     Text("損益")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                Divider()
-                ForEach(rows) { r in
+                ForEach(groups) { g in
+                    Divider()
+                    // 口座見出し行(小計付き)
                     GridRow {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(r.symbol.isEmpty ? r.name : r.symbol)
-                                .fontWeight(.semibold)
-                                .lineLimit(1)
-                            if !r.symbol.isEmpty {
-                                Text(r.name)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        .gridColumnAlignment(.leading)
-                        Text(r.account)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .gridColumnAlignment(.leading)
-                        Text(r.shares.formatted(.number.precision(.fractionLength(0...3))))
+                        Text(g.account)
+                            .font(.caption.bold())
+                            .foregroundStyle(Color.accentColor)
+                        Text("")
+                        Text(usd(g.total))
+                            .font(.callout.bold())
                             .monospacedDigit()
-                        Text(usd(r.marketValue)).monospacedDigit()
-                        // 401(k) などは取得原価が来ない(0)ので損益は出さない。
-                        if r.costBasis > 0 {
-                            VStack(alignment: .trailing, spacing: 1) {
-                                Text(usdSigned(r.gain))
-                                    .monospacedDigit()
-                                    .foregroundStyle(deltaColor(r.gain))
-                                Text((r.gain >= 0 ? "+" : "")
-                                    + (r.gain / r.costBasis)
-                                        .formatted(.percent.precision(.fractionLength(1))))
-                                    .font(.caption2)
-                                    .foregroundStyle(deltaColor(r.gain))
-                            }
+                        if g.costBasis > 0 {
+                            gainCell(gain: g.gain, costBasis: g.costBasis)
+                                .font(.callout.bold())
                         } else {
                             Text("—").foregroundStyle(.secondary)
+                        }
+                    }
+                    ForEach(g.rows) { r in
+                        GridRow {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(r.symbol.isEmpty ? r.name : r.symbol)
+                                    .fontWeight(.semibold)
+                                    .lineLimit(1)
+                                if !r.symbol.isEmpty {
+                                    Text(r.name)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .gridColumnAlignment(.leading)
+                            Text(r.shares.formatted(.number.precision(.fractionLength(0...3))))
+                                .monospacedDigit()
+                            Text(usd(r.marketValue)).monospacedDigit()
+                            // 401(k) などは取得原価が来ない(0)ので損益は出さない。
+                            if r.costBasis > 0 {
+                                gainCell(gain: r.gain, costBasis: r.costBasis)
+                            } else {
+                                Text("—").foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }

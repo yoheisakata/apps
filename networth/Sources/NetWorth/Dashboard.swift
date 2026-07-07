@@ -67,6 +67,16 @@ struct Dashboard {
         var costBasis: Double
         var gain: Double { marketValue - costBasis }
     }
+    // 保有銘柄の口座ごとのグループ(小計付き)。損益の小計は取得原価が
+    // 分かる銘柄だけで計算する。
+    struct HoldingGroup: Identifiable {
+        var id: String { account }
+        var account: String
+        var rows: [HoldingRow]
+        var total: Double { rows.reduce(0) { $0 + $1.marketValue } }
+        var costBasis: Double { rows.reduce(0) { $0 + ($1.costBasis > 0 ? $1.costBasis : 0) } }
+        var gain: Double { rows.reduce(0) { $0 + ($1.costBasis > 0 ? $1.gain : 0) } }
+    }
 
     var points: [Point] = []
     var totalNow = 0.0
@@ -100,7 +110,7 @@ struct Dashboard {
     var monthly = PeriodData()
     var weekly = PeriodData()
     var alerts: [SpendAlert] = []
-    var holdingRows: [HoldingRow] = []          // 全口座の保有銘柄(時価の大きい順)
+    var holdingGroups: [HoldingGroup] = []      // 保有銘柄(口座別、時価の大きい順)
     var accountShort: [String: String] = [:]    // 明細表示用の短縮名
     // 投資タブの推移: 保有銘柄カードと同じ個別株口座の残高合計。
     var stocksPoints: [Point] = []
@@ -233,24 +243,31 @@ struct Dashboard {
         let holdingsAccounts = Set(h.accounts.filter {
             $0.name.contains("4806") || $0.org.localizedCaseInsensitiveContains("schwab")
         }.map(\.id))
-        // 口座列は「会社 口座名」で表示する(短縮名だけだと "Individual" などで
+        // 口座見出しは「会社 口座名」で表示する(短縮名だけだと "Individual" などで
         // どこの口座か分からないため)。
         let infoById = Dictionary(uniqueKeysWithValues: h.accounts.map { ($0.id, $0) })
-        holdingRows = h.holdings.filter { holdingsAccounts.contains($0.key) }.flatMap { acct, list in
-            let label = infoById[acct].map {
-                "\(Self.orgShort($0.org)) \(Self.cleanName($0.name))"
-            } ?? acct
-            return list.filter { $0.marketValue != 0 }.map {
-                HoldingRow(id: $0.id,
-                           account: label,
-                           symbol: $0.symbol,
-                           name: $0.name,
-                           shares: $0.shares,
-                           marketValue: $0.marketValue,
-                           costBasis: $0.costBasis)
+        let allHoldingRows = h.holdings.filter { holdingsAccounts.contains($0.key) }
+            .flatMap { acct, list in
+                let label = infoById[acct].map {
+                    "\(Self.orgShort($0.org)) \(Self.cleanName($0.name))"
+                } ?? acct
+                return list.filter { $0.marketValue != 0 }.map {
+                    HoldingRow(id: $0.id,
+                               account: label,
+                               symbol: $0.symbol,
+                               name: $0.name,
+                               shares: $0.shares,
+                               marketValue: $0.marketValue,
+                               costBasis: $0.costBasis)
+                }
             }
-        }
-        .sorted { $0.marketValue > $1.marketValue }
+        // 口座ごとにまとめ、グループも銘柄も時価の大きい順に並べる。
+        holdingGroups = Dictionary(grouping: allHoldingRows, by: \.account)
+            .map { account, rows in
+                HoldingGroup(account: account,
+                             rows: rows.sorted { $0.marketValue > $1.marketValue })
+            }
+            .sorted { $0.total > $1.total }
 
         // --- 残高系列(日付の欠けは直前の値で埋める) ---
         let days = Set(h.balances.values.flatMap { $0.keys }).sorted()
