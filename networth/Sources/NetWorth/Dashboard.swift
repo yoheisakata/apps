@@ -107,10 +107,11 @@ struct Dashboard {
 
     // カード引き落とし・送金・給与など、「支出」に数えない取引のパターン。
     // "chase ach" は追跡済みの住宅ローン引き落とし、"american express des" は
-    // Amex カードの引き落とし(ACH PMT/RETRY PYMT)、"contribution" は 401(k) 内の拠出処理。
+    // Amex カードの引き落とし(ACH PMT/RETRY PYMT)、"contribution" は 401(k) 内の拠出処理、
+    // "reinvestment" は投資口座内の配当再投資。
     static let transferPattern =
         "card payment|online payment|payment.*thank you|autopay|transfer|xfer|deposit|payroll"
-        + "|chase ach|american express des|contribution|振替"
+        + "|chase ach|american express des|contribution|reinvestment|振替"
 
     static func isTransfer(_ t: Txn) -> Bool {
         (t.payee + " " + t.detail).range(
@@ -192,6 +193,8 @@ struct Dashboard {
             ("cvs|walgreens|pharmacy|clinic|dental|medical|psychotherap|hospital|vision", "🏥"),
             ("home depot|lowes|lowe's|ace hardware|ikea", "🔨"),
             ("amazon|target|apple store|apple.com|best buy|walmart", "🛍️"),
+            // "Central Park Tow" は HOA fee の引き落とし(交通の "tow" より先に判定)。
+            ("central park tow", "🏠"),
             ("uber|lyft|parking|tow |toll|dmv", "🚗"),
             ("rent|mortgage|hoa", "🏠"),
             ("comcast|xfinity|verizon|t-mobile|at&t|electric|water|utility|internet", "💡"),
