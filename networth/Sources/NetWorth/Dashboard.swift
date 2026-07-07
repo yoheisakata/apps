@@ -147,8 +147,16 @@ struct Dashboard {
     private static let incomeExcludeRegex = try! NSRegularExpression(
         pattern: incomeExcludePattern, options: [.caseInsensitive])
 
+    // Venmo からの入金は "Transfer from Venmo" (VENMO DES:CASHOUT) という名前で届き
+    // "transfer" の除外ルールに引っかかるが、実際は収入なので例外として先に通す
+    // (毎月の $3,450 など)。Venmo への支払い (DES:PAYMENT) は対象外のまま。
+    private static let incomeAllowRegex = try! NSRegularExpression(
+        pattern: "venmo.*des:cashout", options: [.caseInsensitive])
+
     static func isIncomeExcluded(_ t: Txn) -> Bool {
-        matches(incomeExcludeRegex, t.payee + " " + t.detail)
+        let s = t.payee + " " + t.detail
+        if matches(incomeAllowRegex, s) { return false }
+        return matches(incomeExcludeRegex, s)
     }
 
     static let orgShortNames = [
