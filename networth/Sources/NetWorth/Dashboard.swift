@@ -298,8 +298,10 @@ struct Dashboard {
         }
         let byCategory = Dictionary(grouping: accountRows) { Self.category($0.info) }
         accountGroups = AccountCategory.allCases.compactMap { c in
-            (byCategory[c]?.isEmpty == false)
-                ? AccountGroup(category: c, title: c.title, rows: byCategory[c]!) : nil
+            guard let rows = byCategory[c], !rows.isEmpty else { return nil }
+            // グループ内は金額の大きい順(負債は絶対値で比較)。
+            return AccountGroup(category: c, title: c.title,
+                                rows: rows.sorted { abs($0.balance) > abs($1.balance) })
         }
 
         // --- 日別の支出グループ(月・週の明細で共用) ---
