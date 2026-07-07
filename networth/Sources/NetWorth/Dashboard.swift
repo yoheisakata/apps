@@ -15,6 +15,29 @@ struct Dashboard {
         var week: Double
         var month: Double
     }
+    // メインタブの口座一覧のカテゴリ(表示順)。
+    enum AccountCategory: Int, CaseIterable {
+        case bank, fidelity, card, mortgage
+        var title: String {
+            switch self {
+            case .bank: return "銀行・株"
+            case .fidelity: return "Fidelity"
+            case .card: return "クレジットカード"
+            case .mortgage: return "モーゲージ"
+            }
+        }
+        // 負債グループ(赤文字で表示する)。
+        var isLiability: Bool { self == .card || self == .mortgage }
+    }
+    struct AccountGroup: Identifiable {
+        var id: String { title }
+        var category: AccountCategory
+        var title: String
+        var rows: [AccountRow]
+        var total: Double { rows.reduce(0) { $0 + $1.balance } }
+        var week: Double { rows.reduce(0) { $0 + $1.week } }
+        var month: Double { rows.reduce(0) { $0 + $1.month } }
+    }
     struct DayGroup: Identifiable {
         var id: String { day }
         var day: String
@@ -49,7 +72,14 @@ struct Dashboard {
     var totalNow = 0.0
     var weekDelta = 0.0
     var monthDelta = 0.0
+    // モーゲージ口座を除いた純資産(トグルで切り替え)。モーゲージ口座がなければ points と同じ。
+    var hasMortgage = false
+    var pointsExMortgage: [Point] = []
+    var totalNowExMortgage = 0.0
+    var weekDeltaExMortgage = 0.0
+    var monthDeltaExMortgage = 0.0
     var accountRows: [AccountRow] = []
+    var accountGroups: [AccountGroup] = []  // カテゴリ別にまとめた口座一覧
     // 月・週共通の期間集計。キーは月なら "yyyy-MM"、週なら週初日の "yyyy-MM-dd"。
     struct PeriodData {
         var rows: [MonthRow] = []                 // 期間ごとの収支(古い順)
@@ -59,8 +89,17 @@ struct Dashboard {
         var labels: [String: String] = [:]        // 期間キー -> 表示ラベル
     }
 
+    // ローカルで計算する支出の異常検知(二重請求・大口・ペース・サブスク変化)。
+    struct SpendAlert: Identifiable {
+        var id: String
+        var icon: String
+        var title: String
+        var detail: String
+    }
+
     var monthly = PeriodData()
     var weekly = PeriodData()
+    var alerts: [SpendAlert] = []
     var holdingRows: [HoldingRow] = []          // 全口座の保有銘柄(時価の大きい順)
     var accountPoints: [String: [Point]] = [:]  // 口座ごとの残高推移
     var accountNames: [String: String] = [:]
@@ -88,17 +127,45 @@ struct Dashboard {
             of: incomeExcludePattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
-    // 明細用の短縮口座名: "Costco Anywhere Visa® Card by Citi-1676 (1676)" → "Citi •1676"
+    static let orgShortNames = [
+        "American Express": "Amex", "Bank of America": "BofA",
+        "Charles Schwab US": "Schwab", "Chase Bank": "Chase",
+        "Citibank": "Citi", "Fidelity Investments": "Fidelity",
+    ]
+
+    static func orgShort(_ org: String) -> String {
+        orgShortNames[org] ?? org
+    }
+
+    // 口座名から末尾の口座番号(下4桁)を取り除く:
+    // "Mai Main (3846)" → "Mai Main"、"...Citi-1676 (1676)" → "...Citi"
+    static func cleanName(_ name: String) -> String {
+        name.replacingOccurrences(
+                of: #"\s*\(\d+\)\s*$"#, with: "", options: .regularExpression)
+            .replacingOccurrences(
+                of: #"(-|\.{3})\d{3,4}\s*$"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    // 明細用の短縮口座名。クレジットカードは発行会社名で表示
+    // ("Costco Anywhere Visa® Card by Citi-1676 (1676)" → "Citi")。
+    // それ以外は口座番号を出さず名前の先頭2語まで ("Mai Main (3846)" → "Mai Main")。
     static func shortName(_ a: AccountInfo) -> String {
-        let orgShort = [
-            "Bank of America": "BofA", "Chase Bank": "Chase",
-            "Citibank": "Citi", "Fidelity Investments": "Fidelity",
-        ]
-        let org = orgShort[a.org] ?? a.org
-        if let r = a.name.range(of: #"\d{4}\)$"#, options: .regularExpression) {
-            return "\(org) •\(a.name[r].dropLast())"
+        let org = orgShort(a.org)
+        if category(a) == .card, !org.isEmpty { return org }
+        let words = cleanName(a.name).split(separator: " ").prefix(2).joined(separator: " ")
+        return words.isEmpty ? org : words
+    }
+
+    // 口座のカテゴリ推定: モーゲージ → Fidelity → カード → それ以外は銀行。
+    static func category(_ a: AccountInfo) -> AccountCategory {
+        let s = (a.org + " " + a.name).lowercased()
+        if s.contains("mortgage") { return .mortgage }
+        if a.org.localizedCaseInsensitiveContains("fidelity") { return .fidelity }
+        if s.range(of: "visa|credit|card|カード", options: .regularExpression) != nil {
+            return .card
         }
-        return org.isEmpty ? a.name : "\(org) \(a.name.prefix(14))"
+        return .bank
     }
 
     // フィルター UI 用のカテゴリ一覧(categoryIcon が返しうる絵文字と表示名)。
@@ -180,6 +247,14 @@ struct Dashboard {
         points = zip(days, totals).map {
             Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
         }
+        let mortgageIds = Set(h.accounts.filter { Self.category($0) == .mortgage }.map(\.id))
+        hasMortgage = !mortgageIds.isEmpty
+        let totalsEx = days.indices.map { i in
+            series.reduce(0) { mortgageIds.contains($1.key) ? $0 : $0 + $1.value[i] }
+        }
+        pointsExMortgage = zip(days, totalsEx).map {
+            Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
+        }
         for (id, arr) in series {
             accountPoints[id] = zip(days, arr).map {
                 Point(day: $0, date: History.dayFormatter.date(from: $0) ?? Date(), total: $1)
@@ -205,6 +280,9 @@ struct Dashboard {
         totalNow = totals[iLast]
         weekDelta = totals[iLast] - totals[iWeek]
         monthDelta = totals[iLast] - totals[iMonth]
+        totalNowExMortgage = totalsEx[iLast]
+        weekDeltaExMortgage = totalsEx[iLast] - totalsEx[iWeek]
+        monthDeltaExMortgage = totalsEx[iLast] - totalsEx[iMonth]
 
         accountRows = h.accounts.map { a in
             let s = series[a.id] ?? [0]
@@ -213,6 +291,11 @@ struct Dashboard {
                 info: a, balance: bal,
                 week: bal - s[min(iWeek, s.count - 1)],
                 month: bal - s[min(iMonth, s.count - 1)])
+        }
+        let byCategory = Dictionary(grouping: accountRows) { Self.category($0.info) }
+        accountGroups = AccountCategory.allCases.compactMap { c in
+            (byCategory[c]?.isEmpty == false)
+                ? AccountGroup(category: c, title: c.title, rows: byCategory[c]!) : nil
         }
 
         // --- 日別の支出グループ(月・週の明細で共用) ---
@@ -282,5 +365,104 @@ struct Dashboard {
 
         monthly = build(keyOf: monthKey, label: { $0 }, limit: 12)
         weekly = build(keyOf: weekKey, label: weekLabel, limit: 12)
+        alerts = Self.buildAlerts(spends: spends)
+    }
+
+    static func percentile(_ sorted: [Double], _ p: Double) -> Double {
+        guard !sorted.isEmpty else { return 0 }
+        return sorted[Int(Double(sorted.count - 1) * p)]
+    }
+
+    // 支出の簡易異常検知。全部ローカルの単純な統計で、過去データと比べて
+    // 「普段と違う」ものを直近30日から拾う。
+    static func buildAlerts(spends: [Txn]) -> [SpendAlert] {
+        var out: [SpendAlert] = []
+        let fmt = History.dayFormatter
+        let cal = Calendar.current
+        let today = Date()
+        let recentCut = fmt.string(from: cal.date(byAdding: .day, value: -30, to: today)!)
+        func payeeName(_ t: Txn) -> String { t.payee.isEmpty ? t.detail : t.payee }
+
+        // --- 二重請求の可能性: 直近30日で同じ店・同額($5以上)が3日以内に2回 ---
+        let recent = spends.filter { $0.posted >= recentCut && -$0.amount >= 5 }
+        let samePair = Dictionary(grouping: recent) { "\(payeeName($0))|\($0.amount)" }
+        for txns in samePair.values where txns.count >= 2 {
+            let days = txns.map(\.posted).sorted()
+            for i in 1..<days.count {
+                guard let d1 = fmt.date(from: days[i - 1]), let d2 = fmt.date(from: days[i]),
+                      d2.timeIntervalSince(d1) <= 3 * 86400 else { continue }
+                let t = txns[0]
+                out.append(SpendAlert(
+                    id: "dup-\(t.id)", icon: "🔁",
+                    title: "二重請求の可能性: \(payeeName(t)) \(usd(-t.amount)) ×\(txns.count)",
+                    detail: "\(days[i - 1]) と \(days[i]) に同額の請求。意図した買い物か確認を"))
+                break
+            }
+        }
+
+        // --- 大口支出: 直近30日で、同カテゴリの95パーセンタイルを超える$100以上 ---
+        let byCat = Dictionary(grouping: spends) { categoryIcon($0) }
+        let overallP95 = percentile(spends.map { -$0.amount }.sorted(), 0.95)
+        let large = spends
+            .filter { t in
+                let v = -t.amount
+                guard t.posted >= recentCut, v >= 100 else { return false }
+                let cat = (byCat[categoryIcon(t)] ?? []).map { -$0.amount }.sorted()
+                return v > (cat.count >= 10 ? percentile(cat, 0.95) : overallP95)
+            }
+            .sorted { $0.amount < $1.amount }
+            .prefix(3)
+        for t in large {
+            out.append(SpendAlert(
+                id: "large-\(t.id)", icon: "⚠️",
+                title: "大口支出: \(payeeName(t)) \(usd(-t.amount))",
+                detail: "\(t.posted) / \(categoryIcon(t)) カテゴリの普段の上位5%を超える金額"))
+        }
+
+        // --- 月次ペース警告: 今月のカテゴリ支出が過去の月中央値の1.5倍ペース ---
+        let thisMonth = String(fmt.string(from: today).prefix(7))
+        let dayOfMonth = cal.component(.day, from: today)
+        let daysInMonth = cal.range(of: .day, in: .month, for: today)?.count ?? 30
+        if dayOfMonth >= 5 {
+            var catMonth: [String: [String: Double]] = [:]  // カテゴリ -> 月 -> 合計
+            for t in spends {
+                catMonth[categoryIcon(t), default: [:]][String(t.posted.prefix(7)), default: 0]
+                    -= t.amount
+            }
+            for (icon, months) in catMonth {
+                let past = months.filter { $0.key != thisMonth }.map(\.value).sorted()
+                guard past.count >= 2, let cur = months[thisMonth] else { continue }
+                let median = past[past.count / 2]
+                let projected = cur / Double(dayOfMonth) * Double(daysInMonth)
+                if median >= 50, projected > median * 1.5 {
+                    out.append(SpendAlert(
+                        id: "pace-\(icon)", icon: icon,
+                        title: "ペース警告: このままだと今月 \(usd(projected))",
+                        detail: "このカテゴリの普段は \(usd(median))/月。すでに \(usd(cur)) 使用"))
+                }
+            }
+        }
+
+        // --- サブスク金額の変化: 毎月1回・同額の請求が最新月だけ変わった ---
+        var payeeMonths: [String: [String: [Double]]] = [:]  // 店 -> 月 -> 金額
+        for t in spends {
+            payeeMonths[payeeName(t), default: [:]][String(t.posted.prefix(7)), default: []]
+                .append(-t.amount)
+        }
+        for (name, months) in payeeMonths {
+            guard months.count >= 3, months.values.allSatisfy({ $0.count == 1 })
+            else { continue }
+            let vals = months.keys.sorted().map { months[$0]![0] }
+            let base = Set(vals.dropLast().map { ($0 * 100).rounded() })
+            let last = vals.last!
+            if base.count == 1, let b = base.first,
+               abs(last - b / 100) > max(1, b / 100 * 0.01) {
+                out.append(SpendAlert(
+                    id: "sub-\(name)", icon: "📈",
+                    title: "定期支払いの金額が変化: \(name)",
+                    detail: "毎月 \(usd(b / 100)) → 今月 \(usd(last))"))
+            }
+        }
+        return out
     }
 }

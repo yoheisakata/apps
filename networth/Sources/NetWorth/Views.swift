@@ -121,21 +121,23 @@ struct DashboardView: View {
             TabView {
                 DashboardTab {
                     NetWorthCard(d: d)
-                    AccountsCard(rows: d.accountRows)
+                    AccountsCard(groups: d.accountGroups)
+                    AlertsCard(alerts: d.alerts)
+                    CategoryTrendCard(data: d.monthly)
                 }
                 .tabItem { Label("メイン", systemImage: "chart.line.uptrend.xyaxis") }
 
                 DashboardTab {
                     CashflowCard(unitLabel: "週", data: d.weekly)
-                    BreakdownCard(title: "週の収支の内訳", data: d.weekly)
-                    TxnsCard(title: "週ごとの支出", d: d, data: d.weekly)
+                    BreakdownCard(title: "週の内訳", data: d.weekly)
+                    TxnsCard(title: "日毎の支出", d: d, data: d.weekly)
                 }
                 .tabItem { Label("週", systemImage: "clock") }
 
                 DashboardTab {
                     CashflowCard(unitLabel: "か月", data: d.monthly)
-                    BreakdownCard(title: "月の収支の内訳", data: d.monthly)
-                    TxnsCard(title: "月ごとの支出", d: d, data: d.monthly)
+                    BreakdownCard(title: "月の内訳", data: d.monthly)
+                    TxnsCard(title: "日毎の支出", d: d, data: d.monthly)
                 }
                 .tabItem { Label("月", systemImage: "calendar") }
 
@@ -183,16 +185,29 @@ private struct Card<Content: View>: View {
 
 struct NetWorthCard: View {
     var d: Dashboard
+    @AppStorage("includeMortgage") private var includeMortgage = true
 
     var body: some View {
+        let withMortgage = includeMortgage || !d.hasMortgage
         Card(title: "総資産(純資産)") {
-            Text(usd(d.totalNow))
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-            HStack(spacing: 12) {
-                DeltaChip(label: "今週", value: d.weekDelta)
-                DeltaChip(label: "今月", value: d.monthDelta)
+            HStack(alignment: .firstTextBaseline) {
+                Text(usd(withMortgage ? d.totalNow : d.totalNowExMortgage))
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                Spacer()
+                if d.hasMortgage {
+                    Toggle("モーゲージを含める", isOn: $includeMortgage)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .font(.callout)
+                }
             }
-            BalanceChart(points: d.points)
+            HStack(spacing: 12) {
+                DeltaChip(label: "今週",
+                          value: withMortgage ? d.weekDelta : d.weekDeltaExMortgage)
+                DeltaChip(label: "今月",
+                          value: withMortgage ? d.monthDelta : d.monthDeltaExMortgage)
+            }
+            BalanceChart(points: withMortgage ? d.points : d.pointsExMortgage)
         }
     }
 }
@@ -253,7 +268,8 @@ struct StocksCard: View {
                     Picker("口座", selection: Binding(
                         get: { id }, set: { selectedId = $0 })) {
                         ForEach(d.accountRows) { r in
-                            Text("\(r.info.org) — \(r.info.name)").tag(r.info.id)
+                            Text("\(r.info.org) — \(Dashboard.cleanName(r.info.name))")
+                                .tag(r.info.id)
                         }
                     }
                     .labelsHidden()
@@ -331,7 +347,93 @@ struct CashflowCard: View {
     }
 }
 
-// 期間を選んで収入と支出の内訳をまとめて見るカード。月・週で共用。
+// 主なカテゴリ別支出の月次推移(折れ線)。上位カテゴリだけを表示する。
+struct CategoryTrendCard: View {
+    var data: Dashboard.PeriodData  // d.monthly を渡す
+
+    struct Pt: Identifiable {
+        var id: String { month + label }
+        var month: String
+        var label: String
+        var total: Double
+    }
+
+    // 直近12か月のカテゴリ別合計。12か月合計の上位6カテゴリだけを線にする
+    // (「💳 その他」は含めない)。月に支出がないカテゴリは0で埋めて線をつなぐ。
+    private func series() -> (labels: [String], points: [Pt]) {
+        let months = Array(data.days.keys.sorted().suffix(12))
+        var byIcon: [String: [String: Double]] = [:]  // 絵文字 -> 月 -> 合計
+        for m in months {
+            for t in (data.days[m] ?? []).flatMap(\.txns) {
+                byIcon[Dashboard.categoryIcon(t), default: [:]][m, default: 0] -= t.amount
+            }
+        }
+        let names = Dictionary(uniqueKeysWithValues:
+            Dashboard.categoryList.map { ($0.icon, $0.label) })
+        let top = byIcon.filter { $0.key != "💳" }
+            .mapValues { $0.values.reduce(0, +) }
+            .sorted { $0.value > $1.value }
+            .prefix(6)
+            .map(\.key)
+        var labels: [String] = []
+        var points: [Pt] = []
+        for icon in top {
+            let label = "\(icon) \(names[icon] ?? "")"
+            labels.append(label)
+            for m in months {
+                points.append(Pt(month: m, label: label, total: byIcon[icon]?[m] ?? 0))
+            }
+        }
+        return (labels, points)
+    }
+
+    // "2026-07" → "7月"
+    private func monthLabel(_ key: String) -> String {
+        Int(key.suffix(2)).map { "\($0)月" } ?? key
+    }
+
+    var body: some View {
+        Card(title: "主なカテゴリ別支出の推移(過去12か月)") {
+            let (labels, points) = series()
+            if points.isEmpty {
+                Text("取引データがたまると表示されます").foregroundStyle(.secondary)
+            } else {
+                Chart(points) { p in
+                    LineMark(x: .value("月", p.month), y: .value("支出", p.total))
+                        .foregroundStyle(by: .value("カテゴリ", p.label))
+                        .symbol(by: .value("カテゴリ", p.label))
+                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                }
+                .chartForegroundStyleScale(
+                    domain: labels,
+                    range: Array(categoryPalette.prefix(labels.count)))
+                .chartXAxis {
+                    AxisMarks { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let key = value.as(String.self) {
+                                Text(monthLabel(key))
+                            }
+                        }
+                    }
+                }
+                .chartLegend(position: .bottom, spacing: 8)
+                .frame(height: 240)
+                Text("※ 12か月合計の上位6カテゴリを表示。今月は集計中の値です。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// カテゴリ別支出の円グラフ・折れ線で共用する固定パレット(凡例と色を揃える)。
+let categoryPalette: [Color] = [
+    .blue, .green, .orange, .purple, .pink, .teal,
+    .yellow, .red, .indigo, .mint, .cyan, .brown,
+]
+
+// 期間を選んで、カテゴリ別支出(円グラフ)と収入・支出の内訳をまとめて見るカード。月・週で共用。
 struct BreakdownCard: View {
     var title: String
     var data: Dashboard.PeriodData
@@ -339,6 +441,38 @@ struct BreakdownCard: View {
 
     private var currentMonth: String? {
         selectedMonth ?? data.rows.last?.month
+    }
+
+    struct Slice: Identifiable {
+        var id: String { label }
+        var label: String   // "🛒 食料品" など
+        var total: Double
+    }
+
+    // カテゴリごとの合計(大きい順)。合計の3%未満は「その他」にまとめる。
+    private func slices(_ month: String) -> [Slice] {
+        let txns = (data.days[month] ?? []).flatMap(\.txns)
+        var byIcon: [String: Double] = [:]
+        for t in txns {
+            byIcon[Dashboard.categoryIcon(t), default: 0] -= t.amount
+        }
+        let names = Dictionary(uniqueKeysWithValues:
+            Dashboard.categoryList.map { ($0.icon, $0.label) })
+        let total = byIcon.values.reduce(0, +)
+        var main: [Slice] = []
+        var other = byIcon["💳"] ?? 0
+        for (icon, v) in byIcon where icon != "💳" {
+            if v < total * 0.03 {
+                other += v
+            } else {
+                main.append(Slice(label: "\(icon) \(names[icon] ?? "")", total: v))
+            }
+        }
+        main.sort { $0.total > $1.total }
+        if other > 0 {
+            main.append(Slice(label: "💳 その他", total: other))
+        }
+        return main
     }
 
     var body: some View {
@@ -363,6 +497,49 @@ struct BreakdownCard: View {
                         BreakdownStat(label: "差引", value: incomeTotal - spendTotal,
                                       color: incomeTotal >= spendTotal ? .green : .red,
                                       signed: true)
+                    }
+                }
+                let slices = slices(m)
+                if !slices.isEmpty {
+                    let total = slices.reduce(0) { $0 + $1.total }
+                    Text("カテゴリ別支出")
+                        .font(.subheadline.bold())
+                        .padding(.top, 6)
+                    HStack(alignment: .center, spacing: 24) {
+                        Chart(Array(slices.enumerated()), id: \.element.id) { i, s in
+                            SectorMark(angle: .value("金額", s.total),
+                                       innerRadius: .ratio(0.6),
+                                       angularInset: 1.5)
+                                .foregroundStyle(categoryPalette[i % categoryPalette.count])
+                                .cornerRadius(3)
+                        }
+                        .frame(width: 190, height: 190)
+                        .overlay {
+                            VStack(spacing: 1) {
+                                Text(usd(total)).font(.headline).monospacedDigit()
+                                Text("支出合計").font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                        Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 5) {
+                            ForEach(Array(slices.enumerated()), id: \.element.id) { i, s in
+                                GridRow {
+                                    HStack(spacing: 6) {
+                                        Circle()
+                                            .fill(categoryPalette[i % categoryPalette.count])
+                                            .frame(width: 9, height: 9)
+                                        Text(s.label).lineLimit(1)
+                                    }
+                                    .gridColumnAlignment(.leading)
+                                    Text(usd(s.total)).monospacedDigit()
+                                    Text((s.total / total)
+                                        .formatted(.percent.precision(.fractionLength(0))))
+                                        .monospacedDigit()
+                                        .foregroundStyle(.secondary)
+                                }
+                                .font(.callout)
+                            }
+                        }
+                        Spacer()
                     }
                 }
                 Text("収入")
@@ -484,11 +661,11 @@ struct DeltaChip: View {
 }
 
 struct AccountsCard: View {
-    var rows: [Dashboard.AccountRow]
+    var groups: [Dashboard.AccountGroup]
 
     var body: some View {
         Card(title: "口座ごとの残高と増減") {
-            Grid(alignment: .trailing, horizontalSpacing: 16, verticalSpacing: 8) {
+            Grid(alignment: .trailing, horizontalSpacing: 16, verticalSpacing: 7) {
                 GridRow {
                     Text("口座").gridColumnAlignment(.leading)
                     Text("残高")
@@ -497,21 +674,77 @@ struct AccountsCard: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                Divider()
-                ForEach(rows) { r in
+                ForEach(groups) { g in
+                    // 負債(クレジットカード・モーゲージ)は見出しと残高を赤文字にする。
+                    let liability = g.category.isLiability
+                    Divider()
+                    // カテゴリ見出し行(小計付き)
                     GridRow {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(r.info.org).font(.caption2).foregroundStyle(.secondary)
-                            Text(r.info.name)
+                        Text(g.title)
+                            .font(.caption.bold())
+                            .foregroundStyle(liability ? Color.red : Color.accentColor)
+                        Text(usd(g.total)).monospacedDigit()
+                            .foregroundStyle(liability ? .red : .primary)
+                        Text(usdSigned(g.week)).monospacedDigit()
+                            .foregroundStyle(deltaColor(g.week))
+                        Text(usdSigned(g.month)).monospacedDigit()
+                            .foregroundStyle(deltaColor(g.month))
+                    }
+                    .font(.caption.bold())
+                    ForEach(g.rows) { r in
+                        GridRow {
+                            Text(rowName(r, in: g))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help("\(r.info.org) — \(r.info.name)")
+                            Text(usd(r.balance)).monospacedDigit()
+                                .foregroundStyle(liability ? .red : .primary)
+                            Text(usdSigned(r.week)).monospacedDigit()
+                                .foregroundStyle(deltaColor(r.week))
+                            Text(usdSigned(r.month)).monospacedDigit()
+                                .foregroundStyle(deltaColor(r.month))
                         }
-                        .gridColumnAlignment(.leading)
-                        Text(usd(r.balance)).monospacedDigit()
-                        Text(usdSigned(r.week)).monospacedDigit()
-                            .foregroundStyle(deltaColor(r.week))
-                        Text(usdSigned(r.month)).monospacedDigit()
-                            .foregroundStyle(deltaColor(r.month))
                     }
                 }
+            }
+        }
+    }
+
+    // 短縮した会社名 + 口座名(番号なし) の1行表示。見出しや口座名と重複する会社名は省く。
+    private func rowName(_ r: Dashboard.AccountRow, in g: Dashboard.AccountGroup) -> String {
+        let org = Dashboard.orgShort(r.info.org)
+        let name = Dashboard.cleanName(r.info.name)
+        if org.isEmpty || org == g.title || name.localizedCaseInsensitiveContains(org) {
+            return name
+        }
+        return "\(org) \(name)"
+    }
+}
+
+// 支出の異常検知の結果一覧。検知はすべてローカルの単純統計(Dashboard.buildAlerts)。
+struct AlertsCard: View {
+    var alerts: [Dashboard.SpendAlert]
+
+    var body: some View {
+        Card(title: "支出アラート(過去30日)") {
+            if alerts.isEmpty {
+                Label("普段と違う支出は見つかりませんでした", systemImage: "checkmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(alerts) { a in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(a.icon).frame(width: 24)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(a.title).font(.callout.weight(.semibold))
+                            Text(a.detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                Text("※ 二重請求 / 大口(カテゴリの上位5%超) / 月のペース(中央値の1.5倍超) / 定期支払いの金額変化 を検知します。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -601,7 +834,19 @@ struct TxnsCard: View {
     @State private var didSetDefault = false
     @State private var keyword = ""
     @State private var category: String?  // categoryIcon の絵文字。nil = すべて
+    @State private var account: String?   // 口座フィルター。口座ID / otherAccounts、nil = すべて
     @State private var sort: TxnSort = .date
+
+    // 「その他」(クレジットカード以外の口座すべて)を表すタグ。
+    private static let otherAccounts = "__other__"
+
+    // フィルター候補はクレジットカードのみ(短縮名順)。それ以外は「その他」にまとめる。
+    private var cardIds: Set<String> {
+        Set(d.accountRows.filter { Dashboard.category($0.info) == .card }.map(\.info.id))
+    }
+    private var cardChoices: [(id: String, name: String)] {
+        cardIds.map { ($0, d.accountShort[$0] ?? $0) }.sorted { $0.1 < $1.1 }
+    }
 
     enum TxnSort: String, CaseIterable {
         case date = "日付順"
@@ -643,10 +888,18 @@ struct TxnsCard: View {
     }
 
     private var filterActive: Bool {
-        category != nil || !keyword.trimmingCharacters(in: .whitespaces).isEmpty
+        category != nil || account != nil
+            || !keyword.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private func matches(_ t: Txn) -> Bool {
+        if let a = account {
+            if a == Self.otherAccounts {
+                if cardIds.contains(t.account) { return false }
+            } else if t.account != a {
+                return false
+            }
+        }
         if let c = category, Dashboard.categoryIcon(t) != c { return false }
         let kw = keyword.trimmingCharacters(in: .whitespaces)
         if !kw.isEmpty,
@@ -678,8 +931,8 @@ struct TxnsCard: View {
                         get: { m },
                         set: { newMonth in
                             selectedMonth = newMonth
-                            // 期間を切り替えたら、その期間の最新日だけ開く。
-                            expandedDays = Set((data.days[newMonth]?.first?.day).map { [$0] } ?? [])
+                            // 期間を切り替えたら、その期間の全日を開いた状態にする。
+                            expandedDays = Set((data.days[newMonth] ?? []).map(\.day))
                         })) {
                         ForEach(data.days.keys.sorted(by: >), id: \.self) { key in
                             Text(data.labels[key] ?? key).tag(key)
@@ -723,12 +976,22 @@ struct TxnsCard: View {
                     }
                     .labelsHidden()
                     .fixedSize()
+                    Picker("口座", selection: $account) {
+                        Text("すべての口座").tag(String?.none)
+                        ForEach(cardChoices, id: \.id) { a in
+                            Text(a.name).tag(String?.some(a.id))
+                        }
+                        Text("その他").tag(String?.some(Self.otherAccounts))
+                    }
+                    .labelsHidden()
+                    .fixedSize()
                     TextField("キーワードで絞り込み(店名など)", text: $keyword)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 240)
                     if filterActive {
                         Button("クリア") {
                             category = nil
+                            account = nil
                             keyword = ""
                         }
                     }
@@ -811,10 +1074,9 @@ struct TxnsCard: View {
             }
         }
         .onAppear {
-            // 初期状態は最新期間の最新日だけ開いておく。
-            if !didSetDefault,
-               let m = currentMonth, let first = data.days[m]?.first {
-                expandedDays = [first.day]
+            // 初期状態は最新期間の全日を開いておく。
+            if !didSetDefault, let m = currentMonth {
+                expandedDays = Set((data.days[m] ?? []).map(\.day))
                 didSetDefault = true
             }
         }
