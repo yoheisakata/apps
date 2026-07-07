@@ -224,9 +224,11 @@ struct Dashboard {
         }
 
         // --- 保有銘柄(時価の大きい順) ---
-        // 表示するのは個別株の口座 (4806) のみ。401(k)・529・IRA などファンド系は除外
-        // (データ自体は全口座分 history に保存している)。
-        let holdingsAccounts = Set(h.accounts.filter { $0.name.contains("4806") }.map(\.id))
+        // 表示するのは個別株の口座のみ: Fidelity の Stocks (4806) と Charles Schwab。
+        // 401(k)・529・IRA などファンド系は除外(データ自体は全口座分 history に保存している)。
+        let holdingsAccounts = Set(h.accounts.filter {
+            $0.name.contains("4806") || $0.org.localizedCaseInsensitiveContains("schwab")
+        }.map(\.id))
         holdingRows = h.holdings.filter { holdingsAccounts.contains($0.key) }.flatMap { acct, list in
             list.filter { $0.marketValue != 0 }.map {
                 HoldingRow(id: $0.id,
