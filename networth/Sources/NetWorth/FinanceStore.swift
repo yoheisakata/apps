@@ -8,6 +8,9 @@ final class FinanceStore: ObservableObject {
     }
     @Published var isFetching = false
     @Published var lastError: String?
+    // 保有銘柄の現在株価(ティッカー -> 現在値)。取得できた分だけ入る。
+    @Published var quotes: [String: QuoteService.Quote] = [:]
+    @Published var quotesUpdated: Date?
 
     var isConfigured: Bool { Keychain.load() != nil }
 
@@ -37,6 +40,19 @@ final class FinanceStore: ObservableObject {
         } catch {
             lastError = error.localizedDescription
         }
+        await refreshQuotes()
+    }
+
+    // 保有銘柄カードに表示中の銘柄の現在株価を Yahoo Finance から取得する。
+    // 失敗した銘柄は quotes に入らず、表示側が SimpleFIN の同期値のままにする。
+    func refreshQuotes() async {
+        let symbols = Set(dashboard.holdingGroups.flatMap { $0.rows.map(\.symbol) })
+            .filter { !$0.isEmpty }
+        guard !symbols.isEmpty else { return }
+        let fetched = await QuoteService.fetchAll(symbols: Array(symbols))
+        guard !fetched.isEmpty else { return }
+        quotes.merge(fetched) { _, new in new }
+        quotesUpdated = Date()
     }
 
     func connect(setupToken: String) async throws {

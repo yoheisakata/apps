@@ -50,7 +50,11 @@ struct ContentView: View {
         .sheet(isPresented: $showSetup) {
             SetupSheet()
         }
-        .task { await store.refreshIfConfigured() }
+        .task {
+            await store.refreshIfConfigured()
+            // 未設定(デモ)や取得失敗時でも、履歴に保有銘柄があれば株価だけは出す。
+            if store.quotesUpdated == nil { await store.refreshQuotes() }
+        }
     }
 }
 
@@ -134,7 +138,9 @@ struct DashboardView: View {
                 DashboardTab {
                     StocksCard(d: d)
                     if !d.holdingGroups.isEmpty {
-                        HoldingsCard(groups: d.holdingGroups)
+                        HoldingsCard(groups: d.holdingGroups,
+                                     quotes: store.quotes,
+                                     quotesUpdated: store.quotesUpdated)
                     }
                 }
                 .tabItem { Label("投資", systemImage: "chart.bar.xaxis") }
@@ -728,8 +734,45 @@ struct AlertsCard: View {
 }
 
 // SimpleFIN の holdings から作る保有銘柄一覧(口座ごとに小計、時価の大きい順)。
+// 現在株価が取れた銘柄は 株数 × 現在値 で時価・損益を再計算して表示する。
 struct HoldingsCard: View {
     var groups: [Dashboard.HoldingGroup]
+    var quotes: [String: QuoteService.Quote]
+    var quotesUpdated: Date?
+
+    struct LiveRow: Identifiable {
+        var id: String
+        var symbol: String
+        var name: String
+        var shares: Double
+        var price: Double?   // 現在株価(取得できた銘柄のみ)
+        var value: Double    // 時価(現在値があれば 株数×現在値、なければ SimpleFIN の同期値)
+        var costBasis: Double
+        var gain: Double { value - costBasis }
+    }
+    struct LiveGroup: Identifiable {
+        var id: String { account }
+        var account: String
+        var rows: [LiveRow]
+        var total: Double { rows.reduce(0) { $0 + $1.value } }
+        var costBasis: Double { rows.reduce(0) { $0 + ($1.costBasis > 0 ? $1.costBasis : 0) } }
+        var gain: Double { rows.reduce(0) { $0 + ($1.costBasis > 0 ? $1.gain : 0) } }
+    }
+
+    private var liveGroups: [LiveGroup] {
+        groups.map { g in
+            let rows = g.rows.map { r -> LiveRow in
+                let q = quotes[r.symbol]
+                let value = (q != nil && r.shares > 0) ? r.shares * q!.price : r.marketValue
+                return LiveRow(id: r.id, symbol: r.symbol, name: r.name,
+                               shares: r.shares, price: q?.price,
+                               value: value, costBasis: r.costBasis)
+            }
+            return LiveGroup(account: g.account,
+                             rows: rows.sorted { $0.value > $1.value })
+        }
+        .sorted { $0.total > $1.total }
+    }
 
     // 損益の金額+割合の2段表示(銘柄行・小計行で共用)。
     private func gainCell(gain: Double, costBasis: Double) -> some View {
@@ -746,11 +789,12 @@ struct HoldingsCard: View {
     }
 
     var body: some View {
-        let count = groups.reduce(0) { $0 + $1.rows.count }
-        let total = groups.reduce(0) { $0 + $1.total }
+        let live = liveGroups
+        let count = live.reduce(0) { $0 + $1.rows.count }
+        let total = live.reduce(0) { $0 + $1.total }
         Card(title: "保有銘柄") {
             HStack {
-                Text("\(groups.count)口座 / \(count)銘柄")
+                Text("\(live.count)口座 / \(count)銘柄")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -765,18 +809,20 @@ struct HoldingsCard: View {
                 GridRow {
                     Text("銘柄").gridColumnAlignment(.leading)
                     Text("株数")
+                    Text("現在値")
                     Text("時価")
                     Text("損益")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                ForEach(groups) { g in
+                ForEach(live) { g in
                     Divider()
                     // 口座見出し行(小計付き)
                     GridRow {
                         Text(g.account)
                             .font(.caption.bold())
                             .foregroundStyle(Color.accentColor)
+                        Text("")
                         Text("")
                         Text(usd(g.total))
                             .font(.callout.bold())
@@ -804,7 +850,12 @@ struct HoldingsCard: View {
                             .gridColumnAlignment(.leading)
                             Text(r.shares.formatted(.number.precision(.fractionLength(0...3))))
                                 .monospacedDigit()
-                            Text(usd(r.marketValue)).monospacedDigit()
+                            if let price = r.price {
+                                Text(usd(price)).monospacedDigit()
+                            } else {
+                                Text("—").foregroundStyle(.secondary)
+                            }
+                            Text(usd(r.value)).monospacedDigit()
                             // 401(k) などは取得原価が来ない(0)ので損益は出さない。
                             if r.costBasis > 0 {
                                 gainCell(gain: r.gain, costBasis: r.costBasis)
@@ -815,9 +866,16 @@ struct HoldingsCard: View {
                     }
                 }
             }
-            Text("※ 時価・損益は SimpleFIN の最終同期時点の値です(おおむね1日1回更新)。")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if let t = quotesUpdated {
+                Text("※ 現在値は Yahoo Finance の株価(\(t.formatted(date: .omitted, time: .shortened)) 取得)。"
+                    + "時価・損益は 株数×現在値 で再計算し、現在値のない銘柄は SimpleFIN 同期時点の値です。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("※ 時価・損益は SimpleFIN の最終同期時点の値です(おおむね1日1回更新)。")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
