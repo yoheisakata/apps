@@ -40,6 +40,10 @@ fi
 if [[ -f AppIcon.icns ]]; then
     cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 fi
+# 固定収支タブのフォールバック用にコピーを同梱する(通常はリポジトリの md を直接読む)。
+if [[ -f "2026_Sakata_支出表.md" ]]; then
+    cp "2026_Sakata_支出表.md" "${APP_BUNDLE}/Contents/Resources/"
+fi
 
 # ダブルクリックで確実に起動できるようアドホック署名する
 echo "==> アドホック署名"

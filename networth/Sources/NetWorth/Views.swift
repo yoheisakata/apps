@@ -144,6 +144,9 @@ struct DashboardView: View {
                     }
                 }
                 .tabItem { Label("投資", systemImage: "chart.bar.xaxis") }
+
+                FixedBudgetTab()
+                    .tabItem { Label("固定収支", systemImage: "doc.text") }
             }
             .padding(.top, 4)
         }
@@ -164,7 +167,7 @@ struct DashboardTab<Content: View>: View {
     }
 }
 
-private struct Card<Content: View>: View {
+struct Card<Content: View>: View {
     var title: String
     @ViewBuilder var content: Content
 
