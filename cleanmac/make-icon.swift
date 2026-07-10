@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// YouTube Downloader と同じ紫グラデーション背景に「CM」を描いた macOS アプリアイコンを生成する。
+// YouTube Downloader と同じ紫グラデーション背景にほうき (🧹) を描いた macOS アプリアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
@@ -27,18 +27,11 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
     gradient.draw(in: path, angle: -90)
 
-    // 中央に「CM」。
-    let text = "CM"
-    let fontSize = s * 0.40
-    let font = NSFont.systemFont(ofSize: fontSize, weight: .heavy)
-    let style = NSMutableParagraphStyle()
-    style.alignment = .center
-    let attrs: [NSAttributedString.Key: Any] = [
-        .font: font,
-        .foregroundColor: NSColor.white,
-        .paragraphStyle: style,
-        .kern: -fontSize * 0.02,
-    ]
+    // 中央にほうき。
+    let text = "🧹"
+    let fontSize = s * 0.52
+    let font = NSFont.systemFont(ofSize: fontSize)
+    let attrs: [NSAttributedString.Key: Any] = [.font: font]
     let str = NSAttributedString(string: text, attributes: attrs)
     let textSize = str.size()
     let origin = NSPoint(x: (s - textSize.width) / 2, y: (s - textSize.height) / 2)
