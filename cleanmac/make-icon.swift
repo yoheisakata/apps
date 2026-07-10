@@ -27,7 +27,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
     gradient.draw(in: path, angle: -90)
 
-    // 中央にほうき。
+    // 中央に白いほうき (🧹 のアルファを白で塗りつぶしてシルエット化)。
     let text = "🧹"
     let fontSize = s * 0.52
     let font = NSFont.systemFont(ofSize: fontSize)
@@ -35,7 +35,16 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let str = NSAttributedString(string: text, attributes: attrs)
     let textSize = str.size()
     let origin = NSPoint(x: (s - textSize.width) / 2, y: (s - textSize.height) / 2)
+
+    let cg = ctx.cgContext
+    cg.saveGState()
+    cg.beginTransparencyLayer(auxiliaryInfo: nil)
     str.draw(at: origin)
+    cg.setBlendMode(.sourceIn)
+    cg.setFillColor(NSColor.white.cgColor)
+    cg.fill(CGRect(x: 0, y: 0, width: s, height: s))
+    cg.endTransparencyLayer()
+    cg.restoreGState()
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
