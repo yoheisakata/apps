@@ -10,7 +10,7 @@
 │  │  ┌─────────────────────────────────────────────────┐  │  │
 │  │  │         World Cup 2026 アプリ (JS)               │  │  │
 │  │  │                                                 │  │  │
-│  │  │  📅 日程  📊 順位表  🇯🇵 日本  🔮 予想  ...     │  │  │
+│  │  │  🇯🇵 日本  🏆 決勝T  📅 試合  📊 順位表  ...    │  │  │
 │  │  └──────────┬──────────┬──────────┬────────────────┘  │  │
 │  │             │          │          │                    │  │
 │  │     ┌───────▼──┐  ┌───▼────┐  ┌──▼─────┐             │  │
@@ -59,19 +59,22 @@
 │  │   ├── matches.json    ← 全試合データ (6/18時点のスナップ)    │
 │  │   └── venues.json     ← 16会場の情報                      │
 │  └── views/                                                 │
-│      ├── japan.js        ← 🇯🇵 日本代表ページ                 │
+│      ├── country.js      ← チーム詳細ページ (🇯🇵 日本も共用)   │
 │      ├── schedule.js     ← 📅 日程・結果                      │
 │      ├── standingstab.js ← 📊 順位表                         │
-│      ├── bracket.js      ← 🔮 優勝予想 (トーナメント表)        │
+│      ├── standings.js    ← 順位計算ロジック (共有)             │
+│      ├── knockout.js     ← 🏆 決勝トーナメント表               │
+│      ├── predict.js      ← Elo ベース予測エンジン              │
 │      ├── rankings.js     ← 🥇 得点王ランキング                │
 │      ├── cities.js       ← 🏟️ 開催都市マップ                  │
 │      ├── world.js        ← 🌍 参加国マップ                    │
 │      ├── teamlist.js     ← 👥 チーム一覧                      │
-│      ├── country.js      ← 各チームの詳細ページ                │
 │      ├── matchmodal.js   ← 試合クリック時のモーダル             │
-│      ├── footballapi.js  ← Football-Data.org API連携         │
+│      ├── footballapi.js  ← Football-Data.org + FIFAランキング │
+│      ├── openfootball.js ← openfootball worldcup.json 取得    │
 │      ├── livedata.js     ← Wikipedia パーサー                 │
-│      └── wiki.js         ← Wikipedia 記事取得                 │
+│      ├── wiki.js         ← Wikipedia 記事取得                 │
+│      └── util.js         ← 共有ユーティリティ                  │
 └─────────────────────────────────────────────────────────────┘
 
 
@@ -81,10 +84,14 @@
   ② localStorage キャッシュがあれば上書き (前回のライブデータ)
   ③ ライブ更新開始:
      Cloudflare Worker → Football-Data.org API
-         ↓ 成功 → 最新データで画面更新 + localStorage に保存
+         ↓ 成功 → openfootball → Wikipedia の順で得点者・会場を補完
+         ↓        → 最新データで画面更新 + localStorage に保存
          ↓ 失敗
      Wikipedia API
-         ↓ 成功 → 最新データで画面更新 + localStorage に保存
+         ↓ 失敗
+     openfootball worldcup.json (jsDelivr / GitHub raw)
          ↓ 失敗
      「オフラインモード」表示 (①②のデータのまま)
+
+  ※ FIFAランキングは別途 Worker の /fifa-rankings から取得 (1時間キャッシュ)
 ```

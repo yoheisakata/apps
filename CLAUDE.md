@@ -11,25 +11,34 @@ This repo has two distinct kinds of projects:
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
 
+Each app directory has its own `README.md` (user-facing, Japanese) and `CLAUDE.md` (dev guidance) — read the app's own docs before making changes there, and update them when behavior changes.
+
 ## Architecture
 
 ### Web apps (deployed to GitHub Pages)
 
 Most are **single self-contained HTML files** (inline CSS + JS) in their own directory — no build step, no dependencies, no frameworks. Open any `index.html` directly in a browser to develop. Exceptions:
 
-- **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. A **Cloudflare Worker** (`worker/worker.js`, deployed via `worker/wrangler.toml`) proxies the Football-Data.org API: it allow-lists specific paths and uses the Cloudflare Cache API to stay under upstream rate limits.
-- **receipt/** — Single HTML file integrating **Firebase Auth + Firestore** for cloud sync. Users supply their own Firebase config at runtime (stored in localStorage).
+- **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. A **Cloudflare Worker** (`worker/worker.js`, deployed via `worker/wrangler.toml`) proxies the Football-Data.org API (allow-listed paths, Cloudflare Cache API for rate limiting) and also exposes `/fifa-rankings` proxying the FIFA rankings API. Live data additionally comes from Wikipedia and the openfootball `worldcup.json` dataset (fetched client-side, no proxy).
+- **receipt/** — Single HTML file. Receipt photos are parsed by calling the **Claude API directly from the browser** (`claude-haiku-4-5`, `anthropic-dangerous-direct-browser-access`; the user pastes their own API key, stored in localStorage) and synced via **Firebase Auth + Firestore** (user-supplied Firebase config, also in localStorage). Distinct from networth's レシート tab.
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
 
-Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (かけざんクエスト/九九), `earth`, `tarot`, `shinkansen`.
+Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (くくをおぼえよう/九九), `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`.
 
 > `learn-postgresql/` (pglite/WASM SQL lab) was removed from the repo; do not re-add references to it unless the folder comes back.
 
 ### Native macOS/iOS tools (not deployed to GitHub Pages)
 
-- **cleanmac/**, **networth/**, **renamer/**, **youtube-dl-mac/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Same conventions across all four: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, `build_app.sh` (or `build.sh`) produces a local `.app` bundle, `install.sh` builds + ad-hoc signs + copies to `/Applications`. No App Store distribution, no CI — rebuild locally via `install.sh` to update.
-  - `networth/` also has a `--fetch` CLI mode for headless data collection and a `com.yoheisakata.networth-fetch.plist` LaunchAgent for scheduled runs (see [[networth-tracker]] memory for operational details).
-  - `networth/` includes a レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理。macOS 26+ required: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). Distinct from the `receipt/` web app.
+- **cleanmac/**, **networth/**, **renamer/**, **youtube-dl-mac/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
+  - cleanmac: `./build_app.sh` (bundle in place) or `./install.sh` (build + copy to `/Applications`).
+  - networth: `./build_app.sh` then `cp -R NetWorth.app /Applications/` — **there is no install.sh**. `build_app.sh` reads `appVersion` from `Sources/NetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
+  - renamer: `./build.sh` (bundle only) or `./install.sh`.
+  - youtube-dl-mac: `./build-app.sh` (note the hyphen; outputs to `dist/`) or `./install.sh`.
+- **networth/** specifics (v0.4.x, requires **macOS 26** via `Package.swift` — FoundationModels): tabs are メイン / 週 / 月 / 投資 / 固定収支 / レシート.
+  - `--fetch` CLI mode for headless data collection; `com.yoheisakata.networth-fetch.plist` LaunchAgent runs it every morning (see [[networth-tracker]] memory for operational details).
+  - 投資 tab overlays live quotes from Yahoo Finance's public chart API (`Quotes.swift`, no API key) on SimpleFIN's once-a-day holding values.
+  - 固定収支 tab (`FixedBudget.swift`) renders `networth/2026_Sakata_支出表.md` with a minimal Markdown parser — it reads the repo file at `~/github/apps/networth/` directly (edit + 再読込 to update), falling back to the copy bundled at build time.
+  - レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). `ExpenseCategory` cases map to Schedule C Part II lines (8–27a) and their rawValues are persisted — never rename them. Distinct from the `receipt/` web app.
 - **KidsVideoMaker/** — SwiftUI app as a full **Xcode project** (`.xcodeproj`), not SPM. Build/run via Xcode.
 - **kindle-transfer/** — Single Bash script (`kindle-transfer.sh`), no build. Uses `adb` to pull files from a Kindle Fire's SD card/internal storage over USB.
 - **utilities/** — Standalone Python 3 / Bash scripts (not a packaged app) for a personal photo/video pipeline: backup organization (`backup-photos.sh`, `backup-videos.sh`, `sync-backups.sh`, `verify-photos.sh`), H.265 re-encoding (`encode_h265.py`), short-clip detection (`find_short_videos.py`), and kids'-video compilation (`create_memory_video.py`, `kids_video_maker.py`). Run individually from the CLI; no shared entry point.
@@ -46,15 +55,20 @@ npx wrangler dev      # Run the proxy locally
 npx wrangler deploy   # Deploy to Cloudflare
 ```
 
-The Worker requires a `FOOTBALL_DATA_API_KEY` (configure as a Worker secret / in `wrangler.toml` env).
+The Worker requires a `FOOTBALL_API_TOKEN` (Football-Data.org API key — set via `npx wrangler secret put FOOTBALL_API_TOKEN`; it currently also sits in `wrangler.toml` `[vars]`).
 
 ### SwiftUI/SPM native apps (cleanmac, networth, renamer, youtube-dl-mac)
 
 ```bash
 cd <app>
-swift run          # dev build, launches a window
-./build_app.sh      # or ./build.sh for renamer — builds a local .app bundle
-./install.sh        # build + ad-hoc sign + install to /Applications (use this to update)
+swift run           # dev build, launches a window
+# Build the .app bundle (script name varies):
+./build_app.sh      # cleanmac, networth
+./build.sh          # renamer
+./build-app.sh      # youtube-dl-mac (outputs to dist/)
+# Install/update in /Applications:
+./install.sh                        # cleanmac, renamer, youtube-dl-mac
+cp -R NetWorth.app /Applications/   # networth (no install.sh)
 ```
 
 ### KidsVideoMaker
@@ -64,11 +78,11 @@ Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there
 ## Conventions
 
 ### Web apps
-- Apps use the Nunito font (Google Fonts), dark gradient themes, and CSS custom properties for colors.
+- Dark gradient themes and CSS custom properties for colors; several apps (tashizan, kakeizan, tcpip) use the Nunito font (Google Fonts).
 - Mobile-first: `viewport` meta with `user-scalable=no`, touch-optimized interactions.
-- State persistence via `localStorage` (tashizan, kakeizan save game progress).
+- State persistence via `localStorage` where it matters: tashizan saves game progress (`tashizan_save`), receipt stores settings + data (`receipt_settings`, `receipts_v2`), world-cup-2026 caches live data + theme. kakeizan does **not** save progress.
 - Icons are emoji or inline SVG data URIs — no external image assets.
-- world-cup-2026 uses cache-buster version constants; bump them when changing cached behavior.
+- world-cup-2026 has three version knobs to bump on release: `?v=N` cache-busters on JS/CSS imports, `APP_VERSION` in `main.js` (shown in the header), and `LIVE_CACHE_KEY` (bump only when the cached live-data shape changes; add the old key to the cleanup list).
 
 ### Native macOS apps
 - Deletions always go to the Trash (`FileManager.trashItem`), never a hard delete — see cleanmac.
@@ -81,7 +95,7 @@ Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there
 ## Deployment
 
 - **Web apps**: GitHub Pages from the `main` branch. No CI/CD — pushing to `main` deploys automatically. The world-cup-2026 Worker is the only piece deployed separately, via Wrangler.
-- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications` via its own `install.sh` (or Xcode, for KidsVideoMaker). Re-run `install.sh` after pulling changes to update the installed copy.
+- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications` via its own `install.sh` (networth: `build_app.sh` + `cp -R`; KidsVideoMaker: Xcode). Re-run the install step after pulling changes to update the installed copy.
 
 ## Updating the Launcher
 

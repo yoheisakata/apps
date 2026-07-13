@@ -7,13 +7,13 @@ GitHub Pages で静的ホスティングし、試合結果・スタッツをリ�
 
 | タブ | 内容 |
 |------|------|
-| 🇯🇵 日本 | 日本代表専用ページ。戦績・突破確率・次戦カウントダウン・スカッド |
+| 🇯🇵 日本 | 日本代表ページ (チーム詳細ページの共通フォーマットを利用)。戦績・突破確率・次戦カウントダウン・スカッド |
+| 決勝T | 決勝トーナメント表。未確定の枠は Elo ベースのモンテカルロシミュレーション (`predict.js`) で予想 |
 | 試合 | 全104試合の日程・結果。今日の試合 (NY東部時間基準)・グループ/ステージ別フィルター |
 | 順位表 | グループ A〜L の勝点・得失点差を試合結果から自動集計 |
-| 優勝予想 | Elo ベースのモンテカルロシミュレーションによるトーナメント表 |
 | チーム | 48チーム一覧 (連盟別・FIFAランキング順)。クリックでチーム詳細ページへ |
-| 得点王 | トップスコアラーランキング TOP10。選手クリックで Wikipedia プロフィール |
-| 参加国 | 世界地図上に48カ国を表示 (Leaflet) |
+| 得点王 | トップスコアラーランキング。選手クリックで Wikipedia プロフィール |
+| 参加国 | 世界地図上に48カ国を表示 (Leaflet)。FIFAランキングはライブ取得 |
 | 開催都市 | 16開催都市を地図上に国旗マーカーで表示。クリックで都市・スタジアム情報 |
 
 ### チーム詳細ページ
@@ -44,20 +44,26 @@ GitHub Pages で静的ホスティングし、試合結果・スタッツをリ�
 │     data/teams.json, groups.json, matches.json, venues.json
 │
 ├── ② localStorage キャッシュ復元 (前回のライブデータ)
-│     キー: wc2026-livedata-v6
+│     キー: wc2026-livedata-v13
 │
 └── ③ ライブ更新
       │
       ├─→ Cloudflare Worker (プロキシ)  ─→  Football-Data.org API (v4)
-      │    wc2026-api.yoheisakata.workers.dev
-      │    ・CORS ヘッダー付与
-      │    ・API キーをサーバー側で管理
-      │    ・60秒キャッシュ
+      │    wc2026-api.yoheisakata.workers.dev      (試合・順位・得点者)
+      │    ・CORS ヘッダー付与 / API キーをサーバー側で管理
+      │    ・Cache API: 試合/順位 60秒・得点者 120秒・試合詳細 300秒
+      │    ・/fifa-rankings は FIFA API をプロキシ (1時間キャッシュ)
       │
-      └─→ Wikipedia API (フォールバック)
-           ・CORS 対応済み
-           ・試合結果を記事から解析
+      ├─→ Wikipedia API (第1フォールバック + 得点者・会場の補完)
+      │    ・CORS 対応済み。試合結果を記事から解析
+      │
+      └─→ openfootball worldcup.json (第2フォールバック + 得点者の補完)
+           ・jsDelivr / GitHub raw から直接取得 (キー不要)
 ```
+
+ライブ更新は Football-Data.org を優先し、失敗時に Wikipedia → openfootball の
+順でフォールバック。成功時も、Football-Data に無い得点者詳細・会場情報を
+openfootball → Wikipedia の優先順で補完する (空のフィールドだけを埋める)。
 
 ### なぜ Cloudflare Worker が必要か
 
@@ -77,6 +83,9 @@ Worker は Cloudflare の無料枠 (10万リクエスト/日) で運用してい
 | `/competitions/WC/standings` | グループ順位表 |
 | `/competitions/WC/scorers` | 得点ランキング (得点王ページ用) |
 | `/matches/{id}` | 個別試合の詳細 (ゴール詳細・スタッツ・審判) |
+| `/fifa-rankings` | FIFA 公式ランキング (api.fifa.com をプロキシ、1時間キャッシュ) |
+
+上記以外のパスは Worker 側の許可リストで 404 になります。
 
 ### localStorage の役割
 
@@ -85,7 +94,8 @@ localStorage にキャッシュしておくことで:
 
 - **初回表示が速い**: 静的 JSON → キャッシュ復元で即座に最新に近いデータを表示
 - **API 障害時**: 前回取得したデータで閲覧を継続できる
-- **バージョン管理**: キーに `v6` を含め、バージョンアップ時に古いキャッシュを自動削除
+- **バージョン管理**: キーに `v13` などのバージョンを含め、データ形式を変えたときに
+  キーを上げる (`main.js` の `LIVE_CACHE_KEY`)。旧キーは起動時に削除される
 
 ## ファイル構成
 
@@ -100,21 +110,22 @@ world-cup-2026/
 │   ├── matches.json        全試合データ (初期スナップショット)
 │   └── venues.json         16会場の情報 (座標・収容人数等)
 ├── views/
-│   ├── japan.js            日本代表ページ
-│   ├── country.js          各チーム詳細ページ (japan.js と同形式)
+│   ├── country.js          各チーム詳細ページ (🇯🇵 日本タブもこれを共用)
 │   ├── schedule.js         試合日程・結果 + 今日の試合
 │   ├── standingstab.js     順位表タブ
 │   ├── standings.js        順位計算ロジック (共有)
-│   ├── bracket.js          優勝予想トーナメント表
-│   ├── predict.js          Elo ベース予測エンジン
+│   ├── knockout.js         決勝トーナメント表 (決勝T タブ)
+│   ├── predict.js          Elo ベース予測エンジン (突破確率・決勝T 予想)
 │   ├── rankings.js         得点王ランキング
 │   ├── teamlist.js         チーム一覧
 │   ├── cities.js           開催都市マップ (Leaflet)
 │   ├── world.js            参加国マップ (Leaflet)
 │   ├── matchmodal.js       試合詳細モーダル
-│   ├── footballapi.js      Football-Data.org API 連携
+│   ├── footballapi.js      Football-Data.org API + FIFA ランキング連携
+│   ├── openfootball.js     openfootball worldcup.json データソース
 │   ├── livedata.js         Wikipedia パーサー + スカッド読み込み
-│   └── wiki.js             Wikipedia 記事・画像取得
+│   ├── wiki.js             Wikipedia 記事・画像取得
+│   └── util.js             共有ユーティリティ
 ├── worker/
 │   ├── worker.js           Cloudflare Worker (API プロキシ)
 │   └── wrangler.toml       Worker 設定
@@ -147,9 +158,9 @@ Worker の変更 (新しい API パスの追加等) 後は `npx wrangler deploy`
 - **フロントエンド**: Vanilla JS (ES Modules), CSS Custom Properties
 - **地図**: Leaflet + CARTO Voyager タイルセット
 - **API プロキシ**: Cloudflare Workers
-- **データソース**: Football-Data.org API v4 / Wikipedia API
+- **データソース**: Football-Data.org API v4 / Wikipedia API / openfootball worldcup.json / FIFA ランキング API
 - **ホスティング**: GitHub Pages
-- **キャッシュ**: localStorage (クライアント側), Cloudflare Edge (サーバー側 60秒)
+- **キャッシュ**: localStorage (クライアント側), Cloudflare Edge (サーバー側 60秒〜1時間・パスにより異なる)
 
 ## 日付・タイムゾーン
 
@@ -162,8 +173,12 @@ const todayStr = new Intl.DateTimeFormat("en-CA", {
 }).format(new Date());
 ```
 
-## キャッシュバスター
+## バージョンとキャッシュバスター
 
-ブラウザキャッシュが古い JS を配信し続ける問題を防ぐため、
-全 JS/CSS ファイルの import に `?v=6` のバージョンパラメータを付与しています。
-コードを更新した際はバージョン番号を上げてください。
+リリース時に上げるバージョンが3種類あります:
+
+1. **`?v=N` キャッシュバスター** — `index.html` と `main.js` の import に付与。
+   変更したファイルの `?v=` を上げる (ファイルごとに番号が異なってよい)
+2. **`APP_VERSION`** (`main.js`) — ヘッダーに `vNN` として表示。リリースごとに +1
+3. **`LIVE_CACHE_KEY`** (`main.js`) — localStorage のライブデータキー。
+   キャッシュするデータの形式を変えたときだけ上げ、旧キーを起動時の削除リストに追加
