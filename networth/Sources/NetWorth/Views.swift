@@ -147,6 +147,9 @@ struct DashboardView: View {
 
                 FixedBudgetTab()
                     .tabItem { Label("固定収支", systemImage: "doc.text") }
+
+                ReceiptsTab()
+                    .tabItem { Label("レシート", systemImage: "receipt") }
             }
             .padding(.top, 4)
         }

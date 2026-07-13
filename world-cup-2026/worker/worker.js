@@ -1,11 +1,8 @@
-const API_BASE = "https://api.football-data.org/v4";
+// CORS proxy for the free FIFA rankings API.
+// The paid Football-Data.org proxying was removed — match data now comes from
+// Wikipedia + openfootball, fetched directly by the browser (both are
+// CORS-friendly and need no key), so this worker only serves /fifa-rankings.
 const FIFA_API_BASE = "https://api.fifa.com/api/v3";
-const ALLOWED_PATHS = [
-  /^\/competitions\/WC\/matches/,
-  /^\/competitions\/WC\/standings/,
-  /^\/competitions\/WC\/scorers/,
-  /^\/matches\/\d+$/,
-];
 
 export default {
   async fetch(request, env, ctx) {
@@ -14,56 +11,10 @@ export default {
     }
 
     const url = new URL(request.url);
-    const path = url.pathname;
-
-    if (path === "/fifa-rankings") {
+    if (url.pathname === "/fifa-rankings") {
       return handleFifaRankings(url, ctx);
     }
-
-    if (!ALLOWED_PATHS.some((re) => re.test(path))) {
-      return json({ error: "Not found" }, 404);
-    }
-
-    // Use Cloudflare Cache API to avoid hitting football-data.org rate limits.
-    // Cache for 60s for matches/standings, 120s for scorers, 300s for match details.
-    const cache = caches.default;
-    const cacheKey = new Request(url.toString(), { method: "GET" });
-    const cached = await cache.match(cacheKey);
-    if (cached) return addCors(cached);
-
-    const apiUrl = `${API_BASE}${path}${url.search}`;
-    const token = env.FOOTBALL_API_TOKEN || "";
-
-    try {
-      const res = await fetch(apiUrl, {
-        headers: {
-          "X-Auth-Token": token,
-          "Accept": "application/json",
-        },
-      });
-
-      const body = await res.text();
-      const ttl = path.startsWith("/matches/") ? 300
-        : path.includes("/scorers") ? 120
-        : 60;
-
-      const response = new Response(body, {
-        status: res.status,
-        headers: {
-          ...corsHeaders(),
-          "Content-Type": "application/json",
-          "Cache-Control": `public, max-age=${ttl}`,
-        },
-      });
-
-      if (res.ok) {
-        ctx.waitUntil(cache.put(cacheKey, response.clone()));
-      }
-
-      return response;
-    } catch (e) {
-      return json({ error: e.message }, 502);
-    }
+    return json({ error: "Not found" }, 404);
   },
 };
 

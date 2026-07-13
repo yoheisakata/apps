@@ -32,6 +32,18 @@ const THIRD_ASSIGN = {
   BDEFIJKL: { A: "E", B: "J", D: "B", E: "D", G: "I", I: "F", K: "L", L: "K" },
 };
 
+// Official 2026 bracket wiring: FIFA match number -> the two matches whose
+// winners meet there. The 2026 schedule cross-pairs rounds (e.g. Match 89 takes
+// the winners of 74 and 77, not 73 and 74), so positional folding in fixture
+// order produces a wrong bracket — this map is the authoritative structure.
+// Verified against the official FIFA schedule / Wikipedia knockout bracket.
+const KO_FEED = {
+  89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+  93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],
+  97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],
+  101: [97, 98], 102: [99, 100], 104: [101, 102],
+};
+
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
@@ -207,16 +219,27 @@ export function createKnockout({ container, data }) {
   // stage the walk can't fully cover (e.g. a feed without Match labels) falls back
   // to source order.
   function bracketOrder() {
+    // Index by official match number. Real matchNo (from the live source)
+    // wins; the sequential M-id digits are only a fallback for entries without
+    // one, and never displace an entry that claimed the number for real.
     const byNum = {};
     for (const m of data.matches) {
-      const n = +String(m.id).replace(/\D/g, "");
-      if (n) byNum[n] = m;
+      if (m.matchNo) byNum[m.matchNo] = m;
     }
-    const feeders = (m) =>
-      [m.homeLabel, m.awayLabel].map((lbl) => {
+    for (const m of data.matches) {
+      const n = +String(m.id).replace(/\D/g, "");
+      if (n && !m.matchNo && !byNum[n]) byNum[n] = m;
+    }
+    const feeders = (m) => {
+      // Prefer the hardcoded official wiring; fall back to "Winner Match N"
+      // labels for matches without a number (pre-knockout placeholder data).
+      const no = m.matchNo || +String(m.id).replace(/\D/g, "");
+      if (KO_FEED[no]) return KO_FEED[no].map((n) => byNum[n] || null);
+      return [m.homeLabel, m.awayLabel].map((lbl) => {
         const wm = /^Winner Match (\d+)$/.exec(lbl || "");
         return wm ? byNum[+wm[1]] : null;
       });
+    };
     const order = {};
     const seen = new Set();
     (function visit(m) {
@@ -249,15 +272,15 @@ export function createKnockout({ container, data }) {
     }));
     fillThirds(prev);
     out.r32 = prev;
-    // A team only advances to a later round once its feeding tie is actually
-    // decided. We deliberately ignore any team the live source pre-seeds into a
-    // later-round slot whose feeder has no result yet: such seeds turned out to be
-    // unfounded (e.g. teams placed in the R16 before a single R32 game was played),
-    // so trusting only played results keeps the bracket honest.
+    // Later rounds: a confirmed team from the live source (Wikipedia publishes
+    // the fixture as soon as a team qualifies) takes precedence; otherwise fold
+    // the winner of the feeding tie forward. The fold also covers drawn ties
+    // via the penalty score, but only when the source carries it — the
+    // confirmed team keeps the bracket correct even when it doesn't.
     for (const stage of ["r16", "qf", "sf", "final"]) {
       const cur = order[stage].map((m, i) => ({
-        home: tieWinner(prev[i * 2]) || null,
-        away: tieWinner(prev[i * 2 + 1]) || null,
+        home: m.home || tieWinner(prev[i * 2]) || null,
+        away: m.away || tieWinner(prev[i * 2 + 1]) || null,
         m,
       }));
       out[stage] = cur;
@@ -266,8 +289,8 @@ export function createKnockout({ container, data }) {
     const thirdM = data.matches.find((m) => m.stage === "third");
     if (thirdM && out.sf.length === 2) {
       out.third = {
-        home: tieLoser(out.sf[0]) || null,
-        away: tieLoser(out.sf[1]) || null,
+        home: thirdM.home || tieLoser(out.sf[0]) || null,
+        away: thirdM.away || tieLoser(out.sf[1]) || null,
         m: thirdM,
       };
     }

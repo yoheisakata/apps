@@ -33,16 +33,17 @@
 TCP/IP 通信を可視化する学習アプリ。3ウェイハンドシェイクや、データのカプセル化／非カプセル化の流れをインタラクティブに確認できます。
 
 ### ⚽ ワールドカップ 2026 — `world-cup-2026/`
-FIFA ワールドカップ 2026 の日程・結果・順位・得点ランキングを表示するアプリ。
-試合データは [Football-Data.org](https://www.football-data.org/) API を **Cloudflare Worker プロキシ**（`world-cup-2026/worker/`）経由で取得し、Cache API でレート制限を回避しています。
+FIFA ワールドカップ 2026 のダッシュボード。日本代表ページ・決勝トーナメント表・全試合日程・順位表・チーム詳細・得点王・参加国/開催都市マップ（Leaflet）の8タブ構成。
+試合データは **無料ソースのみ**（Wikipedia + openfootball）で取得し、FIFA公式ランキングだけ **Cloudflare Worker**（`world-cup-2026/worker/`）を CORS プロキシとして経由します。有料 API は使いません。
 
 ---
 
 ## 🛠️ ツール
 
 ### 🧾 レシート確定申告 — `receipt/`
-レシートを撮影して AI で内容を抽出し、確定申告向けに整理するツール。
+レシートを撮影して Claude API（利用者が自分の API キーを設定）で内容を抽出し、確定申告向けに整理するツール。
 Firebase（Auth + Firestore）でデバイス間のクラウド同期に対応（Firebase 設定は利用者が用意）。
+※ macOS ネイティブの NetWorth「レシート」タブ（Schedule C 向け）とは別物。
 
 ---
 
@@ -54,7 +55,7 @@ SwiftUI / Swift Package Manager 製のローカル専用ツール群。ビルド
 キャッシュ・不要アプリの削除（ゴミ箱経由）と、重複写真の検出・整理を行う掃除アプリ。
 
 ### 💰 NetWorth — `networth/`
-SimpleFIN 経由で複数の銀行・証券口座を集約し、純資産の推移や支出を可視化する資産トラッカー。`--fetch` オプションで launchd による毎朝の自動記録に対応。
+SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッカー（macOS 26+）。メイン／週／月／投資／固定収支／レシートの6タブ構成で、純資産の推移・支出アラート・保有銘柄（Yahoo Finance の現在株価で時価補正）・固定収支表（Markdown）・Schedule C 向けレシート管理（Vision OCR + オンデバイス LLM）まで1つのアプリにまとめている。`--fetch` オプションで launchd による毎朝の自動記録に対応。
 
 ### ✏️ Renamer — `renamer/`
 検索置換・連番・EXIF日付・音楽メタデータなど多彩なルールを組み合わせて使えるファイル一括リネームアプリ（Better Rename の代替）。
@@ -93,7 +94,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約し、純資産の推�
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
 - ワールドカップ 2026 の Cloudflare Worker のみ、`world-cup-2026/worker/` から Wrangler で個別にデプロイします。
-- macOSネイティブアプリ（cleanmac / networth / renamer / youtube-dl-mac / KidsVideoMaker）は GitHub Pages にはデプロイされません。各フォルダの `install.sh`（または `build_app.sh` / Xcode）でローカルビルドし、`/Applications` にインストールして使います。
+- macOSネイティブアプリ（cleanmac / networth / renamer / youtube-dl-mac / KidsVideoMaker）は GitHub Pages にはデプロイされません。各フォルダの `install.sh`（networth は `build_app.sh` + `cp -R NetWorth.app /Applications/`、KidsVideoMaker は Xcode）でローカルビルドし、`/Applications` にインストールして使います。
 
 ## アプリの追加・削除
 
