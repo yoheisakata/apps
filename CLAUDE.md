@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo has two distinct kinds of projects:
 
-1. **Web apps** ("アプリひろば") hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, organizing apps into sections (ゲーム / ツール / まなぶ).
+1. **Web apps** ("アプリひろば") hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, organizing apps into sections (ゲーム / まなぶ).
 2. **Native macOS/iOS tools** (`cleanmac/`, `networth/`, `renamer/`, `youtube-dl-mac/`, `KidsVideoMaker/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
@@ -20,12 +20,11 @@ Each app directory has its own `README.md` (user-facing, Japanese) and `CLAUDE.m
 Most are **single self-contained HTML files** (inline CSS + JS) in their own directory — no build step, no dependencies, no frameworks. Open any `index.html` directly in a browser to develop. Exceptions:
 
 - **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. Live data comes from **free sources only**: Wikipedia (primary) and the openfootball `worldcup.json` dataset (fallback + supplement), both fetched client-side. A **Cloudflare Worker** (`worker/worker.js`) exists solely as a CORS proxy for `/fifa-rankings` (FIFA rankings API, no key). The paid Football-Data.org integration was removed — do not reintroduce it.
-- **receipt/** — Single HTML file. Receipt photos are parsed by calling the **Claude API directly from the browser** (`claude-haiku-4-5`, `anthropic-dangerous-direct-browser-access`; the user pastes their own API key, stored in localStorage) and synced via **Firebase Auth + Firestore** (user-supplied Firebase config, also in localStorage). Distinct from networth's レシート tab.
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
 
 Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (くくをおぼえよう/九九), `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`.
 
-> `learn-postgresql/` (pglite/WASM SQL lab) was removed from the repo; do not re-add references to it unless the folder comes back.
+> `learn-postgresql/` (pglite/WASM SQL lab) and `receipt/` (Claude API + Firebase レシート web app; the user's Firebase account was deleted — receipt management now lives in networth's レシート tab) were removed from the repo; do not re-add references to them unless the folders come back.
 
 ### Native macOS/iOS tools (not deployed to GitHub Pages)
 
@@ -38,7 +37,7 @@ Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (く�
   - `--fetch` CLI mode for headless data collection; `com.yoheisakata.networth-fetch.plist` LaunchAgent runs it every morning (see [[networth-tracker]] memory for operational details).
   - 投資 tab overlays live quotes from Yahoo Finance's public chart API (`Quotes.swift`, no API key) on SimpleFIN's once-a-day holding values.
   - 固定収支 tab (`FixedBudget.swift`) renders `networth/2026_Sakata_支出表.md` with a minimal Markdown parser — it reads the repo file at `~/github/apps/networth/` directly (edit + 再読込 to update), falling back to the copy bundled at build time.
-  - レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). `ExpenseCategory` cases map to Schedule C Part II lines (8–27a) and their rawValues are persisted — never rename them. Distinct from the `receipt/` web app.
+  - レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). `ExpenseCategory` cases map to Schedule C Part II lines (8–27a) and their rawValues are persisted — never rename them.
 - **KidsVideoMaker/** — SwiftUI app as a full **Xcode project** (`.xcodeproj`), not SPM. Build/run via Xcode.
 - **kindle-transfer/** — Single Bash script (`kindle-transfer.sh`), no build. Uses `adb` to pull files from a Kindle Fire's SD card/internal storage over USB.
 - **utilities/** — Standalone Python 3 / Bash scripts (not a packaged app) for a personal photo/video pipeline: backup organization (`backup-photos.sh`, `backup-videos.sh`, `sync-backups.sh`, `verify-photos.sh`), H.265 re-encoding (`encode_h265.py`), short-clip detection (`find_short_videos.py`), and kids'-video compilation (`create_memory_video.py`, `kids_video_maker.py`). Run individually from the CLI; no shared entry point.
@@ -80,7 +79,7 @@ Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there
 ### Web apps
 - Dark gradient themes and CSS custom properties for colors; several apps (tashizan, kakeizan, tcpip) use the Nunito font (Google Fonts).
 - Mobile-first: `viewport` meta with `user-scalable=no`, touch-optimized interactions.
-- State persistence via `localStorage` where it matters: tashizan saves game progress (`tashizan_save`), receipt stores settings + data (`receipt_settings`, `receipts_v2`), world-cup-2026 caches live data + theme. kakeizan does **not** save progress.
+- State persistence via `localStorage` where it matters: tashizan saves game progress (`tashizan_save`), world-cup-2026 caches live data + theme. kakeizan does **not** save progress.
 - Icons are emoji or inline SVG data URIs — no external image assets.
 - world-cup-2026 has three version knobs to bump on release: `?v=N` cache-busters on JS/CSS imports, `APP_VERSION` in `main.js` (shown in the header), and `LIVE_CACHE_KEY` (bump only when the cached live-data shape changes; add the old key to the cleanup list).
 
@@ -100,6 +99,6 @@ Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there
 ## Updating the Launcher
 
 Applies to **web apps only** — native macOS tools are never added to the launcher. When adding/removing a web app, update root `index.html`:
-1. Add an `<a class="app {name}">` entry in the appropriate section (ゲーム, ツール, or まなぶ).
+1. Add an `<a class="app {name}">` entry in the appropriate section (ゲーム or まなぶ; re-add a ツール section if a tool-type web app returns).
 2. Add a `.app.{name} .icon-wrap` CSS rule with a gradient background and box-shadow.
 3. Use a `.new-badge` span for recently added apps.
