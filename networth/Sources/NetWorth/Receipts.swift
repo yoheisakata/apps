@@ -9,69 +9,107 @@ import UniformTypeIdentifiers
 // 元は receipts-mac/ の単体アプリだったものを NetWorth のタブとして統合した。
 // データは従来どおり ~/Library/Application Support/Receipts/ に保存する。
 
-// Schedule C(個人事業主)の経費カテゴリー。
+// Schedule C(個人事業主)の経費カテゴリー。Form 1040 Schedule C Part II の
+// 行(Line 8〜27a)に対応づけて、行順に定義する(この順が Picker と集計の表示順)。
+// rawValue は保存データに使われているため変更しないこと。
 enum ExpenseCategory: String, Codable, CaseIterable, Identifiable {
-    case advertising
-    case carTruck
-    case commissions
-    case insurance
-    case legal
-    case office
-    case supplies
-    case repairs
-    case rent
-    case travel
-    case meals
-    case utilities
-    case software
-    case education
-    case equipment
-    case other
-    case personal
+    case advertising      // Line 8
+    case carTruck         // Line 9
+    case commissions      // Line 10
+    case contractLabor    // Line 11
+    case equipment        // Line 13 (減価償却 / §179)
+    case insurance        // Line 15
+    case interest         // Line 16
+    case legal            // Line 17
+    case office           // Line 18
+    case rent             // Line 20
+    case repairs          // Line 21
+    case supplies         // Line 22
+    case taxesLicenses    // Line 23
+    case travel           // Line 24a
+    case meals            // Line 24b
+    case utilities        // Line 25
+    case software         // Line 27a
+    case education        // Line 27a
+    case other            // Line 27a
+    case personal         // 対象外
 
     var id: String { rawValue }
 
-    var jp: String {
+    // Schedule C Part II の行番号。nil は控除対象外。
+    var scheduleCLine: String? {
         switch self {
-        case .advertising: return "広告宣伝費"
-        case .carTruck:    return "車両・ガソリン"
-        case .commissions: return "外注・手数料"
-        case .insurance:   return "保険料"
-        case .legal:       return "法務・会計・専門サービス"
-        case .office:      return "事務用品・オフィス経費"
-        case .supplies:    return "消耗品・材料"
-        case .repairs:     return "修繕・メンテナンス"
-        case .rent:        return "賃借料・リース"
-        case .travel:      return "旅費・交通費"
-        case .meals:       return "飲食費(50%控除)"
-        case .utilities:   return "通信費・水道光熱費"
-        case .software:    return "ソフトウェア・サブスク"
-        case .education:   return "教育・研修"
-        case .equipment:   return "機材・備品"
-        case .other:       return "その他経費"
-        case .personal:    return "対象外(私用)"
+        case .advertising:   return "8"
+        case .carTruck:      return "9"
+        case .commissions:   return "10"
+        case .contractLabor: return "11"
+        case .equipment:     return "13"
+        case .insurance:     return "15"
+        case .interest:      return "16"
+        case .legal:         return "17"
+        case .office:        return "18"
+        case .rent:          return "20"
+        case .repairs:       return "21"
+        case .supplies:      return "22"
+        case .taxesLicenses: return "23"
+        case .travel:        return "24a"
+        case .meals:         return "24b"
+        case .utilities:     return "25"
+        case .software, .education, .other: return "27a"
+        case .personal:      return nil
         }
     }
 
+    // Schedule C の公式な行名。software/education は 27a (Other expenses) の
+    // サブ区分なので "Other —" を付けて区別する。
     var en: String {
         switch self {
-        case .advertising: return "Advertising"
-        case .carTruck:    return "Car and Truck Expenses"
-        case .commissions: return "Commissions and Fees"
-        case .insurance:   return "Insurance"
-        case .legal:       return "Legal and Professional Services"
-        case .office:      return "Office Expense"
-        case .supplies:    return "Supplies"
-        case .repairs:     return "Repairs and Maintenance"
-        case .rent:        return "Rent or Lease"
-        case .travel:      return "Travel"
-        case .meals:       return "Meals"
-        case .utilities:   return "Utilities"
-        case .software:    return "Software / Subscriptions"
-        case .education:   return "Education / Training"
-        case .equipment:   return "Equipment"
-        case .other:       return "Other Expenses"
-        case .personal:    return "Personal (Not Deductible)"
+        case .advertising:   return "Advertising"
+        case .carTruck:      return "Car and truck expenses"
+        case .commissions:   return "Commissions and fees"
+        case .contractLabor: return "Contract labor"
+        case .equipment:     return "Depreciation and section 179"
+        case .insurance:     return "Insurance (other than health)"
+        case .interest:      return "Interest"
+        case .legal:         return "Legal and professional services"
+        case .office:        return "Office expense"
+        case .rent:          return "Rent or lease"
+        case .repairs:       return "Repairs and maintenance"
+        case .supplies:      return "Supplies"
+        case .taxesLicenses: return "Taxes and licenses"
+        case .travel:        return "Travel"
+        case .meals:         return "Meals"
+        case .utilities:     return "Utilities"
+        case .software:      return "Other — Software & subscriptions"
+        case .education:     return "Other — Education & training"
+        case .other:         return "Other expenses"
+        case .personal:      return "Personal (not deductible)"
+        }
+    }
+
+    // Picker 用: どんな支出が入るかの例。
+    var examples: String {
+        switch self {
+        case .advertising:   return "広告、Web広告、名刺"
+        case .carTruck:      return "ガソリン、駐車場、車検(事業利用分)"
+        case .commissions:   return "販売手数料、プラットフォーム手数料"
+        case .contractLabor: return "外注・フリーランスへの報酬"
+        case .equipment:     return "PC、カメラなど高額機材"
+        case .insurance:     return "賠償責任保険など事業保険"
+        case .interest:      return "事業ローン・カードの利息"
+        case .legal:         return "弁護士、会計士、税理士"
+        case .office:        return "文房具、郵送料、事務小物"
+        case .rent:          return "事務所家賃、機材レンタル"
+        case .repairs:       return "修理、メンテナンス"
+        case .supplies:      return "消耗品、材料、部品"
+        case .taxesLicenses: return "事業ライセンス、営業許可"
+        case .travel:        return "出張の航空券・ホテル"
+        case .meals:         return "打ち合わせの食事(50%のみ控除)"
+        case .utilities:     return "ネット、携帯、電気(事業分)"
+        case .software:      return "Adobe、クラウド、サブスク"
+        case .education:     return "講座、書籍、カンファレンス"
+        case .other:         return "銀行手数料、ドメイン代など"
+        case .personal:      return "私的な買い物(控除対象外)"
         }
     }
 
@@ -134,6 +172,10 @@ final class ReceiptStore: ObservableObject {
     private var knownHashes: Set<String> = []
     private var hashesReady = false
 
+    // 編集中のこまめな保存をまとめるためのデバウンス。
+    private var saveTask: Task<Void, Never>?
+    private var savePending = false
+
     nonisolated static let baseDir = FileManager.default
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Receipts")
@@ -143,6 +185,15 @@ final class ReceiptStore: ObservableObject {
     init() {
         try? FileManager.default.createDirectory(at: Self.originalsDir, withIntermediateDirectories: true)
         load()
+        // デバウンス待ちの編集が終了で消えないよう、アプリ終了時に書き出す。
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.savePending else { return }
+                self.save()
+            }
+        }
     }
 
     func load() {
@@ -155,11 +206,25 @@ final class ReceiptStore: ObservableObject {
     }
 
     func save() {
+        saveTask?.cancel()
+        savePending = false
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         if let data = try? encoder.encode(receipts) {
             try? data.write(to: dataURL, options: .atomic)
+        }
+    }
+
+    // テキスト編集はキーストロークごとに onChange が来るため、毎回全件を
+    // JSON 書き出しせず、入力が止まってから1回だけ保存する。
+    func scheduleSave() {
+        savePending = true
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            self?.save()
         }
     }
 
@@ -169,21 +234,24 @@ final class ReceiptStore: ObservableObject {
                                                 "tiff", "tif", "webp", "gif", "bmp"]
 
     func importFiles(_ urls: [URL]) {
-        var skipped: [String] = []
-        for url in urls {
-            if Self.allowedExtensions.contains(url.pathExtension.lowercased()) {
-                Task {
-                    if await importOne(url) == .duplicate {
-                        notice = "取り込み済みのためスキップ: \(url.lastPathComponent)"
-                    }
-                }
-            } else {
-                skipped.append(url.lastPathComponent)
-            }
-        }
+        let valid = urls.filter { Self.allowedExtensions.contains($0.pathExtension.lowercased()) }
+        let skipped = urls.filter { !valid.contains($0) }.map(\.lastPathComponent)
         // 黙って無視すると「取り込んだのに表示されない」ように見えるため必ず通知する。
         if !skipped.isEmpty {
             lastError = "未対応の形式のためスキップ: \(skipped.joined(separator: ", "))"
+        }
+        guard !valid.isEmpty else { return }
+        // 並列に走らせると通知(notice)が上書き合戦になるため、順に取り込んで集約する。
+        Task {
+            var duplicates: [String] = []
+            for url in valid {
+                if await importOne(url) == .duplicate {
+                    duplicates.append(url.lastPathComponent)
+                }
+            }
+            if !duplicates.isEmpty {
+                notice = "取り込み済みのためスキップ: " + duplicates.joined(separator: ", ")
+            }
         }
     }
 
@@ -305,7 +373,10 @@ final class ReceiptStore: ObservableObject {
             lastError = "一時ファイル作成失敗: \(error.localizedDescription)"
             return
         }
-        Task { await importOne(tmp) }
+        Task {
+            await importOne(tmp)
+            try? FileManager.default.removeItem(at: tmp)
+        }
     }
 
     enum ImportResult { case imported, duplicate, failed }
@@ -379,7 +450,7 @@ final class ReceiptStore: ObservableObject {
     func csv(forYear year: Int) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        var lines = ["date,merchant,amount,category,category_en,deductible_amount,note,file,status"]
+        var lines = ["date,merchant,amount,schedule_c_line,category,deductible_amount,note,file,status"]
         let target = receipts
             .filter { $0.year == year }
             .sorted { ($0.date ?? $0.importedAt) < ($1.date ?? $1.importedAt) }
@@ -390,7 +461,7 @@ final class ReceiptStore: ObservableObject {
                 date,
                 r.merchant,
                 String(format: "%.2f", r.amount),
-                r.category.jp,
+                r.category.scheduleCLine ?? "-",
                 r.category.en,
                 String(format: "%.2f", deductible),
                 r.note,
@@ -525,11 +596,14 @@ enum Extractor {
         var total: Double
         @Guide(description: """
             Schedule C expense category for a sole proprietor. Exactly one of: \
-            advertising, carTruck (car/gas), commissions (contractors/fees), insurance, \
-            legal (legal/accounting), office (office expense), supplies (materials), \
-            repairs, rent, travel, meals, utilities (phone/internet/power), \
-            software (software/subscriptions), education, equipment, other, \
-            personal (not business related)
+            advertising, carTruck (car/gas), commissions (sales/platform fees), \
+            contractLabor (1099 contractors), equipment (depreciable equipment), \
+            insurance (business insurance), interest (business loan/card interest), \
+            legal (legal/accounting/professional), office (office expense/postage), \
+            rent (rent or lease), repairs, supplies (materials/consumables), \
+            taxesLicenses (business taxes/licenses), travel, meals, \
+            utilities (phone/internet/power), software (software/subscriptions), \
+            education, other, personal (not business related)
             """)
         var category: String
         @Guide(description: """

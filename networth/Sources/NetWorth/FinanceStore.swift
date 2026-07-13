@@ -12,7 +12,9 @@ final class FinanceStore: ObservableObject {
     @Published var quotes: [String: QuoteService.Quote] = [:]
     @Published var quotesUpdated: Date?
 
-    var isConfigured: Bool { Keychain.load() != nil }
+    // computed で Keychain を毎回読むと、接続解除しても変更通知が飛ばず
+    // ボタンの活性状態が更新されないため、@Published で持つ。
+    @Published private(set) var isConfigured = Keychain.load() != nil
 
     // Dashboard の集計は全取引を走査する重い処理なので、history が変わるまで使い回す
     // (SwiftUI の再描画のたびに再計算しない)。
@@ -58,6 +60,7 @@ final class FinanceStore: ObservableObject {
     func connect(setupToken: String) async throws {
         let accessURL = try await SimpleFIN.claim(setupToken: setupToken)
         Keychain.save(accessURL)
+        isConfigured = true
         await refresh()
         if let err = lastError {
             throw NSError(domain: "NetWorth", code: 1,
@@ -72,5 +75,6 @@ final class FinanceStore: ObservableObject {
 
     func disconnect() {
         Keychain.delete()
+        isConfigured = false
     }
 }

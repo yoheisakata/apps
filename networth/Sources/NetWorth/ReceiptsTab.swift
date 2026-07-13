@@ -184,7 +184,7 @@ struct ReceiptListView: View {
             Picker("カテゴリー", selection: $categoryFilter) {
                 Text("すべて").tag(ExpenseCategory?.none)
                 ForEach(ExpenseCategory.allCases) { cat in
-                    Text(cat.jp).tag(ExpenseCategory?.some(cat))
+                    Text(cat.en).tag(ExpenseCategory?.some(cat))
                 }
             }
             .frame(maxWidth: 240)
@@ -231,7 +231,7 @@ struct ReceiptRow: View {
                         Text("日付不明")
                     }
                     Text("·")
-                    Text(receipt.category.jp)
+                    Text(receipt.category.en)
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -252,6 +252,9 @@ struct ReceiptDetail: View {
     @State private var showDeleteConfirm = false
     @State private var showOCRText = false
     @State private var analyzingItems = false
+    // 表示中の元画像。body の再評価(キーストロークごと)に毎回ディスクから
+    // 作り直さないよう @State に持ち、ファイルが変わったときだけ読み直す。
+    @State private var image: NSImage?
 
     var body: some View {
         HSplitView {
@@ -260,12 +263,15 @@ struct ReceiptDetail: View {
             editorPane
                 .frame(minWidth: 220)
         }
-        .onChange(of: receipt) { store.save() }
+        .task(id: receipt.fileName) {
+            image = NSImage(contentsOf: receipt.fileURL)
+        }
+        .onChange(of: receipt) { store.scheduleSave() }
     }
 
     private var imagePane: some View {
         Group {
-            if let image = NSImage(contentsOf: receipt.fileURL) {
+            if let image {
                 // スクロールさせず、ペインの大きさに合わせて全体を表示する
                 // (原寸表示だと iPhone 写真は巨大でスクロールしないと見えない)。
                 VStack(spacing: 0) {
@@ -312,7 +318,7 @@ struct ReceiptDetail: View {
                 TextField("金額", value: $receipt.amount, format: .currency(code: "USD"))
                 Picker("カテゴリー", selection: $receipt.category) {
                     ForEach(ExpenseCategory.allCases) { cat in
-                        Text(cat.jp).tag(cat)
+                        Text("\(cat.en) — \(cat.examples)").tag(cat)
                     }
                 }
                 TextField("メモ", text: $receipt.note, axis: .vertical)
@@ -422,9 +428,15 @@ struct ReceiptDetail: View {
     private func analyzeItems() {
         analyzingItems = true
         let text = receipt.ocrText
+        let id = receipt.id
         Task { @MainActor in
             let fields = await Extractor.extract(from: text)
-            receipt.items = fields.items ?? []
+            // binding は配列の index 参照なので、解析中に取り込みや削除で配列が
+            // 動くと別のレシートを指す。書き戻しは id で対象を探し直す。
+            if let i = store.receipts.firstIndex(where: { $0.id == id }) {
+                store.receipts[i].items = fields.items ?? []
+                store.save()
+            }
             analyzingItems = false
         }
     }
@@ -452,24 +464,45 @@ struct ReceiptSummaryView: View {
         store.receipts.filter { $0.year == year }
     }
 
-    private struct CategorySummary: Identifiable {
-        let category: ExpenseCategory
+    // Schedule C の行(Line)単位のロールアップ。software/education/other は
+    // 申告書上ひとつの行(27a)なのでまとめる。表示順は Schedule C の行順。
+    private struct LineSummary: Identifiable {
+        let line: String?              // "8"〜"27a"、nil = 対象外(私用)
+        let title: String              // 転記先の行名(公式表記)
+        let breakdown: String          // 行に含まれるカテゴリー(実績があるものだけ)
         let count: Int
         let total: Double
-        var deductible: Double { total * category.deductibleRate }
-        var id: String { category.rawValue }
+        let deductible: Double
+        var id: String { line ?? "personal" }
+        var lineLabel: String { line.map { "Line \($0)" } ?? "—" }
     }
 
-    private var summaries: [CategorySummary] {
-        ExpenseCategory.allCases.compactMap { cat in
-            let items = yearReceipts.filter { $0.category == cat }
-            guard !items.isEmpty else { return nil }
-            return CategorySummary(
-                category: cat,
-                count: items.count,
-                total: items.reduce(0) { $0 + $1.amount })
+    private var summaries: [LineSummary] {
+        // 定義順(=行順)を保ったまま、同じ Line のカテゴリーをまとめる。
+        var groups: [(line: String?, cats: [ExpenseCategory])] = []
+        for cat in ExpenseCategory.allCases {
+            if let last = groups.indices.last, groups[last].line == cat.scheduleCLine {
+                groups[last].cats.append(cat)
+            } else {
+                groups.append((cat.scheduleCLine, [cat]))
+            }
         }
-        .sorted { $0.total > $1.total }
+        return groups.compactMap { group in
+            let items = yearReceipts.filter { group.cats.contains($0.category) }
+            guard !items.isEmpty else { return nil }
+            let used = group.cats.filter { cat in items.contains { $0.category == cat } }
+            let title = group.line == "27a" ? "Other expenses" : used[0].en
+            // 内訳は行名と同じ場合(1カテゴリーだけの行)は省略する。
+            let breakdown = used.count == 1 && used[0].en == title
+                ? "" : used.map(\.en).joined(separator: ", ")
+            return LineSummary(
+                line: group.line,
+                title: title,
+                breakdown: breakdown,
+                count: items.count,
+                total: items.reduce(0) { $0 + $1.amount },
+                deductible: items.reduce(0) { $0 + $1.amount * $1.category.deductibleRate })
+        }
     }
 
     private var needsReviewCount: Int {
@@ -477,6 +510,8 @@ struct ReceiptSummaryView: View {
     }
 
     var body: some View {
+        // 集計は body 内で複数回参照するため、1回だけ計算する。
+        let summaries = self.summaries
         VStack(spacing: 0) {
             HStack {
                 Picker("対象年", selection: $year) {
@@ -514,8 +549,18 @@ struct ReceiptSummaryView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Table(summaries) {
-                    TableColumn("カテゴリー") { Text($0.category.jp) }
-                    TableColumn("Schedule C") { Text($0.category.en).foregroundStyle(.secondary) }
+                    TableColumn("Line") { s in
+                        Text(s.lineLabel)
+                            .monospacedDigit()
+                            .foregroundStyle(s.line == nil ? .secondary : .primary)
+                    }
+                    .width(60)
+                    TableColumn("Schedule C 転記先") { s in
+                        Text(s.title).foregroundStyle(s.line == nil ? .secondary : .primary)
+                    }
+                    TableColumn("内訳") { s in
+                        Text(s.breakdown).foregroundStyle(.secondary)
+                    }
                     TableColumn("件数") { s in
                         Text("\(s.count)").monospacedDigit()
                     }
@@ -523,19 +568,19 @@ struct ReceiptSummaryView: View {
                     TableColumn("合計") { s in
                         Text(s.total, format: .currency(code: "USD")).monospacedDigit()
                     }
-                    .width(110)
+                    .width(100)
                     TableColumn("控除見込") { s in
                         Text(s.deductible, format: .currency(code: "USD")).monospacedDigit()
                     }
-                    .width(110)
+                    .width(100)
                 }
 
-                totalsFooter
+                totalsFooter(summaries)
             }
         }
     }
 
-    private var totalsFooter: some View {
+    private func totalsFooter(_ summaries: [LineSummary]) -> some View {
         let total = summaries.reduce(0) { $0 + $1.total }
         let deductible = summaries.reduce(0) { $0 + $1.deductible }
         return HStack(spacing: 24) {

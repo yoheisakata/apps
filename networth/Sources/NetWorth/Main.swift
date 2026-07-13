@@ -2,7 +2,7 @@ import SwiftUI
 
 // アプリのバージョン。リリース時はここだけ更新する
 // (build_app.sh がこの値を Info.plist にも反映する)。
-let appVersion = "0.4.5"
+let appVersion = "0.4.8"
 
 // エントリポイント。`NetWorth --fetch` は UI を出さずに取得だけして終了する
 // (launchd から毎朝実行するためのモード)。
