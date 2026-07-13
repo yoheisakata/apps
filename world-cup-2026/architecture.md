@@ -21,27 +21,23 @@
 └─────────────────────────────────────┼──┼─────────────────────┘
                                       │  │
                       ┌───────────────┘  └────────────┐
-                      │ ① メイン                       │ ② フォールバック
+                      │ ① メイン                       │ ② フォールバック+補完
                       ▼                                ▼
          ┌─────────────────────┐           ┌──────────────────┐
-         │  Cloudflare Worker  │           │   Wikipedia API   │
-         │  (プロキシサーバー)    │           │  (CORS対応済み)    │
-         │                     │           │                  │
-         │ ・CORS ヘッダー付与   │           │ 試合結果・得点者   │
-         │ ・APIキーを管理      │           │ を記事から解析     │
-         │ ・60秒キャッシュ     │           │                  │
-         └──────────┬──────────┘           └──────────────────┘
-                    │
-                    ▼
+         │   Wikipedia API      │           │   openfootball    │
+         │  (CORS対応済み)       │           │  worldcup.json    │
+         │                     │           │ (jsDelivr/GitHub) │
+         │ 試合結果・決勝Tの     │           │ 得点者詳細(分/PK/  │
+         │ 勝ち上がりを記事から  │           │ OG)・会場を補完    │
+         │ 解析                │           │                  │
+         └─────────────────────┘           └──────────────────┘
+
          ┌─────────────────────┐
-         │ Football-Data.org   │
-         │      API (v4)       │
-         │                     │
-         │ ・試合結果           │
-         │ ・得点者 (分単位)    │
-         │ ・スタッツ           │
-         │ ・審判情報           │
+         │  Cloudflare Worker  │  FIFA公式ランキングの CORS プロキシ
+         │  /fifa-rankings     │  (api.fifa.com・1時間キャッシュ・キー不要)
          └─────────────────────┘
+
+  ※ 有料の Football-Data.org API 連携は削除済み。無料ソースのみで動く。
 
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -70,7 +66,7 @@
 │      ├── world.js        ← 🌍 参加国マップ                    │
 │      ├── teamlist.js     ← 👥 チーム一覧                      │
 │      ├── matchmodal.js   ← 試合クリック時のモーダル             │
-│      ├── footballapi.js  ← Football-Data.org + FIFAランキング │
+│      ├── footballapi.js  ← FIFAランキング連携 (Worker経由)     │
 │      ├── openfootball.js ← openfootball worldcup.json 取得    │
 │      ├── livedata.js     ← Wikipedia パーサー                 │
 │      ├── wiki.js         ← Wikipedia 記事取得                 │
@@ -83,13 +79,12 @@
   ① 静的JSON読み込み (即座に表示)
   ② localStorage キャッシュがあれば上書き (前回のライブデータ)
   ③ ライブ更新開始:
-     Cloudflare Worker → Football-Data.org API
-         ↓ 成功 → openfootball → Wikipedia の順で得点者・会場を補完
+     Wikipedia API
+         ↓ 成功 → openfootball で得点者詳細・会場を補完 (空欄のみ)
          ↓        → 最新データで画面更新 + localStorage に保存
          ↓ 失敗
-     Wikipedia API
-         ↓ 失敗
      openfootball worldcup.json (jsDelivr / GitHub raw)
+         ↓ 成功 → Wikipedia で補完を試行 → 画面更新 + 保存
          ↓ 失敗
      「オフラインモード」表示 (①②のデータのまま)
 

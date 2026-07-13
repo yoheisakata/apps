@@ -7,21 +7,23 @@
 // localStorage so a cold start shows the last fetched results immediately.
 
 import { createSchedule } from "./views/schedule.js?v=27";
-import { createKnockout } from "./views/knockout.js?v=35";
+import { createKnockout } from "./views/knockout.js?v=36";
 import { createCities } from "./views/cities.js?v=27";
 import { createWorld } from "./views/world.js?v=27";
 import { createRankings } from "./views/rankings.js?v=27";
 import { createStandings } from "./views/standingstab.js?v=27";
 import { createTeamList } from "./views/teamlist.js?v=27";
 import { createCountry } from "./views/country.js?v=27";
-import { createMatchModal } from "./views/matchmodal.js?v=27";
-import { fetchLiveData } from "./views/livedata.js?v=27";
-import { fetchOpenFootball } from "./views/openfootball.js?v=27";
-import { fetchFootballData, fetchFifaRankings } from "./views/footballapi.js?v=27";
+import { createMatchModal } from "./views/matchmodal.js?v=28";
+import { fetchLiveData } from "./views/livedata.js?v=28";
+import { fetchOpenFootball } from "./views/openfootball.js?v=28";
+import { fetchFifaRankings } from "./views/footballapi.js?v=28";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 42; // bump on every release; shown in the header.
-const LIVE_CACHE_KEY = "wc2026-livedata-v13";
+const APP_VERSION = 43; // bump on every release; shown in the header.
+// v14: v13 caches may hold a corrupted knockout bracket (results attached to
+// the wrong ties by the old positional merge) — discard them.
+const LIVE_CACHE_KEY = "wc2026-livedata-v14";
 const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
@@ -161,107 +163,98 @@ async function refreshLive({ silent } = {}) {
   if (btn) btn.disabled = true;
   if (!silent) setStatus("更新中…", "loading");
   try {
+    // Free sources only (the paid Football-Data.org integration was removed):
+    // Wikipedia is the primary source (freshest — results and knockout
+    // advancement appear within minutes), openfootball is the fallback and the
+    // supplement (clean structured goals with minute/penalty/own-goal flags,
+    // venues in bracket order).
     let live;
     let source;
     let suppLive = null;
-    let wikiSupp = null;
     try {
-      live = await fetchFootballData(data.teams);
-      source = "api";
+      live = await fetchLiveData();
+      source = "wiki";
+      try { suppLive = await fetchOpenFootball(data.teams); } catch (_) {}
     } catch (_) {
-      // Fallbacks when the primary API is unreachable: Wikipedia, then the
-      // openfootball static dataset (CORS-friendly, no key).
-      try {
-        live = await fetchLiveData();
-        source = "wiki";
-      } catch (_) {
-        live = await fetchOpenFootball(data.teams);
-        source = "openfootball";
-      }
+      live = await fetchOpenFootball(data.teams);
+      source = "openfootball";
+      try { suppLive = await fetchLiveData(); } catch (e) { console.warn("[live] wiki supplement failed:", e.message); }
     }
-    // Football-Data gives results/standings but no per-match scorers or venues.
-    // Fill those from supplementary sources, in priority order: openfootball
-    // (clean structured goals with minute/penalty/own-goal flags) first, then
-    // Wikipedia to cover the freshest matches openfootball hasn't generated yet.
-    // Each pass only fills still-empty fields, so openfootball wins where it has
-    // data and Wikipedia patches the rest.
-    if (source === "api") {
-      const supps = [];
-      try { supps.push(await fetchOpenFootball(data.teams)); } catch (_) {}
-      try { supps.push(await fetchLiveData()); } catch (e) { console.warn("[live] wiki supplement failed:", e.message); }
-      suppLive = supps[0] || null;
-      wikiSupp = supps[1] || null;
-
-      for (const supp of supps) {
-        if (!supp?.matches) continue;
-        // Index supplementary matches by team pair (no date — timezone mismatch)
-        const byTeams = {};
-        for (const wm of supp.matches) {
-          if (wm.home && wm.away) byTeams[`${wm.home}|${wm.away}`] = wm;
-        }
-        for (const m of live.matches) {
-          if (!m.home || !m.away) continue;
-          const exact = byTeams[`${m.home}|${m.away}`];
-          const swapped = byTeams[`${m.away}|${m.home}`];
-          if (exact) {
-            if (!m.scorers1?.length && exact.scorers1?.length) m.scorers1 = exact.scorers1;
-            if (!m.scorers2?.length && exact.scorers2?.length) m.scorers2 = exact.scorers2;
-            if (!m.scorerDetails1?.length && exact.scorerDetails1?.length) m.scorerDetails1 = exact.scorerDetails1;
-            if (!m.scorerDetails2?.length && exact.scorerDetails2?.length) m.scorerDetails2 = exact.scorerDetails2;
-            if (!m.ownGoals1 && exact.ownGoals1) m.ownGoals1 = exact.ownGoals1;
-            if (!m.ownGoals2 && exact.ownGoals2) m.ownGoals2 = exact.ownGoals2;
-            if (!m.venue && exact.venue) m.venue = exact.venue;
-          } else if (swapped) {
-            if (!m.scorers1?.length && swapped.scorers2?.length) m.scorers1 = swapped.scorers2;
-            if (!m.scorers2?.length && swapped.scorers1?.length) m.scorers2 = swapped.scorers1;
-            if (!m.scorerDetails1?.length && swapped.scorerDetails2?.length) m.scorerDetails1 = swapped.scorerDetails2;
-            if (!m.scorerDetails2?.length && swapped.scorerDetails1?.length) m.scorerDetails2 = swapped.scorerDetails1;
-            if (!m.ownGoals1 && swapped.ownGoals2) m.ownGoals1 = swapped.ownGoals2;
-            if (!m.ownGoals2 && swapped.ownGoals1) m.ownGoals2 = swapped.ownGoals1;
-            if (!m.venue && swapped.venue) m.venue = swapped.venue;
+    // Fill still-empty fields (scorers, venues) from the supplementary source.
+    // It only fills gaps — it never overwrites what the primary already has.
+    if (suppLive?.matches) {
+      // Index supplementary matches by team pair (no date — timezone mismatch)
+      const byTeams = {};
+      for (const wm of suppLive.matches) {
+        if (wm.home && wm.away) byTeams[`${wm.home}|${wm.away}`] = wm;
+      }
+      for (const m of live.matches) {
+        if (!m.home || !m.away) continue;
+        const exact = byTeams[`${m.home}|${m.away}`];
+        const swapped = byTeams[`${m.away}|${m.home}`];
+        if (exact) {
+          if (!m.scorers1?.length && exact.scorers1?.length) m.scorers1 = exact.scorers1;
+          if (!m.scorers2?.length && exact.scorers2?.length) m.scorers2 = exact.scorers2;
+          if (!m.scorerDetails1?.length && exact.scorerDetails1?.length) m.scorerDetails1 = exact.scorerDetails1;
+          if (!m.scorerDetails2?.length && exact.scorerDetails2?.length) m.scorerDetails2 = exact.scorerDetails2;
+          if (!m.ownGoals1 && exact.ownGoals1) m.ownGoals1 = exact.ownGoals1;
+          if (!m.ownGoals2 && exact.ownGoals2) m.ownGoals2 = exact.ownGoals2;
+          if (!m.venue && exact.venue) m.venue = exact.venue;
+          // Penalty/extra-time detail (openfootball has it, Wikipedia often
+          // doesn't) — without penalties a drawn knockout tie can't fold its
+          // winner into the next round of the bracket.
+          if (!m.penalties && exact.penalties) m.penalties = exact.penalties;
+          if (!m.extraTime && exact.extraTime) { m.extraTime = exact.extraTime; if (exact.result) m.result = exact.result; }
+          // Official match number — the knockout bracket wires ties together
+          // by it (openfootball carries it, the Wikipedia articles don't).
+          if (!m.matchNo && exact.matchNo) m.matchNo = exact.matchNo;
+        } else if (swapped) {
+          if (!m.scorers1?.length && swapped.scorers2?.length) m.scorers1 = swapped.scorers2;
+          if (!m.scorers2?.length && swapped.scorers1?.length) m.scorers2 = swapped.scorers1;
+          if (!m.scorerDetails1?.length && swapped.scorerDetails2?.length) m.scorerDetails1 = swapped.scorerDetails2;
+          if (!m.scorerDetails2?.length && swapped.scorerDetails1?.length) m.scorerDetails2 = swapped.scorerDetails1;
+          if (!m.ownGoals1 && swapped.ownGoals2) m.ownGoals1 = swapped.ownGoals2;
+          if (!m.ownGoals2 && swapped.ownGoals1) m.ownGoals2 = swapped.ownGoals1;
+          if (!m.venue && swapped.venue) m.venue = swapped.venue;
+          if (!m.penalties && swapped.penalties) m.penalties = [swapped.penalties[1], swapped.penalties[0]];
+          if (!m.extraTime && swapped.extraTime) {
+            m.extraTime = [swapped.extraTime[1], swapped.extraTime[0]];
+            if (swapped.result) m.result = [swapped.result[1], swapped.result[0]];
           }
+          if (!m.matchNo && swapped.matchNo) m.matchNo = swapped.matchNo;
         }
       }
-    }
-    // Knockout teams: Football-Data leaves R32+ slots empty (no teams, no
-    // official match numbers to join on), while the supplementary source carries
-    // the real bracket — confirmed teams as they qualify, plus dates/venues/
-    // labels in bracket order. So for the knockout stages, prefer that bracket.
-    // Group matches keep the API's accurate results. Re-id the merged list so
-    // match-card lookups stay unique.
-    if (source === "api" && suppLive?.matches) {
-      const suppKo = suppLive.matches.filter((m) => m.stage !== "group");
-      if (suppKo.length) {
-        live.matches = [...live.matches.filter((m) => m.stage === "group"), ...suppKo];
-        live.matches.forEach((m, i) => { m.id = `M${String(i + 1).padStart(3, "0")}`; });
+      // Knockout matches the team-pair pass couldn't reach (no confirmed teams
+      // yet): merge by official match number when both sides carry one, else by
+      // stage for single-match stages (third place = 103, final = 104). Fill
+      // schedule metadata only — teams/results must never be copied by
+      // position, because neither source lists knockout fixtures in the same
+      // order as the official bracket (that mismatch once corrupted results).
+      const suppByNo = {};
+      const suppByStage = {};
+      for (const sm of suppLive.matches) {
+        if (sm.stage === "group") continue;
+        if (sm.matchNo) suppByNo[sm.matchNo] = sm;
+        (suppByStage[sm.stage] ||= []).push(sm);
       }
-      // openfootball carries the R32 fixtures (teams/dates/venues) but can lag on
-      // advancement; Wikipedia fills later-round slots the moment a team qualifies
-      // (e.g. it places the winner into the next round before openfootball does).
-      // Overlay Wikipedia's confirmed knockout teams/results onto the bracket,
-      // matched by stage + position, filling only still-empty fields so it never
-      // overwrites openfootball's data — it just adds who has advanced.
-      if (wikiSupp?.matches) {
-        const wikiByStage = {};
-        for (const wm of wikiSupp.matches) {
-          if (wm.stage === "group") continue;
-          (wikiByStage[wm.stage] ||= []).push(wm);
-        }
-        const seen = {};
-        for (const m of live.matches) {
-          if (m.stage === "group") continue;
-          const idx = (seen[m.stage] = (seen[m.stage] ?? -1) + 1);
-          const wm = wikiByStage[m.stage]?.[idx];
-          if (!wm) continue;
-          if (!m.home && wm.home) m.home = wm.home;
-          if (!m.away && wm.away) m.away = wm.away;
-          if (!m.result && wm.result) m.result = wm.result;
-        }
+      for (const m of live.matches) {
+        if (m.stage === "group" || (m.home && m.away)) continue;
+        const sm = m.matchNo
+          ? suppByNo[m.matchNo]
+          : suppByStage[m.stage]?.length === 1 ? suppByStage[m.stage][0] : null;
+        if (!sm) continue;
+        if (!m.matchNo && sm.matchNo) m.matchNo = sm.matchNo;
+        if (!m.date && sm.date) m.date = sm.date;
+        if (!m.time && sm.time) m.time = sm.time;
+        if (!m.kickoff && sm.kickoff) m.kickoff = sm.kickoff;
+        if (!m.venue && sm.venue) m.venue = sm.venue;
+        if (!m.homeLabel && sm.homeLabel) m.homeLabel = sm.homeLabel;
+        if (!m.awayLabel && sm.awayLabel) m.awayLabel = sm.awayLabel;
       }
     }
     // Build scorers from merged match data, or directly from wiki matches
     if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=27");
+      const { goalRanking } = await import("./views/livedata.js?v=28");
       const ranked = goalRanking(live.matches);
       if (!ranked.length && suppLive?.matches) {
         const suppRanked = goalRanking(suppLive.matches);
@@ -359,14 +352,12 @@ function updateProvenance() {
   const el = $("data-provenance");
   if (!el) return;
   const SRC = {
-    api: "Football-Data.org",
     wiki: "Wikipedia",
     openfootball: "openfootball",
     cache: "保存データ（キャッシュ）",
   };
   const main = SRC[data.source] || "同梱データ";
   const parts = [`試合・順位: ${main}`];
-  if (data.source === "api") parts.push("得点者: openfootball＋Wikipedia");
   parts.push(`FIFAランク: ${data.rankingsSource || "同梱データ（暫定値）"}`);
   const when = [];
   if (data.fetchedAt) when.push(`データ取得 ${fmtDateTime(data.fetchedAt)}`);
@@ -451,6 +442,7 @@ function bind() {
   try { localStorage.removeItem("wc2026-livedata-v10"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v11"); } catch (_) {}
   try { localStorage.removeItem("wc2026-livedata-v12"); } catch (_) {}
+  try { localStorage.removeItem("wc2026-livedata-v13"); } catch (_) {}
 
   try {
     await loadStatic();

@@ -19,7 +19,7 @@ Each app directory has its own `README.md` (user-facing, Japanese) and `CLAUDE.m
 
 Most are **single self-contained HTML files** (inline CSS + JS) in their own directory — no build step, no dependencies, no frameworks. Open any `index.html` directly in a browser to develop. Exceptions:
 
-- **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. A **Cloudflare Worker** (`worker/worker.js`, deployed via `worker/wrangler.toml`) proxies the Football-Data.org API (allow-listed paths, Cloudflare Cache API for rate limiting) and also exposes `/fifa-rankings` proxying the FIFA rankings API. Live data additionally comes from Wikipedia and the openfootball `worldcup.json` dataset (fetched client-side, no proxy).
+- **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. Live data comes from **free sources only**: Wikipedia (primary) and the openfootball `worldcup.json` dataset (fallback + supplement), both fetched client-side. A **Cloudflare Worker** (`worker/worker.js`) exists solely as a CORS proxy for `/fifa-rankings` (FIFA rankings API, no key). The paid Football-Data.org integration was removed — do not reintroduce it.
 - **receipt/** — Single HTML file. Receipt photos are parsed by calling the **Claude API directly from the browser** (`claude-haiku-4-5`, `anthropic-dangerous-direct-browser-access`; the user pastes their own API key, stored in localStorage) and synced via **Firebase Auth + Firestore** (user-supplied Firebase config, also in localStorage). Distinct from networth's レシート tab.
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
 
@@ -55,7 +55,7 @@ npx wrangler dev      # Run the proxy locally
 npx wrangler deploy   # Deploy to Cloudflare
 ```
 
-The Worker requires a `FOOTBALL_API_TOKEN` (Football-Data.org API key — set via `npx wrangler secret put FOOTBALL_API_TOKEN`; it currently also sits in `wrangler.toml` `[vars]`).
+The Worker needs no API key or secrets (it only proxies the free FIFA rankings endpoint).
 
 ### SwiftUI/SPM native apps (cleanmac, networth, renamer, youtube-dl-mac)
 

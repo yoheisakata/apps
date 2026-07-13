@@ -124,7 +124,13 @@ export async function fetchOpenFootball(knownTeams) {
     const stage = m.group ? "group" : STAGE_BY_ROUND[m.round] || "group";
     const home = codeFor(m.team1);
     const away = codeFor(m.team2);
-    const result = Array.isArray(m.score?.ft) ? m.score.ft.slice(0, 2) : null;
+    // Knockout scores: ft = 90min, et = after extra time, p = penalty shootout.
+    // The final score of the tie is et when it went to extra time, else ft.
+    const ft = Array.isArray(m.score?.ft) ? m.score.ft.slice(0, 2) : null;
+    const et = Array.isArray(m.score?.et) ? m.score.et.slice(0, 2) : null;
+    const pen = Array.isArray(m.score?.p) ? m.score.p.slice(0, 2) : null;
+    const ht = Array.isArray(m.score?.ht) ? m.score.ht.slice(0, 2) : null;
+    const result = et || ft;
 
     if (stage === "group" && groupLetter) {
       for (const c of [home, away])
@@ -134,6 +140,9 @@ export async function fetchOpenFootball(knownTeams) {
     const entry = {
       id: `M${String(mid).padStart(3, "0")}`,
       stage,
+      // Official FIFA match number (73–104 for the knockout rounds) — the
+      // knockout bracket uses it to wire winners to the right next-round tie.
+      matchNo: m.num ?? null,
       date: m.date || null,
       time: m.time || null,
       kickoff: toKickoff(m.date, m.time),
@@ -141,6 +150,9 @@ export async function fetchOpenFootball(knownTeams) {
       home: home || null,
       away: away || null,
       result,
+      halfTime: ht,
+      extraTime: et,
+      penalties: pen,
       scorers1: goalNames(m.goals1),
       scorers2: goalNames(m.goals2),
       scorerDetails1: goalDetails(m.goals1),

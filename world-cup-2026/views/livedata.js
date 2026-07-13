@@ -110,7 +110,9 @@ function parseKnockoutArticle(wikitext) {
     : null;
 
   const out = [];
-  const re = /\{\{#invoke:football box\|main([\s\S]*?)\n\}\}/g;
+  // Case-insensitive template name: the round-of-32 article writes
+  // {{#invoke:Football box|main (capital F), the knockout article lowercase.
+  const re = /\{\{#invoke:[Ff]ootball box\|main([\s\S]*?)\n\}\}/g;
   let m;
   while ((m = re.exec(wikitext))) {
     const body = "|" + m[1];
@@ -133,6 +135,9 @@ function parseKnockoutArticle(wikitext) {
       label1: cleanSlotLabel(t1),
       label2: cleanSlotLabel(t2),
       result: parseScore(field(body, "score")),
+      // Penalty-shootout score (e.g. |penaltyscore=3–4) — without it a drawn
+      // knockout tie can't fold its winner into the next round of the bracket.
+      penalties: parseScore(field(body, "penaltyscore")),
       scorers1: parseScorers(g1),
       scorers2: parseScorers(g2),
       scorerDetails1: parseScorerDetails(g1),
@@ -229,12 +234,17 @@ function parseGroupArticle(wikitext) {
 }
 
 const KNOCKOUT_TITLE = "2026 FIFA World Cup knockout stage";
+// The R32 football boxes live in their own article; the knockout-stage article
+// only transcludes them via {{#lst:...}} (which the raw wikitext API does not
+// expand), so we must fetch this article too.
+const R32_TITLE = "2026 FIFA World Cup round of 32";
 
-// Fetch + parse all 12 groups + the knockout article. Returns
+// Fetch + parse all 12 groups + the knockout articles. Returns
 // { groups, matches, asOf } or throws.
 export async function fetchLiveData() {
   const titles = [
     ...GROUP_KEYS.map((g) => `2026 FIFA World Cup Group ${g}`),
+    R32_TITLE,
     KNOCKOUT_TITLE,
   ].join("|");
   const params = new URLSearchParams({
@@ -255,12 +265,14 @@ export async function fetchLiveData() {
   // Index page content by group letter (from the "... Group X" title).
   const byGroup = {};
   let koContent = null;
+  let r32Content = null;
   for (const p of pages) {
     const content = p?.revisions?.[0]?.slots?.main?.content;
     if (!content) continue;
     const g = (p.title.match(/Group ([A-L])$/) || [])[1];
     if (g) byGroup[g] = content;
     else if (p.title === KNOCKOUT_TITLE) koContent = content;
+    else if (p.title === R32_TITLE) r32Content = content;
   }
   if (Object.keys(byGroup).length === 0) {
     throw new Error("no group articles found");
@@ -307,9 +319,11 @@ export async function fetchLiveData() {
   }
 
   // Knockout matches: use the real schedule/venue/slot-labels from the
-  // knockout article when available; otherwise fall back to bare placeholders.
+  // knockout articles when available; otherwise fall back to bare placeholders.
+  // R32 boxes come from their own article; both articles tag each box with a
+  // <section begin="R32-…/R16-…"> marker, so one concatenated parse works.
   const koSpec = [["r32", 16], ["r16", 8], ["qf", 4], ["sf", 2], ["third", 1], ["final", 1]];
-  const koParsed = koContent ? parseKnockoutArticle(koContent) : [];
+  const koParsed = parseKnockoutArticle((r32Content || "") + "\n" + (koContent || ""));
   const koByStage = {};
   for (const b of koParsed) (koByStage[b.stage] ||= []).push(b);
 
@@ -321,7 +335,10 @@ export async function fetchLiveData() {
         id: `M${String(mid).padStart(3, "0")}`,
         stage,
         slot: i + 1,
-        matchNo: b?.matchNo ?? null,
+        // Single-match stages have a fixed official number (third place = 103,
+        // final = 104); multi-match stages get theirs from the openfootball
+        // supplement (matched by team pair) since the articles don't carry it.
+        matchNo: b?.matchNo ?? (stage === "third" ? 103 : stage === "final" ? 104 : null),
         date: b?.date ?? null,
         time: b?.time ?? null,
         venue: b ? CITY_TO_VENUE[b.city] || null : null,
@@ -332,6 +349,7 @@ export async function fetchLiveData() {
         homeLabel: b?.label1 || null,
         awayLabel: b?.label2 || null,
         result: b?.result ?? null,
+        penalties: b?.penalties ?? null,
         scorers1: b?.scorers1 || [],
         scorers2: b?.scorers2 || [],
         scorerDetails1: b?.scorerDetails1 || [],

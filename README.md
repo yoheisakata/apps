@@ -34,7 +34,7 @@ TCP/IP 通信を可視化する学習アプリ。3ウェイハンドシェイク
 
 ### ⚽ ワールドカップ 2026 — `world-cup-2026/`
 FIFA ワールドカップ 2026 のダッシュボード。日本代表ページ・決勝トーナメント表・全試合日程・順位表・チーム詳細・得点王・参加国/開催都市マップ（Leaflet）の8タブ構成。
-試合データは [Football-Data.org](https://www.football-data.org/) API を **Cloudflare Worker プロキシ**（`world-cup-2026/worker/`）経由で取得（Cache API でレート制限を回避）し、Wikipedia・openfootball・FIFAランキングも組み合わせています。
+試合データは **無料ソースのみ**（Wikipedia + openfootball）で取得し、FIFA公式ランキングだけ **Cloudflare Worker**（`world-cup-2026/worker/`）を CORS プロキシとして経由します。有料 API は使いません。
 
 ---
 

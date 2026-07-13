@@ -1,4 +1,3 @@
-import { fetchMatchDetails } from "./footballapi.js?v=27";
 import { createPredictor } from "./predict.js?v=27";
 import { localHM, localYMD, tzLabel } from "./util.js?v=27";
 
@@ -285,34 +284,21 @@ export function createMatchModal({ onTeam } = {}) {
       </div>
       ${!played && !isLive && m.home && m.away ? predictionSection(m, data) : ""}
       ${played ? '<div id="mm-scorers-area"><div class="mm-scorers-loading">得点者を読み込み中…</div></div>' : ""}
-      ${played ? '<div id="mm-stats-area"></div>' : ""}
       ${showHighlight ? '<div id="mm-yt-area"><div class="mm-yt-loading">🎬 ハイライト動画を検索中…</div></div>' : ""}
     `;
 
     overlay.classList.remove("hidden");
 
-    // Fetch match details and YouTube in parallel for played matches.
-    const detailsPromise = played && m.apiId ? fetchMatchDetails(m.apiId) : Promise.resolve(null);
-    const ytPromise = showHighlight ? searchYouTube(homeTeam.name, awayTeam.name) : Promise.resolve(null);
-
-    const [details, ytResult] = await Promise.all([detailsPromise, ytPromise]);
+    const ytResult = showHighlight ? await searchYouTube(homeTeam.name, awayTeam.name) : null;
     if (overlay.classList.contains("hidden")) return;
 
-    // Render scorers — prefer API detail, then match data, then Wikipedia
+    // Render scorers — goal details from openfootball, then Wikipedia detail,
+    // then plain scorer names. (Per-match stats used to come from the paid
+    // Football-Data.org detail endpoint; that integration was removed.)
     const scorersArea = body.querySelector("#mm-scorers-area");
     if (scorersArea) {
-      const apiHome = details?.goalDetails1;
-      const apiAway = details?.goalDetails2;
-      const hasApiGoals = apiHome?.length || apiAway?.length;
-
       let scorersHtml = "";
-      if (hasApiGoals) {
-        scorersHtml = `<div class="mm-scorers rich">
-          <div class="mm-scorers-side home">${goalDetailList(apiHome) || '<span class="mm-no-goal">—</span>'}</div>
-          <div class="mm-scorers-divider"></div>
-          <div class="mm-scorers-side away">${goalDetailList(apiAway) || '<span class="mm-no-goal">—</span>'}</div>
-        </div>`;
-      } else if (hasRichGoals) {
+      if (hasRichGoals) {
         scorersHtml = `<div class="mm-scorers rich">
           <div class="mm-scorers-side home">${goalDetailList(m.goalDetails1) || '<span class="mm-no-goal">—</span>'}</div>
           <div class="mm-scorers-divider"></div>
@@ -338,29 +324,6 @@ export function createMatchModal({ onTeam } = {}) {
         }
       }
       scorersArea.innerHTML = scorersHtml;
-    }
-
-    // Render match stats
-    const statsArea = body.querySelector("#mm-stats-area");
-    if (statsArea && details?.stats?.length) {
-      statsArea.innerHTML = `
-        <div class="mm-stats">
-          <div class="mm-stats-title">📊 試合スタッツ</div>
-          ${details.stats.map((r) => {
-            const total = r.homeVal + r.awayVal;
-            const hPct = total > 0 ? (r.homeVal / total) * 100 : 50;
-            return `<div class="mm-stat-row">
-              <span class="mm-stat-val home">${esc(r.home)}</span>
-              <div class="mm-stat-center">
-                <div class="mm-stat-bar">
-                  <div class="mm-stat-bar-home" style="width:${hPct}%"></div>
-                </div>
-                <span class="mm-stat-label">${esc(r.label)}</span>
-              </div>
-              <span class="mm-stat-val away">${esc(r.away)}</span>
-            </div>`;
-          }).join("")}
-        </div>`;
     }
 
     // Render YouTube (at the bottom)
