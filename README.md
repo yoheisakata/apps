@@ -75,7 +75,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
 - ワールドカップ 2026 の Cloudflare Worker のみ、`world-cup-2026/worker/` から Wrangler で個別にデプロイします。
-- macOSネイティブアプリ（cleanmac / networth / omoide / renamer / youtube-dl-mac）は GitHub Pages にはデプロイされません。各フォルダの `install.sh`（networth は `build_app.sh` + `cp -R NetWorth.app /Applications/`、omoide は `build_app.sh` + `cp -R Omoide.app /Applications/`）でローカルビルドし、`/Applications` にインストールして使います。
+- macOSネイティブアプリ（cleanmac / networth / omoide / renamer / youtube-dl-mac）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh` でローカルビルドし、`/Applications` にインストールして使います。
 
 ## アプリの追加・削除
 

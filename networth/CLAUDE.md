@@ -8,7 +8,7 @@ SwiftUI + SPM の macOS 資産トラッカー。リポジトリ全体の規約�
 ```bash
 swift run                            # 開発ビルド(ウィンドウ起動)
 ./build_app.sh                       # release ビルド → NetWorth.app
-cp -R NetWorth.app /Applications/    # install.sh は無い。cp でデプロイ
+./install.sh                         # ビルド → /Applications へインストール
 ```
 
 - **バージョンは `Sources/NetWorth/Main.swift` の `appVersion` が唯一の定義**。

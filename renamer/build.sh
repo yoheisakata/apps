@@ -24,4 +24,3 @@ cp AppIcon.icns "$APP/Contents/Resources/"
 codesign --force --sign - "$APP"
 
 echo "ビルド完了: $(pwd)/$APP"
-file "$APP/Contents/MacOS/Renamer"

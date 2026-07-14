@@ -29,10 +29,11 @@ Static single-file apps: `sansu` (さんすうれんしゅう — 旧 `tashizan`
 ### Native macOS/iOS tools (not deployed to GitHub Pages)
 
 - **cleanmac/**, **networth/**, **omoide/**, **renamer/**, **youtube-dl-mac/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
-  - cleanmac: `./build_app.sh` (bundle in place) or `./install.sh` (build + copy to `/Applications`).
-  - networth: `./build_app.sh` then `cp -R NetWorth.app /Applications/` — **there is no install.sh**. `build_app.sh` reads `appVersion` from `Sources/NetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
-  - omoide: `./build_app.sh` then `cp -R Omoide.app /Applications/` — **there is no install.sh**.
-  - renamer: `./build.sh` (bundle only) or `./install.sh`.
+  - All apps: build script (bundle in place) + `./install.sh` (build + copy to `/Applications`).
+  - cleanmac: `./build_app.sh` or `./install.sh`.
+  - networth: `./build_app.sh` or `./install.sh`. `build_app.sh` reads `appVersion` from `Sources/NetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
+  - omoide: `./build_app.sh` or `./install.sh`.
+  - renamer: `./build.sh` or `./install.sh`.
   - youtube-dl-mac: `./build-app.sh` (note the hyphen; outputs to `dist/`) or `./install.sh`.
 - **networth/** specifics (v0.4.x, requires **macOS 26** via `Package.swift` — FoundationModels): tabs are メイン / 週 / 月 / 投資 / 固定収支 / レシート.
   - `--fetch` CLI mode for headless data collection; `com.yoheisakata.networth-fetch.plist` LaunchAgent runs it every morning (see [[networth-tracker]] memory for operational details).
@@ -66,9 +67,7 @@ swift run           # dev build, launches a window
 ./build.sh          # renamer
 ./build-app.sh      # youtube-dl-mac (outputs to dist/)
 # Install/update in /Applications:
-./install.sh                        # cleanmac, renamer, youtube-dl-mac
-cp -R NetWorth.app /Applications/   # networth (no install.sh)
-cp -R Omoide.app /Applications/    # omoide (no install.sh)
+./install.sh        # all apps (build + copy to /Applications)
 ```
 
 ## Conventions
@@ -91,7 +90,7 @@ cp -R Omoide.app /Applications/    # omoide (no install.sh)
 ## Deployment
 
 - **Web apps**: GitHub Pages from the `main` branch. No CI/CD — pushing to `main` deploys automatically. The world-cup-2026 Worker is the only piece deployed separately, via Wrangler.
-- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications` via its own `install.sh` (networth: `build_app.sh` + `cp -R`; omoide: `build_app.sh` + `cp -R`). Re-run the install step after pulling changes to update the installed copy.
+- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications` via `./install.sh`. Re-run the install step after pulling changes to update the installed copy.
 
 ## Updating the Launcher
 

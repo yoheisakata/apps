@@ -8,7 +8,7 @@
 ```bash
 swift run                        # 開発ビルド(ウィンドウ起動)
 ./build_app.sh                   # release ビルド → Omoide.app
-cp -R Omoide.app /Applications/  # install.sh は無い。cp でデプロイ
+./install.sh                     # ビルド → /Applications へインストール
 ```
 
 - **バージョンは `Sources/Omoide/Main.swift` の `appVersion` が唯一の定義**。
