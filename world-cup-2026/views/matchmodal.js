@@ -156,33 +156,6 @@ function youtubeSearchUrl(homeName, awayName) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
 
-const YT_API_KEY = "AIzaSyDBbXxm-TIAF5Vq4a8WGZQPrcOURWptLII";
-const YT_CACHE = new Map();
-
-async function searchYouTube(homeName, awayName) {
-  const key = `${homeName}|${awayName}`;
-  if (YT_CACHE.has(key)) return YT_CACHE.get(key);
-  const q = `${homeName} vs ${awayName} FIFA World Cup 2026 highlights`;
-  const params = new URLSearchParams({
-    part: "snippet",
-    q,
-    type: "video",
-    maxResults: "1",
-    key: YT_API_KEY,
-  });
-  try {
-    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
-    if (!res.ok) throw new Error("YT API " + res.status);
-    const json = await res.json();
-    const item = json.items?.[0];
-    const result = item ? { videoId: item.id.videoId, title: item.snippet.title } : null;
-    YT_CACHE.set(key, result);
-    return result;
-  } catch (e) {
-    YT_CACHE.set(key, null);
-    return null;
-  }
-}
 
 export function createMatchModal({ onTeam } = {}) {
   const overlay = document.getElementById("match-modal");
@@ -284,13 +257,10 @@ export function createMatchModal({ onTeam } = {}) {
       </div>
       ${!played && !isLive && m.home && m.away ? predictionSection(m, data) : ""}
       ${played ? '<div id="mm-scorers-area"><div class="mm-scorers-loading">得点者を読み込み中…</div></div>' : ""}
-      ${showHighlight ? '<div id="mm-yt-area"><div class="mm-yt-loading">🎬 ハイライト動画を検索中…</div></div>' : ""}
+      ${showHighlight ? '<div id="mm-yt-area"></div>' : ""}
     `;
 
     overlay.classList.remove("hidden");
-
-    const ytResult = showHighlight ? await searchYouTube(homeTeam.name, awayTeam.name) : null;
-    if (overlay.classList.contains("hidden")) return;
 
     // Render scorers — goal details from openfootball, then Wikipedia detail,
     // then plain scorer names. (Per-match stats used to come from the paid
@@ -326,25 +296,9 @@ export function createMatchModal({ onTeam } = {}) {
       scorersArea.innerHTML = scorersHtml;
     }
 
-    // Render YouTube (at the bottom)
     if (showHighlight) {
       const ytArea = body.querySelector("#mm-yt-area");
-      if (!ytArea) return;
-      if (ytResult) {
-        const ytUrl = `https://www.youtube.com/watch?v=${ytResult.videoId}`;
-        const thumbUrl = `https://i.ytimg.com/vi/${ytResult.videoId}/hqdefault.jpg`;
-        ytArea.innerHTML = `
-          <a class="mm-yt-thumb-link" href="${ytUrl}" target="_blank" rel="noopener">
-            <div class="mm-yt-thumb">
-              <img src="${thumbUrl}" alt="${esc(ytResult.title)}" />
-              <div class="mm-yt-play-overlay"><span class="mm-yt-play-btn">▶</span></div>
-            </div>
-            <div class="mm-yt-thumb-title">${esc(ytResult.title)}</div>
-          </a>
-          <a class="mm-yt-more" href="${youtubeSearchUrl(homeTeam.name, awayTeam.name)}" target="_blank" rel="noopener">
-            YouTubeでもっと見る →
-          </a>`;
-      } else {
+      if (ytArea) {
         ytArea.innerHTML = `
           <a class="mm-highlight-btn" href="${youtubeSearchUrl(homeTeam.name, awayTeam.name)}" target="_blank" rel="noopener">
             <span class="mm-yt-icon">▶</span> YouTubeでハイライトを検索
