@@ -9,7 +9,7 @@ SRC="${APP_NAME}.app"
 DEST="/Applications/${APP_NAME}.app"
 
 # まず最新の .app をビルド。
-./build.sh
+./build-app.sh
 
 echo "▶ /Applications に登録中…"
 rm -rf "${DEST}"

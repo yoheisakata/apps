@@ -7,7 +7,7 @@ Better Rename 代替の一括リネームアプリ。SwiftUI + SPM。機能一�
 
 ```bash
 swift run       # 開発ビルド
-./build.sh      # Renamer.app をその場に生成 (build_app.sh ではない)
+./build-app.sh  # Renamer.app をその場に生成
 ./install.sh    # ビルド → /Applications へ登録
 ```
 

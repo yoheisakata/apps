@@ -64,7 +64,7 @@ cd <app>
 swift run           # dev build, launches a window
 # Build the .app bundle (script name varies):
 ./build_app.sh      # cleanmac, networth, omoide
-./build.sh          # renamer
+./build-app.sh      # renamer
 ./build-app.sh      # youtube-dl-mac (outputs to dist/)
 # Install/update in /Applications:
 ./install.sh        # all apps (build + copy to /Applications)
