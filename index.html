@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
-<title>アプリひろば 🎮</title>
+<title>My Apps 🎮</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -46,18 +46,11 @@ body::before {
 }
 .header p { color: #555; font-size: 0.82rem; }
 
-/* Section label */
+/* App container */
 .section {
   position: relative; z-index: 1;
   width: 100%; max-width: 480px;
   margin-bottom: 16px;
-}
-.section-label {
-  font-size: 0.68rem; font-weight: 900;
-  letter-spacing: 0.14em; text-transform: uppercase;
-  color: #444;
-  padding: 0 4px;
-  margin-bottom: 14px;
 }
 
 /* Icon grid */
@@ -67,7 +60,6 @@ body::before {
   gap: 18px 12px;
   width: 100%;
 }
-.grid.cols3 { grid-template-columns: repeat(3, 1fr); }
 
 /* App icon */
 .app {
@@ -98,8 +90,7 @@ body::before {
 }
 
 /* Per-app gradient backgrounds */
-.app.tashizan  .icon-wrap { background: linear-gradient(135deg,#92400e,#d97706); box-shadow: 0 6px 20px rgba(217,119,6,0.4); }
-.app.kakeizan  .icon-wrap { background: linear-gradient(135deg,#7c2d12,#ff7f3f); box-shadow: 0 6px 20px rgba(255,127,63,0.4); }
+.app.sansu     .icon-wrap { background: linear-gradient(135deg,#92400e,#f59e0b); box-shadow: 0 6px 20px rgba(245,158,11,0.4); }
 .app.earth     .icon-wrap { background: linear-gradient(135deg,#1e3a5f,#3b82f6); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
 .app.tarot     .icon-wrap { background: linear-gradient(135deg,#3b0764,#9333ea); box-shadow: 0 6px 20px rgba(147,51,234,0.45); }
 .app.quiz      .icon-wrap { background: linear-gradient(135deg,#4c1d95,#7c3aed); box-shadow: 0 6px 20px rgba(124,58,237,0.4); }
@@ -126,38 +117,23 @@ body::before {
   letter-spacing: 0.04em;
 }
 
-/* Divider */
-.divider {
-  width: 100%; max-width: 480px;
-  border: none;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  margin: 28px 0 24px;
-  position: relative; z-index: 1;
-}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>🎮 アプリひろば</h1>
+  <h1>🎮 My Apps</h1>
   <p>あそびたいアプリをえらんでね</p>
 </div>
 
-<!-- Games -->
+<!-- Apps -->
 <div class="section">
-  <div class="section-label">🕹️ ゲーム</div>
   <div class="grid">
 
-    <a class="app tashizan" href="tashizan/">
-      <div class="icon-wrap">⚔️</div>
-      <div class="app-name">たしざん<br>クエスト</div>
+    <a class="app sansu" href="sansu/">
+      <div class="icon-wrap">🧮<span class="new-badge">NEW</span></div>
+      <div class="app-name">さんすう<br>れんしゅう</div>
     </a>
-
-    <a class="app kakeizan" href="kakeizan/">
-      <div class="icon-wrap">✖️</div>
-      <div class="app-name">かけざん<br>クエスト</div>
-    </a>
-
 
     <a class="app earth" href="earth/">
       <div class="icon-wrap">🌏</div>
@@ -168,16 +144,6 @@ body::before {
       <div class="icon-wrap">🚄<span class="new-badge">NEW</span></div>
       <div class="app-name">新幹線<br>マップ</div>
     </a>
-
-  </div>
-</div>
-
-<hr class="divider">
-
-<!-- Learn -->
-<div class="section">
-  <div class="section-label">📚 まなぶ</div>
-  <div class="grid cols3">
 
     <a class="app tarot" href="tarot/">
       <div class="icon-wrap">🔮</div>
