@@ -71,7 +71,6 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 |--------|------|
 | たしざん／かけざん／ちきゅう／新幹線／タロット／TCP-IP | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ JSON データ + Cloudflare Worker（API プロキシ） |
-| レシート確定申告 | 単一HTMLファイル + Firebase（Auth / Firestore） |
 | CleanMac／NetWorth／Renamer／YouTube-downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
 | KidsVideoMaker | SwiftUI + Xcode プロジェクト |
 | kindle-transfer | Bash + adb |
