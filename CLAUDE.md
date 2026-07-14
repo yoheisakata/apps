@@ -22,7 +22,7 @@ Most are **single self-contained HTML files** (inline CSS + JS) in their own dir
 - **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. Live data comes from **free sources only**: Wikipedia (primary) and the openfootball `worldcup.json` dataset (fallback + supplement), both fetched client-side. A **Cloudflare Worker** (`worker/worker.js`) exists solely as a CORS proxy for `/fifa-rankings` (FIFA rankings API, no key). The paid Football-Data.org integration was removed — do not reintroduce it.
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
 
-Static single-file apps: `tashizan` (たしざんクエスト), `kakeizan` (くくをおぼえよう/九九), `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`.
+Static single-file apps: `sansu` (さんすうれんしゅう — 旧 `tashizan`/`kakeizan` を統合した、ゲーム要素なしの たしざん + 九九 学習アプリ), `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`.
 
 > `learn-postgresql/` (pglite/WASM SQL lab) and `receipt/` (Claude API + Firebase レシート web app; the user's Firebase account was deleted — receipt management now lives in networth's レシート tab) were removed from the repo; do not re-add references to them unless the folders come back.
 
@@ -77,9 +77,9 @@ Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there
 ## Conventions
 
 ### Web apps
-- Dark gradient themes and CSS custom properties for colors; several apps (tashizan, kakeizan, tcpip) use the Nunito font (Google Fonts).
+- Dark gradient themes and CSS custom properties for colors; several apps (sansu, tcpip) use the Nunito font (Google Fonts).
 - Mobile-first: `viewport` meta with `user-scalable=no`, touch-optimized interactions.
-- State persistence via `localStorage` where it matters: tashizan saves game progress (`tashizan_save`), world-cup-2026 caches live data + theme. kakeizan does **not** save progress.
+- State persistence via `localStorage` where it matters: world-cup-2026 caches live data + theme. sansu does **not** save progress (`localStorage` 不使用).
 - Icons are emoji or inline SVG data URIs — no external image assets.
 - world-cup-2026 has three version knobs to bump on release: `?v=N` cache-busters on JS/CSS imports, `APP_VERSION` in `main.js` (shown in the header), and `LIVE_CACHE_KEY` (bump only when the cached live-data shape changes; add the old key to the cleanup list).
 
