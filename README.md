@@ -38,15 +38,6 @@ FIFA ワールドカップ 2026 のダッシュボード。日本代表ページ
 
 ---
 
-## 🛠️ ツール
-
-### 🧾 レシート確定申告 — `receipt/`
-レシートを撮影して Claude API（利用者が自分の API キーを設定）で内容を抽出し、確定申告向けに整理するツール。
-Firebase（Auth + Firestore）でデバイス間のクラウド同期に対応（Firebase 設定は利用者が用意）。
-※ macOS ネイティブの NetWorth「レシート」タブ（Schedule C 向け）とは別物。
-
----
-
 ## 🖥️ macOS ネイティブアプリ（GitHub Pages 対象外）
 
 SwiftUI / Swift Package Manager 製のローカル専用ツール群。ビルドして `/Applications` にインストールして使う、Webランチャーには載らないアプリです。
@@ -80,7 +71,6 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 |--------|------|
 | たしざん／かけざん／ちきゅう／新幹線／タロット／TCP-IP | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ JSON データ + Cloudflare Worker（API プロキシ） |
-| レシート確定申告 | 単一HTMLファイル + Firebase（Auth / Firestore） |
 | CleanMac／NetWorth／Renamer／YouTube-downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
 | KidsVideoMaker | SwiftUI + Xcode プロジェクト |
 | kindle-transfer | Bash + adb |

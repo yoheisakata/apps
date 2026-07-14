@@ -27,7 +27,6 @@ FoundationModels がオンデバイス LLM を使うため)。
 - 重複取り込みはハッシュで自動スキップ。削除時の元画像はゴミ箱へ
 - データは `~/Library/Application Support/Receipts/` に保存
   (元は単体アプリ receipts-mac のデータをそのまま引き継ぐ)
-- Web アプリの `receipt/`(確定申告用・Claude API)とは別物
 
 ## データの置き場所
 
