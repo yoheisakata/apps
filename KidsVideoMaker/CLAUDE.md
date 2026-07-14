@@ -15,5 +15,3 @@
 ## 注意
 
 - ffmpeg は外部コマンドとして呼ぶ（同梱しない）。
-- 同等機能の Python / tkinter 版が `utilities/kids_video_maker.py` にある。
-  ロジックを変えるならどちらを正とするか意識する（基本こちらが後発・正）。
