@@ -60,4 +60,3 @@ PLIST
 codesign --force --deep --sign - "${APP_DIR}" >/dev/null 2>&1 || true
 
 echo "✅ 完成: ${APP_DIR}"
-echo "   Finder で開く →  open dist/"

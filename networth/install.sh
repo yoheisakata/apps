@@ -4,12 +4,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="Renamer"
+APP_NAME="NetWorth"
 SRC="${APP_NAME}.app"
 DEST="/Applications/${APP_NAME}.app"
 
 # まず最新の .app をビルド。
-./build-app.sh
+./build_app.sh
 
 echo "▶ /Applications に登録中…"
 rm -rf "${DEST}"

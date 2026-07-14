@@ -45,14 +45,14 @@ macOS 13+ / arm64 ネイティブ
 ビルド（アイコン生成込み）→ `/Applications/Renamer.app` への登録まで自動で行う。
 以後は Launchpad や Spotlight から「Renamer」で起動できる。
 
-ビルドだけなら `./build.sh`。アイコンだけ作り直すなら `swift make-icon.swift`。
+ビルドだけなら `./build-app.sh`。アイコンだけ作り直すなら `swift make-icon.swift`。
 ad-hoc 署名のローカルビルドなので、自分の Mac でビルドすれば Gatekeeper の警告なしに起動できる。
 
 ## ファイル構成
 
 - `Sources/main.swift` — アプリ本体（SwiftUI、単一ファイル）
 - `make-icon.swift` — アイコン生成（紫グラデ + RN。youtube-dl-mac と同デザイン）
-- `build.sh` / `install.sh` — ビルド / インストールスクリプト
+- `build-app.sh` / `install.sh` — ビルド / インストールスクリプト
 - `Info.plist` — バンドル設定
 
 ## 制限事項
