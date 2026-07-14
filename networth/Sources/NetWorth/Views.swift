@@ -215,9 +215,18 @@ struct NetWorthCard: View {
 }
 
 // 残高推移の折れ線チャート。総資産と株セクションで共用する。
+// カーソルをかざすと最寄りの記録日の残高をツールチップ表示する。
 struct BalanceChart: View {
     var points: [Dashboard.Point]
     var height: CGFloat = 170
+    @State private var hoverDate: Date?
+
+    private var hoverPoint: Dashboard.Point? {
+        guard let hoverDate else { return nil }
+        return points.min {
+            abs($0.date.timeIntervalSince(hoverDate)) < abs($1.date.timeIntervalSince(hoverDate))
+        }
+    }
 
     var body: some View {
         if points.count < 2 {
@@ -232,19 +241,47 @@ struct BalanceChart: View {
             let lo = values.min() ?? 0
             let hi = values.max() ?? 1
             let margin = max((hi - lo) * 0.08, 1)
-            Chart(points) { p in
-                AreaMark(x: .value("日付", p.date),
-                         yStart: .value("下限", lo - margin),
-                         yEnd: .value("残高", p.total))
-                    .foregroundStyle(
-                        .linearGradient(
-                            colors: [.accentColor.opacity(0.3), .clear],
-                            startPoint: .top, endPoint: .bottom))
-                LineMark(x: .value("日付", p.date), y: .value("残高", p.total))
-                    .foregroundStyle(Color.accentColor)
-                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+            Chart {
+                ForEach(points) { p in
+                    AreaMark(x: .value("日付", p.date),
+                             yStart: .value("下限", lo - margin),
+                             yEnd: .value("残高", p.total))
+                        .foregroundStyle(
+                            .linearGradient(
+                                colors: [.accentColor.opacity(0.3), .clear],
+                                startPoint: .top, endPoint: .bottom))
+                    LineMark(x: .value("日付", p.date), y: .value("残高", p.total))
+                        .foregroundStyle(Color.accentColor)
+                        .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                }
+                if let sel = hoverPoint {
+                    RuleMark(x: .value("日付", sel.date))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1))
+                        .annotation(position: .top, spacing: 4,
+                                    overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(sel.day)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(usd(sel.total))
+                                    .font(.callout.bold())
+                                    .monospacedDigit()
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(.background.secondary,
+                                        in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6)
+                                .strokeBorder(.separator, lineWidth: 1))
+                        }
+                    PointMark(x: .value("日付", sel.date), y: .value("残高", sel.total))
+                        .foregroundStyle(Color.accentColor)
+                        .symbolSize(60)
+                }
             }
             .chartYScale(domain: (lo - margin)...(hi + margin))
+            .chartXSelection(value: $hoverDate)
             .frame(height: height)
         }
     }
