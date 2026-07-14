@@ -49,8 +49,8 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 ### 📲 Kindle Fire → Mac 転送ツール — `kindle-transfer/`
 `adb` を使って Kindle Fire の SD カード・内部ストレージの中身を Mac にまるごとコピーする対話型 Terminalスクリプト。
 
-### 🎬 KidsVideoMaker — `KidsVideoMaker/`
-子どもの動画フォルダから短いクリップをまとめて1本にする Xcode（SwiftUI）製アプリ。
+### 🎬 Omoide — `omoide/`
+子どもの動画フォルダから短いクリップをまとめて1本のまとめ動画を生成するアプリ。
 
 ### 🗂️ utilities — `utilities/`
 写真・動画のバックアップ整理、H.265再エンコード、短尺動画の検出などを行う、個人の写真/動画パイプライン用 Python / シェルスクリプト集（アプリではなくスクリプト置き場）。
@@ -63,8 +63,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 |--------|------|
 | さんすう／ちきゅう／新幹線／タロット／TCP-IP | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ JSON データ + Cloudflare Worker（API プロキシ） |
-| CleanMac／NetWorth／Renamer／YouTube-downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
-| KidsVideoMaker | SwiftUI + Xcode プロジェクト |
+| CleanMac／NetWorth／Omoide／Renamer／YouTube-downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
 | kindle-transfer | Bash + adb |
 | utilities | Python 3 / Bash スクリプト |
 
@@ -76,7 +75,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
 - ワールドカップ 2026 の Cloudflare Worker のみ、`world-cup-2026/worker/` から Wrangler で個別にデプロイします。
-- macOSネイティブアプリ（cleanmac / networth / renamer / youtube-dl-mac / KidsVideoMaker）は GitHub Pages にはデプロイされません。各フォルダの `install.sh`（networth は `build_app.sh` + `cp -R NetWorth.app /Applications/`、KidsVideoMaker は Xcode）でローカルビルドし、`/Applications` にインストールして使います。
+- macOSネイティブアプリ（cleanmac / networth / omoide / renamer / youtube-dl-mac）は GitHub Pages にはデプロイされません。各フォルダの `install.sh`（networth は `build_app.sh` + `cp -R NetWorth.app /Applications/`、omoide は `build_app.sh` + `cp -R Omoide.app /Applications/`）でローカルビルドし、`/Applications` にインストールして使います。
 
 ## アプリの追加・削除
 

@@ -6,3 +6,9 @@
 
 # Cloudflare Wrangler (local cache)
 .wrangler/
+
+# SPM build artifacts
+.build/
+*.app/
+AppIcon.icns
+AppIcon.iconset/

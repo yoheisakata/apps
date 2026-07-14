@@ -28,9 +28,10 @@ Static single-file apps: `sansu` (さんすうれんしゅう — 旧 `tashizan`
 
 ### Native macOS/iOS tools (not deployed to GitHub Pages)
 
-- **cleanmac/**, **networth/**, **renamer/**, **youtube-dl-mac/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
+- **cleanmac/**, **networth/**, **omoide/**, **renamer/**, **youtube-dl-mac/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
   - cleanmac: `./build_app.sh` (bundle in place) or `./install.sh` (build + copy to `/Applications`).
   - networth: `./build_app.sh` then `cp -R NetWorth.app /Applications/` — **there is no install.sh**. `build_app.sh` reads `appVersion` from `Sources/NetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
+  - omoide: `./build_app.sh` then `cp -R Omoide.app /Applications/` — **there is no install.sh**.
   - renamer: `./build.sh` (bundle only) or `./install.sh`.
   - youtube-dl-mac: `./build-app.sh` (note the hyphen; outputs to `dist/`) or `./install.sh`.
 - **networth/** specifics (v0.4.x, requires **macOS 26** via `Package.swift` — FoundationModels): tabs are メイン / 週 / 月 / 投資 / 固定収支 / レシート.
@@ -38,7 +39,6 @@ Static single-file apps: `sansu` (さんすうれんしゅう — 旧 `tashizan`
   - 投資 tab overlays live quotes from Yahoo Finance's public chart API (`Quotes.swift`, no API key) on SimpleFIN's once-a-day holding values.
   - 固定収支 tab (`FixedBudget.swift`) renders `networth/2026_Sakata_支出表.md` with a minimal Markdown parser — it reads the repo file at `~/github/apps/networth/` directly (edit + 再読込 to update), falling back to the copy bundled at build time.
   - レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). `ExpenseCategory` cases map to Schedule C Part II lines (8–27a) and their rawValues are persisted — never rename them.
-- **KidsVideoMaker/** — SwiftUI app as a full **Xcode project** (`.xcodeproj`), not SPM. Build/run via Xcode.
 - **kindle-transfer/** — Single Bash script (`kindle-transfer.sh`), no build. Uses `adb` to pull files from a Kindle Fire's SD card/internal storage over USB.
 - **utilities/** — Standalone Python 3 / Bash scripts (not a packaged app) for a personal photo/video pipeline: backup organization (`backup-photos.sh`, `backup-videos.sh`, `sync-backups.sh`, `verify-photos.sh`), H.265 re-encoding (`encode_h265.py`), short-clip detection (`find_short_videos.py`), and kids'-video compilation (`create_memory_video.py`). Run individually from the CLI; no shared entry point.
 
@@ -56,23 +56,20 @@ npx wrangler deploy   # Deploy to Cloudflare
 
 The Worker needs no API key or secrets (it only proxies the free FIFA rankings endpoint).
 
-### SwiftUI/SPM native apps (cleanmac, networth, renamer, youtube-dl-mac)
+### SwiftUI/SPM native apps (cleanmac, networth, omoide, renamer, youtube-dl-mac)
 
 ```bash
 cd <app>
 swift run           # dev build, launches a window
 # Build the .app bundle (script name varies):
-./build_app.sh      # cleanmac, networth
+./build_app.sh      # cleanmac, networth, omoide
 ./build.sh          # renamer
 ./build-app.sh      # youtube-dl-mac (outputs to dist/)
 # Install/update in /Applications:
 ./install.sh                        # cleanmac, renamer, youtube-dl-mac
 cp -R NetWorth.app /Applications/   # networth (no install.sh)
+cp -R Omoide.app /Applications/    # omoide (no install.sh)
 ```
-
-### KidsVideoMaker
-
-Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there.
 
 ## Conventions
 
@@ -94,7 +91,7 @@ Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there
 ## Deployment
 
 - **Web apps**: GitHub Pages from the `main` branch. No CI/CD — pushing to `main` deploys automatically. The world-cup-2026 Worker is the only piece deployed separately, via Wrangler.
-- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications` via its own `install.sh` (networth: `build_app.sh` + `cp -R`; KidsVideoMaker: Xcode). Re-run the install step after pulling changes to update the installed copy.
+- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications` via its own `install.sh` (networth: `build_app.sh` + `cp -R`; omoide: `build_app.sh` + `cp -R`). Re-run the install step after pulling changes to update the installed copy.
 
 ## Updating the Launcher
 
