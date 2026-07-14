@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo has two distinct kinds of projects:
 
-1. **Web apps** ("アプリひろば") hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, organizing apps into sections (ゲーム / まなぶ).
+1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, a single flat icon grid (no category sections).
 2. **Native macOS/iOS tools** (`cleanmac/`, `networth/`, `renamer/`, `youtube-dl-mac/`, `KidsVideoMaker/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
@@ -99,6 +99,6 @@ Open `KidsVideoMaker/KidsVideoMaker.xcodeproj` in Xcode and build/run from there
 ## Updating the Launcher
 
 Applies to **web apps only** — native macOS tools are never added to the launcher. When adding/removing a web app, update root `index.html`:
-1. Add an `<a class="app {name}">` entry in the appropriate section (ゲーム or まなぶ; re-add a ツール section if a tool-type web app returns).
+1. Add an `<a class="app {name}">` entry to the single icon grid (category sections were removed — do not re-add them without asking).
 2. Add a `.app.{name} .icon-wrap` CSS rule with a gradient background and box-shadow.
 3. Use a `.new-badge` span for recently added apps.
