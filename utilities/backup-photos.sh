@@ -43,6 +43,9 @@ Photos から手動エクスポートした写真を日付フォルダに整理�
   撮影日時をもとにリネーム＆移動:
     <dest>/<YYYY>/<MM>/<MMDD>/YYYY_MMDD_HHMMSS.<ext>
 
+  HEIC ファイルは自動的に JPG に変換されます（sips 使用、品質 90%）。
+  変換後のファイルが整理先に移動され、元の HEIC は削除されます。
+
   重複ファイルの扱い:
     - MD5 が一致（同じファイル）→ スキップ
     - MD5 が不一致（別内容）   → suffix をつけて移動
@@ -212,6 +215,22 @@ def date_from_filename(name):
 def date_from_mtime(path):
     return datetime.fromtimestamp(os.stat(path).st_mtime), "mtime"
 
+# HEIC → JPG 変換 (sips)
+import tempfile
+def convert_heic_to_jpg(src_path):
+    tmp = Path(tempfile.mkdtemp()) / (src_path.stem + ".jpg")
+    try:
+        subprocess.check_call(
+            ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "90",
+             str(src_path), "--out", str(tmp)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return tmp
+    except Exception as e:
+        print(f"  WARN: HEIC変換失敗 {src_path.name}: {e}")
+        if tmp.exists():
+            tmp.unlink()
+        return None
+
 def get_date(path):
     for fn in [date_from_sips, date_from_mdls,
                lambda p: date_from_folder(p),
@@ -232,7 +251,7 @@ files = sorted(
 print(f"対象フォルダ: {SRC}")
 print(f"写真ファイル数: {len(files)}\n")
 
-ok = skipped = renamed = 0
+ok = skipped = renamed = converted = 0
 
 for f in files:
     dt, src = get_date(f)
@@ -241,20 +260,37 @@ for f in files:
     mmdd  = dt.strftime("%m%d")
     ts    = dt.strftime("%Y_%m%d_%H%M%S")
     ext   = f.suffix.lower()
+
+    # HEIC → JPG 変換
+    heic_converted = None
+    if ext == ".heic":
+        heic_converted = convert_heic_to_jpg(f)
+        if heic_converted:
+            ext = ".jpg"
+        # 変換失敗時はそのまま .heic で整理
+
+    actual = heic_converted or f
     newname  = f"{ts}{ext}"
     destdir  = Path(DEST) / year / month / mmdd
     destfile = destdir / newname
 
     if DRY_RUN:
-        print(f"  [{src:15s}] {f.name} -> {year}/{month}/{mmdd}/{newname}")
+        tag = "HEIC→JPG " if heic_converted else ""
+        print(f"  [{src:15s}] {tag}{f.name} -> {year}/{month}/{mmdd}/{newname}")
         ok += 1
+        if heic_converted:
+            heic_converted.unlink(missing_ok=True)
+            heic_converted.parent.rmdir()
         continue
 
     destdir.mkdir(parents=True, exist_ok=True)
 
     if destfile.exists():
-        if md5(f) == md5(destfile):
+        if md5(actual) == md5(destfile):
             os.remove(f)
+            if heic_converted:
+                heic_converted.unlink(missing_ok=True)
+                heic_converted.parent.rmdir()
             skipped += 1
             print(f"  SKIP (同一): {f.name}")
         else:
@@ -262,13 +298,22 @@ for f in files:
             n = 1
             while (destdir / f"{base}_{n}{ext}").exists():
                 n += 1
-            shutil.move(str(f), str(destdir / f"{base}_{n}{ext}"))
+            shutil.move(str(actual), str(destdir / f"{base}_{n}{ext}"))
+            if heic_converted:
+                os.remove(f)
+                heic_converted.parent.rmdir()
             renamed += 1
             print(f"  RENAMED: {f.name} -> {base}_{n}{ext}  [{src}]")
     else:
-        shutil.move(str(f), str(destfile))
-        ok += 1
-        print(f"  OK: {f.name} -> {year}/{month}/{mmdd}/{newname}  [{src}]")
+        shutil.move(str(actual), str(destfile))
+        if heic_converted:
+            os.remove(f)
+            heic_converted.parent.rmdir()
+            converted += 1
+            print(f"  OK: {f.name} -> {year}/{month}/{mmdd}/{newname}  [HEIC→JPG, {src}]")
+        else:
+            ok += 1
+            print(f"  OK: {f.name} -> {year}/{month}/{mmdd}/{newname}  [{src}]")
 
 # src 配下の空サブフォルダを削除（ルートフォルダ自体は残す）
 for d in sorted(Path(SRC).rglob("*"), reverse=True):
@@ -283,7 +328,7 @@ if DRY_RUN:
     print(f"  処理予定: {ok} 件")
 else:
     print(f"\n===============================")
-    print(f"  移動: {ok}件  スキップ: {skipped}件  リネーム: {renamed}件")
+    print(f"  移動: {ok}件  HEIC→JPG: {converted}件  スキップ: {skipped}件  リネーム: {renamed}件")
     print(f"  整理先: {DEST}")
     print(f"===============================")
 PYEOF
