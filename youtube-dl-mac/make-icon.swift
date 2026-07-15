@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// Kiro エディタ風の紫グラデーション背景に「YD」を描いた macOS アプリアイコンを生成する。
+// 紫グラデーション背景にビデオ再生アイコンを描いた macOS アプリアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
@@ -27,22 +27,28 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
     gradient.draw(in: path, angle: -90)
 
-    // 中央に「YD」。
-    let text = "YD"
-    let fontSize = s * 0.40
-    let font = NSFont.systemFont(ofSize: fontSize, weight: .heavy)
-    let style = NSMutableParagraphStyle()
-    style.alignment = .center
-    let attrs: [NSAttributedString.Key: Any] = [
-        .font: font,
-        .foregroundColor: NSColor.white,
-        .paragraphStyle: style,
-        .kern: -fontSize * 0.02,
-    ]
-    let str = NSAttributedString(string: text, attributes: attrs)
-    let textSize = str.size()
-    let origin = NSPoint(x: (s - textSize.width) / 2, y: (s - textSize.height) / 2)
-    str.draw(at: origin)
+    // 中央にビデオ再生アイコン（角丸四角 + 三角再生ボタン）。
+    let videoW = s * 0.50
+    let videoH = videoW * 0.62
+    let videoRect = NSRect(
+        x: (s - videoW) / 2, y: (s - videoH) / 2,
+        width: videoW, height: videoH)
+    let videoRadius = videoW * 0.08
+    let videoPath = NSBezierPath(roundedRect: videoRect, xRadius: videoRadius, yRadius: videoRadius)
+    NSColor.white.setFill()
+    videoPath.fill()
+
+    let triH = videoH * 0.50
+    let triW = triH * 0.85
+    let cx = videoRect.midX + triW * 0.08
+    let cy = videoRect.midY
+    let tri = NSBezierPath()
+    tri.move(to: NSPoint(x: cx - triW / 2, y: cy + triH / 2))
+    tri.line(to: NSPoint(x: cx + triW / 2, y: cy))
+    tri.line(to: NSPoint(x: cx - triW / 2, y: cy - triH / 2))
+    tri.close()
+    purpleBottom.setFill()
+    tri.fill()
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
