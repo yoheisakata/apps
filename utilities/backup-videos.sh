@@ -119,16 +119,16 @@ fi
 
 $DRY_RUN && echo "  ※ DRY RUN モード（実際には移動しません）"
 
-python3 << PYEOF
+SRC="$SRC" DEST="$DEST" DRY_RUN="$DRY_RUN" VIDEO_EXTS="$VIDEO_EXTS" python3 <<'PYEOF'
 import os, re, hashlib, shutil, subprocess, json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-SRC      = "$SRC"
-DEST     = "$DEST"
-DRY_RUN  = "$DRY_RUN" == "true"
-EXTS     = {e for e in "$VIDEO_EXTS".split("|")}
-LOCAL_TZ = timedelta(hours=-7)  # PDT (夏時間)
+SRC      = os.environ["SRC"]
+DEST     = os.environ["DEST"]
+DRY_RUN  = os.environ["DRY_RUN"] == "true"
+EXTS     = {e for e in os.environ["VIDEO_EXTS"].split("|")}
+LOCAL_TZ = datetime.now().astimezone().utcoffset() or timedelta(hours=-7)
 
 MONTH_MAP = {
     "january":1,"february":2,"march":3,"april":4,"may":5,"june":6,

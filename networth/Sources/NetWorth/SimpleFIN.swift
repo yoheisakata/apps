@@ -97,7 +97,7 @@ enum SimpleFIN {
         }
         let accessURL = String(decoding: body, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard accessURL.hasPrefix("http") else { throw SimpleFINError.badAccessURL }
+        guard accessURL.hasPrefix("https://") else { throw SimpleFINError.badAccessURL }
         return accessURL
     }
 

@@ -14,11 +14,12 @@ enum Keychain {
         ]
     }
 
-    static func save(_ value: String) {
+    @discardableResult
+    static func save(_ value: String) -> Bool {
         delete()
         var query = baseQuery
         query[kSecValueData as String] = Data(value.utf8)
-        SecItemAdd(query as CFDictionary, nil)
+        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
     }
 
     static func load() -> String? {

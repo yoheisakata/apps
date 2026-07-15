@@ -97,15 +97,15 @@ if [ ! -d "$ROOT" ]; then
   exit 1
 fi
 
-python3 << PYEOF
+ROOT="$ROOT" MODE="$MODE" PHOTO_EXTS="$PHOTO_EXTS" python3 <<'PYEOF'
 import os, re, hashlib, shutil, subprocess
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-ROOT     = "$ROOT"
-MODE     = "$MODE"   # report / dry-run / fix
-EXTS     = {e for e in "$PHOTO_EXTS".split("|")}
-LOCAL_TZ = timedelta(hours=-7)
+ROOT     = os.environ["ROOT"]
+MODE     = os.environ["MODE"]   # report / dry-run / fix
+EXTS     = {e for e in os.environ["PHOTO_EXTS"].split("|")}
+LOCAL_TZ = datetime.now().astimezone().utcoffset() or timedelta(hours=-7)
 
 MONTH_MAP = {
     "january":1,"february":2,"march":3,"april":4,"may":5,"june":6,

@@ -40,7 +40,7 @@ export async function fetchWiki(title, lang = "ja") {
 const infoCache = new Map();
 
 const _esc = (s) =>
-  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 // Strip wiki markup (links, refs, bold, simple templates) to plain text.
 function stripWiki(s) {

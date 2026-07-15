@@ -186,8 +186,10 @@ choose_source() {
   fi
   SRC="$chosen"
 
-  # 存在確認
-  if ! ADB shell "[ -e '$SRC' ]" 2>/dev/null; then
+  # 存在確認（シングルクォートを含むパスでのインジェクションを防ぐため printf %q でエスケープ）
+  local escaped_src
+  escaped_src="$(printf '%q' "$SRC")"
+  if ! ADB shell "[ -e $escaped_src ]" 2>/dev/null; then
     abort "指定のパスが Kindle 上に見つかりません: $SRC"
   fi
   ok "コピー元: ${SRC}"

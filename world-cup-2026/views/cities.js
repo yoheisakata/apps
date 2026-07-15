@@ -8,8 +8,8 @@ const COUNTRY_NAME = { USA: "アメリカ", CAN: "カナダ", MEX: "メキシコ
 const COUNTRY_FLAG = { USA: "🇺🇸", CAN: "🇨🇦", MEX: "🇲🇽" };
 
 function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 }
 

@@ -5,8 +5,8 @@ import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=27";
 import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=27";
 
 function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 }
 

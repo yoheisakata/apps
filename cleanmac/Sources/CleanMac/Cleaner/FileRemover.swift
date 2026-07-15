@@ -59,6 +59,7 @@ enum FileRemover {
             let escaped = url.path
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "'", with: "'\\''")
             return "POSIX file \"\(escaped)\""
         }.joined(separator: ", ")
         let source = "tell application \"Finder\" to delete { \(items) }"

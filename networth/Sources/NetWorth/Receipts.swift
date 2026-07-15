@@ -297,23 +297,38 @@ final class ReceiptStore: ObservableObject {
 
     // MARK: - 重複検出
 
-    private static func sha256(_ data: Data) -> String {
+    nonisolated private static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    // 旧データにはハッシュがないので、初回に元画像から計算して埋める。
     private func ensureHashes() {
         guard !hashesReady else { return }
         hashesReady = true
-        var changed = false
-        for i in receipts.indices where receipts[i].fileHash == nil {
-            if let data = try? Data(contentsOf: receipts[i].fileURL) {
-                receipts[i].fileHash = Self.sha256(data)
-                changed = true
-            }
+        let pending = receipts.indices.filter { receipts[$0].fileHash == nil }
+        guard !pending.isEmpty else {
+            knownHashes = Set(receipts.compactMap(\.fileHash))
+            return
         }
         knownHashes = Set(receipts.compactMap(\.fileHash))
-        if changed { save() }
+        Task.detached { [weak self] in
+            var updates: [(Int, String)] = []
+            guard let self else { return }
+            let snapshot = await MainActor.run { pending.map { (idx: $0, url: self.receipts[$0].fileURL) } }
+            for item in snapshot {
+                if let data = try? Data(contentsOf: item.url) {
+                    updates.append((item.idx, Self.sha256(data)))
+                }
+            }
+            let finalUpdates = updates
+            guard !finalUpdates.isEmpty else { return }
+            await MainActor.run {
+                for (idx, hash) in finalUpdates where idx < self.receipts.count {
+                    self.receipts[idx].fileHash = hash
+                    self.knownHashes.insert(hash)
+                }
+                self.save()
+            }
+        }
     }
 
     // Finder 以外(写真.app・ブラウザ・メールなど)からのドラッグはファイル URL ではなく
