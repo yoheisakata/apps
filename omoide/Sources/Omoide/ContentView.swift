@@ -122,6 +122,23 @@ struct ContentView: View {
 
                     Divider()
 
+                    Toggle("ランダムモード", isOn: $vm.randomMode)
+                        .onChange(of: vm.randomMode) { vm.applyFileLimits() }
+
+                    HStack {
+                        Toggle("上限ファイル数", isOn: $vm.useMaxFileCount)
+                            .onChange(of: vm.useMaxFileCount) { vm.applyFileLimits() }
+                        if vm.useMaxFileCount {
+                            TextField("", value: $vm.maxFileCount, formatter: NumberFormatter())
+                                .frame(width: 56)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit { vm.applyFileLimits() }
+                            Text("本")
+                        }
+                    }
+
+                    Divider()
+
                     LabeledContent("画質") {
                         Picker("", selection: $vm.qualityPreset) {
                             Text("高画質（ファイル大）").tag(18)
@@ -138,6 +155,16 @@ struct ContentView: View {
                                 .frame(width: 56)
                                 .textFieldStyle(.roundedBorder)
                             Text("秒")
+                        }
+                    }
+
+                    LabeledContent("トランジション") {
+                        HStack {
+                            Slider(value: $vm.transitionSec, in: 0...2, step: 0.1)
+                                .frame(width: 160)
+                            Text(vm.transitionSec == 0 ? "なし" : String(format: "%.1f秒", vm.transitionSec))
+                                .monospacedDigit()
+                                .frame(width: 50, alignment: .trailing)
                         }
                     }
 

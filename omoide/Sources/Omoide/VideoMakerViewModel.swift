@@ -19,6 +19,7 @@ class VideoMakerViewModel: ObservableObject {
     @Published var offsetSec: Int = 3
     @Published var bgmVolume: Double = 0.3
     @Published var origVolume: Double = 0.7
+    @Published var transitionSec: Double = 0.5
     @Published var isRunning = false
     @Published var progress: Double = 0
     @Published var statusMessage = ""
@@ -27,6 +28,9 @@ class VideoMakerViewModel: ObservableObject {
     @Published var errorMessage = ""
     @Published var showOverwriteConfirm = false
     @Published var titleText = ""
+    @Published var maxFileCount: Int = 0
+    @Published var useMaxFileCount = false
+    @Published var randomMode = false
 
     private let videoExts: Set<String> = ["mp4","mov","avi","m4v","mkv","mts","m2ts","3gp"]
 
@@ -186,44 +190,79 @@ class VideoMakerViewModel: ObservableObject {
             clipFiles.append(outClip)
         }
 
-        // クリップをそのまま結合（解像度・fps統一済みなのでストリームコピーで高速）
+        // クリップを結合（ディゾルブトランジション付き）
         let concatOut = tmpDir.appendingPathComponent("concat.mp4")
-        let concatDurTotal = Double(clipFiles.count) * effectiveClipSec
-        let listFile = tmpDir.appendingPathComponent("clips.txt")
-        let listContent = clipFiles.map { "file '\($0.path)'" }.joined(separator: "\n")
-        try listContent.write(to: listFile, atomically: true, encoding: .utf8)
-        try await runWithProgress("ffmpeg", args: [
-            "-y", "-f", "concat", "-safe", "0",
-            "-i", listFile.path, "-c", "copy", concatOut.path
-        ], totalSec: concatDurTotal, baseProgress: 0.8, rangeProgress: 0.05, label: "クリップを結合中…")
+        let clipCount = clipFiles.count
+        let transDur = min(transitionSec, effectiveClipSec / 2)
+
+        if clipCount == 1 {
+            try FileManager.default.copyItem(at: clipFiles[0], to: concatOut)
+        } else if transDur <= 0 {
+            let concatDurTotal = Double(clipCount) * effectiveClipSec
+            let listFile = tmpDir.appendingPathComponent("clips.txt")
+            let listContent = clipFiles.map { "file '\($0.path)'" }.joined(separator: "\n")
+            try listContent.write(to: listFile, atomically: true, encoding: .utf8)
+            try await runWithProgress("ffmpeg", args: [
+                "-y", "-f", "concat", "-safe", "0",
+                "-i", listFile.path, "-c", "copy", concatOut.path
+            ], totalSec: concatDurTotal, baseProgress: 0.8, rangeProgress: 0.05, label: "クリップを結合中…")
+        } else {
+            var args: [String] = ["-y"]
+            for clip in clipFiles {
+                args += ["-i", clip.path]
+            }
+            var vf = ""
+            var af = ""
+            for i in 0..<(clipCount - 1) {
+                let offset = Double(i + 1) * effectiveClipSec - Double(i + 1) * transDur
+                let vIn = i == 0 ? "[0:v]" : "[v\(i)]"
+                let aIn = i == 0 ? "[0:a]" : "[a\(i)]"
+                let vOut = i == clipCount - 2 ? "[vout]" : "[v\(i + 1)]"
+                let aOut = i == clipCount - 2 ? "[aout]" : "[a\(i + 1)]"
+                vf += "\(vIn)[\(i + 1):v]xfade=transition=fade:duration=\(String(format: "%.3f", transDur)):offset=\(String(format: "%.3f", offset))\(vOut);"
+                af += "\(aIn)[\(i + 1):a]acrossfade=d=\(String(format: "%.3f", transDur)):c1=tri:c2=tri\(aOut);"
+            }
+            let filterComplex = String((vf + af).dropLast())
+            args += ["-filter_complex", filterComplex]
+            args += ["-map", "[vout]", "-map", "[aout]"]
+            args += ["-c:v", "libx264", "-preset", "fast", "-crf", String(qualityPreset)]
+            args += ["-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2"]
+            args += [concatOut.path]
+            let concatDurTotal = Double(clipCount) * effectiveClipSec - Double(clipCount - 1) * transDur
+            try await runWithProgress("ffmpeg", args: args, totalSec: concatDurTotal, baseProgress: 0.8, rangeProgress: 0.05, label: "ディゾルブで結合中…")
+        }
 
         // ── フェード＋タイトルオーバーレイを全体に適用 ──────
-        let totalDur = getDuration(path: concatOut.path) ?? concatDurTotal
+        let estimatedDur = Double(clipCount) * effectiveClipSec - Double(max(0, clipCount - 1)) * min(transitionSec, effectiveClipSec / 2)
+        let totalDur = getDuration(path: concatOut.path) ?? estimatedDur
         let fadeSec = min(1.0, totalDur / 6)
         let fadeOutSt = max(0, totalDur - fadeSec)
         let fadedOut = tmpDir.appendingPathComponent("faded.mp4")
         await setProgress(0.85, "フェード・タイトルを適用中…")
 
-        // タイトルオーバーレイ（左上の小さなテキスト）
         let title = titleText
-        let fontFile = "/System/Library/Fonts/Helvetica.ttc"
-        let safeTitle = title.replacingOccurrences(of: "'", with: "\\'")
-                             .replacingOccurrences(of: ":", with: "\\:")
-        var vfParts = [
-            "fade=t=in:st=0:d=\(String(format:"%.3f",fadeSec))",
-            "fade=t=out:st=\(String(format:"%.3f",fadeOutSt)):d=\(String(format:"%.3f",fadeSec))"
-        ]
+
         if !title.isEmpty {
-            vfParts.append("drawtext=fontfile='\(fontFile)':text='\(safeTitle)':fontsize=36:fontcolor=white@0.85:x=24:y=24:box=1:boxcolor=black@0.45:boxborderw=8")
+            let overlayPng = tmpDir.appendingPathComponent("overlay.png")
+            renderTitleOverlay(text: title, fontSize: 36, width: 1920, height: 1080, position: .topLeft, to: overlayPng)
+            try run("ffmpeg", args: [
+                "-y", "-i", concatOut.path, "-i", overlayPng.path,
+                "-filter_complex", "[0:v][1:v]overlay=0:0,fade=t=in:st=0:d=\(String(format:"%.3f",fadeSec)),fade=t=out:st=\(String(format:"%.3f",fadeOutSt)):d=\(String(format:"%.3f",fadeSec))",
+                "-af", "afade=t=in:st=0:d=\(String(format:"%.3f",fadeSec)),afade=t=out:st=\(String(format:"%.3f",fadeOutSt)):d=\(String(format:"%.3f",fadeSec))",
+                "-c:v", "libx264", "-preset", "fast", "-crf", String(qualityPreset),
+                "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
+                fadedOut.path
+            ])
+        } else {
+            try run("ffmpeg", args: [
+                "-y", "-i", concatOut.path,
+                "-vf", "fade=t=in:st=0:d=\(String(format:"%.3f",fadeSec)),fade=t=out:st=\(String(format:"%.3f",fadeOutSt)):d=\(String(format:"%.3f",fadeSec))",
+                "-af", "afade=t=in:st=0:d=\(String(format:"%.3f",fadeSec)),afade=t=out:st=\(String(format:"%.3f",fadeOutSt)):d=\(String(format:"%.3f",fadeSec))",
+                "-c:v", "libx264", "-preset", "fast", "-crf", String(qualityPreset),
+                "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
+                fadedOut.path
+            ])
         }
-        try run("ffmpeg", args: [
-            "-y", "-i", concatOut.path,
-            "-vf", vfParts.joined(separator: ","),
-            "-af", "afade=t=in:st=0:d=\(String(format:"%.3f",fadeSec)),afade=t=out:st=\(String(format:"%.3f",fadeOutSt)):d=\(String(format:"%.3f",fadeSec))",
-            "-c:v", "libx264", "-preset", "fast", "-crf", String(qualityPreset),
-            "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
-            fadedOut.path
-        ])
 
         // ── タイトルカード（黒画面+中央タイトル）を先頭に追加 ─
         let withTitle: URL
@@ -231,19 +270,21 @@ class VideoMakerViewModel: ObservableObject {
             let cardDur = 3.0
             let cardFade = 0.5
             let titleCard = tmpDir.appendingPathComponent("titlecard.mp4")
+            let titleCardPng = tmpDir.appendingPathComponent("titlecard.png")
             await setProgress(0.87, "タイトルカードを作成中…")
+            renderTitleOverlay(text: title, fontSize: 80, width: 1920, height: 1080, position: .center, to: titleCardPng)
             try run("ffmpeg", args: [
                 "-y",
-                "-f", "lavfi", "-i", "color=c=black:s=1920x1080:r=30",
+                "-loop", "1", "-i", titleCardPng.path,
                 "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
                 "-t", String(cardDur),
-                "-vf", "drawtext=fontfile='\(fontFile)':text='\(safeTitle)':fontsize=80:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2,fade=t=in:st=0:d=\(cardFade),fade=t=out:st=\(cardDur-cardFade):d=\(cardFade)",
+                "-vf", "fps=30,fade=t=in:st=0:d=\(cardFade),fade=t=out:st=\(cardDur-cardFade):d=\(cardFade)",
                 "-af", "afade=t=in:st=0:d=\(cardFade),afade=t=out:st=\(cardDur-cardFade):d=\(cardFade)",
                 "-c:v", "libx264", "-preset", "fast", "-crf", String(qualityPreset),
+                "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
                 titleCard.path
             ])
-            // タイトルカード + 本編を結合
             let cardListFile = tmpDir.appendingPathComponent("card_list.txt")
             try "file '\(titleCard.path)'\nfile '\(fadedOut.path)'".write(to: cardListFile, atomically: true, encoding: .utf8)
             let titledOut = tmpDir.appendingPathComponent("titled.mp4")
@@ -287,6 +328,60 @@ class VideoMakerViewModel: ObservableObject {
         }
     }
 
+    // MARK: - タイトル画像生成（drawtext の代替）
+
+    enum TitlePosition { case topLeft, center }
+
+    private func renderTitleOverlay(text: String, fontSize: CGFloat, width: Int, height: Int, position: TitlePosition, to url: URL) {
+        let size = CGSize(width: width, height: height)
+        let cs = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                  bytesPerRow: width * 4, space: cs,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+
+        if position == .center {
+            ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+            ctx.fill(CGRect(origin: .zero, size: size))
+        }
+
+        let font = CTFontCreateWithName("Helvetica" as CFString, fontSize, nil)
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.white.withAlphaComponent(position == .topLeft ? 0.85 : 1.0)
+        ]
+        let attrStr = NSAttributedString(string: text, attributes: attrs)
+        let line = CTLineCreateWithAttributedString(attrStr)
+        let bounds = CTLineGetBoundsWithOptions(line, [])
+
+        let x: CGFloat
+        let y: CGFloat
+        switch position {
+        case .topLeft:
+            let padX: CGFloat = 24
+            let padY: CGFloat = 24
+            let boxPad: CGFloat = 8
+            let boxRect = CGRect(x: padX - boxPad,
+                                 y: CGFloat(height) - padY - bounds.height - boxPad,
+                                 width: bounds.width + boxPad * 2,
+                                 height: bounds.height + boxPad * 2)
+            ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0.45))
+            ctx.fill(boxRect)
+            x = padX
+            y = padY
+        case .center:
+            x = (CGFloat(width) - bounds.width) / 2
+            y = (CGFloat(height) - bounds.height) / 2
+        }
+
+        ctx.textPosition = CGPoint(x: x, y: y)
+        CTLineDraw(line, ctx)
+
+        guard let image = ctx.makeImage() else { return }
+        let dest = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(dest, image, nil)
+        CGImageDestinationFinalize(dest)
+    }
+
     // MARK: - タイトル検出
 
     private func detectTitle(from path: String) -> String {
@@ -322,13 +417,31 @@ class VideoMakerViewModel: ObservableObject {
 
     // MARK: - ヘルパー
 
+    func applyFileLimits() {
+        var list = videos
+        if randomMode {
+            list.shuffle()
+        }
+        if useMaxFileCount, maxFileCount > 0, list.count > maxFileCount {
+            list = Array(list.prefix(maxFileCount))
+        }
+        videos = list
+    }
+
     private func findVideos(in folder: URL) -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: folder, includingPropertiesForKeys: nil) else { return [] }
-        return enumerator
+        var result = enumerator
             .compactMap { $0 as? URL }
             .filter { videoExts.contains($0.pathExtension.lowercased()) }
             .sorted { $0.path < $1.path }
+        if randomMode {
+            result.shuffle()
+        }
+        if useMaxFileCount, maxFileCount > 0, result.count > maxFileCount {
+            result = Array(result.prefix(maxFileCount))
+        }
+        return result
     }
 
     private func getDuration(path: String) -> Double? {
