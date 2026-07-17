@@ -1,0 +1,41 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")"
+
+CONFIG=release
+APP_NAME=Emulator
+DISPLAY_NAME=RetroGames
+APP_BUNDLE="${DISPLAY_NAME}.app"
+
+if [[ ! -f AppIcon.icns ]]; then
+    echo "==> アイコン生成"
+    swift make-icon.swift
+fi
+
+echo "==> swift build (${CONFIG})"
+swift build -c "${CONFIG}"
+
+BIN_PATH="$(swift build -c "${CONFIG}" --show-bin-path)/${APP_NAME}"
+
+echo "==> ${APP_BUNDLE} を作成"
+rm -rf "${APP_BUNDLE}"
+mkdir -p "${APP_BUNDLE}/Contents/MacOS"
+mkdir -p "${APP_BUNDLE}/Contents/Resources"
+cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
+cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
+
+VERSION=$(sed -n 's/^let appVersion = "\(.*\)"$/\1/p' Sources/Emulator/Main.swift)
+if [[ -n "${VERSION}" ]]; then
+    plutil -replace CFBundleShortVersionString -string "${VERSION}" \
+        "${APP_BUNDLE}/Contents/Info.plist"
+    echo "==> バージョン: ${VERSION}"
+fi
+
+if [[ -f AppIcon.icns ]]; then
+    cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+fi
+
+echo "==> アドホック署名"
+codesign --force --deep --sign - "${APP_BUNDLE}"
+
+echo "==> 完了: ${APP_BUNDLE}"
