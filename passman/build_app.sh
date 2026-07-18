@@ -1,10 +1,18 @@
 #!/bin/bash
+# PassMan を .app バンドルとしてビルドする。
+#   ./build_app.sh          → release ビルドして PassMan.app を生成
+#   open PassMan.app        → 起動
 set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG=release
 APP_NAME=PassMan
 APP_BUNDLE="${APP_NAME}.app"
+
+# アイコンがなければ生成する。
+if [[ ! -f AppIcon.icns ]]; then
+    swift make-icon.swift
+fi
 
 echo "==> swift build (${CONFIG})"
 swift build -c "${CONFIG}"
@@ -25,6 +33,7 @@ if [[ -f AppIcon.icns ]]; then
     cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 fi
 
+# ダブルクリックで確実に起動できるようアドホック署名する
 echo "==> アドホック署名"
 codesign --force --deep --sign - "${APP_BUNDLE}"
 

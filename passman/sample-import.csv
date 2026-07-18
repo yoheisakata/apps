@@ -1,0 +1,4 @@
+title,username,password,url,category,note,hint
+サンプルサイト,taro@example.com,correct-horse-battery,https://example.com,Web,取り込みの見本です,好きなフレーズ
+サンプル銀行,taro123,"pass,with,commas",https://bank.example.co.jp,金融,"カンマを含む値は""二重引用符""で囲む",
+サンプルSNS,@taro,p@ssw0rd!,https://sns.example.com,SNS,category 列が既存に無い名前なら新規カテゴリが作られます,

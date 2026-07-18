@@ -34,6 +34,7 @@ struct LockView: View {
     @State private var recoveryKey = ""
     @State private var usingRecovery = false
     @State private var showingReset = false
+    @State private var showingRestore = false
 
     private var isCreating: Bool { vault.state == .noVault }
 
@@ -65,16 +66,12 @@ struct LockView: View {
                     .frame(width: 280)
                     .onSubmit(submit)
             } else {
-                SecureField("マスターパスワード", text: $password)
-                    .textFieldStyle(.roundedBorder)
+                RomanSecureField(placeholder: "マスターパスワード", text: $password, onSubmit: submit)
                     .frame(width: 280)
-                    .onSubmit(submit)
 
                 if isCreating {
-                    SecureField("確認のため再入力", text: $confirmPassword)
-                        .textFieldStyle(.roundedBorder)
+                    RomanSecureField(placeholder: "確認のため再入力", text: $confirmPassword, onSubmit: submit)
                         .frame(width: 280)
-                        .onSubmit(submit)
                 }
             }
 
@@ -112,11 +109,28 @@ struct LockView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            // 別の Mac から移行してきた場合の入口。作成画面(vault 無し)でも復元できるようにする。
+            if !usingRecovery {
+                Divider().frame(width: 280)
+                Button {
+                    showingRestore = true
+                } label: {
+                    Label(isCreating ? "別のパソコンから移行（バックアップから復元）"
+                                     : "バックアップから復元", systemImage: "arrow.down.doc")
+                }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundStyle(.blue)
+            }
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showingReset) {
             ResetVaultView()
+        }
+        .sheet(isPresented: $showingRestore) {
+            RestoreBackupView()
         }
         .onChange(of: vault.state) {
             // 初期化などで状態が変わったらリカバリー入力モードを解除し、入力欄をクリアする
@@ -176,7 +190,9 @@ struct MainView: View {
     @State private var showingAdd = false
     @State private var showingSettings = false
     @State private var showingAddCategory = false
+    @State private var editingCategory: Category?
     @State private var selectedCategoryID: UUID?
+    @State private var importAlert: ImportAlert?
 
     private var filtered: [Entry] {
         var base = vault.entries.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
@@ -219,6 +235,11 @@ struct MainView: View {
                             }
                             .tag(Optional(cat.id))
                             .contextMenu {
+                                Button {
+                                    editingCategory = cat
+                                } label: {
+                                    Label("名前・アイコンを変更", systemImage: "pencil")
+                                }
                                 if cat.name != "その他" {
                                     Button(role: .destructive) {
                                         vault.deleteCategory(cat)
@@ -230,6 +251,9 @@ struct MainView: View {
                                     }
                                 }
                             }
+                        }
+                        .onMove { indices, newOffset in
+                            vault.moveCategories(from: indices, to: newOffset)
                         }
                     }
                 }
@@ -248,14 +272,11 @@ struct MainView: View {
         } content: {
             List(filtered, selection: $selection) { entry in
                 let cat = vault.category(for: entry)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Image(systemName: cat.icon)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(entry.title).font(.headline)
-                    }
-                    Text(entry.username).font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Image(systemName: cat.icon)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(entry.title).font(.headline)
                 }
                 .tag(entry.id)
             }
@@ -265,6 +286,10 @@ struct MainView: View {
                 ToolbarItem {
                     Button { showingAdd = true } label: { Image(systemName: "plus") }
                         .help("新規エントリー")
+                }
+                ToolbarItem {
+                    Button { importCSV() } label: { Image(systemName: "square.and.arrow.down") }
+                        .help("CSVインポート")
                 }
                 ToolbarItem {
                     Button { showingSettings = true } label: { Image(systemName: "gearshape") }
@@ -283,6 +308,10 @@ struct MainView: View {
                 ContentUnavailableView("エントリーを選択してください", systemImage: "key.fill")
             }
         }
+        // カテゴリを切り替えたら選択中のエントリーを解除し、詳細を空表示に戻す
+        .onChange(of: selectedCategoryID) {
+            selection = nil
+        }
         .sheet(isPresented: $showingAdd) {
             EntryEditView(entry: nil)
         }
@@ -292,7 +321,46 @@ struct MainView: View {
         .sheet(isPresented: $showingAddCategory) {
             CategoryEditView()
         }
+        .sheet(item: $editingCategory) { cat in
+            CategoryEditView(category: cat)
+        }
+        .alert("CSVインポート", isPresented: Binding(
+            get: { importAlert != nil },
+            set: { if !$0 { importAlert = nil } }
+        ), presenting: importAlert) { _ in
+            Button("OK") { importAlert = nil }
+        } message: { alert in
+            Text(alert.message)
+        }
     }
+
+    private func importCSV() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.commaSeparatedText, .text, .plainText]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "取り込む CSV ファイルを選択してください（UTF-8 / Shift-JIS / UTF-16 に対応）"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let data = try? Data(contentsOf: url) else {
+            importAlert = ImportAlert(message: "ファイルを読み込めませんでした")
+            return
+        }
+        // エンコーディングを自動判定(UTF-8 / UTF-16 / Shift-JIS)してから取り込む
+        let text = CSV.decodeText(from: data)
+        let summary = vault.importCSV(text)
+        if summary.imported == 0 && summary.skipped == 0 {
+            importAlert = ImportAlert(message: "取り込める行がありませんでした。ヘッダー行（title, username, password …）があるか確認してください。")
+        } else {
+            importAlert = ImportAlert(message: "\(summary.imported) 件を取り込みました"
+                + (summary.skipped > 0 ? "（\(summary.skipped) 件スキップ）" : ""))
+        }
+    }
+}
+
+/// トップ画面のインポート結果アラート(alert(item:) 相当)。
+struct ImportAlert: Identifiable {
+    let id = UUID()
+    let message: String
 }
 
 struct EntryDetailView: View {
@@ -365,6 +433,7 @@ struct EntryEditView: View {
     @State private var note = ""
     @State private var hint = ""
     @State private var categoryID: UUID?
+    @State private var showPassword = false
 
     private var isNew: Bool { entry == nil }
 
@@ -380,7 +449,20 @@ struct EntryEditView: View {
                 }
             }
             TextField("ログイン名", text: $username).textFieldStyle(.roundedBorder)
-            SecureField("パスワード", text: $password).textFieldStyle(.roundedBorder)
+            HStack {
+                if showPassword {
+                    RomanTextField(placeholder: "パスワード", text: $password)
+                } else {
+                    RomanSecureField(placeholder: "パスワード", text: $password)
+                }
+                Button {
+                    showPassword.toggle()
+                } label: {
+                    Image(systemName: showPassword ? "eye.slash" : "eye")
+                }
+                .buttonStyle(.borderless)
+                .help(showPassword ? "パスワードを隠す" : "パスワードを表示")
+            }
             TextField("ヒント", text: $hint).textFieldStyle(.roundedBorder)
             TextField("URL", text: $url).textFieldStyle(.roundedBorder)
             TextField("メモ", text: $note, axis: .vertical)
@@ -433,14 +515,19 @@ struct CategoryEditView: View {
     @EnvironmentObject var vault: VaultModel
     @Environment(\.dismiss) private var dismiss
 
+    /// nil なら新規追加、値があればそのカテゴリの編集。
+    var category: Category?
+
     @State private var name = ""
     @State private var selectedIcon = "folder.fill"
+
+    private var isEditing: Bool { category != nil }
 
     private let columns = Array(repeating: GridItem(.fixed(36), spacing: 8), count: 7)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("カテゴリを追加").font(.title3).bold()
+            Text(isEditing ? "カテゴリを編集" : "カテゴリを追加").font(.title3).bold()
 
             TextField("カテゴリ名", text: $name).textFieldStyle(.roundedBorder)
 
@@ -466,16 +553,31 @@ struct CategoryEditView: View {
             HStack {
                 Spacer()
                 Button("キャンセル") { dismiss() }
-                Button("追加") {
-                    vault.addCategory(Category(name: name, icon: selectedIcon))
-                    dismiss()
-                }
+                Button(isEditing ? "保存" : "追加") { save() }
                 .keyboardShortcut(.defaultAction)
-                .disabled(name.isEmpty)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding(24)
         .frame(width: 320)
+        .onAppear {
+            if let category {
+                name = category.name
+                selectedIcon = category.icon
+            }
+        }
+    }
+
+    private func save() {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        if var existing = category {
+            existing.name = trimmed
+            existing.icon = selectedIcon
+            vault.updateCategory(existing)
+        } else {
+            vault.addCategory(Category(name: trimmed, icon: selectedIcon))
+        }
+        dismiss()
     }
 }
 
@@ -588,8 +690,8 @@ struct ResetPasswordView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            SecureField("新しいパスワード", text: $newPass).textFieldStyle(.roundedBorder)
-            SecureField("確認のため再入力", text: $confirmPass).textFieldStyle(.roundedBorder)
+            RomanSecureField(placeholder: "新しいパスワード", text: $newPass)
+            RomanSecureField(placeholder: "確認のため再入力", text: $confirmPass)
 
             if let error {
                 Text(error).foregroundStyle(.red).font(.caption)
@@ -622,7 +724,8 @@ struct SettingsView: View {
     @State private var confirmPass = ""
     @State private var changeError: String?
     @State private var changeSuccess = false
-    @State private var importMessage: String?
+    @State private var backupMessage: String?
+    @State private var showingRestore = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -644,9 +747,9 @@ struct SettingsView: View {
             Divider()
 
             Text("マスターパスワード変更").font(.headline)
-            SecureField("現在のパスワード", text: $current).textFieldStyle(.roundedBorder)
-            SecureField("新しいパスワード", text: $newPass).textFieldStyle(.roundedBorder)
-            SecureField("新しいパスワード（確認）", text: $confirmPass).textFieldStyle(.roundedBorder)
+            RomanSecureField(placeholder: "現在のパスワード", text: $current)
+            RomanSecureField(placeholder: "新しいパスワード", text: $newPass)
+            RomanSecureField(placeholder: "新しいパスワード（確認）", text: $confirmPass)
 
             if let changeError {
                 Text(changeError).foregroundStyle(.red).font(.caption)
@@ -685,14 +788,17 @@ struct SettingsView: View {
 
             Divider()
 
-            Text("CSVインポート").font(.headline)
-            Text("ヘッダー付き CSV（Chrome / Safari / 1Password / Bitwarden 等）を取り込みます。列名を自動判定します。")
+            Text("暗号化バックアップ").font(.headline)
+            Text("vault を暗号化したまま書き出します。ファイルは PassMan 専用形式（.passmanbackup）で、他アプリでは開けません。復元にはバックアップ作成時のマスターパスワードが必要です。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("CSVファイルを選択…") { importCSV() }
-            if let importMessage {
-                Text(importMessage).font(.caption).foregroundStyle(.green)
+            HStack {
+                Button("バックアップを書き出す…") { exportBackup() }
+                Button("バックアップから復元…") { showingRestore = true }
+            }
+            if let backupMessage {
+                Text(backupMessage).font(.caption).foregroundStyle(.green)
             }
               }
               .padding(.vertical, 4)
@@ -706,29 +812,105 @@ struct SettingsView: View {
         }
         .padding(24)
         .frame(width: 360, height: 480)
+        .sheet(isPresented: $showingRestore) {
+            RestoreBackupView()
+        }
     }
 
-    private func importCSV() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.commaSeparatedText, .text, .plainText]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard let data = try? Data(contentsOf: url) else {
-            importMessage = nil
-            changeError = "ファイルを読み込めませんでした"
+    private func exportBackup() {
+        guard let data = vault.exportBackupData() else {
+            backupMessage = nil
             return
         }
-        // BOM を除去して UTF-8 として解釈(不正バイトは置換)
-        var bytes = data
-        if bytes.starts(with: [0xEF, 0xBB, 0xBF]) { bytes.removeFirst(3) }
-        let text = String(decoding: bytes, as: UTF8.self)
-        let summary = vault.importCSV(text)
-        if summary.imported == 0 && summary.skipped == 0 {
-            importMessage = "取り込める行がありませんでした"
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: VaultFile.backupFileExtension) ?? .data]
+        panel.nameFieldStringValue = "PassMan-\(Self.backupDateStamp).\(VaultFile.backupFileExtension)"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try data.write(to: url, options: .atomic)
+            backupMessage = "バックアップを書き出しました"
+        } catch {
+            backupMessage = nil
+            vault.errorMessage = "書き出しに失敗しました: \(error.localizedDescription)"
+        }
+    }
+
+    private static var backupDateStamp: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd-HHmm"
+        return f.string(from: Date())
+    }
+
+}
+
+/// PassMan バックアップからの復元。ファイルを選び、バックアップ作成時の
+/// マスターパスワードで復号して現在の vault を置き換える。
+struct RestoreBackupView: View {
+    @EnvironmentObject var vault: VaultModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var pickedURL: URL?
+    @State private var password = ""
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("バックアップから復元", systemImage: "arrow.clockwise.circle.fill")
+                .font(.title3).bold()
+
+            Text("現在の vault は復元内容で **上書き** されます（直前の状態は自動で退避します）。復元にはバックアップを作成したときのマスターパスワードが必要です。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Button("バックアップファイルを選択…") { pickFile() }
+                if let pickedURL {
+                    Text(pickedURL.lastPathComponent)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+
+            RomanSecureField(placeholder: "バックアップ作成時のマスターパスワード", text: $password, onSubmit: restore)
+
+            if let error {
+                Text(error).foregroundStyle(.red).font(.caption)
+            }
+
+            HStack {
+                Spacer()
+                Button("キャンセル") { dismiss() }
+                Button("復元する", action: restore)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(pickedURL == nil || password.isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 380)
+    }
+
+    private func pickFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: VaultFile.backupFileExtension) ?? .data]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK { pickedURL = panel.url; error = nil }
+    }
+
+    private func restore() {
+        guard let pickedURL else { return }
+        guard let data = try? Data(contentsOf: pickedURL) else {
+            error = "ファイルを読み込めませんでした"
+            return
+        }
+        if vault.restore(from: data, password: password) {
+            dismiss()
         } else {
-            importMessage = "\(summary.imported) 件を取り込みました"
-                + (summary.skipped > 0 ? "（\(summary.skipped) 件スキップ）" : "")
+            error = vault.errorMessage
         }
     }
 }

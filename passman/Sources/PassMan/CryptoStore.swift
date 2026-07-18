@@ -1,7 +1,7 @@
 import Foundation
 import CryptoKit
 
-enum CryptoError: Error {
+enum CryptoError: Error, Equatable {
     case invalidFormat
     case encodingFailed
 }

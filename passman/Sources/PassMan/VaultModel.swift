@@ -22,8 +22,15 @@ final class VaultModel: ObservableObject {
     @Published var entries: [Entry] = []
     @Published var categories: [Category] = []
     @Published var errorMessage: String?
-    @Published var autoLockMinutes: Int = 5
-    @Published var lockOnBackground: Bool = true
+    @Published var autoLockMinutes: Int = 5 {
+        didSet { UserDefaults.standard.set(autoLockMinutes, forKey: Self.autoLockKey) }
+    }
+    @Published var lockOnBackground: Bool = true {
+        didSet { UserDefaults.standard.set(lockOnBackground, forKey: Self.lockOnBackgroundKey) }
+    }
+
+    private static let autoLockKey = "autoLockMinutes"
+    private static let lockOnBackgroundKey = "lockOnBackground"
 
     /// 生成直後に一度だけ表示するリカバリーキー。UI が sheet で提示し、閉じたら nil に戻す。
     @Published var recoveryToShow: RecoveryKeyDisplay?
@@ -58,6 +65,15 @@ final class VaultModel: ObservableObject {
 
     init() {
         state = VaultFile.exists() ? .locked : .noVault
+        // 保存済みの動作設定を復元(秘密情報ではないので UserDefaults)。didSet を経由しないよう
+        // ストレージへ直接読みに行き、未設定ならプロパティ初期値(5分 / ON)のまま。
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: Self.autoLockKey) != nil {
+            autoLockMinutes = defaults.integer(forKey: Self.autoLockKey)
+        }
+        if defaults.object(forKey: Self.lockOnBackgroundKey) != nil {
+            lockOnBackground = defaults.bool(forKey: Self.lockOnBackgroundKey)
+        }
         setupActivityMonitors()
         setupIdleTimer()
         NotificationCenter.default.addObserver(
@@ -275,6 +291,58 @@ final class VaultModel: ObservableObject {
         try VaultFile.writeEnvelope(env)
     }
 
+    // MARK: - 暗号化バックアップ / 復元
+
+    /// 現在の vault を PassMan 専用の暗号化バックアップ(.passmanbackup)としてエンコードする。
+    /// 中身は vault.dat と同じエンベロープ暗号化済みデータなので、マスターパスワードか
+    /// リカバリーキーが無ければ復号できない。アンロック中のみ書き出せる。
+    func exportBackupData() -> Data? {
+        guard let pwSalt, let pwWrappedKey, let recSalt, let recWrappedKey, let dek else { return nil }
+        do {
+            let plaintext = try JSONEncoder().encode(VaultData(entries: entries, categories: categories))
+            let vaultBlob = try CryptoStore.encrypt(plaintext, key: dek)
+            let env = VaultEnvelope(
+                pwSalt: pwSalt, pwWrappedKey: pwWrappedKey,
+                recSalt: recSalt, recWrappedKey: recWrappedKey,
+                vault: vaultBlob
+            )
+            return try VaultFile.encodeBackup(env)
+        } catch {
+            errorMessage = "バックアップの作成に失敗しました: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    /// PassMan バックアップから復元する。バックアップ作成時のマスターパスワードで
+    /// 復号を検証し、成功したら現在の vault.dat を退避してから置き換え、アンロック状態にする。
+    /// バックアップの DEK は現在の指紋バインディングと異なるため、指紋解除は無効化する。
+    @discardableResult
+    func restore(from data: Data, password: String) -> Bool {
+        do {
+            let env = try VaultFile.decodeBackup(data)
+            // バックアップ作成時のマスターパスワードで DEK をアンラップできるか検証する
+            let kek = CryptoStore.deriveKey(password: password, salt: env.pwSalt)
+            let dek = try CryptoStore.unwrapKey(env.pwWrappedKey, using: kek)
+
+            VaultFile.backupBeforeRestore()      // 上書き前に現在の vault を退避
+            try VaultFile.writeEnvelope(env)      // バックアップの内容を正規の vault.dat にする
+            BiometricStore.disable()              // 復元した DEK は旧指紋バインディングと不一致
+            biometricsEnabled = false
+
+            try loadVault(env: env, dek: dek)
+            state = .unlocked
+            errorMessage = nil
+            lastActivity = Date()
+            return true
+        } catch let error as CryptoError where error == .invalidFormat {
+            errorMessage = "PassMan のバックアップファイルではありません"
+            return false
+        } catch {
+            errorMessage = "パスワードが違うか、バックアップが壊れています"
+            return false
+        }
+    }
+
     // MARK: - Entries
 
     func addEntry(_ entry: Entry) {
@@ -379,6 +447,19 @@ final class VaultModel: ObservableObject {
 
     func addCategory(_ category: Category) {
         categories.append(category)
+        save()
+    }
+
+    /// カテゴリの名前・アイコンを更新する。エントリーは categoryID で紐づくので付け替え不要。
+    func updateCategory(_ category: Category) {
+        guard let idx = categories.firstIndex(where: { $0.id == category.id }) else { return }
+        categories[idx] = category
+        save()
+    }
+
+    /// サイドバーのドラッグ&ドロップによるカテゴリの並べ替えを保存する。
+    func moveCategories(from source: IndexSet, to destination: Int) {
+        categories.move(fromOffsets: source, toOffset: destination)
         save()
     }
 

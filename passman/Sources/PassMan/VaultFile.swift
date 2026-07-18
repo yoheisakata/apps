@@ -83,4 +83,47 @@ enum VaultFile {
         let backup = directoryURL.appendingPathComponent("vault.pmv1.bak")
         try? FileManager.default.removeItem(at: backup)
     }
+
+    // MARK: - 暗号化バックアップ (PassMan 専用形式 .passmanbackup)
+
+    /// バックアップファイルのマジック。PassMan 以外のアプリでは開けない独自コンテナにするための識別子。
+    /// 中身は vault.dat と同じ VaultEnvelope(エンベロープ暗号化済み JSON)なので、
+    /// マスターパスワードかリカバリーキーが無ければ復号できない。安全性はファイル形式ではなく
+    /// あくまで暗号(AES-256-GCM + PBKDF2)に依存する(Kerckhoffs の原則)。
+    ///   [8 bytes  ] マジック "PMBACKUP"
+    ///   [1 byte   ] バックアップ形式バージョン(=1)
+    ///   [N bytes  ] VaultEnvelope の JSON
+    static let backupMagic = Data("PMBACKUP".utf8)
+    static let backupVersion: UInt8 = 1
+    static let backupFileExtension = "passmanbackup"
+
+    /// 現在の暗号化エンベロープを PassMan 専用バックアップコンテナにエンコードする。
+    static func encodeBackup(_ env: VaultEnvelope) throws -> Data {
+        var data = backupMagic
+        data.append(backupVersion)
+        data.append(try JSONEncoder().encode(env))
+        return data
+    }
+
+    /// バックアップコンテナをデコードして VaultEnvelope を取り出す。
+    /// マジックが一致しなければ PassMan のバックアップではないので弾く。
+    static func decodeBackup(_ data: Data) throws -> VaultEnvelope {
+        let headerSize = backupMagic.count + 1
+        guard data.count > headerSize, data.prefix(backupMagic.count) == backupMagic else {
+            throw CryptoError.invalidFormat
+        }
+        guard data[data.startIndex + backupMagic.count] == backupVersion else {
+            throw CryptoError.invalidFormat
+        }
+        let body = data.subdata(in: (data.startIndex + headerSize)..<data.endIndex)
+        return try JSONDecoder().decode(VaultEnvelope.self, from: body)
+    }
+
+    /// 復元時に、現在の vault.dat を上書きする前の保険として退避する。
+    static func backupBeforeRestore() {
+        guard exists() else { return }
+        let backup = directoryURL.appendingPathComponent("vault.prerestore.bak")
+        try? FileManager.default.removeItem(at: backup)
+        try? FileManager.default.copyItem(at: fileURL, to: backup)
+    }
 }
