@@ -11,6 +11,8 @@ final class FinanceStore: ObservableObject {
     // 保有銘柄の現在株価(ティッカー -> 現在値)。取得できた分だけ入る。
     @Published var quotes: [String: QuoteService.Quote] = [:]
     @Published var quotesUpdated: Date?
+    // 銘柄ごとの株価推移(ティッカー -> 日次終値)。
+    @Published var priceHistory: [String: [QuoteService.PricePoint]] = [:]
 
     // computed で Keychain を毎回読むと、接続解除しても変更通知が飛ばず
     // ボタンの活性状態が更新されないため、@Published で持つ。
@@ -51,10 +53,17 @@ final class FinanceStore: ObservableObject {
         let symbols = Set(dashboard.holdingGroups.flatMap { $0.rows.map(\.symbol) })
             .filter { !$0.isEmpty }
         guard !symbols.isEmpty else { return }
-        let fetched = await QuoteService.fetchAll(symbols: Array(symbols))
-        guard !fetched.isEmpty else { return }
-        quotes.merge(fetched) { _, new in new }
-        quotesUpdated = Date()
+        async let fetchedQuotes = QuoteService.fetchAll(symbols: Array(symbols))
+        async let fetchedHistory = QuoteService.fetchAllHistory(symbols: Array(symbols))
+        let q = await fetchedQuotes
+        let h = await fetchedHistory
+        if !q.isEmpty {
+            quotes.merge(q) { _, new in new }
+            quotesUpdated = Date()
+        }
+        if !h.isEmpty {
+            priceHistory.merge(h) { _, new in new }
+        }
     }
 
     func connect(setupToken: String) async throws {

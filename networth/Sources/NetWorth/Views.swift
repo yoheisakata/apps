@@ -137,6 +137,11 @@ struct DashboardView: View {
 
                 DashboardTab {
                     StocksCard(d: d)
+                    if !store.priceHistory.isEmpty {
+                        StockHistoryCard(groups: d.holdingGroups,
+                                         quotes: store.quotes,
+                                         priceHistory: store.priceHistory)
+                    }
                     if !d.holdingGroups.isEmpty {
                         HoldingsCard(groups: d.holdingGroups,
                                      quotes: store.quotes,
@@ -313,6 +318,152 @@ struct StocksCard: View {
                 BalanceChart(points: Array(d.stocksPoints.suffix(365)), height: 150)
             }
         }
+    }
+}
+
+// 各銘柄の株価推移(過去3か月)。保有銘柄ごとにミニチャートを並べる。
+struct StockHistoryCard: View {
+    var groups: [Dashboard.HoldingGroup]
+    var quotes: [String: QuoteService.Quote]
+    var priceHistory: [String: [QuoteService.PricePoint]]
+    @State private var selectedRange = "3mo"
+    private let ranges = [("1mo", "1か月"), ("3mo", "3か月"), ("6mo", "6か月"), ("1y", "1年")]
+
+    private var symbols: [(symbol: String, name: String, shares: Double)] {
+        var seen = Set<String>()
+        var result: [(String, String, Double)] = []
+        for g in groups {
+            for r in g.rows where !r.symbol.isEmpty && priceHistory[r.symbol] != nil {
+                if seen.insert(r.symbol).inserted {
+                    result.append((r.symbol, r.name, r.shares))
+                }
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        Card(title: "銘柄別 株価推移") {
+            let syms = symbols
+            if syms.isEmpty {
+                Text("株価履歴を取得中…")
+                    .foregroundStyle(.secondary)
+            } else {
+                let columns = [GridItem(.flexible(), spacing: 16),
+                               GridItem(.flexible(), spacing: 16)]
+                LazyVGrid(columns: columns, spacing: 16) {
+                    ForEach(syms, id: \.symbol) { s in
+                        if let points = priceHistory[s.symbol], points.count >= 2 {
+                            StockMiniChart(symbol: s.symbol, name: s.name,
+                                           shares: s.shares,
+                                           points: points,
+                                           currentPrice: quotes[s.symbol]?.price)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct StockMiniChart: View {
+    var symbol: String
+    var name: String
+    var shares: Double
+    var points: [QuoteService.PricePoint]
+    var currentPrice: Double?
+    @State private var hoverDate: Date?
+
+    private var hoverPoint: QuoteService.PricePoint? {
+        guard let hoverDate else { return nil }
+        return points.min {
+            abs($0.date.timeIntervalSince(hoverDate)) < abs($1.date.timeIntervalSince(hoverDate))
+        }
+    }
+
+    private var change: Double {
+        guard let first = points.first?.close, let last = currentPrice ?? points.last?.close,
+              first > 0 else { return 0 }
+        return (last - first) / first
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(symbol).font(.callout.bold())
+                Spacer()
+                if let price = currentPrice ?? points.last?.close {
+                    Text(usd(price))
+                        .font(.callout.bold())
+                        .monospacedDigit()
+                }
+                Text(change.formatted(.percent.precision(.fractionLength(1)).sign(strategy: .always(includingZero: false))))
+                    .font(.caption.bold())
+                    .foregroundStyle(deltaColor(change))
+            }
+            if !name.isEmpty {
+                Text(name)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            let values = points.map(\.close)
+            let lo = values.min() ?? 0
+            let hi = values.max() ?? 1
+            let margin = max((hi - lo) * 0.08, 0.01)
+            let isUp = change >= 0
+            Chart {
+                ForEach(points) { p in
+                    AreaMark(x: .value("日付", p.date),
+                             yStart: .value("下限", lo - margin),
+                             yEnd: .value("株価", p.close))
+                        .foregroundStyle(
+                            .linearGradient(
+                                colors: [(isUp ? Color.green : Color.red).opacity(0.25), .clear],
+                                startPoint: .top, endPoint: .bottom))
+                    LineMark(x: .value("日付", p.date), y: .value("株価", p.close))
+                        .foregroundStyle(isUp ? Color.green : Color.red)
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                }
+                if let sel = hoverPoint {
+                    RuleMark(x: .value("日付", sel.date))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1))
+                        .annotation(position: .top, spacing: 2,
+                                    overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(sel.date.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                Text(usd(sel.close))
+                                    .font(.caption.bold())
+                                    .monospacedDigit()
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.background.secondary,
+                                        in: RoundedRectangle(cornerRadius: 4))
+                        }
+                    PointMark(x: .value("日付", sel.date), y: .value("株価", sel.close))
+                        .foregroundStyle(isUp ? Color.green : Color.red)
+                        .symbolSize(30)
+                }
+            }
+            .chartYScale(domain: (lo - margin)...(hi + margin))
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .chartXSelection(value: $hoverDate)
+            .frame(height: 100)
+
+            if shares > 0, let price = currentPrice ?? points.last?.close {
+                Text("保有: \(shares.formatted(.number.precision(.fractionLength(0...2))))株 → \(usd(shares * price))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
