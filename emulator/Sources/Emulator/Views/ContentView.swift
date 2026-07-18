@@ -1,7 +1,13 @@
 import SwiftUI
 
+enum AppTab: String, CaseIterable {
+    case library = "ライブラリ"
+    case romBrowser = "ROM"
+}
+
 struct ContentView: View {
     @EnvironmentObject var emulator: EmulatorViewModel
+    @State private var selectedTab: AppTab = .library
 
     var body: some View {
         Group {
@@ -18,10 +24,43 @@ struct ContentView: View {
                     controlsOverlay
                 }
             } else {
-                ROMBrowserView()
+                VStack(spacing: 0) {
+                    tabBar
+                    Divider()
+                    switch selectedTab {
+                    case .library:
+                        LibraryView()
+                    case .romBrowser:
+                        ROMBrowserView()
+                    }
+                }
             }
         }
-        .frame(minWidth: 512, minHeight: 480)
+        .frame(minWidth: 640, minHeight: 520)
+    }
+
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(AppTab.allCases, id: \.self) { tab in
+                Button(action: { selectedTab = tab }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: tab == .library ? "books.vertical.fill" : "folder.fill")
+                            .font(.caption)
+                        Text(tab.rawValue)
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(selectedTab == tab ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .foregroundStyle(selectedTab == tab ? Color.accentColor : .secondary)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 
     private var pauseOverlay: some View {
