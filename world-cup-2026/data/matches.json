@@ -1,1161 +1,4686 @@
 {
- "_note": "グループ72試合はWikipedia『2026 FIFA World Cup』各グループ記事から取得(2026-06-18時点)。result=null は未実施。ノックアウト32試合はFIFA公式ブラケット構造に基づくスロットラベル付き(ブラケット折り畳み順)。日付はUTC基準の概略。",
+ "_note": "全104試合の最終結果。グループ72試合+決勝T32試合。Wikipedia『2026 FIFA World Cup』各記事+openfootball worldcup.json から取得・統合(2026-07-19、決勝終了時点)。決勝(ESP 1-0 ARG、延長)はWikipedia/openfootballの反映待ちだったため手動で確定。",
+ "_asOf": "2026-07-19",
  "matches": [
   {
    "id": "M001",
    "stage": "group",
    "group": "A",
    "date": "2026-06-11",
+   "time": "01:00",
    "venue": "mex",
    "home": "MEX",
    "away": "RSA",
    "result": [
     2,
     0
-   ]
+   ],
+   "scorers1": [
+    "Quiñones",
+    "Jiménez"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Quiñones",
+     "minute": "9",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Jiménez",
+     "minute": "67",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M002",
    "stage": "group",
    "group": "A",
    "date": "2026-06-11",
+   "time": "08:00",
    "venue": "gdl",
    "home": "KOR",
    "away": "CZE",
    "result": [
     2,
     1
-   ]
+   ],
+   "scorers1": [
+    "Hwang In-beom",
+    "Oh Hyeon-gyu"
+   ],
+   "scorers2": [
+    "Krejčí"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Hwang In-beom",
+     "minute": "67",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Oh Hyeon-gyu",
+     "minute": "80",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Krejčí",
+     "minute": "59",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M003",
    "stage": "group",
    "group": "A",
    "date": "2026-06-18",
+   "time": "12:00",
    "venue": "atl",
    "home": "CZE",
    "away": "RSA",
    "result": [
     1,
     1
-   ]
+   ],
+   "scorers1": [
+    "Sadílek"
+   ],
+   "scorers2": [
+    "Mokoena"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Sadílek",
+     "minute": "6",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Mokoena",
+     "minute": "83",
+     "pen": true,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M004",
    "stage": "group",
    "group": "A",
    "date": "2026-06-18",
+   "time": "07:00",
    "venue": "gdl",
    "home": "MEX",
    "away": "KOR",
    "result": [
     1,
     0
-   ]
+   ],
+   "scorers1": [
+    "Romo"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Romo",
+     "minute": "50",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M005",
    "stage": "group",
    "group": "A",
    "date": "2026-06-24",
+   "time": "07:00",
    "venue": "mex",
    "home": "CZE",
    "away": "MEX",
-   "result": null
+   "result": [
+    0,
+    3
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "M. Chávez",
+    "Quiñones",
+    "Fidalgo"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "M. Chávez",
+     "minute": "55",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Quiñones",
+     "minute": "61",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Fidalgo",
+     "minute": "90+4",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M006",
    "stage": "group",
    "group": "A",
    "date": "2026-06-24",
+   "time": "07:00",
    "venue": "mty",
    "home": "RSA",
    "away": "KOR",
-   "result": null
+   "result": [
+    1,
+    0
+   ],
+   "scorers1": [
+    "Maseko"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Maseko",
+     "minute": "63",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M007",
    "stage": "group",
    "group": "B",
    "date": "2026-06-12",
+   "time": "03:00",
    "venue": "tor",
    "home": "CAN",
    "away": "BIH",
    "result": [
     1,
     1
-   ]
+   ],
+   "scorers1": [
+    "Larin"
+   ],
+   "scorers2": [
+    "Lukić"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Larin",
+     "minute": "78",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Lukić",
+     "minute": "21",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M008",
    "stage": "group",
    "group": "B",
    "date": "2026-06-13",
+   "time": "12:00",
    "venue": "sfo",
    "home": "QAT",
    "away": "SUI",
    "result": [
     1,
     1
-   ]
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Embolo"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Muheim",
+     "minute": "90+4",
+     "pen": false,
+     "og": true
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Embolo",
+     "minute": "17",
+     "pen": true,
+     "og": false
+    }
+   ],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M009",
    "stage": "group",
    "group": "B",
    "date": "2026-06-18",
+   "time": "12:00",
    "venue": "lax",
    "home": "SUI",
    "away": "BIH",
    "result": [
     4,
     1
-   ]
+   ],
+   "scorers1": [
+    "Manzambi",
+    "Manzambi",
+    "Vargas",
+    "Xhaka"
+   ],
+   "scorers2": [
+    "Mahmić"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Manzambi",
+     "minute": "74",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Manzambi",
+     "minute": "90",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Vargas",
+     "minute": "84",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Xhaka",
+     "minute": "90+7",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Mahmić",
+     "minute": "90+3",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M010",
    "stage": "group",
    "group": "B",
    "date": "2026-06-18",
+   "time": "03:00",
    "venue": "van",
    "home": "CAN",
    "away": "QAT",
    "result": [
     6,
     0
-   ]
+   ],
+   "scorers1": [
+    "Larin",
+    "J. David",
+    "J. David",
+    "J. David",
+    "Saliba",
+    "Manai"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Larin",
+     "minute": "16",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "J. David",
+     "minute": "29",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "J. David",
+     "minute": "45+3",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "J. David",
+     "minute": "90+2",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Saliba",
+     "minute": "64",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Manai",
+     "minute": "75",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M011",
    "stage": "group",
    "group": "B",
    "date": "2026-06-24",
+   "time": "12:00",
    "venue": "van",
    "home": "SUI",
    "away": "CAN",
-   "result": null
+   "result": [
+    2,
+    1
+   ],
+   "scorers1": [
+    "Vargas",
+    "Manzambi"
+   ],
+   "scorers2": [
+    "P. David"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Vargas",
+     "minute": "46",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Manzambi",
+     "minute": "57",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "P. David",
+     "minute": "76",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M012",
    "stage": "group",
    "group": "B",
    "date": "2026-06-24",
+   "time": "12:00",
    "venue": "sea",
    "home": "BIH",
    "away": "QAT",
-   "result": null
+   "result": [
+    3,
+    1
+   ],
+   "scorers1": [
+    "Alajbegović",
+    "Abunada",
+    "Mahmić"
+   ],
+   "scorers2": [
+    "Al-Haydos"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Alajbegović",
+     "minute": "29",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Abunada",
+     "minute": "34",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mahmić",
+     "minute": "80",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Al-Haydos",
+     "minute": "42",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M013",
    "stage": "group",
    "group": "C",
    "date": "2026-06-13",
+   "time": "06:00",
    "venue": "nyc",
    "home": "BRA",
    "away": "MAR",
    "result": [
     1,
     1
-   ]
+   ],
+   "scorers1": [
+    "Vinícius"
+   ],
+   "scorers2": [
+    "Saibari"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Vinícius",
+     "minute": "32",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Saibari",
+     "minute": "21",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M014",
    "stage": "group",
    "group": "C",
    "date": "2026-06-13",
+   "time": "09:00",
    "venue": "bos",
    "home": "HAI",
    "away": "SCO",
    "result": [
     0,
     1
-   ]
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "McGinn"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "McGinn",
+     "minute": "28",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M015",
    "stage": "group",
    "group": "C",
    "date": "2026-06-19",
+   "time": "06:00",
    "venue": "bos",
    "home": "SCO",
    "away": "MAR",
-   "result": null
+   "result": [
+    0,
+    1
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Saibari"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Saibari",
+     "minute": "2",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M016",
    "stage": "group",
    "group": "C",
    "date": "2026-06-19",
+   "time": "08:30",
    "venue": "phi",
    "home": "BRA",
    "away": "HAI",
-   "result": null
+   "result": [
+    3,
+    0
+   ],
+   "scorers1": [
+    "Cunha",
+    "Cunha",
+    "Vinícius"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Cunha",
+     "minute": "23",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Cunha",
+     "minute": "36",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Vinícius",
+     "minute": "45+3",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M017",
    "stage": "group",
    "group": "C",
    "date": "2026-06-24",
+   "time": "06:00",
    "venue": "mia",
    "home": "SCO",
    "away": "BRA",
-   "result": null
+   "result": [
+    0,
+    3
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Vinícius",
+    "Vinícius",
+    "Cunha"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Vinícius",
+     "minute": "7",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Vinícius",
+     "minute": "45+3",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Cunha",
+     "minute": "60",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M018",
    "stage": "group",
    "group": "C",
    "date": "2026-06-24",
+   "time": "06:00",
    "venue": "atl",
    "home": "MAR",
    "away": "HAI",
-   "result": null
+   "result": [
+    4,
+    2
+   ],
+   "scorers1": [
+    "Hakimi",
+    "Saibari",
+    "Rahimi",
+    "Yassine"
+   ],
+   "scorers2": [
+    "Bounou",
+    "Isidor"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Hakimi",
+     "minute": "39",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Saibari",
+     "minute": "45+1",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Rahimi",
+     "minute": "78",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Yassine",
+     "minute": "89",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Bounou",
+     "minute": "10",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Isidor",
+     "minute": "43",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 1
   },
   {
    "id": "M019",
    "stage": "group",
    "group": "D",
    "date": "2026-06-12",
+   "time": "06:00",
    "venue": "lax",
    "home": "USA",
    "away": "PAR",
    "result": [
     4,
     1
-   ]
+   ],
+   "scorers1": [
+    "Balogun",
+    "Balogun",
+    "Reyna"
+   ],
+   "scorers2": [
+    "Maurício"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Bobadilla",
+     "minute": "7",
+     "pen": false,
+     "og": true
+    },
+    {
+     "name": "Balogun",
+     "minute": "31",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Balogun",
+     "minute": "45+5",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Reyna",
+     "minute": "90+8",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Maurício",
+     "minute": "73",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M020",
    "stage": "group",
    "group": "D",
    "date": "2026-06-13",
+   "time": "09:00",
    "venue": "van",
    "home": "AUS",
    "away": "TUR",
    "result": [
     2,
     0
-   ]
+   ],
+   "scorers1": [
+    "Irankunda",
+    "Metcalfe"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Irankunda",
+     "minute": "27",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Metcalfe",
+     "minute": "75",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M021",
    "stage": "group",
    "group": "D",
    "date": "2026-06-19",
+   "time": "12:00",
    "venue": "sea",
    "home": "USA",
    "away": "AUS",
-   "result": null
+   "result": [
+    2,
+    0
+   ],
+   "scorers1": [
+    "Burgess",
+    "Freeman"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Burgess",
+     "minute": "11",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Freeman",
+     "minute": "43",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M022",
    "stage": "group",
    "group": "D",
    "date": "2026-06-19",
+   "time": "08:00",
    "venue": "sfo",
    "home": "TUR",
    "away": "PAR",
-   "result": null
+   "result": [
+    0,
+    1
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Galarza"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Galarza",
+     "minute": "2",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M023",
    "stage": "group",
    "group": "D",
    "date": "2026-06-25",
+   "time": "07:00",
    "venue": "lax",
    "home": "TUR",
    "away": "USA",
-   "result": null
+   "result": [
+    3,
+    2
+   ],
+   "scorers1": [
+    "Güler",
+    "Kökcü",
+    "Ayhan"
+   ],
+   "scorers2": [
+    "Trusty",
+    "Berhalter"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Güler",
+     "minute": "10",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Kökcü",
+     "minute": "31",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ayhan",
+     "minute": "90+8",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Trusty",
+     "minute": "3",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Berhalter",
+     "minute": "49",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M024",
    "stage": "group",
    "group": "D",
    "date": "2026-06-25",
+   "time": "07:00",
    "venue": "sfo",
    "home": "PAR",
    "away": "AUS",
-   "result": null
+   "result": [
+    0,
+    0
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M025",
    "stage": "group",
    "group": "E",
    "date": "2026-06-14",
+   "time": "12:00",
    "venue": "hou",
    "home": "GER",
    "away": "CUW",
    "result": [
     7,
     1
-   ]
+   ],
+   "scorers1": [
+    "Nmecha",
+    "Schlotterbeck",
+    "Havertz",
+    "Havertz",
+    "Musiala",
+    "Brown",
+    "Undav"
+   ],
+   "scorers2": [
+    "Comenencia"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Nmecha",
+     "minute": "6",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Schlotterbeck",
+     "minute": "38",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Havertz",
+     "minute": "45+5",
+     "pen": true,
+     "og": false
+    },
+    {
+     "name": "Havertz",
+     "minute": "88",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Musiala",
+     "minute": "47",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Brown",
+     "minute": "68",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Undav",
+     "minute": "78",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Comenencia",
+     "minute": "21",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M026",
    "stage": "group",
    "group": "E",
    "date": "2026-06-14",
+   "time": "07:00",
    "venue": "phi",
    "home": "CIV",
    "away": "ECU",
    "result": [
     1,
     0
-   ]
+   ],
+   "scorers1": [
+    "Diallo"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Diallo",
+     "minute": "90",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M027",
    "stage": "group",
    "group": "E",
    "date": "2026-06-20",
+   "time": "04:00",
    "venue": "tor",
    "home": "GER",
    "away": "CIV",
-   "result": null
+   "result": [
+    2,
+    1
+   ],
+   "scorers1": [
+    "Undav",
+    "Undav"
+   ],
+   "scorers2": [
+    "Kessié"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Undav",
+     "minute": "68",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Undav",
+     "minute": "90+4",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Kessié",
+     "minute": "30",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M028",
    "stage": "group",
    "group": "E",
    "date": "2026-06-20",
+   "time": "07:00",
    "venue": "kan",
    "home": "ECU",
    "away": "CUW",
-   "result": null
+   "result": [
+    0,
+    0
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M029",
    "stage": "group",
    "group": "E",
    "date": "2026-06-25",
+   "time": "04:00",
    "venue": "phi",
    "home": "CUW",
    "away": "CIV",
-   "result": null
+   "result": [
+    0,
+    2
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Pépé",
+    "Pépé"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Pépé",
+     "minute": "7",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Pépé",
+     "minute": "64",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M030",
    "stage": "group",
    "group": "E",
    "date": "2026-06-25",
+   "time": "04:00",
    "venue": "nyc",
    "home": "ECU",
    "away": "GER",
-   "result": null
+   "result": [
+    2,
+    1
+   ],
+   "scorers1": [
+    "Angulo",
+    "Plata"
+   ],
+   "scorers2": [
+    "Sané"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Angulo",
+     "minute": "9",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Plata",
+     "minute": "77",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Sané",
+     "minute": "2",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M031",
    "stage": "group",
    "group": "F",
    "date": "2026-06-14",
+   "time": "03:00",
    "venue": "dal",
    "home": "NED",
    "away": "JPN",
    "result": [
     2,
     2
-   ]
+   ],
+   "scorers1": [
+    "Van Dijk",
+    "Summerville"
+   ],
+   "scorers2": [
+    "Nakamura",
+    "Kamada"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Van Dijk",
+     "minute": "51",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Summerville",
+     "minute": "64",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Nakamura",
+     "minute": "57",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Kamada",
+     "minute": "88",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M032",
    "stage": "group",
    "group": "F",
    "date": "2026-06-14",
+   "time": "08:00",
    "venue": "mty",
    "home": "SWE",
    "away": "TUN",
    "result": [
     5,
     1
-   ]
+   ],
+   "scorers1": [
+    "Ayari",
+    "Ayari",
+    "Isak",
+    "Gyökeres",
+    "Svanberg"
+   ],
+   "scorers2": [
+    "Rekik"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Ayari",
+     "minute": "7",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ayari",
+     "minute": "90+6",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Isak",
+     "minute": "30",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Gyökeres",
+     "minute": "59",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Svanberg",
+     "minute": "84",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Rekik",
+     "minute": "43",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M033",
    "stage": "group",
    "group": "F",
    "date": "2026-06-20",
+   "time": "12:00",
    "venue": "hou",
    "home": "NED",
    "away": "SWE",
-   "result": null
+   "result": [
+    5,
+    1
+   ],
+   "scorers1": [
+    "Brobbey",
+    "Brobbey",
+    "Gakpo",
+    "Gakpo",
+    "Summerville"
+   ],
+   "scorers2": [
+    "Elanga"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Brobbey",
+     "minute": "5",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Brobbey",
+     "minute": "17",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Gakpo",
+     "minute": "47",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Gakpo",
+     "minute": "54",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Summerville",
+     "minute": "89",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Elanga",
+     "minute": "59",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M034",
    "stage": "group",
    "group": "F",
    "date": "2026-06-20",
+   "time": "10:00",
    "venue": "mty",
    "home": "TUN",
    "away": "JPN",
-   "result": null
+   "result": [
+    0,
+    4
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Kamada",
+    "Ueda",
+    "Ueda",
+    "J. Itō"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Kamada",
+     "minute": "4",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ueda",
+     "minute": "31",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ueda",
+     "minute": "83",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "J. Itō",
+     "minute": "69",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M035",
    "stage": "group",
    "group": "F",
    "date": "2026-06-25",
+   "time": "06:00",
    "venue": "dal",
    "home": "JPN",
    "away": "SWE",
-   "result": null
+   "result": [
+    1,
+    1
+   ],
+   "scorers1": [
+    "Maeda"
+   ],
+   "scorers2": [
+    "Elanga"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Maeda",
+     "minute": "56",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Elanga",
+     "minute": "62",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M036",
    "stage": "group",
    "group": "F",
    "date": "2026-06-25",
+   "time": "06:00",
    "venue": "kan",
    "home": "TUN",
    "away": "NED",
-   "result": null
+   "result": [
+    1,
+    3
+   ],
+   "scorers1": [
+    "Mastouri"
+   ],
+   "scorers2": [
+    "Skhiri",
+    "Brobbey",
+    "Van Hecke"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Mastouri",
+     "minute": "54",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Skhiri",
+     "minute": "3",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Brobbey",
+     "minute": "7",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Van Hecke",
+     "minute": "62",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 1
   },
   {
    "id": "M037",
    "stage": "group",
    "group": "G",
    "date": "2026-06-15",
+   "time": "12:00",
    "venue": "sea",
    "home": "BEL",
    "away": "EGY",
    "result": [
     1,
     1
-   ]
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Ashour"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Hany",
+     "minute": "66",
+     "pen": false,
+     "og": true
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Ashour",
+     "minute": "19",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M038",
    "stage": "group",
    "group": "G",
    "date": "2026-06-15",
+   "time": "06:00",
    "venue": "lax",
    "home": "IRN",
    "away": "NZL",
    "result": [
     2,
     2
-   ]
+   ],
+   "scorers1": [
+    "Rezaeian",
+    "Mohebi"
+   ],
+   "scorers2": [
+    "Just",
+    "Just"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Rezaeian",
+     "minute": "32",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mohebi",
+     "minute": "64",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Just",
+     "minute": "7",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Just",
+     "minute": "54",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M039",
    "stage": "group",
    "group": "G",
    "date": "2026-06-21",
+   "time": "12:00",
    "venue": "lax",
    "home": "BEL",
    "away": "IRN",
-   "result": null
+   "result": [
+    0,
+    0
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M040",
    "stage": "group",
    "group": "G",
    "date": "2026-06-21",
+   "time": "06:00",
    "venue": "van",
    "home": "NZL",
    "away": "EGY",
-   "result": null
+   "result": [
+    1,
+    3
+   ],
+   "scorers1": [
+    "Surman"
+   ],
+   "scorers2": [
+    "Ziko",
+    "Salah",
+    "Trézéguet"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Surman",
+     "minute": "15",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Ziko",
+     "minute": "58",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Salah",
+     "minute": "67",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Trézéguet",
+     "minute": "82",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M041",
    "stage": "group",
    "group": "G",
    "date": "2026-06-26",
+   "time": "08:00",
    "venue": "sea",
    "home": "EGY",
    "away": "IRN",
-   "result": null
+   "result": [
+    1,
+    1
+   ],
+   "scorers1": [
+    "Saber"
+   ],
+   "scorers2": [
+    "Rezaeian"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Saber",
+     "minute": "5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Rezaeian",
+     "minute": "14",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M042",
    "stage": "group",
    "group": "G",
    "date": "2026-06-26",
+   "time": "08:00",
    "venue": "van",
    "home": "NZL",
    "away": "BEL",
-   "result": null
+   "result": [
+    1,
+    5
+   ],
+   "scorers1": [
+    "Just"
+   ],
+   "scorers2": [
+    "Trossard",
+    "Trossard",
+    "De Bruyne",
+    "Lukaku",
+    "Saelemaekers"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Just",
+     "minute": "84",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Trossard",
+     "minute": "28",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Trossard",
+     "minute": "50",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "De Bruyne",
+     "minute": "66",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Lukaku",
+     "minute": "86",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Saelemaekers",
+     "minute": "90+4",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M043",
    "stage": "group",
    "group": "H",
    "date": "2026-06-15",
+   "time": "12:00",
    "venue": "atl",
    "home": "ESP",
    "away": "CPV",
    "result": [
     0,
     0
-   ]
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M044",
    "stage": "group",
    "group": "H",
    "date": "2026-06-15",
+   "time": "06:00",
    "venue": "mia",
    "home": "KSA",
    "away": "URU",
    "result": [
     1,
     1
-   ]
+   ],
+   "scorers1": [
+    "Al-Amri"
+   ],
+   "scorers2": [
+    "M. Araújo"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Al-Amri",
+     "minute": "41",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "M. Araújo",
+     "minute": "80",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M045",
    "stage": "group",
    "group": "H",
    "date": "2026-06-21",
+   "time": "12:00",
    "venue": "atl",
    "home": "ESP",
    "away": "KSA",
-   "result": null
+   "result": [
+    4,
+    0
+   ],
+   "scorers1": [
+    "Yamal",
+    "Oyarzabal",
+    "Oyarzabal",
+    "Al-Tambakti"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Yamal",
+     "minute": "10",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Oyarzabal",
+     "minute": "21",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Oyarzabal",
+     "minute": "24",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Al-Tambakti",
+     "minute": "49",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M046",
    "stage": "group",
    "group": "H",
    "date": "2026-06-21",
+   "time": "06:00",
    "venue": "mia",
    "home": "URU",
    "away": "CPV",
-   "result": null
+   "result": [
+    2,
+    2
+   ],
+   "scorers1": [
+    "M. Araújo",
+    "Canobbio"
+   ],
+   "scorers2": [
+    "K. Pina",
+    "Varela"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "M. Araújo",
+     "minute": "44",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Canobbio",
+     "minute": "45+6",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "K. Pina",
+     "minute": "21",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Varela",
+     "minute": "61",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M047",
    "stage": "group",
    "group": "H",
    "date": "2026-06-26",
+   "time": "07:00",
    "venue": "hou",
    "home": "CPV",
    "away": "KSA",
-   "result": null
+   "result": [
+    0,
+    0
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M048",
    "stage": "group",
    "group": "H",
    "date": "2026-06-26",
+   "time": "06:00",
    "venue": "gdl",
    "home": "URU",
    "away": "ESP",
-   "result": null
+   "result": [
+    0,
+    1
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Baena"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Baena",
+     "minute": "42",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M049",
    "stage": "group",
    "group": "I",
    "date": "2026-06-16",
+   "time": "03:00",
    "venue": "nyc",
    "home": "FRA",
    "away": "SEN",
    "result": [
     3,
     1
-   ]
+   ],
+   "scorers1": [
+    "Mbappé",
+    "Mbappé",
+    "Barcola"
+   ],
+   "scorers2": [
+    "Mbaye"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Mbappé",
+     "minute": "66",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mbappé",
+     "minute": "90+6",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Barcola",
+     "minute": "82",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Mbaye",
+     "minute": "90+5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M050",
    "stage": "group",
    "group": "I",
    "date": "2026-06-16",
+   "time": "06:00",
    "venue": "bos",
    "home": "IRQ",
    "away": "NOR",
    "result": [
     1,
     4
-   ]
+   ],
+   "scorers1": [
+    "Hussein"
+   ],
+   "scorers2": [
+    "Haaland",
+    "Haaland",
+    "Østigård"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Hussein",
+     "minute": "39",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Haaland",
+     "minute": "29",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Haaland",
+     "minute": "43",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Østigård",
+     "minute": "76",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Hussein",
+     "minute": "90+6",
+     "pen": false,
+     "og": true
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 1
   },
   {
    "id": "M051",
    "stage": "group",
    "group": "I",
    "date": "2026-06-22",
+   "time": "05:00",
    "venue": "phi",
    "home": "FRA",
    "away": "IRQ",
-   "result": null
+   "result": [
+    3,
+    0
+   ],
+   "scorers1": [
+    "Mbappé",
+    "Mbappé",
+    "Dembélé"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Mbappé",
+     "minute": "14",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mbappé",
+     "minute": "54",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Dembélé",
+     "minute": "66",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M052",
    "stage": "group",
    "group": "I",
    "date": "2026-06-22",
+   "time": "08:00",
    "venue": "nyc",
    "home": "NOR",
    "away": "SEN",
-   "result": null
+   "result": [
+    3,
+    2
+   ],
+   "scorers1": [
+    "Pedersen",
+    "Haaland",
+    "Haaland"
+   ],
+   "scorers2": [
+    "I. Sarr",
+    "I. Sarr"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Pedersen",
+     "minute": "43",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Haaland",
+     "minute": "48",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Haaland",
+     "minute": "58",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "I. Sarr",
+     "minute": "53",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "I. Sarr",
+     "minute": "90+3",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M053",
    "stage": "group",
    "group": "I",
    "date": "2026-06-26",
+   "time": "03:00",
    "venue": "bos",
    "home": "NOR",
    "away": "FRA",
-   "result": null
+   "result": [
+    1,
+    4
+   ],
+   "scorers1": [
+    "Aasgaard"
+   ],
+   "scorers2": [
+    "Dembélé",
+    "Dembélé",
+    "Dembélé",
+    "Doué"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Aasgaard",
+     "minute": "21",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Dembélé",
+     "minute": "7",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Dembélé",
+     "minute": "20",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Dembélé",
+     "minute": "32",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Doué",
+     "minute": "90+4",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M054",
    "stage": "group",
    "group": "I",
    "date": "2026-06-26",
+   "time": "03:00",
    "venue": "tor",
    "home": "SEN",
    "away": "IRQ",
-   "result": null
+   "result": [
+    5,
+    0
+   ],
+   "scorers1": [
+    "Diarra",
+    "I. Sarr",
+    "P. Gueye",
+    "P. Gueye",
+    "I. Ndiaye"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Diarra",
+     "minute": "4",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "I. Sarr",
+     "minute": "56",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "P. Gueye",
+     "minute": "59",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "P. Gueye",
+     "minute": "71",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "I. Ndiaye",
+     "minute": "82",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M055",
    "stage": "group",
    "group": "J",
    "date": "2026-06-16",
+   "time": "08:00",
    "venue": "kan",
    "home": "ARG",
    "away": "ALG",
    "result": [
     3,
     0
-   ]
+   ],
+   "scorers1": [
+    "Messi",
+    "Messi",
+    "Messi"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Messi",
+     "minute": "17",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Messi",
+     "minute": "60",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Messi",
+     "minute": "76",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M056",
    "stage": "group",
    "group": "J",
    "date": "2026-06-16",
+   "time": "09:00",
    "venue": "sfo",
    "home": "AUT",
    "away": "JOR",
    "result": [
     3,
     1
-   ]
+   ],
+   "scorers1": [
+    "Schmid",
+    "Arnautović"
+   ],
+   "scorers2": [
+    "Olwan"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Schmid",
+     "minute": "20",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Al-Arab",
+     "minute": "76",
+     "pen": false,
+     "og": true
+    },
+    {
+     "name": "Arnautović",
+     "minute": "90+12",
+     "pen": true,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Olwan",
+     "minute": "50",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M057",
    "stage": "group",
    "group": "J",
    "date": "2026-06-22",
+   "time": "12:00",
    "venue": "dal",
    "home": "ARG",
    "away": "AUT",
-   "result": null
+   "result": [
+    2,
+    0
+   ],
+   "scorers1": [
+    "Messi",
+    "Messi"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Messi",
+     "minute": "38",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Messi",
+     "minute": "90+5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M058",
    "stage": "group",
    "group": "J",
    "date": "2026-06-22",
+   "time": "08:00",
    "venue": "sfo",
    "home": "JOR",
    "away": "ALG",
-   "result": null
+   "result": [
+    1,
+    2
+   ],
+   "scorers1": [
+    "Al-Rashdan"
+   ],
+   "scorers2": [
+    "Benbouali",
+    "Gouiri"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Al-Rashdan",
+     "minute": "36",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Benbouali",
+     "minute": "69",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Gouiri",
+     "minute": "82",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M059",
    "stage": "group",
    "group": "J",
    "date": "2026-06-27",
+   "time": "09:00",
    "venue": "kan",
    "home": "ALG",
    "away": "AUT",
-   "result": null
+   "result": [
+    3,
+    3
+   ],
+   "scorers1": [
+    "Belghali",
+    "Mahrez",
+    "Mahrez"
+   ],
+   "scorers2": [
+    "Arnautović",
+    "Sabitzer",
+    "Kalajdžić"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Belghali",
+     "minute": "45",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mahrez",
+     "minute": "60",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mahrez",
+     "minute": "90+3",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Arnautović",
+     "minute": "28",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Sabitzer",
+     "minute": "55",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Kalajdžić",
+     "minute": "90+6",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M060",
    "stage": "group",
    "group": "J",
    "date": "2026-06-27",
+   "time": "09:00",
    "venue": "dal",
    "home": "JOR",
    "away": "ARG",
-   "result": null
+   "result": [
+    1,
+    3
+   ],
+   "scorers1": [
+    "Al-Taamari"
+   ],
+   "scorers2": [
+    "Lo Celso",
+    "La. Martínez",
+    "Messi"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Al-Taamari",
+     "minute": "55",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Lo Celso",
+     "minute": "19",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "La. Martínez",
+     "minute": "31",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Messi",
+     "minute": "80",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M061",
    "stage": "group",
    "group": "K",
    "date": "2026-06-17",
+   "time": "12:00",
    "venue": "hou",
    "home": "POR",
    "away": "COD",
    "result": [
     1,
     1
-   ]
+   ],
+   "scorers1": [
+    "J. Neves"
+   ],
+   "scorers2": [
+    "Wissa"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "J. Neves",
+     "minute": "6",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Wissa",
+     "minute": "45+5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M062",
    "stage": "group",
    "group": "K",
    "date": "2026-06-17",
+   "time": "08:00",
    "venue": "mex",
    "home": "UZB",
    "away": "COL",
    "result": [
     1,
     3
-   ]
+   ],
+   "scorers1": [
+    "Fayzullaev"
+   ],
+   "scorers2": [
+    "Muñoz",
+    "Díaz",
+    "Campaz"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Fayzullaev",
+     "minute": "60",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Muñoz",
+     "minute": "40",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Díaz",
+     "minute": "65",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Campaz",
+     "minute": "90+9",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M063",
    "stage": "group",
    "group": "K",
    "date": "2026-06-23",
+   "time": "12:00",
    "venue": "hou",
    "home": "POR",
    "away": "UZB",
-   "result": null
+   "result": [
+    5,
+    0
+   ],
+   "scorers1": [
+    "Ronaldo",
+    "Ronaldo",
+    "Mendes",
+    "Leão"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Ronaldo",
+     "minute": "6",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ronaldo",
+     "minute": "39",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mendes",
+     "minute": "17",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Nematov",
+     "minute": "60",
+     "pen": false,
+     "og": true
+    },
+    {
+     "name": "Leão",
+     "minute": "87",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 1,
+   "ownGoals2": 0
   },
   {
    "id": "M064",
    "stage": "group",
    "group": "K",
    "date": "2026-06-23",
+   "time": "08:00",
    "venue": "gdl",
    "home": "COL",
    "away": "COD",
-   "result": null
+   "result": [
+    1,
+    0
+   ],
+   "scorers1": [
+    "Muñoz"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Muñoz",
+     "minute": "76",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M065",
    "stage": "group",
    "group": "K",
    "date": "2026-06-27",
+   "time": "07:30",
    "venue": "mia",
    "home": "COL",
    "away": "POR",
-   "result": null
+   "result": [
+    0,
+    0
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M066",
    "stage": "group",
    "group": "K",
    "date": "2026-06-27",
+   "time": "07:30",
    "venue": "atl",
    "home": "COD",
    "away": "UZB",
-   "result": null
+   "result": [
+    3,
+    1
+   ],
+   "scorers1": [
+    "Wissa",
+    "Wissa",
+    "Mayele"
+   ],
+   "scorers2": [
+    "Shomurodov"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Wissa",
+     "minute": "68",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Wissa",
+     "minute": "90+1",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mayele",
+     "minute": "78",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Shomurodov",
+     "minute": "10",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M067",
    "stage": "group",
    "group": "L",
    "date": "2026-06-17",
+   "time": "03:00",
    "venue": "dal",
    "home": "ENG",
    "away": "CRO",
    "result": [
     4,
     2
-   ]
+   ],
+   "scorers1": [
+    "Kane",
+    "Kane",
+    "Bellingham",
+    "Rashford"
+   ],
+   "scorers2": [
+    "Baturina",
+    "Musa"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Kane",
+     "minute": "12",
+     "pen": true,
+     "og": false
+    },
+    {
+     "name": "Kane",
+     "minute": "42",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Bellingham",
+     "minute": "47",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Rashford",
+     "minute": "85",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Baturina",
+     "minute": "36",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Musa",
+     "minute": "45+5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M068",
    "stage": "group",
    "group": "L",
    "date": "2026-06-17",
+   "time": "07:00",
    "venue": "tor",
    "home": "GHA",
    "away": "PAN",
    "result": [
     1,
     0
-   ]
+   ],
+   "scorers1": [
+    "Yirenkyi"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Yirenkyi",
+     "minute": "90+5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M069",
    "stage": "group",
    "group": "L",
    "date": "2026-06-23",
+   "time": "04:00",
    "venue": "bos",
    "home": "ENG",
    "away": "GHA",
-   "result": null
+   "result": [
+    0,
+    0
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M070",
    "stage": "group",
    "group": "L",
    "date": "2026-06-23",
+   "time": "07:00",
    "venue": "tor",
    "home": "PAN",
    "away": "CRO",
-   "result": null
+   "result": [
+    0,
+    1
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Budimir"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Budimir",
+     "minute": "54",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M071",
    "stage": "group",
    "group": "L",
    "date": "2026-06-27",
+   "time": "05:00",
    "venue": "nyc",
    "home": "PAN",
    "away": "ENG",
-   "result": null
+   "result": [
+    0,
+    2
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Bellingham",
+    "Kane"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Bellingham",
+     "minute": "62",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Kane",
+     "minute": "67",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M072",
    "stage": "group",
    "group": "L",
    "date": "2026-06-27",
+   "time": "05:00",
    "venue": "phi",
    "home": "CRO",
    "away": "GHA",
-   "result": null
+   "result": [
+    2,
+    1
+   ],
+   "scorers1": [
+    "P. Sučić",
+    "Vlašić"
+   ],
+   "scorers2": [
+    "Luckassen"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "P. Sučić",
+     "minute": "31",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Vlašić",
+     "minute": "83",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Luckassen",
+     "minute": "73",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M073",
    "stage": "r32",
-   "slot": 1,
+   "matchNo": 73,
    "date": "2026-06-28",
+   "time": "12:00",
    "venue": "lax",
-   "home": null,
-   "away": null,
-   "homeLabel": "Runner-up Group A",
-   "awayLabel": "Runner-up Group B",
-   "result": null
+   "home": "RSA",
+   "away": "CAN",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    0,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [],
+   "scorers2": [
+    "Eustáquio"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Eustáquio",
+     "minute": "90+2",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M074",
    "stage": "r32",
-   "slot": 2,
+   "matchNo": 76,
    "date": "2026-06-29",
-   "venue": "mty",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group F",
-   "awayLabel": "Runner-up Group C",
-   "result": null
+   "time": "12:00",
+   "venue": "hou",
+   "home": "BRA",
+   "away": "JPN",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Casemiro",
+    "Martinelli"
+   ],
+   "scorers2": [
+    "Sano"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Casemiro",
+     "minute": "56",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Martinelli",
+     "minute": "90+5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Sano",
+     "minute": "29",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M075",
    "stage": "r32",
-   "slot": 3,
+   "matchNo": 74,
    "date": "2026-06-29",
+   "time": "04:30",
    "venue": "bos",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group E",
-   "awayLabel": "3rd Group A/B/C/D/F",
-   "result": null
+   "home": "GER",
+   "away": "PAR",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    1
+   ],
+   "penalties": [
+    3,
+    4
+   ],
+   "scorers1": [
+    "Havertz"
+   ],
+   "scorers2": [
+    "Enciso"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Havertz",
+     "minute": "54",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Enciso",
+     "minute": "42",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0,
+   "extraTime": [
+    1,
+    1
+   ]
   },
   {
    "id": "M076",
    "stage": "r32",
-   "slot": 4,
-   "date": "2026-06-30",
-   "venue": "nyc",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group I",
-   "awayLabel": "3rd Group C/D/F/G/H",
-   "result": null
+   "matchNo": 75,
+   "date": "2026-06-29",
+   "time": "07:00",
+   "venue": "mty",
+   "home": "NED",
+   "away": "MAR",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    1
+   ],
+   "penalties": [
+    2,
+    3
+   ],
+   "scorers1": [
+    "Gakpo"
+   ],
+   "scorers2": [
+    "Diop"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Gakpo",
+     "minute": "72",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Diop",
+     "minute": "90+1",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0,
+   "extraTime": [
+    1,
+    1
+   ]
   },
   {
    "id": "M077",
    "stage": "r32",
-   "slot": 5,
-   "date": "2026-06-29",
-   "venue": "hou",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group C",
-   "awayLabel": "Runner-up Group F",
-   "result": null
+   "matchNo": 78,
+   "date": "2026-06-30",
+   "time": "12:00",
+   "venue": "dal",
+   "home": "CIV",
+   "away": "NOR",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Diallo"
+   ],
+   "scorers2": [
+    "Nusa",
+    "Haaland"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Diallo",
+     "minute": "74",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Nusa",
+     "minute": "39",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Haaland",
+     "minute": "86",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M078",
    "stage": "r32",
-   "slot": 6,
+   "matchNo": 77,
    "date": "2026-06-30",
-   "venue": "dal",
-   "home": null,
-   "away": null,
-   "homeLabel": "Runner-up Group E",
-   "awayLabel": "Runner-up Group I",
-   "result": null
+   "time": "05:00",
+   "venue": "nyc",
+   "home": "FRA",
+   "away": "SWE",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    3,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Mbappé",
+    "Mbappé",
+    "Barcola"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Mbappé",
+     "minute": "45",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mbappé",
+     "minute": "74",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Barcola",
+     "minute": "53",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M079",
    "stage": "r32",
-   "slot": 7,
-   "date": "2026-07-01",
+   "matchNo": 79,
+   "date": "2026-06-30",
+   "time": "08:00",
    "venue": "mex",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group A",
-   "awayLabel": "3rd Group C/E/F/H/I",
-   "result": null
+   "home": "MEX",
+   "away": "ECU",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Quiñones",
+    "Jiménez"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Quiñones",
+     "minute": "22",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Jiménez",
+     "minute": "31",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M080",
    "stage": "r32",
-   "slot": 8,
+   "matchNo": 80,
    "date": "2026-07-01",
+   "time": "12:00",
    "venue": "atl",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group L",
-   "awayLabel": "3rd Group E/H/I/J/K",
-   "result": null
+   "home": "ENG",
+   "away": "COD",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Kane",
+    "Kane"
+   ],
+   "scorers2": [
+    "Cipenga"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Kane",
+     "minute": "75",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Kane",
+     "minute": "86",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Cipenga",
+     "minute": "7",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M081",
    "stage": "r32",
-   "slot": 9,
-   "date": "2026-07-02",
-   "venue": "sfo",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group D",
-   "awayLabel": "3rd Group B/E/F/I/J",
-   "result": null
+   "matchNo": 82,
+   "date": "2026-07-01",
+   "time": "01:00",
+   "venue": "sea",
+   "home": "BEL",
+   "away": "SEN",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    3,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Lukaku",
+    "Tielemans",
+    "Tielemans"
+   ],
+   "scorers2": [
+    "Diarra",
+    "I. Sarr"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Lukaku",
+     "minute": "86",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Tielemans",
+     "minute": "89",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Tielemans",
+     "minute": "120+5",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Diarra",
+     "minute": "25",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "I. Sarr",
+     "minute": "51",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0,
+   "extraTime": [
+    3,
+    2
+   ]
   },
   {
    "id": "M082",
    "stage": "r32",
-   "slot": 10,
+   "matchNo": 81,
    "date": "2026-07-01",
-   "venue": "sea",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group G",
-   "awayLabel": "3rd Group A/E/H/I/J",
-   "result": null
+   "time": "05:00",
+   "venue": "sfo",
+   "home": "USA",
+   "away": "BIH",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Balogun",
+    "Tillman"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Balogun",
+     "minute": "45",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Tillman",
+     "minute": "82",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M083",
    "stage": "r32",
-   "slot": 11,
+   "matchNo": 84,
    "date": "2026-07-02",
-   "venue": "tor",
-   "home": null,
-   "away": null,
-   "homeLabel": "Runner-up Group K",
-   "awayLabel": "Runner-up Group L",
-   "result": null
+   "time": "12:00",
+   "venue": "lax",
+   "home": "ESP",
+   "away": "AUT",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    3,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Oyarzabal",
+    "Oyarzabal",
+    "Porro"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Oyarzabal",
+     "minute": "36",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Oyarzabal",
+     "minute": "89",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Porro",
+     "minute": "66",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M084",
    "stage": "r32",
-   "slot": 12,
+   "matchNo": 83,
    "date": "2026-07-02",
-   "venue": "lax",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group H",
-   "awayLabel": "Runner-up Group J",
-   "result": null
+   "time": "07:00",
+   "venue": "tor",
+   "home": "POR",
+   "away": "CRO",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Ronaldo",
+    "Ramos"
+   ],
+   "scorers2": [
+    "Perišić"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Ronaldo",
+     "minute": "68",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ramos",
+     "minute": "90+4",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Perišić",
+     "minute": "53",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M085",
    "stage": "r32",
-   "slot": 13,
+   "matchNo": 85,
    "date": "2026-07-02",
+   "time": "08:00",
    "venue": "van",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group B",
-   "awayLabel": "3rd Group E/F/G/I/J",
-   "result": null
+   "home": "SUI",
+   "away": "ALG",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Embolo",
+    "Ndoye"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Embolo",
+     "minute": "10",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ndoye",
+     "minute": "46",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M086",
    "stage": "r32",
-   "slot": 14,
+   "matchNo": 88,
    "date": "2026-07-03",
-   "venue": "mia",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group J",
-   "awayLabel": "Runner-up Group H",
-   "result": null
+   "time": "01:00",
+   "venue": "dal",
+   "home": "AUS",
+   "away": "EGY",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    1
+   ],
+   "penalties": [
+    2,
+    4
+   ],
+   "scorers1": [],
+   "scorers2": [
+    "Ashour"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Hany",
+     "minute": "55",
+     "pen": false,
+     "og": true
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Ashour",
+     "minute": "13",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 1,
+   "ownGoals2": 0,
+   "extraTime": [
+    1,
+    1
+   ]
   },
   {
    "id": "M087",
    "stage": "r32",
-   "slot": 15,
+   "matchNo": 86,
    "date": "2026-07-03",
-   "venue": "kan",
-   "home": null,
-   "away": null,
-   "homeLabel": "Winner Group K",
-   "awayLabel": "3rd Group D/E/I/J/L",
-   "result": null
+   "time": "06:00",
+   "venue": "mia",
+   "home": "ARG",
+   "away": "CPV",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    3,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Messi",
+    "Li. Martínez"
+   ],
+   "scorers2": [
+    "D. Duarte",
+    "Lopes Cabral"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Messi",
+     "minute": "29",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Li. Martínez",
+     "minute": "92",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Diney",
+     "minute": "111",
+     "pen": false,
+     "og": true
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "D. Duarte",
+     "minute": "59",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Lopes Cabral",
+     "minute": "103",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 1,
+   "ownGoals2": 0,
+   "extraTime": [
+    3,
+    2
+   ]
   },
   {
    "id": "M088",
    "stage": "r32",
-   "slot": 16,
+   "matchNo": 87,
    "date": "2026-07-03",
-   "venue": "dal",
-   "home": null,
-   "away": null,
-   "homeLabel": "Runner-up Group D",
-   "awayLabel": "Runner-up Group G",
-   "result": null
+   "time": "08:30",
+   "venue": "kan",
+   "home": "COL",
+   "away": "GHA",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "J. Arias"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "J. Arias",
+     "minute": "14",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M089",
    "stage": "r16",
-   "slot": 1,
+   "matchNo": 90,
    "date": "2026-07-04",
+   "time": "12:00",
    "venue": "hou",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "CAN",
+   "away": "MAR",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    0,
+    3
+   ],
+   "penalties": null,
+   "scorers1": [],
+   "scorers2": [
+    "Ounahi",
+    "Ounahi",
+    "Rahimi"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Ounahi",
+     "minute": "50",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ounahi",
+     "minute": "82",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Rahimi",
+     "minute": "90+8",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M090",
    "stage": "r16",
-   "slot": 2,
+   "matchNo": 89,
    "date": "2026-07-04",
+   "time": "05:00",
    "venue": "phi",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "PAR",
+   "away": "FRA",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    0,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [],
+   "scorers2": [
+    "Mbappé"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Mbappé",
+     "minute": "70",
+     "pen": true,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M091",
    "stage": "r16",
-   "slot": 3,
+   "matchNo": 91,
    "date": "2026-07-05",
+   "time": "04:00",
    "venue": "nyc",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "BRA",
+   "away": "NOR",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Neymar"
+   ],
+   "scorers2": [
+    "Haaland",
+    "Haaland"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Neymar",
+     "minute": "90+10",
+     "pen": true,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Haaland",
+     "minute": "79",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Haaland",
+     "minute": "90",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M092",
    "stage": "r16",
-   "slot": 4,
+   "matchNo": 92,
    "date": "2026-07-05",
+   "time": "07:00",
    "venue": "mex",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "MEX",
+   "away": "ENG",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    3
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Quiñones",
+    "Jiménez"
+   ],
+   "scorers2": [
+    "Bellingham",
+    "Bellingham",
+    "Kane"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Quiñones",
+     "minute": "42",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Jiménez",
+     "minute": "69",
+     "pen": true,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Bellingham",
+     "minute": "36",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Bellingham",
+     "minute": "38",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Kane",
+     "minute": "60",
+     "pen": true,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M093",
    "stage": "r16",
-   "slot": 5,
+   "matchNo": 93,
    "date": "2026-07-06",
-   "venue": "sea",
-   "home": null,
-   "away": null,
-   "result": null
+   "time": "02:00",
+   "venue": "dal",
+   "home": "POR",
+   "away": "ESP",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    0,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [],
+   "scorers2": [
+    "Merino"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Merino",
+     "minute": "90+1",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M094",
    "stage": "r16",
-   "slot": 6,
+   "matchNo": 94,
    "date": "2026-07-06",
-   "venue": "dal",
-   "home": null,
-   "away": null,
-   "result": null
+   "time": "05:00",
+   "venue": "sea",
+   "home": "USA",
+   "away": "BEL",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    4
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Tillman"
+   ],
+   "scorers2": [
+    "De Ketelaere",
+    "De Ketelaere",
+    "Vanaken",
+    "Lukaku"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Tillman",
+     "minute": "31",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "De Ketelaere",
+     "minute": "9",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "De Ketelaere",
+     "minute": "33",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Vanaken",
+     "minute": "57",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Lukaku",
+     "minute": "90+3",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M095",
    "stage": "r16",
-   "slot": 7,
+   "matchNo": 95,
    "date": "2026-07-07",
-   "venue": "lax",
-   "home": null,
-   "away": null,
-   "result": null
+   "time": "12:00",
+   "venue": "atl",
+   "home": "ARG",
+   "away": "EGY",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    3,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Romero",
+    "Messi",
+    "Fernández"
+   ],
+   "scorers2": [
+    "Ibrahim",
+    "Ziko"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Romero",
+     "minute": "79",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Messi",
+     "minute": "83",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Fernández",
+     "minute": "90+2",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Ibrahim",
+     "minute": "15",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Ziko",
+     "minute": "67",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M096",
    "stage": "r16",
-   "slot": 8,
+   "matchNo": 96,
    "date": "2026-07-07",
-   "venue": "atl",
-   "home": null,
-   "away": null,
-   "result": null
+   "time": "01:00",
+   "venue": "van",
+   "home": "SUI",
+   "away": "COL",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    0,
+    0
+   ],
+   "penalties": [
+    4,
+    3
+   ],
+   "scorers1": [],
+   "scorers2": [],
+   "scorerDetails1": [],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0,
+   "extraTime": [
+    0,
+    0
+   ]
   },
   {
    "id": "M097",
    "stage": "qf",
-   "slot": 1,
+   "matchNo": 97,
    "date": "2026-07-09",
-   "venue": null,
-   "home": null,
-   "away": null,
-   "result": null
+   "time": "04:00",
+   "venue": "bos",
+   "home": "FRA",
+   "away": "MAR",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Mbappé",
+    "Dembélé"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Mbappé",
+     "minute": "60",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Dembélé",
+     "minute": "66",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M098",
    "stage": "qf",
-   "slot": 2,
-   "date": "2026-07-09",
-   "venue": null,
-   "home": null,
-   "away": null,
-   "result": null
+   "matchNo": 98,
+   "date": "2026-07-10",
+   "time": "12:00",
+   "venue": "lax",
+   "home": "ESP",
+   "away": "BEL",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    2,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Fabián",
+    "Merino"
+   ],
+   "scorers2": [
+    "De Ketelaere"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Fabián",
+     "minute": "30",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Merino",
+     "minute": "88",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "De Ketelaere",
+     "minute": "41",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M099",
    "stage": "qf",
-   "slot": 3,
-   "date": "2026-07-10",
-   "venue": null,
-   "home": null,
-   "away": null,
-   "result": null
+   "matchNo": 99,
+   "date": "2026-07-11",
+   "time": "05:00",
+   "venue": "mia",
+   "home": "NOR",
+   "away": "ENG",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Schjelderup"
+   ],
+   "scorers2": [
+    "Bellingham",
+    "Bellingham"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Schjelderup",
+     "minute": "36",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Bellingham",
+     "minute": "45+2",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Bellingham",
+     "minute": "93",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0,
+   "extraTime": [
+    1,
+    2
+   ]
   },
   {
    "id": "M100",
    "stage": "qf",
-   "slot": 4,
+   "matchNo": 100,
    "date": "2026-07-11",
-   "venue": null,
-   "home": null,
-   "away": null,
-   "result": null
+   "time": "08:00",
+   "venue": "kan",
+   "home": "ARG",
+   "away": "SUI",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    3,
+    1
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Mac Allister",
+    "Alvarez",
+    "La. Martínez"
+   ],
+   "scorers2": [
+    "Ndoye"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Mac Allister",
+     "minute": "10",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Alvarez",
+     "minute": "112",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "La. Martínez",
+     "minute": "120+1",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Ndoye",
+     "minute": "67",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0,
+   "extraTime": [
+    3,
+    1
+   ]
   },
   {
    "id": "M101",
    "stage": "sf",
-   "slot": 1,
+   "matchNo": 101,
    "date": "2026-07-14",
+   "time": "02:00",
    "venue": "dal",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "FRA",
+   "away": "ESP",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    0,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [],
+   "scorers2": [
+    "Oyarzabal",
+    "Porro"
+   ],
+   "scorerDetails1": [],
+   "scorerDetails2": [
+    {
+     "name": "Oyarzabal",
+     "minute": "22",
+     "pen": true,
+     "og": false
+    },
+    {
+     "name": "Porro",
+     "minute": "58",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M102",
    "stage": "sf",
-   "slot": 2,
+   "matchNo": 102,
    "date": "2026-07-15",
+   "time": "03:00",
    "venue": "atl",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "ENG",
+   "away": "ARG",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    2
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Gordon"
+   ],
+   "scorers2": [
+    "Fernández",
+    "La. Martínez"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Gordon",
+     "minute": "55",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Fernández",
+     "minute": "85",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "La. Martínez",
+     "minute": "90+2",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M103",
    "stage": "third",
-   "slot": 1,
+   "matchNo": 103,
    "date": "2026-07-18",
+   "time": "05:00",
    "venue": "mia",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "FRA",
+   "away": "ENG",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    4,
+    6
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Mbappé",
+    "Mbappé",
+    "Barcola",
+    "Dembélé"
+   ],
+   "scorers2": [
+    "Rice",
+    "Konsa",
+    "Saka",
+    "Saka",
+    "Saka",
+    "Bellingham"
+   ],
+   "scorerDetails1": [
+    {
+     "name": "Mbappé",
+     "minute": "48",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Mbappé",
+     "minute": "66",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Barcola",
+     "minute": "54",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Dembélé",
+     "minute": "90+6",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [
+    {
+     "name": "Rice",
+     "minute": "3",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Konsa",
+     "minute": "18",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Saka",
+     "minute": "37",
+     "pen": true,
+     "og": false
+    },
+    {
+     "name": "Saka",
+     "minute": "45+1",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Saka",
+     "minute": "87",
+     "pen": false,
+     "og": false
+    },
+    {
+     "name": "Bellingham",
+     "minute": "90+8",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "ownGoals1": 0,
+   "ownGoals2": 0
   },
   {
    "id": "M104",
    "stage": "final",
-   "slot": 1,
+   "matchNo": 104,
    "date": "2026-07-19",
+   "time": "15:00 UTC-4",
    "venue": "nyc",
-   "home": null,
-   "away": null,
-   "result": null
+   "home": "ESP",
+   "away": "ARG",
+   "homeLabel": null,
+   "awayLabel": null,
+   "result": [
+    1,
+    0
+   ],
+   "penalties": null,
+   "scorers1": [
+    "Torres"
+   ],
+   "scorers2": [],
+   "scorerDetails1": [
+    {
+     "name": "Torres",
+     "minute": "106",
+     "pen": false,
+     "og": false
+    }
+   ],
+   "scorerDetails2": [],
+   "ownGoals1": 0,
+   "ownGoals2": 0,
+   "kickoff": "2026-07-19T19:00:00.000Z",
+   "halfTime": [
+    0,
+    0
+   ],
+   "extraTime": [
+    1,
+    0
+   ]
   }
  ]
 }

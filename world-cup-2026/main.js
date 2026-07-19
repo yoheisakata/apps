@@ -2,9 +2,10 @@
 // Owns global data + tab state, wires events, lazily builds each view.
 // Each view is a factory: createXxx({ container, data, ... }) -> { render() }.
 //
-// Data flow: bundled static JSON loads first (instant, offline-safe), then we
-// try to refresh groups + results live from Wikipedia. Live data is cached in
-// localStorage so a cold start shows the last fetched results immediately.
+// The tournament is over (final: 2026-07-19) — this is now a fully static app.
+// Data flow: bundled JSON in data/*.json loads once at boot; there is no live
+// refresh or network merge anymore (see git history for the old Wikipedia /
+// openfootball live-update pipeline if it's ever needed again).
 
 import { createSchedule } from "./views/schedule.js?v=27";
 import { createKnockout } from "./views/knockout.js?v=36";
@@ -12,19 +13,12 @@ import { createCities } from "./views/cities.js?v=27";
 import { createWorld } from "./views/world.js?v=27";
 import { createRankings } from "./views/rankings.js?v=27";
 import { createStandings } from "./views/standingstab.js?v=27";
-import { createTeamList } from "./views/teamlist.js?v=27";
+import { createTeamList } from "./views/teamlist.js?v=28";
 import { createCountry } from "./views/country.js?v=27";
 import { createMatchModal } from "./views/matchmodal.js?v=28";
-import { fetchLiveData } from "./views/livedata.js?v=28";
-import { fetchOpenFootball } from "./views/openfootball.js?v=28";
-import { fetchFifaRankings } from "./views/footballapi.js?v=28";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 43; // bump on every release; shown in the header.
-// v14: v13 caches may hold a corrupted knockout bracket (results attached to
-// the wrong ties by the old positional merge) — discard them.
-const LIVE_CACHE_KEY = "wc2026-livedata-v14";
-const RANKINGS_CACHE_KEY = "wc2026-rankings-v2";
+const APP_VERSION = 44; // bump on every release; shown in the header.
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
 function showVersion() {
@@ -52,30 +46,13 @@ async function loadStatic() {
   data.groups = groups.groups;
   data.venues = venues.venues;
   data.matches = matches.matches;
-  data.asOf = matches._asOf || "2026-06-18";
+  data.asOf = matches._asOf || "2026-07-19";
   reindex();
 }
 
 function reindex() {
   data.byCode = Object.fromEntries(data.teams.map((t) => [t.code, t]));
   data.venueById = Object.fromEntries(data.venues.map((v) => [v.id, v]));
-}
-
-// Merge a live { groups, matches, asOf } payload into the shared data and
-// re-sync each team's group field so all views stay consistent.
-function applyLive(live, source) {
-  // Only overwrite groups if the live data has them (API may return empty).
-  if (live.groups && Object.keys(live.groups).length > 0) {
-    data.groups = live.groups;
-    const groupOf = {};
-    for (const [g, codes] of Object.entries(live.groups)) for (const c of codes) groupOf[c] = g;
-    for (const t of data.teams) if (groupOf[t.code]) t.group = groupOf[t.code];
-  }
-  data.matches = live.matches;
-  if (live.scorers?.length) data.scorers = live.scorers;
-  data.asOf = live.asOf || data.asOf;
-  data.source = source;
-  reindex();
 }
 
 function rerenderAll() {
@@ -140,232 +117,11 @@ function ensureView(name) {
   views[name].render();
 }
 
-// ---- live update status UI (in the header) ----
-function setStatus(text, state) {
-  const el = $("update-status");
-  if (el) {
-    el.textContent = text;
-    el.className = "update-status" + (state ? " " + state : "");
-  }
-}
-
-// Format an ISO timestamp as local "M/D HH:MM" (date + time to the minute).
-function fmtDateTime(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d)) return "";
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-async function refreshLive({ silent } = {}) {
-  const btn = $("refresh-btn");
-  if (btn) btn.disabled = true;
-  if (!silent) setStatus("更新中…", "loading");
-  try {
-    // Free sources only (the paid Football-Data.org integration was removed):
-    // Wikipedia is the primary source (freshest — results and knockout
-    // advancement appear within minutes), openfootball is the fallback and the
-    // supplement (clean structured goals with minute/penalty/own-goal flags,
-    // venues in bracket order).
-    let live;
-    let source;
-    let suppLive = null;
-    try {
-      live = await fetchLiveData();
-      source = "wiki";
-      try { suppLive = await fetchOpenFootball(data.teams); } catch (_) {}
-    } catch (_) {
-      live = await fetchOpenFootball(data.teams);
-      source = "openfootball";
-      try { suppLive = await fetchLiveData(); } catch (e) { console.warn("[live] wiki supplement failed:", e.message); }
-    }
-    // Fill still-empty fields (scorers, venues) from the supplementary source.
-    // It only fills gaps — it never overwrites what the primary already has.
-    if (suppLive?.matches) {
-      // Index supplementary matches by team pair (no date — timezone mismatch)
-      const byTeams = {};
-      for (const wm of suppLive.matches) {
-        if (wm.home && wm.away) byTeams[`${wm.home}|${wm.away}`] = wm;
-      }
-      for (const m of live.matches) {
-        if (!m.home || !m.away) continue;
-        const exact = byTeams[`${m.home}|${m.away}`];
-        const swapped = byTeams[`${m.away}|${m.home}`];
-        if (exact) {
-          if (!m.scorers1?.length && exact.scorers1?.length) m.scorers1 = exact.scorers1;
-          if (!m.scorers2?.length && exact.scorers2?.length) m.scorers2 = exact.scorers2;
-          if (!m.scorerDetails1?.length && exact.scorerDetails1?.length) m.scorerDetails1 = exact.scorerDetails1;
-          if (!m.scorerDetails2?.length && exact.scorerDetails2?.length) m.scorerDetails2 = exact.scorerDetails2;
-          if (!m.ownGoals1 && exact.ownGoals1) m.ownGoals1 = exact.ownGoals1;
-          if (!m.ownGoals2 && exact.ownGoals2) m.ownGoals2 = exact.ownGoals2;
-          if (!m.venue && exact.venue) m.venue = exact.venue;
-          // Penalty/extra-time detail (openfootball has it, Wikipedia often
-          // doesn't) — without penalties a drawn knockout tie can't fold its
-          // winner into the next round of the bracket.
-          if (!m.penalties && exact.penalties) m.penalties = exact.penalties;
-          if (!m.extraTime && exact.extraTime) { m.extraTime = exact.extraTime; if (exact.result) m.result = exact.result; }
-          // Official match number — the knockout bracket wires ties together
-          // by it (openfootball carries it, the Wikipedia articles don't).
-          if (!m.matchNo && exact.matchNo) m.matchNo = exact.matchNo;
-        } else if (swapped) {
-          if (!m.scorers1?.length && swapped.scorers2?.length) m.scorers1 = swapped.scorers2;
-          if (!m.scorers2?.length && swapped.scorers1?.length) m.scorers2 = swapped.scorers1;
-          if (!m.scorerDetails1?.length && swapped.scorerDetails2?.length) m.scorerDetails1 = swapped.scorerDetails2;
-          if (!m.scorerDetails2?.length && swapped.scorerDetails1?.length) m.scorerDetails2 = swapped.scorerDetails1;
-          if (!m.ownGoals1 && swapped.ownGoals2) m.ownGoals1 = swapped.ownGoals2;
-          if (!m.ownGoals2 && swapped.ownGoals1) m.ownGoals2 = swapped.ownGoals1;
-          if (!m.venue && swapped.venue) m.venue = swapped.venue;
-          if (!m.penalties && swapped.penalties) m.penalties = [swapped.penalties[1], swapped.penalties[0]];
-          if (!m.extraTime && swapped.extraTime) {
-            m.extraTime = [swapped.extraTime[1], swapped.extraTime[0]];
-            if (swapped.result) m.result = [swapped.result[1], swapped.result[0]];
-          }
-          if (!m.matchNo && swapped.matchNo) m.matchNo = swapped.matchNo;
-        }
-      }
-      // Knockout matches the team-pair pass couldn't reach (no confirmed teams
-      // yet): merge by official match number when both sides carry one, else by
-      // stage for single-match stages (third place = 103, final = 104). Fill
-      // schedule metadata only — teams/results must never be copied by
-      // position, because neither source lists knockout fixtures in the same
-      // order as the official bracket (that mismatch once corrupted results).
-      const suppByNo = {};
-      const suppByStage = {};
-      for (const sm of suppLive.matches) {
-        if (sm.stage === "group") continue;
-        if (sm.matchNo) suppByNo[sm.matchNo] = sm;
-        (suppByStage[sm.stage] ||= []).push(sm);
-      }
-      for (const m of live.matches) {
-        if (m.stage === "group" || (m.home && m.away)) continue;
-        const sm = m.matchNo
-          ? suppByNo[m.matchNo]
-          : suppByStage[m.stage]?.length === 1 ? suppByStage[m.stage][0] : null;
-        if (!sm) continue;
-        if (!m.matchNo && sm.matchNo) m.matchNo = sm.matchNo;
-        if (!m.date && sm.date) m.date = sm.date;
-        if (!m.time && sm.time) m.time = sm.time;
-        if (!m.kickoff && sm.kickoff) m.kickoff = sm.kickoff;
-        if (!m.venue && sm.venue) m.venue = sm.venue;
-        if (!m.homeLabel && sm.homeLabel) m.homeLabel = sm.homeLabel;
-        if (!m.awayLabel && sm.awayLabel) m.awayLabel = sm.awayLabel;
-      }
-    }
-    // Build scorers from merged match data, or directly from wiki matches
-    if (!live.scorers?.length) {
-      const { goalRanking } = await import("./views/livedata.js?v=28");
-      const ranked = goalRanking(live.matches);
-      if (!ranked.length && suppLive?.matches) {
-        const suppRanked = goalRanking(suppLive.matches);
-        if (suppRanked.length) live.scorers = suppRanked;
-      } else if (ranked.length) {
-        live.scorers = ranked;
-      }
-    }
-    applyLive(live, source);
-    const fetchedAt = new Date().toISOString();
-    data.fetchedAt = fetchedAt;
-    try {
-      localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify({ ...live, fetchedAt }));
-    } catch (_) {}
-    const played = live.matches.filter((m) => m.result).length;
-    setStatus(`更新: ${fmtDateTime(fetchedAt)} / ${played}試合`, "ok");
-    updateProvenance();
-    rerenderAll();
-  } catch (e) {
-    console.warn("[live] fetch failed:", e.message);
-    const played = data.matches.filter((m) => m.result).length;
-    if (data.source === "cache") {
-      setStatus(`保存データを表示中 / ${played}試合`, "");
-    } else {
-      setStatus(`オフラインモード — 静的データ (${data.asOf || "—"}) / ${played}試合`, "");
-    }
-    updateProvenance();
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-function loadCache() {
-  try {
-    const raw = localStorage.getItem(LIVE_CACHE_KEY);
-    if (!raw) return false;
-    const live = JSON.parse(raw);
-    if (live.groups && live.matches) {
-      applyLive(live, "cache");
-      data.fetchedAt = live.fetchedAt || null;
-      const played = live.matches.filter((m) => m.result).length;
-      const when = fmtDateTime(live.fetchedAt);
-      setStatus(`保存データ${when ? ` (${when})` : ""} / ${played}試合`, "");
-      updateProvenance();
-      return true;
-    }
-  } catch (_) {}
-  return false;
-}
-
-
-async function refreshRankings() {
-  try {
-    const cached = localStorage.getItem(RANKINGS_CACHE_KEY);
-    if (cached) {
-      const { rankings, fetchedAt } = JSON.parse(cached);
-      if (Date.now() - new Date(fetchedAt).getTime() < 3600_000) {
-        applyRankings(rankings, fetchedAt);
-        return;
-      }
-    }
-  } catch (_) {}
-  try {
-    const rankings = await fetchFifaRankings(data.teams);
-    const fetchedAt = new Date().toISOString();
-    applyRankings(rankings, fetchedAt);
-    try {
-      localStorage.setItem(RANKINGS_CACHE_KEY, JSON.stringify({ rankings, fetchedAt }));
-    } catch (_) {}
-  } catch (e) {
-    console.warn("[rankings] FIFA rankings fetch failed:", e.message);
-  }
-}
-
-function applyRankings(rankings, fetchedAt) {
-  let updated = 0;
-  for (const t of data.teams) {
-    if (rankings[t.code]?.rank) {
-      t.rank = rankings[t.code].rank;
-      updated++;
-    }
-  }
-  if (updated > 0) {
-    // Record provenance so the footer can show source + when.
-    data.rankingsSource = "FIFA公式 (api.fifa.com)";
-    data.rankingsAsOf = fetchedAt || new Date().toISOString();
-    updateProvenance();
-    rerenderAll();
-  }
-}
-
-// Render the global data-provenance footer: which sources are in use and when
-// the data was fetched. Shown on every tab.
+// Static data-provenance footer: source + as-of date. Shown on every tab.
 function updateProvenance() {
   const el = $("data-provenance");
   if (!el) return;
-  const SRC = {
-    wiki: "Wikipedia",
-    openfootball: "openfootball",
-    cache: "保存データ（キャッシュ）",
-  };
-  const main = SRC[data.source] || "同梱データ";
-  const parts = [`試合・順位: ${main}`];
-  parts.push(`FIFAランク: ${data.rankingsSource || "同梱データ（暫定値）"}`);
-  const when = [];
-  if (data.fetchedAt) when.push(`データ取得 ${fmtDateTime(data.fetchedAt)}`);
-  if (data.asOf) when.push(`試合データ基準 ${data.asOf}`);
-  if (data.rankingsAsOf) when.push(`ランク取得 ${fmtDateTime(data.rankingsAsOf)}`);
-  el.innerHTML =
-    `<span class="dp-src">📡 出典 — ${parts.join(" ・ ")}</span>` +
-    (when.length ? `<span class="dp-when">🕒 ${when.join(" / ")}</span>` : "");
+  el.innerHTML = `<span class="dp-src">📡 出典 — Wikipedia・openfootball（大会終了時点の最終結果）</span><span class="dp-when">🕒 データ基準 ${data.asOf}</span>`;
 }
 
 function applyThemeButton() {
@@ -412,7 +168,6 @@ function bind() {
     b.addEventListener("click", () => setTab(b.dataset.tab))
   );
   document.querySelector(".brand")?.addEventListener("click", () => setTab("schedule"));
-  $("refresh-btn")?.addEventListener("click", () => refreshLive({}));
   $("theme-btn")?.addEventListener("click", toggleTheme);
   applyThemeButton();
 
@@ -430,19 +185,15 @@ function bind() {
 
 (async function boot() {
   showVersion();
-  // Clean up old localStorage keys from previous versions
-  try { localStorage.removeItem("wc2026-livedata"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v3"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v4"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v5"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v6"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v7"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v8"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v9"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v10"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v11"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v12"); } catch (_) {}
-  try { localStorage.removeItem("wc2026-livedata-v13"); } catch (_) {}
+  // One-time cleanup of localStorage keys from the old live-update era (the
+  // tournament is over — there is no live pipeline to cache anymore).
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith("wc2026-livedata") || k.startsWith("wc2026-rankings")) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch (_) {}
 
   try {
     await loadStatic();
@@ -450,11 +201,8 @@ function bind() {
     $("loading").textContent = "データの読み込みに失敗しました: " + e.message;
     return;
   }
-  loadCache();
   bind();
   applyHash();
   updateProvenance();
   $("loading").classList.add("hidden");
-  refreshLive({ silent: false });
-  refreshRankings();
 })();

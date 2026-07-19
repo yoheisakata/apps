@@ -69,12 +69,7 @@ body { display: flex; flex-direction: column; height: 100vh; }
   border: 1px solid color-mix(in srgb, var(--accent2) 35%, transparent);
 }
 
-/* live-update status + refresh button */
 .update-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.update-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
-.update-status.ok { color: var(--accent); }
-.update-status.loading { color: var(--accent2); }
-.update-status.err { color: var(--can); }
 .refresh-btn {
   background: var(--panel2);
   color: var(--text);
@@ -1521,7 +1516,6 @@ tr.japan-row td { font-weight: 700; }
   }
   .brand { font-size: 15px; }
   .brand .ball { font-size: 18px; }
-  .update-status { display: none; }
   .update-wrap { margin-left: auto; gap: 4px; }
   .refresh-btn { padding: 6px 10px; font-size: 14px; }
 

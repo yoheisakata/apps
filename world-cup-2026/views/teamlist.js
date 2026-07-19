@@ -45,22 +45,11 @@ export function createTeamList({ container, data, onTeam }) {
     </button>`;
   }
 
-  // "YYYY/M/D HH:MM" for the ranking fetch time.
-  function fmtWhen(iso) {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (isNaN(d)) return "";
-    const p = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
-  }
-
   // Header above the ranked list: "FIFAランキング" + where it came from.
   function rankHead() {
-    const src = data.rankingsSource || "同梱データ（暫定値）";
-    const when = fmtWhen(data.rankingsAsOf);
     return `<div class="tl-rank-head">
       <span class="tl-rank-title">🏅 FIFAランキング</span>
-      <span class="tl-rank-src">出典: ${esc(src)}${when ? ` ／ 取得: ${esc(when)}` : ""}</span>
+      <span class="tl-rank-src">出典: FIFA公式（大会終了時点の最終値）</span>
     </div>`;
   }
 

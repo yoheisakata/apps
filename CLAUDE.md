@@ -19,7 +19,7 @@ Each app directory has its own `README.md` (user-facing, Japanese) and `CLAUDE.m
 
 Most are **single self-contained HTML files** (inline CSS + JS) in their own directory — no build step, no dependencies, no frameworks. Open any `index.html` directly in a browser to develop. Exceptions:
 
-- **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. Live data comes from **free sources only**: Wikipedia (primary) and the openfootball `worldcup.json` dataset (fallback + supplement), both fetched client-side. A **Cloudflare Worker** (`worker/worker.js`) exists solely as a CORS proxy for `/fifa-rankings` (FIFA rankings API, no key). The paid Football-Data.org integration was removed — do not reintroduce it.
+- **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. The tournament ended 2026-07-19 (final: Spain 1-0 Argentina) — the app is now a fully static archive; all 104 match results are baked into `data/*.json`. The old live-fetch pipeline (Wikipedia + openfootball fallback, a Cloudflare Worker proxying FIFA rankings) was removed — do not reintroduce it.
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
 
 Static single-file apps: `sansu` (さんすうれんしゅう — 旧 `tashizan`/`kakeizan` を統合した、ゲーム要素なしの たしざん + 九九 学習アプリ), `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`.

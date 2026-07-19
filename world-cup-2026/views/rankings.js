@@ -1,7 +1,7 @@
 // Rankings view: tournament goalscorer ranking, aggregated from match data.
 // Top 10 displayed. Player names open a centered modal with Wikipedia data.
 
-import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=27";
+import { goalRanking, loadSquads, resolvePlayer } from "./livedata.js?v=29";
 import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=27";
 
 function esc(s) {

@@ -1,5 +1,5 @@
 import { groupStandings } from "./standings.js?v=27";
-import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=27";
+import { loadSquads, tournamentScorers, teamGoalsByPlayer, teamOwnGoals } from "./livedata.js?v=29";
 import { fetchWiki, fetchPlayerInfo, renderPlayerInfoHtml } from "./wiki.js?v=27";
 import { localHM, localYMD } from "./util.js?v=27";
 
