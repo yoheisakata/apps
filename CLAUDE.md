@@ -61,7 +61,7 @@ The Worker needs no API key or secrets (it only proxies the free FIFA rankings e
 
 ```bash
 cd <app>
-swift run           # dev build, launches a window
+swift build         # compile check (verification method — see below)
 # Build the .app bundle (script name varies):
 ./build_app.sh      # cleanmac, networth, omoide
 ./build-app.sh      # renamer
@@ -69,6 +69,8 @@ swift run           # dev build, launches a window
 # Install/update in /Applications:
 ./install.sh        # all apps (build + copy to /Applications)
 ```
+
+**GUI アプリを起動しないこと**: `swift run`・`open <App>.app`・`.build/debug/<App>` の直接実行など、ウィンドウが開く形での目視確認は禁止(permissions の deny ルールでもブロック済み)。検証は `swift build` のコンパイル確認まで。アプリの起動・目視確認はユーザー自身が行う。例外: `NetWorth --fetch` のようなヘッドレス CLI モードは実行してよい。
 
 ## Conventions
 
