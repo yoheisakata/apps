@@ -591,6 +591,7 @@ struct RecoveryKeyView: View {
         case .created: return "リカバリーキーを保管してください"
         case .migrated: return "リカバリーキーが発行されました"
         case .regenerated: return "新しいリカバリーキー"
+        case .passwordChanged: return "パスワード変更に伴う新しいリカバリーキー"
         }
     }
 
@@ -723,7 +724,8 @@ struct SettingsView: View {
     @State private var newPass = ""
     @State private var confirmPass = ""
     @State private var changeError: String?
-    @State private var changeSuccess = false
+    @State private var regenPass = ""
+    @State private var regenError: String?
     @State private var backupMessage: String?
     @State private var showingRestore = false
 
@@ -747,6 +749,10 @@ struct SettingsView: View {
             Divider()
 
             Text("マスターパスワード変更").font(.headline)
+            Text("変更すると vault は新しい鍵で暗号化し直され、新しいリカバリーキーが発行されます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             RomanSecureField(placeholder: "現在のパスワード", text: $current)
             RomanSecureField(placeholder: "新しいパスワード", text: $newPass)
             RomanSecureField(placeholder: "新しいパスワード（確認）", text: $confirmPass)
@@ -754,37 +760,44 @@ struct SettingsView: View {
             if let changeError {
                 Text(changeError).foregroundStyle(.red).font(.caption)
             }
-            if changeSuccess {
-                Text("変更しました").foregroundStyle(.green).font(.caption)
-            }
 
             Button("変更する") {
                 guard newPass.count >= 8 else {
-                    changeError = "8文字以上にしてください"; changeSuccess = false; return
+                    changeError = "8文字以上にしてください"; return
                 }
                 guard newPass == confirmPass else {
-                    changeError = "確認用パスワードが一致しません"; changeSuccess = false; return
+                    changeError = "確認用パスワードが一致しません"; return
                 }
                 if vault.changeMasterPassword(current: current, new: newPass) {
                     changeError = nil
-                    changeSuccess = true
                     current = ""; newPass = ""; confirmPass = ""
+                    dismiss()   // 閉じると新しいリカバリーキーのシートが表示される
                 } else {
                     changeError = "現在のパスワードが違います"
-                    changeSuccess = false
                 }
             }
 
             Divider()
 
             Text("リカバリーキー").font(.headline)
-            Text("再生成すると、以前のリカバリーキーは使えなくなります。")
+            Text("再生成すると vault は新しい鍵で暗号化し直され、以前のリカバリーキーは（古いバックアップに対しても）使えなくなります。確認のため現在のマスターパスワードが必要です。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Button("リカバリーキーを再生成") {
-                dismiss()
-                vault.regenerateRecoveryKey()
+                .fixedSize(horizontal: false, vertical: true)
+            RomanSecureField(placeholder: "現在のパスワード", text: $regenPass)
+            if let regenError {
+                Text(regenError).foregroundStyle(.red).font(.caption)
             }
+            Button("リカバリーキーを再生成") {
+                if vault.regenerateRecoveryKey(currentPassword: regenPass) {
+                    regenPass = ""
+                    regenError = nil
+                    dismiss()   // 閉じると新しいリカバリーキーのシートが表示される
+                } else {
+                    regenError = "パスワードが違います"
+                }
+            }
+            .disabled(regenPass.isEmpty)
 
             Divider()
 
@@ -829,6 +842,7 @@ struct SettingsView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try data.write(to: url, options: .atomic)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             backupMessage = "バックアップを書き出しました"
         } catch {
             backupMessage = nil

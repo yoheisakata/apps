@@ -14,7 +14,7 @@ struct RecoveryKeyDisplay: Identifiable {
     let key: String
     /// 移行やパスワード忘れ以外の、通常作成/再生成のときの文言切り替え用。
     let reason: Reason
-    enum Reason { case created, migrated, regenerated }
+    enum Reason { case created, migrated, regenerated, passwordChanged }
 }
 
 final class VaultModel: ObservableObject {
@@ -31,6 +31,9 @@ final class VaultModel: ObservableObject {
 
     private static let autoLockKey = "autoLockMinutes"
     private static let lockOnBackgroundKey = "lockOnBackground"
+
+    /// マスターパスワードの最小長。UI でも検査するが、モデル層でも強制する(防御の多層化)。
+    static let minPasswordLength = 8
 
     /// 生成直後に一度だけ表示するリカバリーキー。UI が sheet で提示し、閉じたら nil に戻す。
     @Published var recoveryToShow: RecoveryKeyDisplay?
@@ -115,6 +118,10 @@ final class VaultModel: ObservableObject {
     // MARK: - 作成 / アンロック
 
     func createVault(password: String) {
+        guard password.count >= Self.minPasswordLength else {
+            errorMessage = "パスワードは\(Self.minPasswordLength)文字以上にしてください"
+            return
+        }
         // 新しい vault では、以前の指紋バインディングは無効なので消す
         BiometricStore.disable()
         biometricsEnabled = false
@@ -474,30 +481,56 @@ final class VaultModel: ObservableObject {
 
     // MARK: - マスターパスワード / リカバリーキー
 
-    /// 設定画面からのパスワード変更。DEK は不変なのでリカバリーキーはそのまま有効。
-    func changeMasterPassword(current: String, new: String) -> Bool {
-        guard let dek, let pwSalt, let pwWrappedKey else { return false }
-        // 現在のパスワードで DEK をアンラップできるか検証
-        let currentKek = CryptoStore.deriveKey(password: current, salt: pwSalt)
-        guard (try? CryptoStore.unwrapKey(pwWrappedKey, using: currentKek)) != nil else { return false }
+    /// DEK を新しく作り直し、vault を再暗号化する(鍵ローテーション)。
+    ///
+    /// 旧 DEK は過去のファイルコピー(.passmanbackup / *.bak / Time Machine 内の旧 vault.dat)にも
+    /// ラップされて残っており、旧パスワードや旧リカバリーキーが漏れていると、そこから取り出した
+    /// DEK で「現在の」vault まで復号できてしまう。パスワード変更・リカバリーキー再生成の目的は
+    /// 「古い秘密を無効化すること」なので、包み直しだけでなく DEK ごと作り直す。
+    ///
+    /// KDF は一方向のため、新 DEK を「今のリカバリーキー」でラップし直すことはできない。
+    /// したがってローテーション時はリカバリーキーも必ず再発行される(recoveryToShow で提示)。
+    /// Touch ID は旧 DEK にバインドされているので、有効なら新 DEK で貼り替える。
+    private func rotateDEK(newPassword: String, reason: RecoveryKeyDisplay.Reason) -> Bool {
+        let newDek = CryptoStore.generateDEK()
+        let newPwSalt = CryptoStore.randomSalt()
+        let recovery = CryptoStore.generateRecoveryKey()
+        let newRecSalt = CryptoStore.randomSalt()
+        guard let pwWrapped = try? CryptoStore.wrapKey(newDek, using: CryptoStore.deriveKey(password: newPassword, salt: newPwSalt)),
+              let recWrapped = try? CryptoStore.wrapKey(newDek, using: CryptoStore.deriveKey(password: CryptoStore.normalizeRecoveryKey(recovery), salt: newRecSalt))
+        else { return false }
 
-        let newSalt = CryptoStore.randomSalt()
-        guard let newWrapped = try? CryptoStore.wrapKey(dek, using: CryptoStore.deriveKey(password: new, salt: newSalt)) else { return false }
-        self.pwSalt = newSalt
-        self.pwWrappedKey = newWrapped
+        self.dek = newDek
+        self.pwSalt = newPwSalt
+        self.pwWrappedKey = pwWrapped
+        self.recSalt = newRecSalt
+        self.recWrappedKey = recWrapped
+        if biometricsEnabled {
+            let dekData = newDek.withUnsafeBytes { Data($0) }
+            biometricsEnabled = BiometricStore.enable(dek: dekData)
+        }
         save()
+        recoveryToShow = RecoveryKeyDisplay(key: recovery, reason: reason)
         return true
     }
 
+    /// 設定画面からのパスワード変更。DEK ごとローテーションするため、
+    /// 新しいリカバリーキーが発行される(旧キー・旧パスワードは過去のコピーに対しても無効になる)。
+    func changeMasterPassword(current: String, new: String) -> Bool {
+        guard new.count >= Self.minPasswordLength else { return false }
+        guard let pwSalt, let pwWrappedKey else { return false }
+        // 現在のパスワードで DEK をアンラップできるか検証
+        let currentKek = CryptoStore.deriveKey(password: current, salt: pwSalt)
+        guard (try? CryptoStore.unwrapKey(pwWrappedKey, using: currentKek)) != nil else { return false }
+        return rotateDEK(newPassword: new, reason: .passwordChanged)
+    }
+
     /// リカバリーキー解除後、新しいマスターパスワードを設定する(現在パスワード不要)。
+    /// 使ったリカバリーキーは漏れている可能性があるため、DEK ごとローテーションして新キーを発行する。
     func resetPasswordAfterRecovery(new: String) -> Bool {
-        guard let dek else { return false }
-        let newSalt = CryptoStore.randomSalt()
-        guard let newWrapped = try? CryptoStore.wrapKey(dek, using: CryptoStore.deriveKey(password: new, salt: newSalt)) else { return false }
-        self.pwSalt = newSalt
-        self.pwWrappedKey = newWrapped
+        guard new.count >= Self.minPasswordLength, dek != nil else { return false }
+        guard rotateDEK(newPassword: new, reason: .regenerated) else { return false }
         needsNewPassword = false
-        save()
         return true
     }
 
@@ -537,14 +570,13 @@ final class VaultModel: ObservableObject {
     }
 
     /// リカバリーキーを再生成する(旧キーは無効化)。新しいキーを一度だけ提示する。
-    func regenerateRecoveryKey() {
-        guard let dek else { return }
-        let recovery = CryptoStore.generateRecoveryKey()
-        let newSalt = CryptoStore.randomSalt()
-        guard let wrapped = try? CryptoStore.wrapKey(dek, using: CryptoStore.deriveKey(password: CryptoStore.normalizeRecoveryKey(recovery), salt: newSalt)) else { return }
-        self.recSalt = newSalt
-        self.recWrappedKey = wrapped
-        save()
-        recoveryToShow = RecoveryKeyDisplay(key: recovery, reason: .regenerated)
+    /// DEK ごとローテーションするため、新 DEK をラップし直すのに現在のパスワードが必要。
+    /// パスワード検証を兼ねるので、離席中の第三者が勝手に再生成することもできない。
+    @discardableResult
+    func regenerateRecoveryKey(currentPassword: String) -> Bool {
+        guard let pwSalt, let pwWrappedKey else { return false }
+        let kek = CryptoStore.deriveKey(password: currentPassword, salt: pwSalt)
+        guard (try? CryptoStore.unwrapKey(pwWrappedKey, using: kek)) != nil else { return false }
+        return rotateDEK(newPassword: currentPassword, reason: .regenerated)
     }
 }

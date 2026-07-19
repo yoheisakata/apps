@@ -43,9 +43,14 @@ enum VaultFile {
     // MARK: - PMV2
 
     static func writeEnvelope(_ env: VaultEnvelope) throws {
-        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        let fm = FileManager.default
+        try fm.createDirectory(at: directoryURL, withIntermediateDirectories: true,
+                               attributes: [.posixPermissions: 0o700])
         let data = try JSONEncoder().encode(env)
         try data.write(to: fileURL, options: .atomic)
+        // 暗号化済みとはいえ、他ユーザーから読める必要は一切ないので 0600/0700 に絞る
+        try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+        try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directoryURL.path)
     }
 
     static func readEnvelope() throws -> VaultEnvelope {
@@ -75,6 +80,7 @@ enum VaultFile {
         let backup = directoryURL.appendingPathComponent("vault.pmv1.bak")
         try? FileManager.default.removeItem(at: backup)
         try? FileManager.default.copyItem(at: fileURL, to: backup)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: backup.path)
     }
 
     /// vault 本体と移行バックアップを完全に削除する(初期化用)。
@@ -125,5 +131,6 @@ enum VaultFile {
         let backup = directoryURL.appendingPathComponent("vault.prerestore.bak")
         try? FileManager.default.removeItem(at: backup)
         try? FileManager.default.copyItem(at: fileURL, to: backup)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: backup.path)
     }
 }
