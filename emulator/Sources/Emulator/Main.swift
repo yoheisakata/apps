@@ -1,6 +1,6 @@
 import SwiftUI
 
-let appVersion = "0.1.0"
+let appVersion = "0.2.0"
 
 @main
 struct RetroGamesApp: App {
@@ -49,7 +49,7 @@ struct RetroGamesApp: App {
                     Button("停止") {
                         emulator.stop()
                     }
-                    .keyboardShortcut("w", modifiers: .command)
+                    .keyboardShortcut(.escape, modifiers: [])
                 }
             }
         }

@@ -27,6 +27,8 @@ final class LibretroCore: ObservableObject {
 
     private var handle: UnsafeMutableRawPointer?
     private var romData: Data?
+    /// 実行中の ROM 名(拡張子なし)。SRAM・ステートの保存ファイル名に使う
+    private var currentGameName: String?
     private var runTimer: DispatchSourceTimer?
     private let emulationQueue = DispatchQueue(label: "com.retrogames.emulation", qos: .userInteractive)
 
@@ -126,6 +128,7 @@ final class LibretroCore: ObservableObject {
     func loadGame(at url: URL) throws {
         let data = try Data(contentsOf: url)
         romData = data
+        currentGameName = url.deletingPathExtension().lastPathComponent
 
         let path = url.path
         let success = data.withUnsafeBytes { (rawBuffer: UnsafeRawBufferPointer) -> Bool in
@@ -206,7 +209,16 @@ final class LibretroCore: ObservableObject {
 
     // MARK: - Save States
 
+    /// ステートセーブの保存先。ゲームごとに別ファイルにする
+    /// (共有ファイルだと別ゲームのステートを読み込んで壊れるため)
+    private func stateFileURL() -> URL? {
+        guard let name = currentGameName else { return nil }
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("RetroGames/States/\(name).state")
+    }
+
     func saveState() {
+        guard let file = stateFileURL() else { return }
         emulationQueue.async { [weak self] in
             guard let self, let size = self.fn_retro_serialize_size?(), size > 0 else { return }
             var buffer = Data(count: size)
@@ -214,19 +226,14 @@ final class LibretroCore: ObservableObject {
                 self.fn_retro_serialize?(ptr.baseAddress!, size) ?? false
             }
             guard ok else { return }
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            let statesDir = appSupport.appendingPathComponent("RetroGames/States")
-            let file = statesDir.appendingPathComponent("quicksave.state")
             try? buffer.write(to: file)
         }
     }
 
     func loadState() {
+        guard let file = stateFileURL() else { return }
         emulationQueue.async { [weak self] in
-            guard let self else { return }
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            let file = appSupport.appendingPathComponent("RetroGames/States/quicksave.state")
-            guard let data = try? Data(contentsOf: file) else { return }
+            guard let self, let data = try? Data(contentsOf: file) else { return }
             data.withUnsafeBytes { ptr in
                 _ = self.fn_retro_unserialize?(ptr.baseAddress!, data.count)
             }
@@ -235,17 +242,24 @@ final class LibretroCore: ObservableObject {
 
     // MARK: - SRAM
 
+    /// SRAM の保存先もゲームごとに別ファイル。かつては全ゲーム共有の game.srm で、
+    /// 別ゲームのセーブを上書きするバグがあった(旧ファイルはもう読み書きしない)
+    private func sramFileURL() -> URL? {
+        guard let name = currentGameName else { return nil }
+        return URL(fileURLWithPath: saveDirectory).appendingPathComponent("\(name).srm")
+    }
+
     private func saveSRAM() {
-        guard let dataPtr = fn_retro_get_memory_data?(UInt32(RETRO_MEMORY_SAVE_RAM)),
+        guard let file = sramFileURL(),
+              let dataPtr = fn_retro_get_memory_data?(UInt32(RETRO_MEMORY_SAVE_RAM)),
               let size = fn_retro_get_memory_size?(UInt32(RETRO_MEMORY_SAVE_RAM)), size > 0 else { return }
         let sramData = Data(bytes: dataPtr, count: size)
-        let file = URL(fileURLWithPath: saveDirectory).appendingPathComponent("game.srm")
         try? sramData.write(to: file)
     }
 
     func loadSRAM() {
-        let file = URL(fileURLWithPath: saveDirectory).appendingPathComponent("game.srm")
-        guard let data = try? Data(contentsOf: file),
+        guard let file = sramFileURL(),
+              let data = try? Data(contentsOf: file),
               let dataPtr = fn_retro_get_memory_data?(UInt32(RETRO_MEMORY_SAVE_RAM)),
               let size = fn_retro_get_memory_size?(UInt32(RETRO_MEMORY_SAVE_RAM)), size > 0 else { return }
         _ = data.withUnsafeBytes { ptr in
@@ -369,7 +383,9 @@ private func environmentCallback(_ cmd: UInt32, _ data: UnsafeMutableRawPointer?
         return true
 
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
-        return false
+        // NULL のままだとコアがログ呼び出しでクラッシュする(nestopia の CPU JAM 等)
+        clibretro_fill_log_interface(data)
+        return true
 
     case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
         return true

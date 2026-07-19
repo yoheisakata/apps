@@ -3,6 +3,15 @@ import SwiftUI
 enum AppTab: String, CaseIterable {
     case library = "ライブラリ"
     case romBrowser = "ROM"
+    case controller = "コントローラー"
+
+    var iconName: String {
+        switch self {
+        case .library: return "books.vertical.fill"
+        case .romBrowser: return "folder.fill"
+        case .controller: return "gamecontroller.fill"
+        }
+    }
 }
 
 struct ContentView: View {
@@ -29,9 +38,11 @@ struct ContentView: View {
                     Divider()
                     switch selectedTab {
                     case .library:
-                        LibraryView()
+                        LibraryView(scanner: emulator.scanner)
                     case .romBrowser:
                         ROMBrowserView()
+                    case .controller:
+                        ControllerSettingsView()
                     }
                 }
             }
@@ -44,7 +55,7 @@ struct ContentView: View {
             ForEach(AppTab.allCases, id: \.self) { tab in
                 Button(action: { selectedTab = tab }) {
                     HStack(spacing: 4) {
-                        Image(systemName: tab == .library ? "books.vertical.fill" : "folder.fill")
+                        Image(systemName: tab.iconName)
                             .font(.caption)
                         Text(tab.rawValue)
                             .font(.subheadline.weight(.medium))
@@ -73,7 +84,7 @@ struct ContentView: View {
                 Text("一時停止中")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
-                Text("⌘P で再開")
+                Text("⌘P で再開 / Esc で停止")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.7))
             }

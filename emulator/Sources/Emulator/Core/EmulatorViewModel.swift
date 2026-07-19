@@ -10,6 +10,7 @@ final class EmulatorViewModel: ObservableObject {
     @AppStorage("recentROMs") private var recentROMsData: Data = Data()
 
     let core = LibretroCore()
+    let scanner = ROMScanner()
     private var cancellables = Set<AnyCancellable>()
 
     var recentROMs: [URL] {
@@ -28,6 +29,7 @@ final class EmulatorViewModel: ObservableObject {
         let input = InputManager()
         core.audioEngine = audio
         core.inputManager = input
+        input.onStop = { [weak self] in self?.stop() }
 
         core.$isRunning.receive(on: DispatchQueue.main).assign(to: &$isRunning)
         core.$isPaused.receive(on: DispatchQueue.main).assign(to: &$isPaused)
