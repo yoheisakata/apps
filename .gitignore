@@ -7,6 +7,9 @@
 # Cloudflare Wrangler (local cache)
 .wrangler/
 
+# 個人写真・動画入りの作業フォルダ(公開リポジトリに載せない)
+portfolio/
+
 # SPM build artifacts
 .build/
 *.app/
