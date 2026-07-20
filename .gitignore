@@ -15,3 +15,6 @@ portfolio/
 *.app/
 AppIcon.icns
 AppIcon.iconset/
+
+# passman: 暗号化バックアップ(個人データ)をリポジトリに含めない
+*.passmanbackup
