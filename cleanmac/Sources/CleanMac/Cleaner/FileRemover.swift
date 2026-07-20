@@ -19,7 +19,13 @@ enum FileRemover {
         for url in urls {
             do {
                 try FileManager.default.trashItem(at: url, resultingItemURL: nil)
-                result.trashed.append(url)
+                // trashItem はエラーを投げないまま実際には移動できていないことがある
+                // （使用中のファイルなど）ため、消えたかどうかを必ず確認する。
+                if FileManager.default.fileExists(atPath: url.path) {
+                    result.failures.append(Failure(url: url, message: "ゴミ箱への移動が完了しませんでした（使用中の可能性があります）"))
+                } else {
+                    result.trashed.append(url)
+                }
             } catch {
                 result.failures.append(Failure(url: url, message: error.localizedDescription))
             }
