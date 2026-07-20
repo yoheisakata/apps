@@ -24,6 +24,28 @@ struct RootView: View {
             ResetPasswordView()
                 .interactiveDismissDisabled()
         }
+        // メニューバー「暗号化バックアップ」>「バックアップから復元…」からも起動できる
+        .sheet(isPresented: $vault.showingBackupRestore) {
+            RestoreBackupView()
+        }
+    }
+}
+
+/// vault を暗号化したまま書き出す。メニューバーの「暗号化バックアップ」から呼ばれる。
+func exportBackup(vault: VaultModel) {
+    guard let data = vault.exportBackupData() else { return }
+    let panel = NSSavePanel()
+    panel.allowedContentTypes = [UTType(filenameExtension: VaultFile.backupFileExtension) ?? .data]
+    let f = DateFormatter()
+    f.dateFormat = "yyyyMMdd-HHmm"
+    panel.nameFieldStringValue = "PassMan-\(f.string(from: Date())).\(VaultFile.backupFileExtension)"
+    panel.canCreateDirectories = true
+    guard panel.runModal() == .OK, let url = panel.url else { return }
+    do {
+        try data.write(to: url, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    } catch {
+        vault.errorMessage = "書き出しに失敗しました: \(error.localizedDescription)"
     }
 }
 
@@ -726,8 +748,6 @@ struct SettingsView: View {
     @State private var changeError: String?
     @State private var regenPass = ""
     @State private var regenError: String?
-    @State private var backupMessage: String?
-    @State private var showingRestore = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -799,20 +819,10 @@ struct SettingsView: View {
             }
             .disabled(regenPass.isEmpty)
 
-            Divider()
-
-            Text("暗号化バックアップ").font(.headline)
-            Text("vault を暗号化したまま書き出します。ファイルは PassMan 専用形式（.passmanbackup）で、他アプリでは開けません。復元にはバックアップ作成時のマスターパスワードが必要です。")
+            Text("暗号化バックアップは、メニューバーの「暗号化バックアップ」から書き出し・復元できます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Button("バックアップを書き出す…") { exportBackup() }
-                Button("バックアップから復元…") { showingRestore = true }
-            }
-            if let backupMessage {
-                Text(backupMessage).font(.caption).foregroundStyle(.green)
-            }
               }
               .padding(.vertical, 4)
             }
@@ -825,37 +835,7 @@ struct SettingsView: View {
         }
         .padding(24)
         .frame(width: 360, height: 480)
-        .sheet(isPresented: $showingRestore) {
-            RestoreBackupView()
-        }
     }
-
-    private func exportBackup() {
-        guard let data = vault.exportBackupData() else {
-            backupMessage = nil
-            return
-        }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: VaultFile.backupFileExtension) ?? .data]
-        panel.nameFieldStringValue = "PassMan-\(Self.backupDateStamp).\(VaultFile.backupFileExtension)"
-        panel.canCreateDirectories = true
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            try data.write(to: url, options: .atomic)
-            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-            backupMessage = "バックアップを書き出しました"
-        } catch {
-            backupMessage = nil
-            vault.errorMessage = "書き出しに失敗しました: \(error.localizedDescription)"
-        }
-    }
-
-    private static var backupDateStamp: String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyyMMdd-HHmm"
-        return f.string(from: Date())
-    }
-
 }
 
 /// PassMan バックアップからの復元。ファイルを選び、バックアップ作成時の

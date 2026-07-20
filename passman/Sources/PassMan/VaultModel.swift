@@ -39,6 +39,8 @@ final class VaultModel: ObservableObject {
     @Published var recoveryToShow: RecoveryKeyDisplay?
     /// リカバリーキーで解除した後、新しいマスターパスワードの設定を促すフラグ。
     @Published var needsNewPassword = false
+    /// メニューバーの「バックアップから復元…」から起動された復元シートの表示フラグ。
+    @Published var showingBackupRestore = false
 
     /// この Mac で Touch ID が使えるか。
     var biometricsAvailable: Bool { BiometricStore.isAvailable }
