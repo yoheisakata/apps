@@ -22,8 +22,8 @@
 ### 🔮 タロット占い — `tarot/`
 タロットカードによる占いアプリ。カードの意味を学べる **タロットクイズ**（`tarot/quiz.html`）付き。
 
-### 🌐 TCP/IP シミュレーター — `tcpip/`
-TCP/IP 通信を可視化する学習アプリ。3ウェイハンドシェイクや、データのカプセル化／非カプセル化の流れをインタラクティブに確認できます。
+### 🐘 PostgreSQL まなびカード — `pgquiz/`
+PostgreSQL 17以降を対象にした、クイズ／フラッシュカード形式の学習アプリ。全56問・8カテゴリ（基本概念・インデックス・クエリ最適化・JSON/JSONB・パーティション/レプリケーション・バキューム/運用・高度なSQL・17の新機能）。
 
 ### ⚽ ワールドカップ 2026 — `world-cup-2026/`
 FIFA ワールドカップ 2026 のダッシュボード。日本代表ページ・決勝トーナメント表・全試合日程・順位表・チーム詳細・得点王・参加国/開催都市マップ（Leaflet）の8タブ構成。
@@ -62,7 +62,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 
 | アプリ | 構成 |
 |--------|------|
-| ちきゅう／新幹線／タロット／TCP-IP | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
+| ちきゅう／新幹線／タロット／PostgreSQLまなびカード | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | まなびアプリ | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ JSON データ + Cloudflare Worker（API プロキシ） |
 | CleanMac／NetWorth／Omoide／Renamer／YouTube-downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |

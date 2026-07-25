@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐘</text></svg>">
+<title>PostgreSQL まなびカード 🐘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap">
+<style>
+:root{
+  --bg1:#0a1220; --bg2:#0f2236;
+  --card:#132437; --card-border:rgba(108,172,228,.18);
+  --accent:#6cace4; --accent-dark:#336791;
+  --text:#e9f1fa; --sub:#8fa7bd;
+  --correct:#2ed573; --wrong:#ff4757;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  font-family:'Nunito','Hiragino Sans','Yu Gothic',sans-serif;
+  background:linear-gradient(160deg,var(--bg1) 0%,var(--bg2) 100%);
+  color:var(--text);
+  min-height:100vh; min-height:100dvh;
+  display:flex; flex-direction:column; align-items:center;
+  overflow-x:hidden; user-select:none;
+}
+body::before{
+  content:''; position:fixed; inset:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse 55% 35% at 15% 8%, rgba(108,172,228,.14) 0%, transparent 70%),
+    radial-gradient(ellipse 45% 35% at 85% 92%, rgba(46,213,115,.08) 0%, transparent 70%);
+}
+
+.screen{display:none; flex-direction:column; align-items:center; width:100%; max-width:640px; min-height:100vh; min-height:100dvh; padding:20px 16px 40px; position:relative; z-index:1;}
+.screen.active{display:flex;}
+
+.back-btn{
+  align-self:flex-start;
+  background:rgba(255,255,255,.06); border:1px solid var(--card-border); color:var(--text);
+  font-family:inherit; font-size:.95rem; font-weight:700;
+  padding:10px 18px; border-radius:14px; cursor:pointer; margin-bottom:12px;
+  min-height:44px;
+}
+.back-btn:active{opacity:.7;}
+
+.app-title{font-size:clamp(1.6rem,6vw,2.2rem); font-weight:900; text-align:center; margin:12px 0 4px;
+  background:linear-gradient(135deg,#6cace4,#2ed573); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+.app-sub{color:var(--sub); font-size:.9rem; text-align:center; margin-bottom:36px;}
+
+/* ---- ホーム: モードえらび ---- */
+.mode-col{display:flex; flex-direction:column; gap:16px; width:100%; max-width:420px;}
+.mode-btn{
+  border:none; border-radius:24px; font-family:inherit; font-weight:900; color:#fff;
+  padding:26px 20px; cursor:pointer; display:flex; align-items:center; gap:18px;
+  box-shadow:0 6px 20px rgba(0,0,0,.35); text-align:left; min-height:44px;
+  transition:transform .12s;
+}
+.mode-btn:active{transform:scale(.97);}
+.mode-emoji{font-size:2.4rem; flex-shrink:0;}
+.mode-label{font-size:1.25rem; display:block;}
+.mode-desc{font-size:.8rem; color:rgba(255,255,255,.75); font-weight:700; margin-top:4px;}
+.mode-quiz{background:linear-gradient(135deg,var(--accent-dark),var(--accent));}
+.mode-flash{background:linear-gradient(135deg,#0f5132,#2ed573);}
+
+.footnote{color:var(--sub); font-size:.75rem; margin-top:auto; padding-top:30px; text-align:center;}
+
+/* ---- カテゴリえらび ---- */
+.screen-title{font-size:1.3rem; color:var(--text); margin:8px 0 20px; text-align:center;}
+.category-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px; width:100%;
+}
+.category-card{
+  border:1px solid var(--card-border); border-radius:20px; background:var(--card);
+  color:var(--text); font-family:inherit; cursor:pointer; padding:18px 12px;
+  display:flex; flex-direction:column; align-items:center; gap:6px; min-height:44px;
+  transition:transform .12s, border-color .2s;
+}
+.category-card:active{transform:scale(.95);}
+.category-emoji{font-size:1.8rem;}
+.category-name{font-size:.9rem; font-weight:800; text-align:center; line-height:1.3;}
+.category-count{font-size:.72rem; color:var(--sub);}
+.category-card.all{border-color:var(--accent); background:linear-gradient(135deg,rgba(108,172,228,.14),rgba(46,213,115,.1));}
+
+/* ---- クイズ ---- */
+.quiz-header{display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:10px;}
+.quiz-cat-label{font-size:.85rem; color:var(--sub); font-weight:700;}
+.quiz-prog-text{font-size:.85rem; color:var(--sub); font-weight:700;}
+.prog-dots{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin:6px 0 22px;}
+.pdot{height:9px; width:9px; border-radius:50%; background:rgba(255,255,255,.15); flex-shrink:0;}
+.pdot.done{background:var(--accent);}
+.pdot.cur{background:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.2);}
+
+.quiz-card{width:100%; background:var(--card); border:1px solid var(--card-border); border-radius:26px;
+  padding:clamp(20px,5vw,32px) clamp(16px,5vw,26px); margin-bottom:18px;}
+.quiz-question{font-size:clamp(1.05rem,4vw,1.3rem); font-weight:800; line-height:1.55; text-align:center;}
+
+.choices{display:grid; grid-template-columns:1fr; gap:12px; width:100%;}
+@media (min-width:480px){ .choices{grid-template-columns:1fr 1fr;} }
+.choice-btn{
+  background:rgba(255,255,255,.05); border:2px solid var(--card-border); border-radius:18px;
+  color:var(--text); font-family:inherit; font-size:.98rem; font-weight:700;
+  padding:16px 14px; cursor:pointer; text-align:left; min-height:56px;
+  transition:transform .1s, background .15s, border-color .15s;
+}
+.choice-btn:active{transform:scale(.97);}
+.choice-btn.correct{background:rgba(46,213,115,.18); border-color:var(--correct); color:var(--correct);}
+.choice-btn.wrong{background:rgba(255,71,87,.18); border-color:var(--wrong); color:var(--wrong);}
+.choice-btn:disabled{cursor:default;}
+
+.quiz-note{
+  width:100%; background:rgba(255,255,255,.04); border-left:4px solid var(--accent);
+  border-radius:12px; padding:16px 18px; margin-top:18px; font-size:.9rem; line-height:1.6; color:var(--text);
+  display:none;
+}
+.quiz-note.show{display:block;}
+.quiz-note b{color:var(--accent);}
+
+.next-btn{
+  margin-top:18px; width:100%; max-width:280px; padding:16px; border:none; border-radius:18px;
+  background:linear-gradient(135deg,var(--accent-dark),var(--accent)); color:#fff; font-family:inherit;
+  font-size:1.05rem; font-weight:900; cursor:pointer; display:none; min-height:44px;
+}
+.next-btn.show{display:block;}
+.next-btn:active{transform:scale(.97);}
+
+/* ---- 結果 ---- */
+.result-emoji{font-size:4rem; margin:20px 0 8px;}
+.result-score{font-size:2.4rem; font-weight:900; color:var(--accent); margin-bottom:6px;}
+.result-msg{color:var(--sub); font-size:.95rem; margin-bottom:30px; text-align:center;}
+.result-btns{display:flex; flex-direction:column; gap:12px; width:100%; max-width:320px;}
+.result-btn{
+  border:none; border-radius:18px; padding:16px; font-family:inherit; font-size:1rem; font-weight:800;
+  color:#fff; cursor:pointer; min-height:44px; background:rgba(255,255,255,.08);
+}
+.result-btn.primary{background:linear-gradient(135deg,var(--accent-dark),var(--accent));}
+.result-btn:active{transform:scale(.97);}
+
+/* ---- フラッシュカード ---- */
+.flash-progress{color:var(--sub); font-size:.85rem; font-weight:700; margin-bottom:16px;}
+.flash-wrap{width:100%; max-width:460px; perspective:1400px; margin-bottom:22px;}
+.flash-card{
+  position:relative; width:100%; min-height:280px; cursor:pointer;
+  transform-style:preserve-3d; transition:transform .5s cubic-bezier(.4,.2,.2,1);
+}
+.flash-card.flipped{transform:rotateY(180deg);}
+.flash-face{
+  position:absolute; inset:0; backface-visibility:hidden; border-radius:26px;
+  border:1px solid var(--card-border); padding:clamp(20px,6vw,32px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:14px;
+}
+.flash-front{background:var(--card);}
+.flash-back{background:linear-gradient(160deg,#12331f,#0f2236); transform:rotateY(180deg);}
+.flash-cat-chip{font-size:.72rem; font-weight:800; color:var(--accent); background:rgba(108,172,228,.12);
+  padding:5px 12px; border-radius:100px; position:absolute; top:16px; left:16px;}
+.flash-q{font-size:clamp(1rem,4.2vw,1.25rem); font-weight:800; line-height:1.55;}
+.flash-answer{font-size:clamp(1.1rem,4.5vw,1.4rem); font-weight:900; color:var(--correct);}
+.flash-note{font-size:.88rem; color:var(--sub); line-height:1.6;}
+.flash-hint{font-size:.72rem; color:var(--sub); margin-top:4px;}
+
+.flash-nav{display:flex; gap:10px; width:100%; max-width:460px;}
+.flash-nav-btn{
+  flex:1; border:none; border-radius:16px; padding:15px; font-family:inherit; font-weight:800; font-size:.95rem;
+  background:rgba(255,255,255,.08); color:var(--text); cursor:pointer; min-height:44px;
+}
+.flash-nav-btn:active{transform:scale(.96);}
+.flash-nav-btn:disabled{opacity:.35; cursor:default;}
+.flash-shuffle{margin-top:12px; background:none; border:1px solid var(--card-border); color:var(--sub);
+  font-family:inherit; font-size:.85rem; font-weight:700; padding:10px 20px; border-radius:100px; cursor:pointer; min-height:44px;}
+.flash-shuffle:active{opacity:.7;}
+</style>
+</head>
+<body>
+
+<!-- ホーム -->
+<div class="screen active" id="screen-home">
+  <div class="app-title">🐘 PostgreSQL まなびカード</div>
+  <div class="app-sub">対象バージョン: PostgreSQL 17 以降</div>
+  <div class="mode-col">
+    <button class="mode-btn mode-quiz" data-action="pick-mode-quiz">
+      <span class="mode-emoji">📝</span>
+      <span><span class="mode-label">クイズモード</span><span class="mode-desc">4択問題で理解度をチェック</span></span>
+    </button>
+    <button class="mode-btn mode-flash" data-action="pick-mode-flash">
+      <span class="mode-emoji">🃏</span>
+      <span><span class="mode-label">フラッシュカード</span><span class="mode-desc">カードをめくって暗記・復習</span></span>
+    </button>
+  </div>
+  <div class="footnote">全56問・8カテゴリ / データはこの端末に保存されません</div>
+</div>
+
+<!-- カテゴリえらび -->
+<div class="screen" id="screen-category">
+  <button class="back-btn" data-action="home">← もどる</button>
+  <h2 class="screen-title">カテゴリをえらぶ</h2>
+  <div class="category-grid" id="category-grid"></div>
+</div>
+
+<!-- クイズ -->
+<div class="screen" id="screen-quiz">
+  <button class="back-btn" data-action="home">← やめる</button>
+  <div class="quiz-header">
+    <span class="quiz-cat-label" id="quiz-cat-label"></span>
+    <span class="quiz-prog-text" id="quiz-prog-text"></span>
+  </div>
+  <div class="prog-dots" id="quiz-dots"></div>
+  <div class="quiz-card">
+    <div class="quiz-question" id="quiz-question"></div>
+  </div>
+  <div class="choices" id="quiz-choices"></div>
+  <div class="quiz-note" id="quiz-note"></div>
+  <button class="next-btn" id="quiz-next-btn" data-action="quiz-next">つぎの問題へ →</button>
+</div>
+
+<!-- クイズ結果 -->
+<div class="screen" id="screen-result">
+  <div class="result-emoji" id="result-emoji">🎉</div>
+  <div class="result-score" id="result-score">0 / 0</div>
+  <div class="result-msg" id="result-msg"></div>
+  <div class="result-btns">
+    <button class="result-btn primary" data-action="quiz-retry">🔄 同じカテゴリでもう一度</button>
+    <button class="result-btn" data-action="pick-mode-quiz">📚 カテゴリを選び直す</button>
+    <button class="result-btn" data-action="home">🏠 ホームへ</button>
+  </div>
+</div>
+
+<!-- フラッシュカード -->
+<div class="screen" id="screen-flash">
+  <button class="back-btn" data-action="home">← もどる</button>
+  <div class="flash-progress" id="flash-progress"></div>
+  <div class="flash-wrap">
+    <div class="flash-card" id="flash-card" data-action="flash-flip">
+      <div class="flash-face flash-front">
+        <span class="flash-cat-chip" id="flash-cat-chip"></span>
+        <div class="flash-q" id="flash-q"></div>
+        <div class="flash-hint">タップして こたえを見る</div>
+      </div>
+      <div class="flash-face flash-back">
+        <div class="flash-answer" id="flash-answer"></div>
+        <div class="flash-note" id="flash-note"></div>
+      </div>
+    </div>
+  </div>
+  <div class="flash-nav">
+    <button class="flash-nav-btn" id="flash-prev-btn" data-action="flash-prev">← まえ</button>
+    <button class="flash-nav-btn" id="flash-next-btn" data-action="flash-next">つぎへ →</button>
+  </div>
+  <button class="flash-shuffle" data-action="flash-shuffle">🔀 シャッフルし直す</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ==== 出題データ (PostgreSQL 17以降を対象) ====
+  var QUESTIONS = [
+    // -- 基本概念 --
+    { cat:"基本概念", q:"トランザクションの原子性・一貫性・独立性・永続性の4特性をまとめて何と呼ぶ?",
+      choices:["ACID特性","CAP定理","BASE特性","2相コミット"], answer:0,
+      note:"ACID = Atomicity(原子性)・Consistency(一貫性)・Isolation(独立性)・Durability(永続性)の頭文字。" },
+    { cat:"基本概念", q:"複数のトランザクションが同じ行を同時に読み書きできるよう、行の複数バージョンを保持する仕組みは?",
+      choices:["MVCC(多版型同時実行制御)","ロック昇格","WALストリーミング","シャーディング"], answer:0,
+      note:"MVCC(Multi-Version Concurrency Control)。更新のたびに新しい行バージョンが作られ、不要になった古いバージョンはVACUUMで回収される。" },
+    { cat:"基本概念", q:"PostgreSQLのデフォルトのトランザクション分離レベルは?",
+      choices:["READ COMMITTED","REPEATABLE READ","SERIALIZABLE","READ UNCOMMITTED"], answer:0,
+      note:"SQL標準のデフォルトはSERIALIZABLEだが、PostgreSQLのデフォルトはREAD COMMITTED。READ UNCOMMITTEDを指定してもREAD COMMITTEDとして扱われる。" },
+    { cat:"基本概念", q:"変更をデータファイルに反映する前に、まず追記して記録しておくクラッシュリカバリ用のログ機構は?",
+      choices:["WAL(先行書き込みログ)","バイナリログ","スロークエリログ","監査ログ"], answer:0,
+      note:"WAL(Write-Ahead Log)。クラッシュ後の復旧はこのログを再生することで行われる。" },
+    { cat:"基本概念", q:"PostgreSQLがSERIALIZABLE分離レベルを実現するために使う仕組みは?",
+      choices:["SSI(直列化可能スナップショット分離)","2フェーズロック","タイムスタンプ順序付け","マルチグラニュラロック"], answer:0,
+      note:"SSI(Serializable Snapshot Isolation)により、追加のロックオーバーヘッドを抑えつつ直列化可能性を保証する。" },
+    { cat:"基本概念", q:"トランザクションの一部分だけを取り消せるようにする、ROLLBACK TOと組み合わせて使う機能は?",
+      choices:["SAVEPOINT(セーブポイント)","CHECKPOINT","VACUUM FULL","プリペアドトランザクション"], answer:0,
+      note:"SAVEPOINTで印を付けておくと、ROLLBACK TO SAVEPOINTでそこまでだけ変更を巻き戻せる。" },
+    { cat:"基本概念", q:"複数のデータベース間で一貫性を保った分散トランザクションを実現するための、PREPARE TRANSACTIONを使う方式は?",
+      choices:["2相コミット(2PC)","単相コミット","ベクタークロック","Paxos"], answer:0,
+      note:"PREPARE TRANSACTIONで準備し、後からCOMMIT PREPARED/ROLLBACK PREPAREDで確定させる分散トランザクション向けの仕組み。" },
+
+    // -- インデックス --
+    { cat:"インデックス", q:"PostgreSQLのデフォルトのインデックス種別は?",
+      choices:["B-tree","GIN","GiST","Hash"], answer:0,
+      note:"等値検索・範囲検索・並び替えに強いB-treeがCREATE INDEXのデフォルト。" },
+    { cat:"インデックス", q:"配列やJSONB、全文検索など「1つの値が複数のキーを持つ」データの検索に向いたインデックス種別は?",
+      choices:["GIN(汎用転置インデックス)","B-tree","BRIN","Hash"], answer:0,
+      note:"GIN(Generalized Inverted Index)は、1行が複数のキーワード/キーを持つデータの検索に強い。" },
+    { cat:"インデックス", q:"タイムスタンプなど物理的な並び順と相関のあるカラムに向いた、非常に小さいサイズのインデックス種別は?",
+      choices:["BRIN(ブロックレンジインデックス)","B-tree","Hash","GiST"], answer:0,
+      note:"BRIN(Block Range Index)はブロック範囲ごとの最小・最大値だけを保持するためコンパクト。挿入順とカラム値に相関がある場合に有効。" },
+    { cat:"インデックス", q:"WHERE句の条件を満たす行だけを対象にすることで、サイズを小さくできるインデックスの種類は?",
+      choices:["部分インデックス(Partial Index)","クラスタインデックス","複合インデックス","カバリングインデックス"], answer:0,
+      note:"CREATE INDEX ... WHERE 条件 で作成する。status='active'のような一部の値だけを検索する場合に有効。" },
+    { cat:"インデックス", q:"カラムの値そのものではなく、関数やカラムを組み合わせた式の結果に対して作るインデックスは?",
+      choices:["式インデックス(Expression Index)","部分インデックス","ユニークインデックス","カバリングインデックス"], answer:0,
+      note:"CREATE INDEX ... (lower(email)) のように式の結果にインデックスを張る。大文字小文字を無視した検索の高速化などに使う。" },
+    { cat:"インデックス", q:"インデックスに含まれる列だけでSELECT結果を返せる場合に、テーブル本体(ヒープ)へのアクセスを省略できるスキャン方式は?",
+      choices:["インデックスオンリースキャン","シーケンシャルスキャン","ビットマップヒープスキャン","TIDスキャン"], answer:0,
+      note:"可視性マップで該当行が全トランザクションから見えると保証されていれば、ヒープを読まずインデックスだけで結果を返せる。" },
+    { cat:"インデックス", q:"稼働中のテーブルをロックせずにインデックスを作成するために使うオプションは?",
+      choices:["CREATE INDEX CONCURRENTLY","CREATE INDEX ASYNC","CREATE INDEX ONLINE","CREATE INDEX NOWAIT"], answer:0,
+      note:"CONCURRENTLYを付けると書き込みをブロックせずにインデックスを作成できる(通常より時間はかかる)。" },
+    { cat:"インデックス", q:"複数カラムの複合インデックスで、検索パフォーマンスに強く影響するのはどれ?",
+      choices:["カラムの並び順","カラム名のアルファベット順","カラムのデータ型の一致","インデックス名の長さ"], answer:0,
+      note:"複合インデックスは左端のカラムから順にしか効率よく使われない(左端一致の原則)ため、条件でよく使う順に並べる。" },
+    { cat:"インデックス", q:"1つのテーブルに対して、同時に複数のインデックスをまとめて処理するために使えるスキャン方式は?",
+      choices:["ビットマップインデックススキャン","マージスキャン","並列シーケンシャルスキャン","カバリングスキャン"], answer:0,
+      note:"複数のインデックスの結果をビットマップとして合成してからヒープを読みに行くことで、OR条件などを効率よく処理できる。" },
+
+    // -- クエリ最適化・EXPLAIN --
+    { cat:"クエリ最適化", q:"実際にクエリを実行し、各ステップの所要時間や実際の行数を表示するコマンドは?",
+      choices:["EXPLAIN ANALYZE","EXPLAIN ONLY","DESCRIBE","SHOW PLAN"], answer:0,
+      note:"EXPLAIN ANALYZEは実際にクエリを実行するため、更新系クエリではトランザクション内でロールバックするなど注意が必要。" },
+    { cat:"クエリ最適化", q:"プランナーが各テーブルの行数や値の分布を把握するために統計情報を収集するコマンドは?",
+      choices:["ANALYZE","VACUUM FULL","REINDEX","CLUSTER"], answer:0,
+      note:"ANALYZEはpg_statisticの統計情報を更新し、プランナーがより正確な実行計画を選べるようにする。autovacuumが自動実行することも多い。" },
+    { cat:"クエリ最適化", q:"テーブル全体を先頭から順に読み込む、もっとも基本的なスキャン方式は?",
+      choices:["Seq Scan(シーケンシャルスキャン)","Index Scan","Bitmap Heap Scan","Nested Loop"], answer:0,
+      note:"条件に一致する行の割合が多い場合やテーブルが小さい場合は、Seq ScanのほうがIndex Scanより高速なことも多い。" },
+    { cat:"クエリ最適化", q:"片方のテーブルが小さい場合に、ハッシュテーブルを作って高速に結合する方式は?",
+      choices:["Hash Join","Nested Loop Join","Merge Join","Sort Join"], answer:0,
+      note:"Hash Joinは小さい方をメモリ上のハッシュテーブルに読み込み、もう一方を1行ずつ突き合わせる。等値結合(=)に強い。" },
+    { cat:"クエリ最適化", q:"両方の入力があらかじめソート済みの場合に効率よく結合する方式は?",
+      choices:["Merge Join","Hash Join","Nested Loop Join","Cross Join"], answer:0,
+      note:"Merge Joinは両方のソート済み入力を先頭から突き合わせていく。範囲結合や既にインデックスでソート済みの場合に有効。" },
+    { cat:"クエリ最適化", q:"EXPLAIN ANALYZEでプランナーの見積もり行数と実際の行数が大きく乖離しているとき、まず疑うべき原因は?",
+      choices:["統計情報が古い","WALが破損している","インデックスが壊れている","テーブルがロックされている"], answer:0,
+      note:"統計情報が古いと見積もりが不正確になり、非効率な実行計画が選ばれる原因になる。ANALYZEの実行で解消できることが多い。" },
+    { cat:"クエリ最適化", q:"複数のCPUコアを使って1つのクエリを高速化する仕組みを何と呼ぶ?",
+      choices:["パラレルクエリ","シャーディング","レプリケーション","パーティションプルーニング"], answer:0,
+      note:"パラレルシーケンシャルスキャンやパラレル集約などにより、大きなテーブルへのクエリを複数ワーカープロセスで並列処理できる。" },
+
+    // -- JSON/JSONB --
+    { cat:"JSON/JSONB", q:"JSONを効率的に演算・インデックス化するために使われる、パース済みバイナリ形式のデータ型は?",
+      choices:["jsonb","json","jsonp","xmlb"], answer:0,
+      note:"jsonb型はパース済みのバイナリ表現で保存され、演算子・GINインデックスが使える。json型はテキストのまま入力を保持する。" },
+    { cat:"JSON/JSONB", q:"jsonbのトップレベルキーの存在をチェックする演算子は?",
+      choices:["?","@>","->","->>"], answer:0,
+      note:"? 演算子はトップレベルのキーが存在するかを調べる(例: data ? 'name')。@>は「含む」、->/->>は値の取り出しに使う。" },
+    { cat:"JSON/JSONB", q:"jsonbから値をJSON型のまま取り出す演算子と、テキスト型として取り出す演算子の組み合わせは?",
+      choices:["-> と ->>","@> と <@","? と ?|","#> と #>>"], answer:0,
+      note:"-> はJSON(B)型のまま、->>はtext型として値を取り出す。ネストしたパスにはそれぞれ#>、#>>を使う。" },
+    { cat:"JSON/JSONB", q:"PostgreSQL 17でSQL標準に沿って追加された、JSONデータをリレーショナルな行・列に展開する関数は?",
+      choices:["JSON_TABLE","JSON_TO_ROWS","JSONB_EXPAND","UNNEST_JSON"], answer:0,
+      note:"JSON_TABLE()はJSONデータをSQL標準の構文で表形式に変換する関数で、PostgreSQL 17で実装された。" },
+    { cat:"JSON/JSONB", q:"jsonbカラムに対してキーの存在確認や包含関係の検索を高速化するために作成するインデックス種別は?",
+      choices:["GINインデックス","B-treeインデックス","BRINインデックス","Hashインデックス"], answer:0,
+      note:"jsonb_ops(デフォルト)やjsonb_path_ops演算子クラスを指定してGINインデックスを作ると、?や@>を使った検索が高速化される。" },
+    { cat:"JSON/JSONB", q:"jsonb型の値が、ある値を構造的に「含んでいるか」を調べる演算子は?",
+      choices:["@>","->","?","||"], answer:0,
+      note:"@>は左辺のjsonbが右辺のjsonbを構造的に含んでいるかを調べる包含演算子。逆方向は<@。" },
+
+    // -- パーティショニング・レプリケーション --
+    { cat:"パーティション/レプリケーション", q:"範囲やリストなどの条件で、1つの論理テーブルを複数の物理テーブルに分割する仕組みは?",
+      choices:["宣言的パーティショニング","シャーディング","テーブルスペース分割","マテリアライズドビュー"], answer:0,
+      note:"PARTITION BY RANGE/LIST/HASHで親テーブルを定義し、子テーブル(パーティション)にデータを振り分ける。" },
+    { cat:"パーティション/レプリケーション", q:"パーティションキーの値を連続した範囲(例: 日付の月ごと)で分割するパーティショニング方式は?",
+      choices:["RANGE","LIST","HASH","ROUND ROBIN"], answer:0,
+      note:"RANGEパーティショニングは日付や連番など連続した値の範囲でパーティションを分ける方式で、ログデータなどによく使われる。" },
+    { cat:"パーティション/レプリケーション", q:"プライマリからスタンバイへWALをリアルタイムに転送し、読み取り専用レプリカとして稼働させる仕組みは?",
+      choices:["ストリーミングレプリケーション","論理レプリケーション","ホットスワップ","フェイルオーバークラスタリング"], answer:0,
+      note:"ストリーミングレプリケーションはWALをそのまま転送するためテーブル単位の選択はできないが、クラスタ全体を丸ごと複製できる。" },
+    { cat:"パーティション/レプリケーション", q:"テーブル単位で変更内容を別のPostgreSQLインスタンス(異なるバージョンも可)にレプリケーションできる仕組みは?",
+      choices:["論理レプリケーション(Logical Replication)","ストリーミングレプリケーション","同期レプリケーション","カスケードレプリケーション"], answer:0,
+      note:"PUBLICATION/SUBSCRIPTIONの仕組みを使い、特定のテーブルだけ、あるいは異なるバージョン間でもレプリケーションできる。" },
+    { cat:"パーティション/レプリケーション", q:"PostgreSQL 17で追加された、稼働中の物理スタンバイをそのまま論理レプリカに変換できるツールは?",
+      choices:["pg_createsubscriber","pg_upgrade","pg_receivewal","pg_rewind"], answer:0,
+      note:"pg_createsubscriberは、初期同期のための大量データコピーを省略しつつ物理スタンバイを論理サブスクライバーに変換できる新ツール。" },
+    { cat:"パーティション/レプリケーション", q:"PostgreSQL 17で強化された、論理レプリケーションのスロットをスタンバイに同期し、フェイルオーバー後もレプリケーションを継続しやすくする機能は?",
+      choices:["レプリケーションスロットの同期(failover対応)","ホットスタンバイ","カスケードレプリケーション","同期コミット"], answer:0,
+      note:"サブスクリプションのfailoverオプションとpg_sync_replication_slots()などにより、フェイルオーバー後も論理レプリケーションを再開しやすくなった。" },
+    { cat:"パーティション/レプリケーション", q:"パーティションを使ったテーブルで、WHERE句の条件から不要なパーティションへのアクセスを実行計画の段階で省く最適化は?",
+      choices:["パーティションプルーニング","インデックスオンリースキャン","パラレルクエリ","JITコンパイル"], answer:0,
+      note:"パーティションプルーニングにより、条件に合致しないパーティションはスキャン対象から除外され、無駄なI/Oが減る。" },
+
+    // -- バキューム・運用 --
+    { cat:"バキューム/運用", q:"更新・削除で発生した不要な行バージョン(デッドタプル)を回収し、領域を再利用可能にするコマンドは?",
+      choices:["VACUUM","REINDEX","CLUSTER","CHECKPOINT"], answer:0,
+      note:"VACUUMはデッドタプルを回収し、テーブル内の空き領域を新しい行のために再利用可能にする。テーブルサイズそのものは基本的に縮小しない。" },
+    { cat:"バキューム/運用", q:"テーブルを新しいファイルとして書き直すことでディスク上のサイズも縮小するが、処理中はテーブルに排他ロックがかかるコマンドは?",
+      choices:["VACUUM FULL","VACUUM","ANALYZE","REINDEX CONCURRENTLY"], answer:0,
+      note:"VACUUM FULLはテーブルを再構築してサイズを縮小できるが、処理中はテーブル全体にACCESS EXCLUSIVEロックがかかるため注意が必要。" },
+    { cat:"バキューム/運用", q:"VACUUMやANALYZEを自動的にバックグラウンドで実行し、手動メンテナンスの手間を減らす仕組みは?",
+      choices:["autovacuum","autoanalyze daemon","background writer","checkpointer"], answer:0,
+      note:"autovacuumは更新・削除の量がしきい値を超えたテーブルに対して自動的にVACUUM/ANALYZEを実行するバックグラウンドプロセス群。" },
+    { cat:"バキューム/運用", q:"古いトランザクションIDが一周してデータが不整合に見えてしまう問題を防ぐため、VACUUMが行う必要がある処理は?",
+      choices:["トランザクションID周回防止のための凍結(freeze)","WALのアーカイブ","チェックポイントの実行","インデックスの再構築"], answer:0,
+      note:"PostgreSQLは32bitのトランザクションIDを使うため、古い行にfrozenのマークを付けることで周回(wraparound)問題を防いでいる。" },
+    { cat:"バキューム/運用", q:"PostgreSQL 17でVACUUMのメモリ効率が大幅に改善された際に採用された、デッドタプルのTIDを管理する新しい内部データ構造は?",
+      choices:["TidStore","HashMap","B-treeキャッシュ","ビットマップインデックス"], answer:0,
+      note:"従来は単純な配列でデッドタプルのTIDを保持しmaintenance_work_memの上限に縛られていたが、17ではTidStoreにより大幅にメモリ使用量が削減された。" },
+    { cat:"バキューム/運用", q:"コミット済みの変更をディスク上のデータファイルへ確実に反映させ、リカバリ時に再生すべきWALの範囲を短くする処理は?",
+      choices:["チェックポイント(CHECKPOINT)","バキューム","論理デコード","アーカイブ"], answer:0,
+      note:"チェックポイント時点までの変更はデータファイルに書き込み済みであることが保証され、リカバリではそれ以降のWALだけを再生すればよい。" },
+    { cat:"バキューム/運用", q:"PostgreSQL 17でCOPYコマンドに追加された、データ変換エラーが起きた行をスキップして処理を続行できるオプションは?",
+      choices:["ON_ERROR ignore","ON_ERROR skip","SKIP_ERRORS","IGNORE_ERRORS"], answer:0,
+      note:"COPY ... WITH (ON_ERROR ignore) を指定すると型変換に失敗した行を読み飛ばして処理を続行でき、log_verbosityでスキップ件数を確認できる。" },
+
+    // -- ウィンドウ関数・高度なSQL --
+    { cat:"高度なSQL", q:"パーティションごとに連番を振り、重複があっても必ず一意な番号になる関数は?",
+      choices:["ROW_NUMBER()","RANK()","DENSE_RANK()","NTILE()"], answer:0,
+      note:"ROW_NUMBER()は同じ値でも必ず1,2,3...と一意な連番を振る。順位に同着を許したい場合はRANK()/DENSE_RANK()を使う。" },
+    { cat:"高度なSQL", q:"同順位の行に同じ順位を振り、次の順位を同順位の人数分飛ばす関数は?",
+      choices:["RANK()","ROW_NUMBER()","DENSE_RANK()","NTILE()"], answer:0,
+      note:"RANK()は同着の場合に同じ順位を振り、次の順位番号を飛ばす(例: 1,1,3)。飛ばさないDENSE_RANK()と対比される。" },
+    { cat:"高度なSQL", q:"クエリの前段にWITH句で名前付きの一時的な結果セットを定義できる構文は?",
+      choices:["CTE(共通テーブル式)","ビュー","マテリアライズドビュー","サブクエリファクタリング"], answer:0,
+      note:"CTE(Common Table Expression)はWITH句で定義し、可読性の高いクエリを書くのに役立つ。" },
+    { cat:"高度なSQL", q:"CTEの中で自分自身を参照し、階層構造やグラフ構造をたどれるようにする構文は?",
+      choices:["再帰CTE(WITH RECURSIVE)","自己結合","LATERAL結合","ピボットテーブル"], answer:0,
+      note:"WITH RECURSIVEを使うと、組織図やカテゴリツリーのような階層データを1つのクエリでたどれる。" },
+    { cat:"高度なSQL", q:"サブクエリの中から外側のクエリの列を参照でき、行ごとに異なる結果を返せるようにする結合方式は?",
+      choices:["LATERAL結合","INNER JOIN","FULL OUTER JOIN","SELF JOIN"], answer:0,
+      note:"LATERALを付けたサブクエリ/関数は、FROM句のより左側にあるテーブルの列を参照できる。「行ごとに最新の1件を取る」ような処理によく使われる。" },
+    { cat:"高度なSQL", q:"INSERT時に主キーやユニーク制約が衝突した場合の動作を指定できる構文は?",
+      choices:["ON CONFLICT","ON DUPLICATE KEY","MERGE ONLY","INSERT OR IGNORE"], answer:0,
+      note:"INSERT ... ON CONFLICT (列) DO UPDATE/DO NOTHINGで、いわゆるUPSERTを1文で実現できる。" },
+    { cat:"高度なSQL", q:"複数のUPDATE/INSERT/DELETEを、ソーステーブルとの一致条件に応じて1つの文にまとめられる標準SQL構文は?",
+      choices:["MERGE","UPSERT","MULTI DML","SYNC TABLE"], answer:0,
+      note:"MERGE文はWHEN MATCHED/WHEN NOT MATCHEDで条件分岐し、PostgreSQL 17ではRETURNING句もサポートされ変更結果を直接取得できるようになった。" },
+
+    // -- PostgreSQL 17 の新機能 --
+    { cat:"17の新機能", q:"PostgreSQL 17で追加された、pg_basebackupが前回のフルバックアップとの差分だけを取得できる機能は?",
+      choices:["増分バックアップ(Incremental Backup)","差分レプリケーション","WALアーカイブ圧縮","スナップショットバックアップ"], answer:0,
+      note:"WALサマライザプロセスが変更ブロックを記録し、pg_basebackup --incrementalで差分だけを取得、pg_combinebackupで復元時に結合できる。" },
+    { cat:"17の新機能", q:"PostgreSQL 17で新設された、VACUUM・ANALYZE・CLUSTER・REINDEXなどの実行権限だけを個別に付与できる権限/ロールは?",
+      choices:["MAINTAIN権限(pg_maintainロール)","OWNERSHIP権限","SUPERUSER","pg_monitorロール"], answer:0,
+      note:"従来はテーブル所有者かSUPERUSERしかVACUUM等を実行できなかったが、17ではGRANT MAINTAINや定義済みロールpg_maintainで権限を委譲できるようになった。" },
+    { cat:"17の新機能", q:"PostgreSQL 17でEXPLAINに追加された、クエリ結果をワイヤ形式に変換する際の時間・バイト数を計測できるオプションは?",
+      choices:["SERIALIZE","WIRE COST","TRANSFER","OUTPUT COST"], answer:0,
+      note:"EXPLAIN (ANALYZE, SERIALIZE) を使うと、実行計画だけでなく結果セットの送信準備にかかるコストも可視化できる。" },
+    { cat:"17の新機能", q:"PostgreSQL 17で、チェックポイント関連の統計情報がpg_stat_bgwriterから分離されて新設された統計ビューは?",
+      choices:["pg_stat_checkpointer","pg_stat_bgwriter_v2","pg_stat_wal_checkpoint","pg_stat_maintenance"], answer:0,
+      note:"これまでpg_stat_bgwriterに混在していたチェックポイント関連の統計情報が、専用のpg_stat_checkpointerビューに分離された。" },
+    { cat:"17の新機能", q:"PostgreSQL 17で追加された、外部の照合順序ライブラリに依存せずC.UTF-8相当の一貫した挙動を提供する照合順序プロバイダは?",
+      choices:["builtinプロバイダ","ICUプロバイダ","POSIXプロバイダ","nativeプロバイダ"], answer:0,
+      note:"builtinプロバイダは環境やOSに依存しないシンプルな照合順序で、移植性と再現性を高める。" },
+    { cat:"17の新機能", q:"PostgreSQL 17でMERGE文に追加され、変更された行を1文の中で取得できるようになった句は?",
+      choices:["RETURNING句","OUTPUT句","WITH RESULT AS句","YIELD句"], answer:0,
+      note:"以前はMERGEの結果をRETURNINGで取得できなかったが、17でサポートされ、UPSERT的な処理の結果もそのまま取得できるようになった。" }
+  ];
+
+  var CATEGORY_EMOJI = {
+    "基本概念":"🧩", "インデックス":"📇", "クエリ最適化":"🔍", "JSON/JSONB":"🗂️",
+    "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄", "17の新機能":"🆕"
+  };
+
+  var QUESTIONS_PER_QUIZ = 10;
+
+  // ==== 状態 ====
+  var state = {
+    intent: null,     // "quiz" | "flash"
+    category: null,   // カテゴリ名 or null(=すべて)
+    pool: []
+  };
+  var quiz = { list: [], idx: 0, correct: 0, answered: false };
+  var flash = { list: [], idx: 0, flipped: false };
+
+  function show(id) {
+    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+    document.getElementById(id).classList.add("active");
+  }
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function poolForCategory(cat) {
+    return cat ? QUESTIONS.filter(function (q) { return q.cat === cat; }) : QUESTIONS.slice();
+  }
+
+  // ==== カテゴリえらび画面 ====
+  function buildCategoryScreen() {
+    var grid = document.getElementById("category-grid");
+    grid.innerHTML = "";
+
+    var allBtn = document.createElement("button");
+    allBtn.className = "category-card all";
+    allBtn.innerHTML = "<span class=\"category-emoji\">🎲</span><span class=\"category-name\">ぜんぶ</span><span class=\"category-count\">" + QUESTIONS.length + "問</span>";
+    allBtn.onclick = function () { selectCategory(null); };
+    grid.appendChild(allBtn);
+
+    Object.keys(CATEGORY_EMOJI).forEach(function (cat) {
+      var count = QUESTIONS.filter(function (q) { return q.cat === cat; }).length;
+      var btn = document.createElement("button");
+      btn.className = "category-card";
+      btn.innerHTML = "<span class=\"category-emoji\">" + CATEGORY_EMOJI[cat] + "</span><span class=\"category-name\">" + cat + "</span><span class=\"category-count\">" + count + "問</span>";
+      btn.onclick = function () { selectCategory(cat); };
+      grid.appendChild(btn);
+    });
+  }
+
+  function selectCategory(cat) {
+    state.category = cat;
+    state.pool = poolForCategory(cat);
+    if (state.intent === "quiz") startQuiz();
+    else startFlash();
+  }
+
+  // ==== クイズ ====
+  function startQuiz() {
+    var n = Math.min(QUESTIONS_PER_QUIZ, state.pool.length);
+    quiz.list = shuffle(state.pool).slice(0, n);
+    quiz.idx = 0;
+    quiz.correct = 0;
+    show("screen-quiz");
+    renderQuizQuestion();
+  }
+
+  function renderQuizQuestion() {
+    quiz.answered = false;
+    var item = quiz.list[quiz.idx];
+    document.getElementById("quiz-cat-label").textContent = (state.category || "ぜんぶ") + (CATEGORY_EMOJI[item.cat] ? " " + CATEGORY_EMOJI[item.cat] : "");
+    document.getElementById("quiz-prog-text").textContent = (quiz.idx + 1) + " / " + quiz.list.length;
+
+    var dots = "";
+    for (var i = 0; i < quiz.list.length; i++) {
+      dots += "<span class=\"pdot" + (i < quiz.idx ? " done" : i === quiz.idx ? " cur" : "") + "\"></span>";
+    }
+    document.getElementById("quiz-dots").innerHTML = dots;
+
+    document.getElementById("quiz-question").textContent = item.q;
+
+    var order = shuffle(item.choices.map(function (c, i) { return i; }));
+    var box = document.getElementById("quiz-choices");
+    box.innerHTML = "";
+    order.forEach(function (origIdx) {
+      var btn = document.createElement("button");
+      btn.className = "choice-btn";
+      btn.textContent = item.choices[origIdx];
+      btn.onclick = function () { onQuizAnswer(btn, origIdx, item); };
+      box.appendChild(btn);
+    });
+
+    var note = document.getElementById("quiz-note");
+    note.classList.remove("show");
+    note.innerHTML = "";
+    document.getElementById("quiz-next-btn").classList.remove("show");
+  }
+
+  function onQuizAnswer(btn, chosenIdx, item) {
+    if (quiz.answered) return;
+    quiz.answered = true;
+    var correct = chosenIdx === item.answer;
+    if (correct) quiz.correct++;
+
+    document.querySelectorAll(".choice-btn").forEach(function (b, i) {
+      b.disabled = true;
+    });
+    btn.classList.add(correct ? "correct" : "wrong");
+    if (!correct) {
+      document.querySelectorAll(".choice-btn").forEach(function (b) {
+        if (b.textContent === item.choices[item.answer]) b.classList.add("correct");
+      });
+    }
+
+    var note = document.getElementById("quiz-note");
+    note.innerHTML = "<b>" + (correct ? "⭕ せいかい! " : "❌ おしい! ") + "</b>" + item.note;
+    note.classList.add("show");
+
+    var nextBtn = document.getElementById("quiz-next-btn");
+    nextBtn.textContent = (quiz.idx + 1 >= quiz.list.length) ? "結果を見る →" : "つぎの問題へ →";
+    nextBtn.classList.add("show");
+  }
+
+  function goQuizNext() {
+    quiz.idx++;
+    if (quiz.idx >= quiz.list.length) finishQuiz();
+    else renderQuizQuestion();
+  }
+
+  function finishQuiz() {
+    var total = quiz.list.length;
+    var rate = quiz.correct / total;
+    var emoji = rate === 1 ? "🏆" : rate >= 0.7 ? "🎉" : rate >= 0.4 ? "📘" : "💪";
+    var msg = rate === 1 ? "パーフェクト! バッチリ理解できています。"
+            : rate >= 0.7 ? "いい調子! もう少しで完璧です。"
+            : rate >= 0.4 ? "半分以上正解。復習してもう一度挑戦してみましょう。"
+            : "フラッシュカードで復習してから、もう一度挑戦してみましょう。";
+    document.getElementById("result-emoji").textContent = emoji;
+    document.getElementById("result-score").textContent = quiz.correct + " / " + total;
+    document.getElementById("result-msg").textContent = msg;
+    show("screen-result");
+  }
+
+  // ==== フラッシュカード ====
+  function startFlash() {
+    flash.list = shuffle(state.pool);
+    flash.idx = 0;
+    flash.flipped = false;
+    show("screen-flash");
+    renderFlashCard();
+  }
+
+  function renderFlashCard() {
+    var item = flash.list[flash.idx];
+    document.getElementById("flash-progress").textContent = (state.category || "ぜんぶ") + " ・ " + (flash.idx + 1) + " / " + flash.list.length;
+    document.getElementById("flash-cat-chip").textContent = (CATEGORY_EMOJI[item.cat] || "") + " " + item.cat;
+    document.getElementById("flash-q").textContent = item.q;
+    document.getElementById("flash-answer").textContent = item.choices[item.answer];
+    document.getElementById("flash-note").textContent = item.note;
+
+    flash.flipped = false;
+    document.getElementById("flash-card").classList.remove("flipped");
+    document.getElementById("flash-prev-btn").disabled = flash.idx === 0;
+    document.getElementById("flash-next-btn").textContent = (flash.idx + 1 >= flash.list.length) ? "さいしょから" : "つぎへ →";
+  }
+
+  function flashFlip() {
+    flash.flipped = !flash.flipped;
+    document.getElementById("flash-card").classList.toggle("flipped", flash.flipped);
+  }
+  function flashPrev() {
+    if (flash.idx > 0) { flash.idx--; renderFlashCard(); }
+  }
+  function flashNext() {
+    if (flash.idx + 1 >= flash.list.length) { flash.idx = 0; }
+    else { flash.idx++; }
+    renderFlashCard();
+  }
+  function flashReshuffle() {
+    flash.list = shuffle(flash.list);
+    flash.idx = 0;
+    renderFlashCard();
+  }
+
+  // ==== ナビゲーション ====
+  document.body.addEventListener("click", function (e) {
+    var action = e.target.closest("[data-action]");
+    if (!action) return;
+    switch (action.dataset.action) {
+      case "pick-mode-quiz":
+        state.intent = "quiz";
+        buildCategoryScreen();
+        show("screen-category");
+        break;
+      case "pick-mode-flash":
+        state.intent = "flash";
+        buildCategoryScreen();
+        show("screen-category");
+        break;
+      case "quiz-next":
+        goQuizNext();
+        break;
+      case "quiz-retry":
+        startQuiz();
+        break;
+      case "flash-flip":
+        flashFlip();
+        break;
+      case "flash-prev":
+        flashPrev();
+        break;
+      case "flash-next":
+        flashNext();
+        break;
+      case "flash-shuffle":
+        flashReshuffle();
+        break;
+      case "home":
+        show("screen-home");
+        break;
+    }
+  });
+})();
+</script>
+</body>
+</html>
