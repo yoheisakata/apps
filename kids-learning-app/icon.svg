@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#ffb703"/>
+  <circle cx="256" cy="256" r="170" fill="#fff9e6"/>
+  <text x="256" y="300" font-size="160" text-anchor="middle" font-family="sans-serif">🌟</text>
+  <text x="150" y="180" font-size="80" text-anchor="middle" font-family="sans-serif" fill="#e07b00" font-weight="bold">あ</text>
+  <text x="370" y="420" font-size="80" text-anchor="middle" font-family="sans-serif" fill="#2a9d8f" font-weight="bold">+</text>
+</svg>
