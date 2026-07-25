@@ -67,6 +67,7 @@ body {
 .big-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
 
 .math-btn { background: #ffd6a5; }
+.kuku-btn { background: #fdffb6; }
 .hiragana-btn { background: #caffbf; }
 .home-btn { background: #bdb2ff; }
 
@@ -107,6 +108,32 @@ body {
 }
 
 .row-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.12); }
+
+.level-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.level-btn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  font-family: inherit;
+  border: none;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  text-align: left;
+}
+
+.level-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.12); }
+.level-emoji { font-size: 2rem; }
+.level-label { font-size: 1.2rem; color: #333; }
 
 .progress {
   font-size: 1.3rem;
@@ -223,10 +250,10 @@ body {
 }
 
 .typing-romaji {
-  font-size: 2rem;
+  font-size: 3rem;
   font-family: "Courier New", monospace;
-  letter-spacing: 3px;
-  min-height: 44px;
+  letter-spacing: 4px;
+  min-height: 60px;
   color: #999;
   margin-bottom: 16px;
 }
@@ -276,3 +303,54 @@ body {
 @media (max-width: 560px) {
   .kb-key { width: 32px; height: 40px; font-size: 1rem; }
 }
+
+/* ---- くく ---- */
+.kuku-card {
+  background: #fff;
+  border-radius: 28px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.1);
+  padding: 32px 20px;
+  margin: 16px auto;
+  max-width: 480px;
+}
+
+.kuku-visual {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  min-height: 48px;
+  margin-bottom: 16px;
+}
+
+.kuku-group {
+  font-size: 1.4rem;
+  background: #fff9e6;
+  border-radius: 12px;
+  padding: 4px 8px;
+}
+
+.kuku-eq { font-size: 2.6rem; font-weight: bold; color: #333; margin-bottom: 12px; }
+.kuku-yomi { font-size: 1.5rem; color: #e07b00; margin-bottom: 20px; }
+
+.kuku-nav {
+  display: flex;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.nav-btn {
+  flex: 1;
+  padding: 16px;
+  font-size: 1.2rem;
+  font-family: inherit;
+  border: none;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+
+.nav-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.12); }
+.nav-btn:disabled { opacity: 0.4; cursor: default; }

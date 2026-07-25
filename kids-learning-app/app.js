@@ -1,4 +1,4 @@
-// まなびアプリ: 6歳向け たしざん・ひらがな学習
+// まなびアプリ: 6歳向け たしざん・くく・ひらがな・タイピング学習
 (function () {
   "use strict";
 
@@ -23,8 +23,112 @@
     .filter(function (r) { return r.chars; })
     .reduce(function (acc, r) { return acc.concat(r.chars); }, []);
 
-  var FRUIT = ["🍎", "🍊", "🍓", "🍇", "🍌", "🐶", "🐱", "⭐"];
   var PRAISE = ["せいかい!", "すごい!", "やったね!", "その ちょうし!"];
+
+  // たしざんレベル
+  var MATH_LEVELS = [
+    { label: "レベル1：1〜5のたしざん", aMax: 5, bMax: 4, emoji: "🍎" },
+    { label: "レベル2：1〜9のたしざん", aMax: 8, bMax: 8, emoji: "🍊" },
+    { label: "レベル3：10までのたしざん", aMax: 9, bMax: 9, emoji: "🍓" },
+    { label: "レベル4：2けた＋1けた", aMax: 15, bMax: 9, emoji: "🐶" },
+    { label: "レベル5：おおきいかず！", aMax: 20, bMax: 20, emoji: "🚗" }
+  ];
+
+  // くく（かけざん）だんごとの読み上げデータ
+  var DAN_EMOJI = ["⭐", "🍎", "🌸", "🐸", "⚽", "🦋", "🌈", "🐬", "💎"];
+  var KUKU = [
+    [
+      { a: 1, b: 1, ans: 1, yomi: "いんいちが いち" },
+      { a: 1, b: 2, ans: 2, yomi: "いんにが に" },
+      { a: 1, b: 3, ans: 3, yomi: "いんさんが さん" },
+      { a: 1, b: 4, ans: 4, yomi: "いんしが し" },
+      { a: 1, b: 5, ans: 5, yomi: "いんごが ご" },
+      { a: 1, b: 6, ans: 6, yomi: "いんろくが ろく" },
+      { a: 1, b: 7, ans: 7, yomi: "いんしちが しち" },
+      { a: 1, b: 8, ans: 8, yomi: "いんはちが はち" },
+      { a: 1, b: 9, ans: 9, yomi: "いんくが く" }
+    ], [
+      { a: 2, b: 1, ans: 2, yomi: "にいちが に" },
+      { a: 2, b: 2, ans: 4, yomi: "ににんが し" },
+      { a: 2, b: 3, ans: 6, yomi: "にさんが ろく" },
+      { a: 2, b: 4, ans: 8, yomi: "にしが はち" },
+      { a: 2, b: 5, ans: 10, yomi: "にご じゅう" },
+      { a: 2, b: 6, ans: 12, yomi: "にろく じゅうに" },
+      { a: 2, b: 7, ans: 14, yomi: "にしち じゅうし" },
+      { a: 2, b: 8, ans: 16, yomi: "にはち じゅうろく" },
+      { a: 2, b: 9, ans: 18, yomi: "にく じゅうはち" }
+    ], [
+      { a: 3, b: 1, ans: 3, yomi: "さんいちが さん" },
+      { a: 3, b: 2, ans: 6, yomi: "さんにが ろく" },
+      { a: 3, b: 3, ans: 9, yomi: "さざんが く" },
+      { a: 3, b: 4, ans: 12, yomi: "さんし じゅうに" },
+      { a: 3, b: 5, ans: 15, yomi: "さんご じゅうご" },
+      { a: 3, b: 6, ans: 18, yomi: "さんろく じゅうはち" },
+      { a: 3, b: 7, ans: 21, yomi: "さんしち にじゅういち" },
+      { a: 3, b: 8, ans: 24, yomi: "さんぱ にじゅうし" },
+      { a: 3, b: 9, ans: 27, yomi: "さんく にじゅうしち" }
+    ], [
+      { a: 4, b: 1, ans: 4, yomi: "しいちが し" },
+      { a: 4, b: 2, ans: 8, yomi: "しにが はち" },
+      { a: 4, b: 3, ans: 12, yomi: "しさん じゅうに" },
+      { a: 4, b: 4, ans: 16, yomi: "しし じゅうろく" },
+      { a: 4, b: 5, ans: 20, yomi: "しご にじゅう" },
+      { a: 4, b: 6, ans: 24, yomi: "しろく にじゅうし" },
+      { a: 4, b: 7, ans: 28, yomi: "ししち にじゅうはち" },
+      { a: 4, b: 8, ans: 32, yomi: "しはち さんじゅうに" },
+      { a: 4, b: 9, ans: 36, yomi: "しく さんじゅうろく" }
+    ], [
+      { a: 5, b: 1, ans: 5, yomi: "ごいちが ご" },
+      { a: 5, b: 2, ans: 10, yomi: "ごに じゅう" },
+      { a: 5, b: 3, ans: 15, yomi: "ごさん じゅうご" },
+      { a: 5, b: 4, ans: 20, yomi: "ごし にじゅう" },
+      { a: 5, b: 5, ans: 25, yomi: "ごご にじゅうご" },
+      { a: 5, b: 6, ans: 30, yomi: "ごろく さんじゅう" },
+      { a: 5, b: 7, ans: 35, yomi: "ごしち さんじゅうご" },
+      { a: 5, b: 8, ans: 40, yomi: "ごはち しじゅう" },
+      { a: 5, b: 9, ans: 45, yomi: "ごく しじゅうご" }
+    ], [
+      { a: 6, b: 1, ans: 6, yomi: "ろくいちが ろく" },
+      { a: 6, b: 2, ans: 12, yomi: "ろくに じゅうに" },
+      { a: 6, b: 3, ans: 18, yomi: "ろくさん じゅうはち" },
+      { a: 6, b: 4, ans: 24, yomi: "ろくし にじゅうし" },
+      { a: 6, b: 5, ans: 30, yomi: "ろくご さんじゅう" },
+      { a: 6, b: 6, ans: 36, yomi: "ろくろく さんじゅうろく" },
+      { a: 6, b: 7, ans: 42, yomi: "ろくしち しじゅうに" },
+      { a: 6, b: 8, ans: 48, yomi: "ろくはち しじゅうはち" },
+      { a: 6, b: 9, ans: 54, yomi: "ろっく ごじゅうし" }
+    ], [
+      { a: 7, b: 1, ans: 7, yomi: "しちいちが しち" },
+      { a: 7, b: 2, ans: 14, yomi: "しちに じゅうし" },
+      { a: 7, b: 3, ans: 21, yomi: "しちさん にじゅういち" },
+      { a: 7, b: 4, ans: 28, yomi: "しちし にじゅうはち" },
+      { a: 7, b: 5, ans: 35, yomi: "しちご さんじゅうご" },
+      { a: 7, b: 6, ans: 42, yomi: "しちろく しじゅうに" },
+      { a: 7, b: 7, ans: 49, yomi: "しちしち しじゅうく" },
+      { a: 7, b: 8, ans: 56, yomi: "しちはち ごじゅうろく" },
+      { a: 7, b: 9, ans: 63, yomi: "しちく ろくじゅうさん" }
+    ], [
+      { a: 8, b: 1, ans: 8, yomi: "はちいちが はち" },
+      { a: 8, b: 2, ans: 16, yomi: "はちに じゅうろく" },
+      { a: 8, b: 3, ans: 24, yomi: "はちさん にじゅうし" },
+      { a: 8, b: 4, ans: 32, yomi: "はちし さんじゅうに" },
+      { a: 8, b: 5, ans: 40, yomi: "はちご しじゅう" },
+      { a: 8, b: 6, ans: 48, yomi: "はちろく しじゅうはち" },
+      { a: 8, b: 7, ans: 56, yomi: "はちしち ごじゅうろく" },
+      { a: 8, b: 8, ans: 64, yomi: "はっぱ ろくじゅうし" },
+      { a: 8, b: 9, ans: 72, yomi: "はちく しちじゅうに" }
+    ], [
+      { a: 9, b: 1, ans: 9, yomi: "くいちが く" },
+      { a: 9, b: 2, ans: 18, yomi: "くに じゅうはち" },
+      { a: 9, b: 3, ans: 27, yomi: "くさん にじゅうしち" },
+      { a: 9, b: 4, ans: 36, yomi: "くし さんじゅうろく" },
+      { a: 9, b: 5, ans: 45, yomi: "くご しじゅうご" },
+      { a: 9, b: 6, ans: 54, yomi: "くろく ごじゅうし" },
+      { a: 9, b: 7, ans: 63, yomi: "くしち ろくじゅうさん" },
+      { a: 9, b: 8, ans: 72, yomi: "くはち しちじゅうに" },
+      { a: 9, b: 9, ans: 81, yomi: "くく はちじゅういち" }
+    ]
+  ];
 
   // ひらがな → ローマ字 (複数の打ち方を許容)
   var ROMAJI = {
@@ -67,11 +171,15 @@
   var state = {
     mode: null,          // "math" | "hiragana"
     pool: null,          // ひらがな出題対象
+    mathLevel: 0,        // たしざんレベル (0〜4)
     questionIndex: 0,
     correctFirstTry: 0,
     answeredWrong: false,
     current: null
   };
+
+  // ---- くく状態 ----
+  var kuku = { dan: 0, idx: 0 };
 
   // ---- 保存された星 ----
   function getStars() {
@@ -167,11 +275,27 @@
   }
 
   // ---- たしざん ----
+  function buildMathLevelScreen() {
+    var grid = document.getElementById("level-grid");
+    grid.innerHTML = "";
+    MATH_LEVELS.forEach(function (lv, i) {
+      var btn = document.createElement("button");
+      btn.className = "level-btn";
+      btn.innerHTML = "<span class=\"level-emoji\">" + lv.emoji + "</span><span class=\"level-label\">" + lv.label + "</span>";
+      btn.onclick = function () {
+        state.mathLevel = i;
+        startSession("math");
+      };
+      grid.appendChild(btn);
+    });
+  }
+
   function makeMathQuestion() {
-    var a = randInt(1, 5);
-    var b = randInt(1, Math.min(5, 10 - a));
+    var lv = MATH_LEVELS[state.mathLevel];
+    var a = randInt(1, lv.aMax);
+    var b = randInt(1, lv.bMax);
     var answer = a + b;
-    var emoji = pick(FRUIT);
+    var emoji = lv.emoji;
 
     state.current = { answer: answer };
 
@@ -179,7 +303,11 @@
     qa.innerHTML = "";
     var visual = document.createElement("div");
     visual.className = "math-visual";
-    visual.textContent = emoji.repeat(a) + "　と　" + emoji.repeat(b);
+    if (a <= 10 && b <= 10) {
+      visual.textContent = emoji.repeat(a) + "　と　" + emoji.repeat(b);
+    } else {
+      visual.textContent = emoji + "　と　" + emoji;
+    }
     var formula = document.createElement("div");
     formula.className = "math-formula";
     formula.textContent = a + " + " + b + " = ?";
@@ -191,8 +319,8 @@
     // 3択: 正解 + 近い数2つ
     var choices = [answer];
     while (choices.length < 3) {
-      var c = answer + randInt(-3, 3);
-      if (c >= 1 && c <= 10 && choices.indexOf(c) === -1) choices.push(c);
+      var c = answer + randInt(-5, 5);
+      if (c >= 0 && choices.indexOf(c) === -1) choices.push(c);
     }
     renderChoices(shuffle(choices), answer);
     speak(a + " たす " + b + " は なにかな?");
@@ -462,13 +590,95 @@
     });
   }
 
+  // ---- くく（かけざん） ----
+  function buildDanScreen() {
+    var grid = document.getElementById("dan-grid");
+    grid.innerHTML = "";
+    DAN_EMOJI.forEach(function (emoji, i) {
+      var btn = document.createElement("button");
+      btn.className = "row-btn";
+      btn.textContent = emoji + " " + (i + 1) + "のだん";
+      btn.onclick = function () { startKukuDan(i); };
+      grid.appendChild(btn);
+    });
+  }
+
+  function startKukuDan(i) {
+    kuku.dan = i;
+    kuku.idx = 0;
+    state.mode = "kuku"; // 「もういちど」用
+    show("screen-kuku-study");
+    renderKukuEntry();
+  }
+
+  function renderKukuEntry() {
+    var entry = KUKU[kuku.dan][kuku.idx];
+    var emoji = DAN_EMOJI[kuku.dan];
+
+    var dots = "";
+    for (var i = 0; i < 9; i++) dots += i < kuku.idx ? "●" : "○";
+    document.getElementById("kuku-progress").textContent = dots;
+
+    var visual = document.getElementById("kuku-visual");
+    visual.innerHTML = "";
+    if (entry.ans <= 25) {
+      for (var g = 0; g < entry.b; g++) {
+        var group = document.createElement("span");
+        group.className = "kuku-group";
+        group.textContent = emoji.repeat(entry.a);
+        visual.appendChild(group);
+      }
+    } else {
+      visual.textContent = emoji;
+    }
+
+    document.getElementById("kuku-eq").textContent = entry.a + " × " + entry.b + " = " + entry.ans;
+    document.getElementById("kuku-yomi").textContent = entry.yomi;
+
+    document.getElementById("kuku-prev-btn").disabled = kuku.idx === 0;
+    document.getElementById("kuku-next-btn").textContent = kuku.idx === 8 ? "できた! 🎉" : "つぎへ →";
+
+    speak(entry.yomi);
+  }
+
+  function kukuPrev() {
+    if (kuku.idx > 0) { kuku.idx--; renderKukuEntry(); }
+  }
+
+  function kukuNext() {
+    if (kuku.idx < 8) { kuku.idx++; renderKukuEntry(); }
+    else finishKukuDan();
+  }
+
+  function finishKukuDan() {
+    var earned = 9;
+    addStars(earned);
+    document.getElementById("earned-stars").textContent = "⭐".repeat(earned) + "  " + earned + "こ ゲット!";
+    show("screen-celebrate");
+    speak((kuku.dan + 1) + "のだん、ぜんぶ できました! ほし " + earned + "こ ゲット!");
+  }
+
   // ---- ナビゲーション ----
   document.body.addEventListener("click", function (e) {
     var action = e.target.closest("[data-action]");
     if (!action) return;
     switch (action.dataset.action) {
       case "math":
-        startSession("math");
+        buildMathLevelScreen();
+        show("screen-math-levels");
+        break;
+      case "kuku":
+        buildDanScreen();
+        show("screen-kuku-dan");
+        break;
+      case "kuku-prev":
+        kukuPrev();
+        break;
+      case "kuku-next":
+        kukuNext();
+        break;
+      case "kuku-speak":
+        speak(KUKU[kuku.dan][kuku.idx].yomi);
         break;
       case "hiragana":
         buildRowScreen();
@@ -486,6 +696,8 @@
       case "again":
         if (state.mode === "typing") {
           startTyping(typing.level);
+        } else if (state.mode === "kuku") {
+          startKukuDan(kuku.dan);
         } else {
           startSession(state.mode, state.pool);
         }

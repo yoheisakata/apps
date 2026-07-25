@@ -1,7 +1,7 @@
 {
   "name": "まなびアプリ",
   "short_name": "まなび",
-  "description": "たしざんとひらがなをたのしくれんしゅう",
+  "description": "たしざん・くく・ひらがなをたのしくれんしゅう",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#a8e6ff",

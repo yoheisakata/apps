@@ -21,8 +21,9 @@ Most are **single self-contained HTML files** (inline CSS + JS) in their own dir
 
 - **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. The tournament ended 2026-07-19 (final: Spain 1-0 Argentina) — the app is now a fully static archive; all 104 match results are baked into `data/*.json`. The old live-fetch pipeline (Wikipedia + openfootball fallback, a Cloudflare Worker proxying FIFA rankings) was removed — do not reintroduce it.
 - **tcpip/** — Single-file interactive TCP/IP simulator (handshake + encapsulation/decapsulation visualization).
+- **kids-learning-app/** — Multi-file vanilla app (「まなびアプリ」): `index.html` + `app.js` + `style.css` + `manifest.json` + `sw.js` (installable PWA with offline cache — bump `CACHE_NAME` in `sw.js` whenever cached assets change). Covers たしざん (leveled, 5 levels), くく/かけざん (speech-read multiplication tables via `speechSynthesis`), ひらがな, and ローマ字タイピング, with a shared star (`localStorage`) + sound-effect reward system across all modes. Absorbed the former standalone `sansu/` app (たしざん levels + 九九) — do not re-add `sansu/` as a separate app.
 
-Static single-file apps: `sansu` (さんすうれんしゅう — 旧 `tashizan`/`kakeizan` を統合した、ゲーム要素なしの たしざん + 九九 学習アプリ), `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`.
+Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`.
 
 > `learn-postgresql/` (pglite/WASM SQL lab) and `receipt/` (Claude API + Firebase レシート web app; the user's Firebase account was deleted — receipt management now lives in networth's レシート tab) were removed from the repo; do not re-add references to them unless the folders come back.
 
@@ -75,9 +76,9 @@ swift build         # compile check (verification method — see below)
 ## Conventions
 
 ### Web apps
-- Dark gradient themes and CSS custom properties for colors; several apps (sansu, tcpip) use the Nunito font (Google Fonts).
+- Dark gradient themes and CSS custom properties for colors; several apps (tcpip) use the Nunito font (Google Fonts).
 - Mobile-first: `viewport` meta with `user-scalable=no`, touch-optimized interactions.
-- State persistence via `localStorage` where it matters: world-cup-2026 caches live data + theme. sansu does **not** save progress (`localStorage` 不使用).
+- State persistence via `localStorage` where it matters: world-cup-2026 caches live data + theme; kids-learning-app persists a star count (`manabi-stars`).
 - Icons are emoji or inline SVG data URIs — no external image assets.
 - world-cup-2026 has three version knobs to bump on release: `?v=N` cache-busters on JS/CSS imports, `APP_VERSION` in `main.js` (shown in the header), and `LIVE_CACHE_KEY` (bump only when the cached live-data shape changes; add the old key to the cleanup list).
 

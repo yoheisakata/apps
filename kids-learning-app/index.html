@@ -19,6 +19,10 @@
         <span class="btn-emoji">🍎</span>
         <span class="btn-label">たしざん</span>
       </button>
+      <button class="big-btn kuku-btn" data-action="kuku">
+        <span class="btn-emoji">✖️</span>
+        <span class="btn-label">かけざん(くく)</span>
+      </button>
       <button class="big-btn hiragana-btn" data-action="hiragana">
         <span class="btn-emoji">✏️</span>
         <span class="btn-label">ひらがな</span>
@@ -27,6 +31,36 @@
         <span class="btn-emoji">⌨️</span>
         <span class="btn-label">タイピング</span>
       </button>
+    </div>
+  </div>
+
+  <!-- たしざん レベルえらび画面 -->
+  <div id="screen-math-levels" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <h2 class="screen-title">どのレベルを やる?</h2>
+    <div class="level-grid" id="level-grid"></div>
+  </div>
+
+  <!-- くく だんえらび画面 -->
+  <div id="screen-kuku-dan" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <h2 class="screen-title">なんのだんを やる?</h2>
+    <div class="row-grid" id="dan-grid"></div>
+  </div>
+
+  <!-- くく べんきょう画面 -->
+  <div id="screen-kuku-study" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <div class="progress" id="kuku-progress"></div>
+    <div class="kuku-card">
+      <div class="kuku-visual" id="kuku-visual"></div>
+      <div class="kuku-eq" id="kuku-eq"></div>
+      <div class="kuku-yomi" id="kuku-yomi"></div>
+      <button class="listen-btn" data-action="kuku-speak">🔊 もういちど きく</button>
+    </div>
+    <div class="kuku-nav">
+      <button class="nav-btn" id="kuku-prev-btn" data-action="kuku-prev">← まえ</button>
+      <button class="nav-btn" id="kuku-next-btn" data-action="kuku-next">つぎへ →</button>
     </div>
   </div>
 
