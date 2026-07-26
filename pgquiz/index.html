@@ -188,7 +188,7 @@ body::before{
       <span><span class="mode-label">フラッシュカード</span><span class="mode-desc">カードをめくって暗記・復習</span></span>
     </button>
   </div>
-  <div class="footnote">全56問・8カテゴリ / データはこの端末に保存されません</div>
+  <div class="footnote">全64問・9カテゴリ / データはこの端末に保存されません</div>
 </div>
 
 <!-- カテゴリえらび -->
@@ -438,12 +438,38 @@ body::before{
       note:"builtinプロバイダは環境やOSに依存しないシンプルな照合順序で、移植性と再現性を高める。" },
     { cat:"17の新機能", q:"PostgreSQL 17でMERGE文に追加され、変更された行を1文の中で取得できるようになった句は?",
       choices:["RETURNING句","OUTPUT句","WITH RESULT AS句","YIELD句"], answer:0,
-      note:"以前はMERGEの結果をRETURNINGで取得できなかったが、17でサポートされ、UPSERT的な処理の結果もそのまま取得できるようになった。" }
+      note:"以前はMERGEの結果をRETURNINGで取得できなかったが、17でサポートされ、UPSERT的な処理の結果もそのまま取得できるようになった。" },
+
+    // -- PostgreSQL 18 の新機能 --
+    { cat:"18の新機能", q:"PostgreSQL 18で導入された、読み取りI/Oを非同期に実行する新基盤(AIO)を制御する設定パラメータは?",
+      choices:["io_method","async_io_mode","aio_workers","effective_io_engine"], answer:0,
+      note:"PostgreSQL 18では非同期I/O基盤が導入され、io_methodでworker(デフォルト)・io_uring(Linux)・syncを選べる。シーケンシャルスキャンやVACUUMなどの読み取りが高速化される。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で追加された、タイムスタンプに基づき時系列順に並ぶUUIDを生成する関数は?",
+      choices:["uuidv7()","gen_random_uuid()","uuid_time()","uuid_ordered()"], answer:0,
+      note:"uuidv7()は先頭にタイムスタンプを含むため生成順に並び、B-treeインデックスとの相性が良い。従来のgen_random_uuid()はランダムなUUIDv4を生成する(18ではuuidv4()という別名も追加)。" },
+    { cat:"18の新機能", q:"PostgreSQL 18でB-treeの複合インデックスに追加された、先頭カラムが検索条件になくてもインデックスを活用できる機能は?",
+      choices:["スキップスキャン(Skip Scan)","ルーズスキャン","逆順スキャン","パラレルインデックススキャン"], answer:0,
+      note:"従来は複合インデックスの先頭カラムがWHERE句にないと効率よく使えなかったが、18では先頭カラムの各値を飛ばしながら検索できる。先頭カラムの値の種類が少ない場合に有効。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で追加された、値をディスクに保存せず読み取り時に計算する生成カラムの種類は?",
+      choices:["仮想生成カラム(VIRTUAL)","STORED生成カラム","マテリアライズドカラム","一時生成カラム"], answer:0,
+      note:"GENERATED ALWAYS AS (式) VIRTUALは読み取り時に計算されるためストレージを消費しない。18では生成カラムのデフォルトがVIRTUALになった(従来はSTOREDのみ)。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で追加された、期間の重複を禁止する時制的な主キー/ユニーク制約を定義するための句は?",
+      choices:["WITHOUT OVERLAPS","NO OVERLAP","EXCLUDE PERIOD","UNIQUE RANGE"], answer:0,
+      note:"PRIMARY KEY (id, valid_period WITHOUT OVERLAPS)のように定義すると、同じidで期間が重なる行を禁止できる。参照する外部キー側ではPERIODを使う。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で新たにサポートされた認証方式は?",
+      choices:["OAuth 2.0","Kerberos","SCRAM-SHA-256","LDAP"], answer:0,
+      note:"18でOAuth 2.0による認証(pg_hba.confのoauth)が追加された。KerberosやSCRAM-SHA-256、LDAPは以前からサポート済みで、古いMD5パスワード認証は18で非推奨になった。" },
+    { cat:"18の新機能", q:"PostgreSQL 18でRETURNING句が強化され、変更前・変更後の行の値を参照するために使えるようになったキーワードは?",
+      choices:["OLDとNEW","BEFOREとAFTER","PREVとNEXT","FROMとTO"], answer:0,
+      note:"UPDATE ... RETURNING old.price, new.price のように、1つの文で変更前後の値を取得できる。INSERT・DELETE・MERGEでも使える。" },
+    { cat:"18の新機能", q:"PostgreSQL 18のpg_upgradeで改善された、アップグレード直後の性能低下を抑える仕組みは?",
+      choices:["プランナー統計情報の引き継ぎ","WALの自動再生","インデックスの自動再構築","接続プールの維持"], answer:0,
+      note:"従来はアップグレード後にANALYZEで統計を取り直すまで実行計画が不安定だったが、18ではpg_upgradeがオプティマイザ統計を引き継ぐ。ファイル移行を高速化する--swapオプションも追加された。" }
   ];
 
   var CATEGORY_EMOJI = {
     "基本概念":"🧩", "インデックス":"📇", "クエリ最適化":"🔍", "JSON/JSONB":"🗂️",
-    "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄", "17の新機能":"🆕"
+    "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄", "17の新機能":"🆕", "18の新機能":"🚀"
   };
 
   var QUESTIONS_PER_QUIZ = 10;
