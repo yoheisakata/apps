@@ -88,6 +88,24 @@ body {
   z-index: 10;
 }
 
+.home-link {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+  text-decoration: none;
+  z-index: 10;
+}
+.home-link:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12); }
+
 .screen-title { font-size: 1.6rem; color: #444; margin: 48px 0 24px; }
 
 .row-grid {

@@ -45,6 +45,15 @@ body::before{
 }
 .back-btn:active{opacity:.7;}
 
+.home-link{
+  align-self:flex-start;
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(255,255,255,.06); border:1px solid var(--card-border); color:var(--sub);
+  font-size:.85rem; font-weight:700; text-decoration:none;
+  padding:8px 14px; border-radius:12px; min-height:40px; margin-bottom:8px;
+}
+.home-link:active{opacity:.7;}
+
 .app-title{font-size:clamp(1.6rem,6vw,2.2rem); font-weight:900; text-align:center; margin:12px 0 4px;
   background:linear-gradient(135deg,#6cace4,#2ed573); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
 .app-sub{color:var(--sub); font-size:.9rem; text-align:center; margin-bottom:36px;}
@@ -194,6 +203,7 @@ body::before{
 
 <!-- ホーム -->
 <div class="screen active" id="screen-home">
+  <a class="home-link" href="../">🏠 アプリ一覧へ</a>
   <div class="app-title">🐘 PostgreSQL まなびカード</div>
   <div class="app-sub">対象バージョン: PostgreSQL 17 以降</div>
   <div class="mode-col">

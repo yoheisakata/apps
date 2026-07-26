@@ -22,14 +22,25 @@ header {
   background: #0b1728;
   border-bottom: 2px solid #1a2e48;
   padding: 8px 16px;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center;
   flex-shrink: 0; gap: 10px;
 }
 header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowrap; }
 #header-sub { font-size: 0.68rem; color: #4a6080; }
 
+#home-link {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; flex-shrink: 0;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 50%;
+  font-size: 1rem; text-decoration: none;
+}
+#home-link:hover { background: rgba(255,255,255,0.14); }
+
 #back-btn {
   display: none;
+  margin-left: auto;
   align-items: center; gap: 6px;
   background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.14);
@@ -285,6 +296,7 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
 <body>
 
 <header>
+  <a id="home-link" href="../" aria-label="アプリいちらんへもどる">🏠</a>
   <div>
     <h1>🚄 しんかんせんマップ</h1>
     <p id="header-sub">にほんには、たくさんのしんかんせんがある！</p>
