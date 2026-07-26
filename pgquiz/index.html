@@ -188,7 +188,7 @@ body::before{
       <span><span class="mode-label">フラッシュカード</span><span class="mode-desc">カードをめくって暗記・復習</span></span>
     </button>
   </div>
-  <div class="footnote">全64問・9カテゴリ / データはこの端末に保存されません</div>
+  <div class="footnote">全80問・11カテゴリ / データはこの端末に保存されません</div>
 </div>
 
 <!-- カテゴリえらび -->
@@ -464,12 +464,65 @@ body::before{
       note:"UPDATE ... RETURNING old.price, new.price のように、1つの文で変更前後の値を取得できる。INSERT・DELETE・MERGEでも使える。" },
     { cat:"18の新機能", q:"PostgreSQL 18のpg_upgradeで改善された、アップグレード直後の性能低下を抑える仕組みは?",
       choices:["プランナー統計情報の引き継ぎ","WALの自動再生","インデックスの自動再構築","接続プールの維持"], answer:0,
-      note:"従来はアップグレード後にANALYZEで統計を取り直すまで実行計画が不安定だったが、18ではpg_upgradeがオプティマイザ統計を引き継ぐ。ファイル移行を高速化する--swapオプションも追加された。" }
+      note:"従来はアップグレード後にANALYZEで統計を取り直すまで実行計画が不安定だったが、18ではpg_upgradeがオプティマイザ統計を引き継ぐ。ファイル移行を高速化する--swapオプションも追加された。" },
+
+    // -- データ型 --
+    { cat:"データ型", q:"金額計算など、丸め誤差なく正確な10進数の計算が必要な場合に使うべき数値型は?",
+      choices:["numeric(decimal)","real","double precision","money"], answer:0,
+      note:"numericは任意精度の10進演算で誤差が出ない。real/double precisionは2進浮動小数点なので誤差が出る。money型はロケール依存のため一般に推奨されない。" },
+    { cat:"データ型", q:"自動採番カラムの定義方法として、SQL標準に準拠しており現在推奨されているのは?",
+      choices:["IDENTITY列(GENERATED ... AS IDENTITY)","SERIAL型","トリガーで採番","MAX(id)+1をINSERT時に計算"], answer:0,
+      note:"GENERATED ALWAYS/BY DEFAULT AS IDENTITYがSQL標準の書き方。SERIALはPostgreSQL独自の古い書き方で、内部的にはどちらもシーケンスを使う。" },
+    { cat:"データ型", q:"保存時にUTCへ正規化され、表示時にセッションのタイムゾーンへ変換される日時型は?",
+      choices:["timestamptz(timestamp with time zone)","timestamp(without time zone)","date","interval"], answer:0,
+      note:"timestamptzは内部的にUTCで保存し、TimeZone設定に応じて変換して表示する。タイムゾーン情報そのものを保存しているわけではない点に注意。" },
+    { cat:"データ型", q:"1つのカラムに同じ型の複数の値を順序付きで格納できるPostgreSQL独自の機能は?",
+      choices:["配列型(integer[]など)","ENUM型","複合型","hstore"], answer:0,
+      note:"任意の型に[]を付けて配列型にできる。要素の検索にはANYや@>を使い、GINインデックスで高速化できる。" },
+    { cat:"データ型", q:"数値や日時の「範囲」を1つの値として扱い、重複判定(&&)などの演算ができる型は?",
+      choices:["範囲型(int4range・daterangeなど)","配列型","タプル型","シーケンス型"], answer:0,
+      note:"範囲型は境界の包含/排他も表現でき、EXCLUDE制約と組み合わせて「期間の重複禁止」なども実現できる。複数範囲を扱うmultirange型もある。" },
+    { cat:"データ型", q:"あらかじめ定義した値のリストだけを許可する型を作る構文は?",
+      choices:["CREATE TYPE ... AS ENUM","CREATE DOMAIN","CREATE SEQUENCE","CHECK制約付きtext"], answer:0,
+      note:"ENUM型は定義順に大小関係を持つ。値の追加はALTER TYPE ... ADD VALUEでできるが、削除はできない点に注意。" },
+    { cat:"データ型", q:"PostgreSQLで可変長文字列に慣用的に使われる、長さ制限のない文字列型は?",
+      choices:["text","varchar(255)","char(255)","clob"], answer:0,
+      note:"PostgreSQLではtext・varchar(n)・char(n)に性能差はほぼなく、長さ制限が本当に必要な場合を除きtextを使うのが慣用的。" },
+    { cat:"データ型", q:"既存の型にCHECK制約などを付けた「制約付きの型」を定義し、複数のテーブルで再利用できる機能は?",
+      choices:["ドメイン(CREATE DOMAIN)","複合型","型キャスト","演算子クラス"], answer:0,
+      note:"CREATE DOMAIN email AS text CHECK (VALUE ~ '@') のように定義すると、同じ制約を複数テーブルのカラムで使い回せる。" },
+
+    // -- セキュリティ/権限 --
+    { cat:"セキュリティ/権限", q:"テーブルの行単位で「どのユーザーがどの行を見られるか」を制御する機能は?",
+      choices:["行レベルセキュリティ(RLS)","カラム権限","ビュー制限","スキーマ分離"], answer:0,
+      note:"ALTER TABLE ... ENABLE ROW LEVEL SECURITYで有効化し、CREATE POLICYで条件を定義する。マルチテナントのデータ分離などに使われる。" },
+    { cat:"セキュリティ/権限", q:"「どのホストのどのユーザーがどの認証方式で接続できるか」を定義するクライアント認証の設定ファイルは?",
+      choices:["pg_hba.conf","postgresql.conf","pg_ident.conf","recovery.conf"], answer:0,
+      note:"pg_hba.conf(Host-Based Authentication)は接続元・データベース・ユーザーごとに認証方式(scram-sha-256など)を指定する。変更後はリロードが必要。" },
+    { cat:"セキュリティ/権限", q:"現在推奨されているパスワード認証方式は?",
+      choices:["SCRAM-SHA-256","MD5","password(平文)","CRC32"], answer:0,
+      note:"SCRAM-SHA-256はソルト付きハッシュとチャレンジレスポンスを使う安全な方式。古いMD5認証はPostgreSQL 18で非推奨になった。" },
+    { cat:"セキュリティ/権限", q:"PostgreSQLでユーザーとグループを統一的に扱う概念は?",
+      choices:["ロール(ROLE)","アカウント","プリンシパル","プロファイル"], answer:0,
+      note:"LOGIN属性を持つロールがいわゆるユーザー。ロールを別のロールにGRANTすることでグループとしても機能する。" },
+    { cat:"セキュリティ/権限", q:"テーブルやスキーマへのアクセス権限をロールに付与するコマンドは?",
+      choices:["GRANT","ALLOW","PERMIT","CHMOD"], answer:0,
+      note:"GRANT SELECT ON テーブル TO ロール のように使う。取り消しはREVOKE。psqlでは\\dpで権限を確認できる。" },
+    { cat:"セキュリティ/権限", q:"関数を「呼び出したユーザー」ではなく「定義したユーザー」の権限で実行させる属性は?",
+      choices:["SECURITY DEFINER","SECURITY INVOKER","SUPERUSER","LEAKPROOF"], answer:0,
+      note:"SECURITY DEFINER関数は権限昇格の入り口になりうるため、SET search_pathを固定して定義するのがセキュリティ上の定石。デフォルトはSECURITY INVOKER。" },
+    { cat:"セキュリティ/権限", q:"統計ビューなど監視に必要な読み取り権限をまとめて持つ、監視用途向けの定義済みロールは?",
+      choices:["pg_monitor","pg_admin","pg_observer","pg_stats_user"], answer:0,
+      note:"pg_monitorはpg_read_all_stats・pg_read_all_settingsなどを含む定義済みロールで、監視ツール用のロールに付与するとSUPERUSERを使わずに済む。" },
+    { cat:"セキュリティ/権限", q:"クライアントとサーバー間の通信を暗号化するためにPostgreSQLがサポートしている仕組みは?",
+      choices:["SSL/TLS接続","WAL暗号化","ページ単位の透過的暗号化","SSHポートフォワード専用機能"], answer:0,
+      note:"サーバー側でssl=onにし、pg_hba.confのhostssl・クライアントのsslmode=require等で強制できる。ディスク上の透過的暗号化(TDE)は本体には含まれない。" }
   ];
 
   var CATEGORY_EMOJI = {
     "基本概念":"🧩", "インデックス":"📇", "クエリ最適化":"🔍", "JSON/JSONB":"🗂️",
-    "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄", "17の新機能":"🆕", "18の新機能":"🚀"
+    "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄",
+    "データ型":"🧮", "セキュリティ/権限":"🔐", "17の新機能":"🆕", "18の新機能":"🚀"
   };
 
   var QUESTIONS_PER_QUIZ = 10;

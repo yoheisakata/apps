@@ -22,7 +22,7 @@ Most are **single self-contained HTML files** (inline CSS + JS) in their own dir
 - **world-cup-2026/** — Multi-file vanilla app: `index.html` + `main.js` + ES-module views in `views/` + `style.css`, with static datasets in `data/*.json`. No build step. The tournament ended 2026-07-19 (final: Spain 1-0 Argentina) — the app is now a fully static archive; all 104 match results are baked into `data/*.json`. The old live-fetch pipeline (Wikipedia + openfootball fallback, a Cloudflare Worker proxying FIFA rankings) was removed — do not reintroduce it.
 - **kids-learning-app/** — Multi-file vanilla app (「まなびアプリ」): `index.html` + `app.js` + `style.css` + `manifest.json` + `sw.js` (installable PWA with offline cache — bump `CACHE_NAME` in `sw.js` whenever cached assets change). Covers たしざん (leveled, 5 levels), くく/かけざん (speech-read multiplication tables via `speechSynthesis`), ひらがな, and ローマ字タイピング, with a shared star (`localStorage`) + sound-effect reward system across all modes. Absorbed the former standalone `sansu/` app (たしざん levels + 九九) — do not re-add `sansu/` as a separate app.
 
-Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`, `pgquiz` (PostgreSQL 17以降向けのクイズ/フラッシュカード学習アプリ、64問・9カテゴリ).
+Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`, `pgquiz` (PostgreSQL 17以降向けのクイズ/フラッシュカード学習アプリ、80問・11カテゴリ).
 
 > `learn-postgresql/` (pglite/WASM SQL lab) and `receipt/` (Claude API + Firebase レシート web app; the user's Firebase account was deleted — receipt management now lives in networth's レシート tab) were removed from the repo; do not re-add references to them unless the folders come back.
 
