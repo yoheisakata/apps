@@ -206,7 +206,7 @@ body::before{
       <span><span class="mode-label">フラッシュカード</span><span class="mode-desc">カードをめくって暗記・復習</span></span>
     </button>
   </div>
-  <div class="footnote">全92問・12カテゴリ / データはこの端末に保存されません</div>
+  <div class="footnote">全104問・13カテゴリ / データはこの端末に保存されません</div>
 </div>
 
 <!-- カテゴリえらび -->
@@ -538,6 +538,44 @@ body::before{
       choices:["SSL/TLS接続","WAL暗号化","ページ単位の透過的暗号化","SSHポートフォワード専用機能"], answer:0,
       note:"サーバー側でssl=onにし、pg_hba.confのhostssl・クライアントのsslmode=require等で強制できる。ディスク上の透過的暗号化(TDE)は本体には含まれない。" },
 
+    // -- 運用チートシート (PostgreSQL Wiki: Operations cheat sheet を参考) --
+    { cat:"運用チートシート", q:"「今どの接続がどんなクエリを実行中か」を確認するために最初に見るシステムビューは?",
+      choices:["pg_stat_activity","pg_stat_database","pg_stat_user_tables","pg_settings"], answer:0,
+      note:"pid・state(active / idle / idle in transaction)・query・wait_eventなどが見える。運用トラブル調査の出発点。" },
+    { cat:"運用チートシート", q:"実行中のクエリだけを安全に中断し、接続自体は維持する関数は?",
+      choices:["pg_cancel_backend(pid)","pg_terminate_backend(pid)","pg_kill_query(pid)","pg_stop_backend(pid)"], answer:0,
+      note:"pg_cancel_backendはSIGINTでクエリのみキャンセル。pg_terminate_backendはSIGTERMで接続ごと切断する、より強い手段。pidはpg_stat_activityで調べる。" },
+    { cat:"運用チートシート", q:"postgresql.confを編集したあと、サーバーを再起動せずに設定を反映させる方法は?",
+      choices:["SELECT pg_reload_conf()","SELECT pg_restart()","DISCARD ALL","VACUUM FULL"], answer:0,
+      note:"pg_ctl reloadでも同じ。ただしshared_buffersなど再起動が必要な設定もあり、pg_settingsのcontext列で見分けられる。" },
+    { cat:"運用チートシート", q:"SQLから恒久的な設定変更を行い、postgresql.auto.confに書き込むコマンドは?",
+      choices:["ALTER SYSTEM SET","SET GLOBAL","UPDATE pg_settings","ALTER DATABASE SET ALL"], answer:0,
+      note:"ALTER SYSTEM SET work_mem = '64MB' のように使う。postgresql.auto.confの内容はpostgresql.confより優先される。反映にはreloadか再起動が必要。" },
+    { cat:"運用チートシート", q:"インデックスやTOASTも含めたテーブルの合計サイズを調べる関数は?",
+      choices:["pg_total_relation_size()","pg_relation_size()","pg_database_size()","pg_table_size()"], answer:0,
+      note:"pg_relation_sizeはテーブル本体のみ、pg_database_sizeはDB全体。pg_size_pretty()と組み合わせると読みやすい表示になる。" },
+    { cat:"運用チートシート", q:"指定した時間より長くかかったクエリをサーバーログに記録する設定パラメータは?",
+      choices:["log_min_duration_statement","slow_query_log","log_statement_timeout","log_long_queries"], answer:0,
+      note:"例: 1000 にすると1秒を超えたクエリを記録。0で全クエリを記録。実行計画まで記録したい場合はauto_explain拡張を使う。" },
+    { cat:"運用チートシート", q:"正規化したクエリごとに累計の実行回数・所要時間などを集計する定番の拡張は?",
+      choices:["pg_stat_statements","pg_stat_monitor_core","pg_query_log","pg_profiler"], answer:0,
+      note:"shared_preload_librariesに追加して再起動し、CREATE EXTENSIONで有効化。「どのクエリが一番時間を使っているか」の分析に必須級。" },
+    { cat:"運用チートシート", q:"ロック待ちの調査で、保持中・待機中のロック一覧を確認するシステムビューは?",
+      choices:["pg_locks","pg_stat_locks","pg_wait_events","pg_blockers"], answer:0,
+      note:"pg_stat_activityと結合して「誰が誰を待たせているか」を特定する。pg_blocking_pids(pid)関数でブロック元のpidを直接調べることもできる。" },
+    { cat:"運用チートシート", q:"トランザクションを開いたまま放置している接続を一定時間で自動切断する設定は?",
+      choices:["idle_in_transaction_session_timeout","statement_timeout","tcp_keepalives_idle","lock_timeout"], answer:0,
+      note:"idle in transactionの接続はロックを保持し続け、VACUUMによる不要行の回収も妨げる。statement_timeoutは1文の実行時間の上限で別物。" },
+    { cat:"運用チートシート", q:"データベースをSQL形式などで論理バックアップする標準ツールは?",
+      choices:["pg_dump","pg_basebackup","pg_backup","COPY TO BACKUP"], answer:0,
+      note:"ロールやテーブルスペース定義などクラスタ全体はpg_dumpall、物理バックアップはpg_basebackup。-Fc(カスタム形式)ならpg_restoreで部分復元できる。" },
+    { cat:"運用チートシート", q:"プライマリ側でレプリケーションの接続状態や遅延(LSNの差)を確認するビューは?",
+      choices:["pg_stat_replication","pg_stat_wal_receiver","pg_replication_origin","pg_stat_standby"], answer:0,
+      note:"sent_lsn・write_lsn・flush_lsn・replay_lsnの差からスタンバイの遅延がわかる。スタンバイ側で見るのはpg_stat_wal_receiver。" },
+    { cat:"運用チートシート", q:"PREPARE TRANSACTIONされたまま放置された準備済みトランザクションを確認するビューは?",
+      choices:["pg_prepared_xacts","pg_stat_activity","pg_twophase","pg_pending_commits"], answer:0,
+      note:"準備済みトランザクションはセッションを持たないためpg_stat_activityには出ないが、ロックを保持し続ける。放置されたものはCOMMIT/ROLLBACK PREPAREDで解消する。" },
+
     // -- 内部構造 (The Internals of PostgreSQL の章立てを参考) --
     { cat:"内部構造", q:"initdbで作成される、全データベース・設定ファイル・WALなどを含むディスク上のディレクトリ一式を何と呼ぶ?",
       choices:["データベースクラスタ","テーブルスペース","スキーマ","カタログ"], answer:0,
@@ -580,7 +618,7 @@ body::before{
   var CATEGORY_EMOJI = {
     "基本概念":"🧩", "インデックス":"📇", "クエリ最適化":"🔍", "JSON/JSONB":"🗂️",
     "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄",
-    "データ型":"🧮", "セキュリティ/権限":"🔐", "内部構造":"🔬", "17の新機能":"🆕", "18の新機能":"🚀"
+    "データ型":"🧮", "セキュリティ/権限":"🔐", "内部構造":"🔬", "運用チートシート":"🛠️", "17の新機能":"🆕", "18の新機能":"🚀"
   };
 
   // ==== 解説図 (インラインSVG) — 問題の fig:"名前" から参照。回答後の解説とフラッシュカード裏面に表示 ====
