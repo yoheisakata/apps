@@ -118,6 +118,13 @@ body::before{
 .quiz-note.show{display:block;}
 .quiz-note b{color:var(--accent);}
 
+/* ---- 解説図 ---- */
+.fig-box{margin-top:14px; background:rgba(0,0,0,.22); border:1px solid var(--card-border); border-radius:12px; padding:10px 12px;}
+.fig-box svg{display:block; width:100%; height:auto; max-width:420px; margin:0 auto;}
+.flash-fig{width:100%;}
+.flash-fig .fig-box{margin-top:0; padding:8px;}
+.flash-fig svg{max-width:320px;}
+
 .next-btn{
   margin-top:18px; width:100%; max-width:280px; padding:16px; border:none; border-radius:18px;
   background:linear-gradient(135deg,var(--accent-dark),var(--accent)); color:#fff; font-family:inherit;
@@ -142,14 +149,15 @@ body::before{
 .flash-progress{color:var(--sub); font-size:.85rem; font-weight:700; margin-bottom:16px;}
 .flash-wrap{width:100%; max-width:460px; perspective:1400px; margin-bottom:22px;}
 .flash-card{
-  position:relative; width:100%; min-height:280px; cursor:pointer;
+  position:relative; width:100%; min-height:340px; cursor:pointer;
   transform-style:preserve-3d; transition:transform .5s cubic-bezier(.4,.2,.2,1);
 }
 .flash-card.flipped{transform:rotateY(180deg);}
 .flash-face{
   position:absolute; inset:0; backface-visibility:hidden; border-radius:26px;
   border:1px solid var(--card-border); padding:clamp(20px,6vw,32px);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:14px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; justify-content:safe center;
+  text-align:center; gap:14px; overflow-y:auto;
 }
 .flash-front{background:var(--card);}
 .flash-back{background:linear-gradient(160deg,#12331f,#0f2236); transform:rotateY(180deg);}
@@ -188,7 +196,7 @@ body::before{
       <span><span class="mode-label">フラッシュカード</span><span class="mode-desc">カードをめくって暗記・復習</span></span>
     </button>
   </div>
-  <div class="footnote">全56問・8カテゴリ / データはこの端末に保存されません</div>
+  <div class="footnote">全92問・12カテゴリ / データはこの端末に保存されません</div>
 </div>
 
 <!-- カテゴリえらび -->
@@ -240,6 +248,7 @@ body::before{
       <div class="flash-face flash-back">
         <div class="flash-answer" id="flash-answer"></div>
         <div class="flash-note" id="flash-note"></div>
+        <div class="flash-fig" id="flash-fig"></div>
       </div>
     </div>
   </div>
@@ -261,13 +270,13 @@ body::before{
       choices:["ACID特性","CAP定理","BASE特性","2相コミット"], answer:0,
       note:"ACID = Atomicity(原子性)・Consistency(一貫性)・Isolation(独立性)・Durability(永続性)の頭文字。" },
     { cat:"基本概念", q:"複数のトランザクションが同じ行を同時に読み書きできるよう、行の複数バージョンを保持する仕組みは?",
-      choices:["MVCC(多版型同時実行制御)","ロック昇格","WALストリーミング","シャーディング"], answer:0,
+      choices:["MVCC(多版型同時実行制御)","ロック昇格","WALストリーミング","シャーディング"], answer:0, fig:"mvcc",
       note:"MVCC(Multi-Version Concurrency Control)。更新のたびに新しい行バージョンが作られ、不要になった古いバージョンはVACUUMで回収される。" },
     { cat:"基本概念", q:"PostgreSQLのデフォルトのトランザクション分離レベルは?",
       choices:["READ COMMITTED","REPEATABLE READ","SERIALIZABLE","READ UNCOMMITTED"], answer:0,
       note:"SQL標準のデフォルトはSERIALIZABLEだが、PostgreSQLのデフォルトはREAD COMMITTED。READ UNCOMMITTEDを指定してもREAD COMMITTEDとして扱われる。" },
     { cat:"基本概念", q:"変更をデータファイルに反映する前に、まず追記して記録しておくクラッシュリカバリ用のログ機構は?",
-      choices:["WAL(先行書き込みログ)","バイナリログ","スロークエリログ","監査ログ"], answer:0,
+      choices:["WAL(先行書き込みログ)","バイナリログ","スロークエリログ","監査ログ"], answer:0, fig:"wal",
       note:"WAL(Write-Ahead Log)。クラッシュ後の復旧はこのログを再生することで行われる。" },
     { cat:"基本概念", q:"PostgreSQLがSERIALIZABLE分離レベルを実現するために使う仕組みは?",
       choices:["SSI(直列化可能スナップショット分離)","2フェーズロック","タイムスタンプ順序付け","マルチグラニュラロック"], answer:0,
@@ -353,13 +362,13 @@ body::before{
 
     // -- パーティショニング・レプリケーション --
     { cat:"パーティション/レプリケーション", q:"範囲やリストなどの条件で、1つの論理テーブルを複数の物理テーブルに分割する仕組みは?",
-      choices:["宣言的パーティショニング","シャーディング","テーブルスペース分割","マテリアライズドビュー"], answer:0,
+      choices:["宣言的パーティショニング","シャーディング","テーブルスペース分割","マテリアライズドビュー"], answer:0, fig:"partition",
       note:"PARTITION BY RANGE/LIST/HASHで親テーブルを定義し、子テーブル(パーティション)にデータを振り分ける。" },
     { cat:"パーティション/レプリケーション", q:"パーティションキーの値を連続した範囲(例: 日付の月ごと)で分割するパーティショニング方式は?",
       choices:["RANGE","LIST","HASH","ROUND ROBIN"], answer:0,
       note:"RANGEパーティショニングは日付や連番など連続した値の範囲でパーティションを分ける方式で、ログデータなどによく使われる。" },
     { cat:"パーティション/レプリケーション", q:"プライマリからスタンバイへWALをリアルタイムに転送し、読み取り専用レプリカとして稼働させる仕組みは?",
-      choices:["ストリーミングレプリケーション","論理レプリケーション","ホットスワップ","フェイルオーバークラスタリング"], answer:0,
+      choices:["ストリーミングレプリケーション","論理レプリケーション","ホットスワップ","フェイルオーバークラスタリング"], answer:0, fig:"replication",
       note:"ストリーミングレプリケーションはWALをそのまま転送するためテーブル単位の選択はできないが、クラスタ全体を丸ごと複製できる。" },
     { cat:"パーティション/レプリケーション", q:"テーブル単位で変更内容を別のPostgreSQLインスタンス(異なるバージョンも可)にレプリケーションできる仕組みは?",
       choices:["論理レプリケーション(Logical Replication)","ストリーミングレプリケーション","同期レプリケーション","カスケードレプリケーション"], answer:0,
@@ -376,7 +385,7 @@ body::before{
 
     // -- バキューム・運用 --
     { cat:"バキューム/運用", q:"更新・削除で発生した不要な行バージョン(デッドタプル)を回収し、領域を再利用可能にするコマンドは?",
-      choices:["VACUUM","REINDEX","CLUSTER","CHECKPOINT"], answer:0,
+      choices:["VACUUM","REINDEX","CLUSTER","CHECKPOINT"], answer:0, fig:"mvcc",
       note:"VACUUMはデッドタプルを回収し、テーブル内の空き領域を新しい行のために再利用可能にする。テーブルサイズそのものは基本的に縮小しない。" },
     { cat:"バキューム/運用", q:"テーブルを新しいファイルとして書き直すことでディスク上のサイズも縮小するが、処理中はテーブルに排他ロックがかかるコマンドは?",
       choices:["VACUUM FULL","VACUUM","ANALYZE","REINDEX CONCURRENTLY"], answer:0,
@@ -391,7 +400,7 @@ body::before{
       choices:["TidStore","HashMap","B-treeキャッシュ","ビットマップインデックス"], answer:0,
       note:"従来は単純な配列でデッドタプルのTIDを保持しmaintenance_work_memの上限に縛られていたが、17ではTidStoreにより大幅にメモリ使用量が削減された。" },
     { cat:"バキューム/運用", q:"コミット済みの変更をディスク上のデータファイルへ確実に反映させ、リカバリ時に再生すべきWALの範囲を短くする処理は?",
-      choices:["チェックポイント(CHECKPOINT)","バキューム","論理デコード","アーカイブ"], answer:0,
+      choices:["チェックポイント(CHECKPOINT)","バキューム","論理デコード","アーカイブ"], answer:0, fig:"wal",
       note:"チェックポイント時点までの変更はデータファイルに書き込み済みであることが保証され、リカバリではそれ以降のWALだけを再生すればよい。" },
     { cat:"バキューム/運用", q:"PostgreSQL 17でCOPYコマンドに追加された、データ変換エラーが起きた行をスキップして処理を続行できるオプションは?",
       choices:["ON_ERROR ignore","ON_ERROR skip","SKIP_ERRORS","IGNORE_ERRORS"], answer:0,
@@ -438,12 +447,291 @@ body::before{
       note:"builtinプロバイダは環境やOSに依存しないシンプルな照合順序で、移植性と再現性を高める。" },
     { cat:"17の新機能", q:"PostgreSQL 17でMERGE文に追加され、変更された行を1文の中で取得できるようになった句は?",
       choices:["RETURNING句","OUTPUT句","WITH RESULT AS句","YIELD句"], answer:0,
-      note:"以前はMERGEの結果をRETURNINGで取得できなかったが、17でサポートされ、UPSERT的な処理の結果もそのまま取得できるようになった。" }
+      note:"以前はMERGEの結果をRETURNINGで取得できなかったが、17でサポートされ、UPSERT的な処理の結果もそのまま取得できるようになった。" },
+
+    // -- PostgreSQL 18 の新機能 --
+    { cat:"18の新機能", q:"PostgreSQL 18で導入された、読み取りI/Oを非同期に実行する新基盤(AIO)を制御する設定パラメータは?",
+      choices:["io_method","async_io_mode","aio_workers","effective_io_engine"], answer:0,
+      note:"PostgreSQL 18では非同期I/O基盤が導入され、io_methodでworker(デフォルト)・io_uring(Linux)・syncを選べる。シーケンシャルスキャンやVACUUMなどの読み取りが高速化される。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で追加された、タイムスタンプに基づき時系列順に並ぶUUIDを生成する関数は?",
+      choices:["uuidv7()","gen_random_uuid()","uuid_time()","uuid_ordered()"], answer:0,
+      note:"uuidv7()は先頭にタイムスタンプを含むため生成順に並び、B-treeインデックスとの相性が良い。従来のgen_random_uuid()はランダムなUUIDv4を生成する(18ではuuidv4()という別名も追加)。" },
+    { cat:"18の新機能", q:"PostgreSQL 18でB-treeの複合インデックスに追加された、先頭カラムが検索条件になくてもインデックスを活用できる機能は?",
+      choices:["スキップスキャン(Skip Scan)","ルーズスキャン","逆順スキャン","パラレルインデックススキャン"], answer:0,
+      note:"従来は複合インデックスの先頭カラムがWHERE句にないと効率よく使えなかったが、18では先頭カラムの各値を飛ばしながら検索できる。先頭カラムの値の種類が少ない場合に有効。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で追加された、値をディスクに保存せず読み取り時に計算する生成カラムの種類は?",
+      choices:["仮想生成カラム(VIRTUAL)","STORED生成カラム","マテリアライズドカラム","一時生成カラム"], answer:0,
+      note:"GENERATED ALWAYS AS (式) VIRTUALは読み取り時に計算されるためストレージを消費しない。18では生成カラムのデフォルトがVIRTUALになった(従来はSTOREDのみ)。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で追加された、期間の重複を禁止する時制的な主キー/ユニーク制約を定義するための句は?",
+      choices:["WITHOUT OVERLAPS","NO OVERLAP","EXCLUDE PERIOD","UNIQUE RANGE"], answer:0,
+      note:"PRIMARY KEY (id, valid_period WITHOUT OVERLAPS)のように定義すると、同じidで期間が重なる行を禁止できる。参照する外部キー側ではPERIODを使う。" },
+    { cat:"18の新機能", q:"PostgreSQL 18で新たにサポートされた認証方式は?",
+      choices:["OAuth 2.0","Kerberos","SCRAM-SHA-256","LDAP"], answer:0,
+      note:"18でOAuth 2.0による認証(pg_hba.confのoauth)が追加された。KerberosやSCRAM-SHA-256、LDAPは以前からサポート済みで、古いMD5パスワード認証は18で非推奨になった。" },
+    { cat:"18の新機能", q:"PostgreSQL 18でRETURNING句が強化され、変更前・変更後の行の値を参照するために使えるようになったキーワードは?",
+      choices:["OLDとNEW","BEFOREとAFTER","PREVとNEXT","FROMとTO"], answer:0,
+      note:"UPDATE ... RETURNING old.price, new.price のように、1つの文で変更前後の値を取得できる。INSERT・DELETE・MERGEでも使える。" },
+    { cat:"18の新機能", q:"PostgreSQL 18のpg_upgradeで改善された、アップグレード直後の性能低下を抑える仕組みは?",
+      choices:["プランナー統計情報の引き継ぎ","WALの自動再生","インデックスの自動再構築","接続プールの維持"], answer:0,
+      note:"従来はアップグレード後にANALYZEで統計を取り直すまで実行計画が不安定だったが、18ではpg_upgradeがオプティマイザ統計を引き継ぐ。ファイル移行を高速化する--swapオプションも追加された。" },
+
+    // -- データ型 --
+    { cat:"データ型", q:"金額計算など、丸め誤差なく正確な10進数の計算が必要な場合に使うべき数値型は?",
+      choices:["numeric(decimal)","real","double precision","money"], answer:0,
+      note:"numericは任意精度の10進演算で誤差が出ない。real/double precisionは2進浮動小数点なので誤差が出る。money型はロケール依存のため一般に推奨されない。" },
+    { cat:"データ型", q:"自動採番カラムの定義方法として、SQL標準に準拠しており現在推奨されているのは?",
+      choices:["IDENTITY列(GENERATED ... AS IDENTITY)","SERIAL型","トリガーで採番","MAX(id)+1をINSERT時に計算"], answer:0,
+      note:"GENERATED ALWAYS/BY DEFAULT AS IDENTITYがSQL標準の書き方。SERIALはPostgreSQL独自の古い書き方で、内部的にはどちらもシーケンスを使う。" },
+    { cat:"データ型", q:"保存時にUTCへ正規化され、表示時にセッションのタイムゾーンへ変換される日時型は?",
+      choices:["timestamptz(timestamp with time zone)","timestamp(without time zone)","date","interval"], answer:0,
+      note:"timestamptzは内部的にUTCで保存し、TimeZone設定に応じて変換して表示する。タイムゾーン情報そのものを保存しているわけではない点に注意。" },
+    { cat:"データ型", q:"1つのカラムに同じ型の複数の値を順序付きで格納できるPostgreSQL独自の機能は?",
+      choices:["配列型(integer[]など)","ENUM型","複合型","hstore"], answer:0,
+      note:"任意の型に[]を付けて配列型にできる。要素の検索にはANYや@>を使い、GINインデックスで高速化できる。" },
+    { cat:"データ型", q:"数値や日時の「範囲」を1つの値として扱い、重複判定(&&)などの演算ができる型は?",
+      choices:["範囲型(int4range・daterangeなど)","配列型","タプル型","シーケンス型"], answer:0,
+      note:"範囲型は境界の包含/排他も表現でき、EXCLUDE制約と組み合わせて「期間の重複禁止」なども実現できる。複数範囲を扱うmultirange型もある。" },
+    { cat:"データ型", q:"あらかじめ定義した値のリストだけを許可する型を作る構文は?",
+      choices:["CREATE TYPE ... AS ENUM","CREATE DOMAIN","CREATE SEQUENCE","CHECK制約付きtext"], answer:0,
+      note:"ENUM型は定義順に大小関係を持つ。値の追加はALTER TYPE ... ADD VALUEでできるが、削除はできない点に注意。" },
+    { cat:"データ型", q:"PostgreSQLで可変長文字列に慣用的に使われる、長さ制限のない文字列型は?",
+      choices:["text","varchar(255)","char(255)","clob"], answer:0,
+      note:"PostgreSQLではtext・varchar(n)・char(n)に性能差はほぼなく、長さ制限が本当に必要な場合を除きtextを使うのが慣用的。" },
+    { cat:"データ型", q:"既存の型にCHECK制約などを付けた「制約付きの型」を定義し、複数のテーブルで再利用できる機能は?",
+      choices:["ドメイン(CREATE DOMAIN)","複合型","型キャスト","演算子クラス"], answer:0,
+      note:"CREATE DOMAIN email AS text CHECK (VALUE ~ '@') のように定義すると、同じ制約を複数テーブルのカラムで使い回せる。" },
+
+    // -- セキュリティ/権限 --
+    { cat:"セキュリティ/権限", q:"テーブルの行単位で「どのユーザーがどの行を見られるか」を制御する機能は?",
+      choices:["行レベルセキュリティ(RLS)","カラム権限","ビュー制限","スキーマ分離"], answer:0,
+      note:"ALTER TABLE ... ENABLE ROW LEVEL SECURITYで有効化し、CREATE POLICYで条件を定義する。マルチテナントのデータ分離などに使われる。" },
+    { cat:"セキュリティ/権限", q:"「どのホストのどのユーザーがどの認証方式で接続できるか」を定義するクライアント認証の設定ファイルは?",
+      choices:["pg_hba.conf","postgresql.conf","pg_ident.conf","recovery.conf"], answer:0,
+      note:"pg_hba.conf(Host-Based Authentication)は接続元・データベース・ユーザーごとに認証方式(scram-sha-256など)を指定する。変更後はリロードが必要。" },
+    { cat:"セキュリティ/権限", q:"現在推奨されているパスワード認証方式は?",
+      choices:["SCRAM-SHA-256","MD5","password(平文)","CRC32"], answer:0,
+      note:"SCRAM-SHA-256はソルト付きハッシュとチャレンジレスポンスを使う安全な方式。古いMD5認証はPostgreSQL 18で非推奨になった。" },
+    { cat:"セキュリティ/権限", q:"PostgreSQLでユーザーとグループを統一的に扱う概念は?",
+      choices:["ロール(ROLE)","アカウント","プリンシパル","プロファイル"], answer:0,
+      note:"LOGIN属性を持つロールがいわゆるユーザー。ロールを別のロールにGRANTすることでグループとしても機能する。" },
+    { cat:"セキュリティ/権限", q:"テーブルやスキーマへのアクセス権限をロールに付与するコマンドは?",
+      choices:["GRANT","ALLOW","PERMIT","CHMOD"], answer:0,
+      note:"GRANT SELECT ON テーブル TO ロール のように使う。取り消しはREVOKE。psqlでは\\dpで権限を確認できる。" },
+    { cat:"セキュリティ/権限", q:"関数を「呼び出したユーザー」ではなく「定義したユーザー」の権限で実行させる属性は?",
+      choices:["SECURITY DEFINER","SECURITY INVOKER","SUPERUSER","LEAKPROOF"], answer:0,
+      note:"SECURITY DEFINER関数は権限昇格の入り口になりうるため、SET search_pathを固定して定義するのがセキュリティ上の定石。デフォルトはSECURITY INVOKER。" },
+    { cat:"セキュリティ/権限", q:"統計ビューなど監視に必要な読み取り権限をまとめて持つ、監視用途向けの定義済みロールは?",
+      choices:["pg_monitor","pg_admin","pg_observer","pg_stats_user"], answer:0,
+      note:"pg_monitorはpg_read_all_stats・pg_read_all_settingsなどを含む定義済みロールで、監視ツール用のロールに付与するとSUPERUSERを使わずに済む。" },
+    { cat:"セキュリティ/権限", q:"クライアントとサーバー間の通信を暗号化するためにPostgreSQLがサポートしている仕組みは?",
+      choices:["SSL/TLS接続","WAL暗号化","ページ単位の透過的暗号化","SSHポートフォワード専用機能"], answer:0,
+      note:"サーバー側でssl=onにし、pg_hba.confのhostssl・クライアントのsslmode=require等で強制できる。ディスク上の透過的暗号化(TDE)は本体には含まれない。" },
+
+    // -- 内部構造 (The Internals of PostgreSQL の章立てを参考) --
+    { cat:"内部構造", q:"initdbで作成される、全データベース・設定ファイル・WALなどを含むディスク上のディレクトリ一式を何と呼ぶ?",
+      choices:["データベースクラスタ","テーブルスペース","スキーマ","カタログ"], answer:0,
+      note:"環境変数PGDATAが指すディレクトリ配下に、各データベースのbase/やpg_wal/などが置かれる。「クラスタ」といっても複数サーバー構成のことではない点に注意。" },
+    { cat:"内部構造", q:"PostgreSQLがテーブルやインデックスのファイルを読み書きする単位「ページ(ブロック)」のデフォルトサイズは?",
+      choices:["8KB","4KB","16KB","64KB"], answer:0, fig:"page",
+      note:"ヒープファイルは8192バイトのページの並びで構成され、各ページはヘッダ・行ポインタ・タプル(行データ)からなる。サイズ変更はビルド時のみ可能。" },
+    { cat:"内部構造", q:"1ページに収まらない大きなカラム値を、圧縮したり専用の別テーブルへ分割格納したりする仕組みは?",
+      choices:["TOAST","ラージオブジェクト","ページ連結","WALスピル"], answer:0, fig:"toast",
+      note:"TOAST(The Oversized-Attribute Storage Technique)。約2KBを超える値が対象で、アプリからは透過的に扱われる。" },
+    { cat:"内部構造", q:"クライアント接続を待ち受け、接続ごとにバックエンドプロセスを起動する親プロセスは?",
+      choices:["postmaster","walwriter","bgwriter","logger"], answer:0, fig:"procs",
+      note:"PostgreSQLはマルチプロセス構成で、1接続=1バックエンドプロセス。checkpointer・autovacuum launcherなどのバックグラウンドプロセスもpostmasterの子プロセス。" },
+    { cat:"内部構造", q:"全プロセスが共有する、テーブルやインデックスのページをキャッシュするメモリ領域の大きさを決める設定パラメータは?",
+      choices:["shared_buffers","work_mem","maintenance_work_mem","temp_buffers"], answer:0, fig:"memory",
+      note:"shared_buffersは共有のページキャッシュ。work_memはソートやハッシュ結合など1操作ごとに使われるプロセスローカルなメモリで、役割が異なる。" },
+    { cat:"内部構造", q:"SQL文が実行されるまでの内部処理の正しい順序は?",
+      choices:["パーサ → リライタ → プランナ → エグゼキュータ","プランナ → パーサ → リライタ → エグゼキュータ","パーサ → プランナ → リライタ → エグゼキュータ","リライタ → パーサ → エグゼキュータ → プランナ"], answer:0, fig:"queryflow",
+      note:"パーサが構文木を作り、リライタがビュー展開などの書き換えを行い、プランナ(コストベースオプティマイザ)が実行計画を作り、エグゼキュータが実行する。" },
+    { cat:"内部構造", q:"各行に記録され、MVCCの可視性判定に使われる「行を作成したトランザクションID」と「行を削除したトランザクションID」を保持する隠しカラムは?",
+      choices:["xmin と xmax","ctid と oid","cmin と cmax","tid と xid"], answer:0, fig:"mvcc",
+      note:"SELECT xmin, xmax, * FROM ... で実際に確認できる。トランザクションのスナップショットと突き合わせて、どの行バージョンが見えるかを判定する。" },
+    { cat:"内部構造", q:"「このページには全トランザクションから見える行しかない」ことを記録し、VACUUMのページスキップやインデックスオンリースキャンに使われる構造は?",
+      choices:["可視性マップ(Visibility Map)","空き領域マップ(FSM)","コミットログ(clog)","ページヘッダ"], answer:0,
+      note:"テーブルごとに_vmフォークとして保存される。空き領域マップ(FSM)は挿入先の空きを探すための別の構造。" },
+    { cat:"内部構造", q:"インデックス対象外のカラムだけを更新し、新しい行バージョンが同じページに収まる場合に、インデックスへの追記を省略できる仕組みは?",
+      choices:["HOT(Heap Only Tuple)","FILLFACTOR","インデックスプルーニング","インプレース更新"], answer:0, fig:"hot",
+      note:"HOTにより「更新のたびに全インデックスへ挿入」のコストを回避できる。fillfactorを下げてページに空きを残すとHOT更新が効きやすくなる。" },
+    { cat:"内部構造", q:"共有バッファが満杯のとき、追い出すページを選ぶためにPostgreSQLが使う置換アルゴリズムは?",
+      choices:["クロックスイープ","厳密なLRUリスト","FIFO","ランダム置換"], answer:0,
+      note:"使用頻度カウンタを持つクロックスイープ方式で犠牲ページを選ぶ。大きなテーブルのSeq Scanは小さなリングバッファを使い、キャッシュ全体を汚さない工夫もある。" },
+    { cat:"内部構造", q:"WAL上のバイト位置を表す通し番号で、レプリケーションの進み具合の比較などにも使われる値は?",
+      choices:["LSN(Log Sequence Number)","XID","OID","TID"], answer:0,
+      note:"pg_current_wal_lsn()などで取得でき、pg_lsn型として比較・減算もできる。スタンバイの遅延量の計測にも使われる。" },
+    { cat:"内部構造", q:"ストリーミングレプリケーションで、プライマリからWALを送るプロセスとスタンバイで受け取るプロセスの組み合わせは?",
+      choices:["walsender と walreceiver","bgwriter と checkpointer","archiver と restorer","logger と collector"], answer:0, fig:"replication",
+      note:"プライマリのwalsenderがWALを送信し、スタンバイのwalreceiverが受信、スタートアッププロセスが適用する。pg_stat_replicationで状態を確認できる。" }
   ];
 
   var CATEGORY_EMOJI = {
     "基本概念":"🧩", "インデックス":"📇", "クエリ最適化":"🔍", "JSON/JSONB":"🗂️",
-    "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄", "17の新機能":"🆕"
+    "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄",
+    "データ型":"🧮", "セキュリティ/権限":"🔐", "内部構造":"🔬", "17の新機能":"🆕", "18の新機能":"🚀"
+  };
+
+  // ==== 解説図 (インラインSVG) — 問題の fig:"名前" から参照。回答後の解説とフラッシュカード裏面に表示 ====
+  var FIGURES = {
+    page:
+      '<svg viewBox="0 0 340 180" role="img" aria-label="ページ構造の図">' +
+      '<rect x="10" y="10" width="200" height="160" rx="8" fill="#0d1b2c" stroke="#6cace4" stroke-width="1.5"/>' +
+      '<rect x="10" y="10" width="200" height="24" rx="8" fill="rgba(108,172,228,.25)"/>' +
+      '<text x="110" y="26" font-size="11" fill="#e9f1fa" text-anchor="middle">ページヘッダ</text>' +
+      '<rect x="16" y="40" width="40" height="14" fill="rgba(108,172,228,.4)"/>' +
+      '<rect x="60" y="40" width="40" height="14" fill="rgba(108,172,228,.4)"/>' +
+      '<rect x="104" y="40" width="40" height="14" fill="rgba(108,172,228,.4)"/>' +
+      '<text x="110" y="70" font-size="10" fill="#8fa7bd" text-anchor="middle">↑ 行ポインタ</text>' +
+      '<text x="110" y="95" font-size="10" fill="#8fa7bd" text-anchor="middle">空き領域</text>' +
+      '<rect x="16" y="108" width="188" height="26" fill="rgba(46,213,115,.15)" stroke="#2ed573"/>' +
+      '<rect x="16" y="138" width="188" height="26" fill="rgba(46,213,115,.15)" stroke="#2ed573"/>' +
+      '<text x="110" y="125" font-size="10" fill="#e9f1fa" text-anchor="middle">タプル(行データ)</text>' +
+      '<text x="110" y="155" font-size="10" fill="#e9f1fa" text-anchor="middle">タプル(行データ)</text>' +
+      '<path d="M220 10 h8 v160 h-8" fill="none" stroke="#8fa7bd"/>' +
+      '<text x="238" y="95" font-size="11" fill="#8fa7bd">1ページ = 8KB</text>' +
+      '</svg>',
+    mvcc:
+      '<svg viewBox="0 0 340 120" role="img" aria-label="MVCCの行バージョンの図">' +
+      '<text x="170" y="16" font-size="10" fill="#8fa7bd" text-anchor="middle">UPDATE すると新しい行バージョンが作られる</text>' +
+      '<rect x="10" y="30" width="140" height="46" rx="8" fill="rgba(255,71,87,.12)" stroke="#ff4757"/>' +
+      '<text x="80" y="49" font-size="11" fill="#e9f1fa" text-anchor="middle">xmin=100 xmax=101</text>' +
+      '<text x="80" y="66" font-size="10" fill="#8fa7bd" text-anchor="middle">旧バージョン</text>' +
+      '<line x1="152" y1="53" x2="186" y2="53" stroke="#6cace4" stroke-width="1.5"/>' +
+      '<polygon points="186,48 196,53 186,58" fill="#6cace4"/>' +
+      '<rect x="198" y="30" width="132" height="46" rx="8" fill="rgba(46,213,115,.12)" stroke="#2ed573"/>' +
+      '<text x="264" y="49" font-size="11" fill="#e9f1fa" text-anchor="middle">xmin=101 xmax=0</text>' +
+      '<text x="264" y="66" font-size="10" fill="#8fa7bd" text-anchor="middle">新バージョン</text>' +
+      '<text x="170" y="105" font-size="10" fill="#8fa7bd" text-anchor="middle">見えなくなった旧バージョンは VACUUM が回収</text>' +
+      '</svg>',
+    queryflow:
+      '<svg viewBox="0 0 340 186" role="img" aria-label="クエリ処理の流れの図">' +
+      '<rect x="20" y="8" width="130" height="26" rx="6" fill="rgba(108,172,228,.15)" stroke="#6cace4"/>' +
+      '<text x="85" y="25" font-size="11" fill="#e9f1fa" text-anchor="middle">パーサ</text>' +
+      '<text x="162" y="25" font-size="10" fill="#8fa7bd">構文を解析</text>' +
+      '<line x1="85" y1="34" x2="85" y2="48" stroke="#6cace4"/><polygon points="80,48 90,48 85,56" fill="#6cace4"/>' +
+      '<rect x="20" y="56" width="130" height="26" rx="6" fill="rgba(108,172,228,.15)" stroke="#6cace4"/>' +
+      '<text x="85" y="73" font-size="11" fill="#e9f1fa" text-anchor="middle">リライタ</text>' +
+      '<text x="162" y="73" font-size="10" fill="#8fa7bd">ビューなどを展開</text>' +
+      '<line x1="85" y1="82" x2="85" y2="96" stroke="#6cace4"/><polygon points="80,96 90,96 85,104" fill="#6cace4"/>' +
+      '<rect x="20" y="104" width="130" height="26" rx="6" fill="rgba(108,172,228,.15)" stroke="#6cace4"/>' +
+      '<text x="85" y="121" font-size="11" fill="#e9f1fa" text-anchor="middle">プランナ</text>' +
+      '<text x="162" y="121" font-size="10" fill="#8fa7bd">コストで実行計画を選ぶ</text>' +
+      '<line x1="85" y1="130" x2="85" y2="144" stroke="#6cace4"/><polygon points="80,144 90,144 85,152" fill="#6cace4"/>' +
+      '<rect x="20" y="152" width="130" height="26" rx="6" fill="rgba(46,213,115,.12)" stroke="#2ed573"/>' +
+      '<text x="85" y="169" font-size="11" fill="#e9f1fa" text-anchor="middle">エグゼキュータ</text>' +
+      '<text x="162" y="169" font-size="10" fill="#8fa7bd">計画どおりに実行</text>' +
+      '</svg>',
+    procs:
+      '<svg viewBox="0 0 340 140" role="img" aria-label="プロセス構成の図">' +
+      '<rect x="120" y="8" width="100" height="26" rx="6" fill="rgba(108,172,228,.2)" stroke="#6cace4"/>' +
+      '<text x="170" y="25" font-size="11" fill="#e9f1fa" text-anchor="middle">postmaster</text>' +
+      '<line x1="170" y1="34" x2="50" y2="88" stroke="#8fa7bd"/>' +
+      '<line x1="170" y1="34" x2="135" y2="88" stroke="#8fa7bd"/>' +
+      '<line x1="170" y1="34" x2="210" y2="88" stroke="#8fa7bd"/>' +
+      '<line x1="170" y1="34" x2="292" y2="88" stroke="#8fa7bd"/>' +
+      '<rect x="8" y="88" width="84" height="26" rx="6" fill="rgba(46,213,115,.12)" stroke="#2ed573"/>' +
+      '<text x="50" y="105" font-size="10" fill="#e9f1fa" text-anchor="middle">バックエンド</text>' +
+      '<rect x="100" y="88" width="70" height="26" rx="6" fill="none" stroke="#8fa7bd"/>' +
+      '<text x="135" y="105" font-size="9" fill="#e9f1fa" text-anchor="middle">checkpointer</text>' +
+      '<rect x="178" y="88" width="64" height="26" rx="6" fill="none" stroke="#8fa7bd"/>' +
+      '<text x="210" y="105" font-size="9" fill="#e9f1fa" text-anchor="middle">walwriter</text>' +
+      '<rect x="250" y="88" width="84" height="26" rx="6" fill="none" stroke="#8fa7bd"/>' +
+      '<text x="292" y="105" font-size="9" fill="#e9f1fa" text-anchor="middle">autovacuum</text>' +
+      '<text x="50" y="132" font-size="9" fill="#8fa7bd" text-anchor="middle">1接続=1プロセス</text>' +
+      '<text x="217" y="132" font-size="9" fill="#8fa7bd" text-anchor="middle">バックグラウンドプロセス</text>' +
+      '</svg>',
+    replication:
+      '<svg viewBox="0 0 340 120" role="img" aria-label="ストリーミングレプリケーションの図">' +
+      '<rect x="10" y="20" width="135" height="64" rx="8" fill="none" stroke="#6cace4"/>' +
+      '<text x="77" y="38" font-size="11" fill="#e9f1fa" text-anchor="middle">プライマリ</text>' +
+      '<rect x="24" y="48" width="106" height="24" rx="6" fill="rgba(108,172,228,.18)"/>' +
+      '<text x="77" y="64" font-size="10" fill="#e9f1fa" text-anchor="middle">walsender</text>' +
+      '<line x1="147" y1="56" x2="188" y2="56" stroke="#6cace4" stroke-width="1.5"/>' +
+      '<polygon points="188,51 198,56 188,61" fill="#6cace4"/>' +
+      '<text x="172" y="46" font-size="10" fill="#6cace4" text-anchor="middle">WAL</text>' +
+      '<rect x="200" y="20" width="135" height="64" rx="8" fill="none" stroke="#2ed573"/>' +
+      '<text x="267" y="38" font-size="11" fill="#e9f1fa" text-anchor="middle">スタンバイ</text>' +
+      '<rect x="214" y="48" width="106" height="24" rx="6" fill="rgba(46,213,115,.15)"/>' +
+      '<text x="267" y="64" font-size="10" fill="#e9f1fa" text-anchor="middle">walreceiver</text>' +
+      '<text x="170" y="108" font-size="10" fill="#8fa7bd" text-anchor="middle">受け取ったWALを再生して同じ状態を保つ</text>' +
+      '</svg>',
+    hot:
+      '<svg viewBox="0 0 340 150" role="img" aria-label="HOT更新の図">' +
+      '<rect x="10" y="32" width="104" height="26" rx="6" fill="rgba(108,172,228,.18)" stroke="#6cace4"/>' +
+      '<text x="62" y="49" font-size="11" fill="#e9f1fa" text-anchor="middle">インデックス</text>' +
+      '<rect x="150" y="8" width="180" height="112" rx="8" fill="#0d1b2c" stroke="rgba(108,172,228,.4)"/>' +
+      '<text x="240" y="24" font-size="9" fill="#8fa7bd" text-anchor="middle">同じページ内</text>' +
+      '<rect x="164" y="32" width="152" height="26" rx="6" fill="rgba(255,71,87,.12)" stroke="#ff4757"/>' +
+      '<text x="240" y="49" font-size="10" fill="#e9f1fa" text-anchor="middle">旧バージョン</text>' +
+      '<line x1="116" y1="45" x2="152" y2="45" stroke="#6cace4" stroke-width="1.5"/>' +
+      '<polygon points="152,40 162,45 152,50" fill="#6cace4"/>' +
+      '<rect x="164" y="82" width="152" height="26" rx="6" fill="rgba(46,213,115,.12)" stroke="#2ed573"/>' +
+      '<text x="240" y="99" font-size="10" fill="#e9f1fa" text-anchor="middle">新バージョン</text>' +
+      '<line x1="240" y1="58" x2="240" y2="72" stroke="#2ed573"/>' +
+      '<polygon points="235,72 245,72 240,80" fill="#2ed573"/>' +
+      '<text x="252" y="72" font-size="9" fill="#2ed573">HOTチェーン</text>' +
+      '<text x="170" y="142" font-size="10" fill="#8fa7bd" text-anchor="middle">インデックスは旧行を指したまま → 追記が不要</text>' +
+      '</svg>',
+    wal:
+      '<svg viewBox="0 0 340 130" role="img" aria-label="WALの書き込み順序の図">' +
+      '<rect x="10" y="48" width="96" height="30" rx="6" fill="none" stroke="#6cace4"/>' +
+      '<text x="58" y="67" font-size="11" fill="#e9f1fa" text-anchor="middle">データ変更</text>' +
+      '<rect x="190" y="12" width="140" height="30" rx="6" fill="rgba(108,172,228,.18)" stroke="#6cace4"/>' +
+      '<text x="260" y="31" font-size="11" fill="#e9f1fa" text-anchor="middle">WAL (追記)</text>' +
+      '<rect x="190" y="86" width="140" height="30" rx="6" fill="rgba(46,213,115,.12)" stroke="#2ed573"/>' +
+      '<text x="260" y="105" font-size="11" fill="#e9f1fa" text-anchor="middle">データファイル</text>' +
+      '<line x1="108" y1="55" x2="182" y2="31" stroke="#6cace4" stroke-width="1.5"/>' +
+      '<polygon points="180,25 192,28 183,36" fill="#6cace4"/>' +
+      '<line x1="108" y1="72" x2="182" y2="97" stroke="#2ed573" stroke-width="1.5" stroke-dasharray="4 3"/>' +
+      '<polygon points="180,92 192,101 181,104" fill="#2ed573"/>' +
+      '<text x="112" y="22" font-size="10" fill="#6cace4">①コミットまでに必ず書く</text>' +
+      '<text x="104" y="124" font-size="10" fill="#2ed573">②あとで反映 (チェックポイント)</text>' +
+      '</svg>',
+    partition:
+      '<svg viewBox="0 0 340 130" role="img" aria-label="パーティショニングの図">' +
+      '<rect x="105" y="8" width="130" height="28" rx="6" fill="rgba(108,172,228,.18)" stroke="#6cace4"/>' +
+      '<text x="170" y="26" font-size="11" fill="#e9f1fa" text-anchor="middle">売上 (親テーブル)</text>' +
+      '<text x="8" y="56" font-size="9" fill="#8fa7bd">RANGEで分割</text>' +
+      '<line x1="170" y1="36" x2="65" y2="72" stroke="#8fa7bd"/>' +
+      '<line x1="170" y1="36" x2="170" y2="72" stroke="#8fa7bd"/>' +
+      '<line x1="170" y1="36" x2="275" y2="72" stroke="#8fa7bd"/>' +
+      '<rect x="20" y="72" width="90" height="28" rx="6" fill="rgba(46,213,115,.10)" stroke="#2ed573"/>' +
+      '<text x="65" y="90" font-size="10" fill="#e9f1fa" text-anchor="middle">1月分</text>' +
+      '<rect x="125" y="72" width="90" height="28" rx="6" fill="rgba(46,213,115,.10)" stroke="#2ed573"/>' +
+      '<text x="170" y="90" font-size="10" fill="#e9f1fa" text-anchor="middle">2月分</text>' +
+      '<rect x="230" y="72" width="90" height="28" rx="6" fill="rgba(46,213,115,.10)" stroke="#2ed573"/>' +
+      '<text x="275" y="90" font-size="10" fill="#e9f1fa" text-anchor="middle">3月分</text>' +
+      '<text x="170" y="120" font-size="10" fill="#8fa7bd" text-anchor="middle">条件に合わないパーティションは読まれない (プルーニング)</text>' +
+      '</svg>',
+    memory:
+      '<svg viewBox="0 0 340 130" role="img" aria-label="メモリ構成の図">' +
+      '<rect x="10" y="14" width="150" height="96" rx="8" fill="rgba(108,172,228,.06)" stroke="#6cace4"/>' +
+      '<text x="85" y="34" font-size="11" fill="#e9f1fa" text-anchor="middle">共有メモリ</text>' +
+      '<rect x="24" y="44" width="122" height="26" rx="6" fill="rgba(108,172,228,.2)"/>' +
+      '<text x="85" y="61" font-size="10" fill="#e9f1fa" text-anchor="middle">shared_buffers</text>' +
+      '<text x="85" y="96" font-size="9" fill="#8fa7bd" text-anchor="middle">全プロセスで共有</text>' +
+      '<rect x="185" y="14" width="145" height="42" rx="8" fill="rgba(46,213,115,.06)" stroke="#2ed573"/>' +
+      '<text x="257" y="31" font-size="10" fill="#e9f1fa" text-anchor="middle">バックエンド①</text>' +
+      '<text x="257" y="47" font-size="9" fill="#2ed573" text-anchor="middle">work_mem (操作ごと)</text>' +
+      '<rect x="185" y="68" width="145" height="42" rx="8" fill="rgba(46,213,115,.06)" stroke="#2ed573"/>' +
+      '<text x="257" y="85" font-size="10" fill="#e9f1fa" text-anchor="middle">バックエンド②</text>' +
+      '<text x="257" y="101" font-size="9" fill="#2ed573" text-anchor="middle">work_mem (操作ごと)</text>' +
+      '</svg>',
+    toast:
+      '<svg viewBox="0 0 340 120" role="img" aria-label="TOASTの図">' +
+      '<rect x="10" y="40" width="120" height="32" rx="6" fill="none" stroke="#6cace4"/>' +
+      '<text x="70" y="60" font-size="10" fill="#e9f1fa" text-anchor="middle">大きな値を含む行</text>' +
+      '<line x1="132" y1="56" x2="186" y2="56" stroke="#6cace4" stroke-width="1.5"/>' +
+      '<polygon points="186,51 196,56 186,61" fill="#6cace4"/>' +
+      '<text x="164" y="46" font-size="9" fill="#8fa7bd" text-anchor="middle">圧縮+分割</text>' +
+      '<rect x="200" y="14" width="130" height="92" rx="8" fill="none" stroke="#2ed573"/>' +
+      '<text x="265" y="32" font-size="10" fill="#e9f1fa" text-anchor="middle">TOASTテーブル</text>' +
+      '<rect x="214" y="42" width="102" height="14" fill="rgba(46,213,115,.15)"/>' +
+      '<rect x="214" y="60" width="102" height="14" fill="rgba(46,213,115,.15)"/>' +
+      '<rect x="214" y="78" width="102" height="14" fill="rgba(46,213,115,.15)"/>' +
+      '<text x="265" y="102" font-size="9" fill="#8fa7bd" text-anchor="middle">チャンクに分けて格納</text>' +
+      '</svg>'
   };
 
   var QUESTIONS_PER_QUIZ = 10;
@@ -471,6 +759,9 @@ body::before{
   }
   function poolForCategory(cat) {
     return cat ? QUESTIONS.filter(function (q) { return q.cat === cat; }) : QUESTIONS.slice();
+  }
+  function figHtml(item) {
+    return item.fig && FIGURES[item.fig] ? "<div class=\"fig-box\">" + FIGURES[item.fig] + "</div>" : "";
   }
 
   // ==== カテゴリえらび画面 ====
@@ -559,7 +850,7 @@ body::before{
     }
 
     var note = document.getElementById("quiz-note");
-    note.innerHTML = "<b>" + (correct ? "⭕ せいかい! " : "❌ おしい! ") + "</b>" + item.note;
+    note.innerHTML = "<b>" + (correct ? "⭕ せいかい! " : "❌ おしい! ") + "</b>" + item.note + figHtml(item);
     note.classList.add("show");
 
     var nextBtn = document.getElementById("quiz-next-btn");
@@ -603,9 +894,17 @@ body::before{
     document.getElementById("flash-q").textContent = item.q;
     document.getElementById("flash-answer").textContent = item.choices[item.answer];
     document.getElementById("flash-note").textContent = item.note;
+    document.getElementById("flash-fig").innerHTML = figHtml(item);
 
     flash.flipped = false;
-    document.getElementById("flash-card").classList.remove("flipped");
+    var card = document.getElementById("flash-card");
+    card.classList.remove("flipped");
+    // 裏面(答え+解説+図)が収まるようカード高さを内容に合わせる
+    card.style.height = "";
+    var maxH = Math.max.apply(null, [340].concat(
+      Array.prototype.map.call(card.querySelectorAll(".flash-face"), function (f) { return f.scrollHeight; })
+    ));
+    card.style.height = maxH + "px";
     document.getElementById("flash-prev-btn").disabled = flash.idx === 0;
     document.getElementById("flash-next-btn").textContent = (flash.idx + 1 >= flash.list.length) ? "さいしょから" : "つぎへ →";
   }
