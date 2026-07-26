@@ -109,6 +109,16 @@ body::before{
 .choice-btn.correct{background:rgba(46,213,115,.18); border-color:var(--correct); color:var(--correct);}
 .choice-btn.wrong{background:rgba(255,71,87,.18); border-color:var(--wrong); color:var(--wrong);}
 .choice-btn:disabled{cursor:default;}
+.choice-btn.eliminated{opacity:.3; text-decoration:line-through;}
+
+.hint-btn{
+  margin-top:14px; background:none; border:1px dashed var(--card-border); color:var(--sub);
+  font-family:inherit; font-size:.85rem; font-weight:700; padding:10px 20px; border-radius:100px;
+  cursor:pointer; min-height:44px;
+}
+.hint-btn:active{opacity:.7;}
+.hint-btn:disabled{opacity:.35; cursor:default;}
+.hint-btn.hidden{display:none;}
 
 .quiz-note{
   width:100%; background:rgba(255,255,255,.04); border-left:4px solid var(--accent);
@@ -218,6 +228,7 @@ body::before{
     <div class="quiz-question" id="quiz-question"></div>
   </div>
   <div class="choices" id="quiz-choices"></div>
+  <button class="hint-btn" id="quiz-hint-btn" data-action="quiz-hint">💡 ヒント: 選択肢を2つへらす</button>
   <div class="quiz-note" id="quiz-note"></div>
   <button class="next-btn" id="quiz-next-btn" data-action="quiz-next">つぎの問題へ →</button>
 </div>
@@ -742,7 +753,7 @@ body::before{
     category: null,   // カテゴリ名 or null(=すべて)
     pool: []
   };
-  var quiz = { list: [], idx: 0, correct: 0, answered: false };
+  var quiz = { list: [], idx: 0, correct: 0, answered: false, hintUsed: false, hintCount: 0 };
   var flash = { list: [], idx: 0, flipped: false };
 
   function show(id) {
@@ -798,6 +809,7 @@ body::before{
     quiz.list = shuffle(state.pool).slice(0, n);
     quiz.idx = 0;
     quiz.correct = 0;
+    quiz.hintCount = 0;
     show("screen-quiz");
     renderQuizQuestion();
   }
@@ -831,6 +843,27 @@ body::before{
     note.classList.remove("show");
     note.innerHTML = "";
     document.getElementById("quiz-next-btn").classList.remove("show");
+
+    quiz.hintUsed = false;
+    var hintBtn = document.getElementById("quiz-hint-btn");
+    hintBtn.classList.remove("hidden");
+    hintBtn.disabled = false;
+  }
+
+  function useQuizHint() {
+    if (quiz.answered || quiz.hintUsed) return;
+    quiz.hintUsed = true;
+    quiz.hintCount++;
+    var item = quiz.list[quiz.idx];
+    var wrongBtns = [];
+    document.querySelectorAll("#quiz-choices .choice-btn").forEach(function (b) {
+      if (b.textContent !== item.choices[item.answer]) wrongBtns.push(b);
+    });
+    shuffle(wrongBtns).slice(0, 2).forEach(function (b) {
+      b.classList.add("eliminated");
+      b.disabled = true;
+    });
+    document.getElementById("quiz-hint-btn").disabled = true;
   }
 
   function onQuizAnswer(btn, chosenIdx, item) {
@@ -853,6 +886,8 @@ body::before{
     note.innerHTML = "<b>" + (correct ? "⭕ せいかい! " : "❌ おしい! ") + "</b>" + item.note + figHtml(item);
     note.classList.add("show");
 
+    document.getElementById("quiz-hint-btn").classList.add("hidden");
+
     var nextBtn = document.getElementById("quiz-next-btn");
     nextBtn.textContent = (quiz.idx + 1 >= quiz.list.length) ? "結果を見る →" : "つぎの問題へ →";
     nextBtn.classList.add("show");
@@ -874,7 +909,7 @@ body::before{
             : "フラッシュカードで復習してから、もう一度挑戦してみましょう。";
     document.getElementById("result-emoji").textContent = emoji;
     document.getElementById("result-score").textContent = quiz.correct + " / " + total;
-    document.getElementById("result-msg").textContent = msg;
+    document.getElementById("result-msg").textContent = msg + (quiz.hintCount > 0 ? " (💡ヒント " + quiz.hintCount + "回使用)" : "");
     show("screen-result");
   }
 
@@ -944,6 +979,9 @@ body::before{
         break;
       case "quiz-next":
         goQuizNext();
+        break;
+      case "quiz-hint":
+        useQuizHint();
         break;
       case "quiz-retry":
         startQuiz();
