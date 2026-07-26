@@ -188,7 +188,7 @@ body::before{
       <span><span class="mode-label">フラッシュカード</span><span class="mode-desc">カードをめくって暗記・復習</span></span>
     </button>
   </div>
-  <div class="footnote">全80問・11カテゴリ / データはこの端末に保存されません</div>
+  <div class="footnote">全92問・12カテゴリ / データはこの端末に保存されません</div>
 </div>
 
 <!-- カテゴリえらび -->
@@ -516,13 +516,51 @@ body::before{
       note:"pg_monitorはpg_read_all_stats・pg_read_all_settingsなどを含む定義済みロールで、監視ツール用のロールに付与するとSUPERUSERを使わずに済む。" },
     { cat:"セキュリティ/権限", q:"クライアントとサーバー間の通信を暗号化するためにPostgreSQLがサポートしている仕組みは?",
       choices:["SSL/TLS接続","WAL暗号化","ページ単位の透過的暗号化","SSHポートフォワード専用機能"], answer:0,
-      note:"サーバー側でssl=onにし、pg_hba.confのhostssl・クライアントのsslmode=require等で強制できる。ディスク上の透過的暗号化(TDE)は本体には含まれない。" }
+      note:"サーバー側でssl=onにし、pg_hba.confのhostssl・クライアントのsslmode=require等で強制できる。ディスク上の透過的暗号化(TDE)は本体には含まれない。" },
+
+    // -- 内部構造 (The Internals of PostgreSQL の章立てを参考) --
+    { cat:"内部構造", q:"initdbで作成される、全データベース・設定ファイル・WALなどを含むディスク上のディレクトリ一式を何と呼ぶ?",
+      choices:["データベースクラスタ","テーブルスペース","スキーマ","カタログ"], answer:0,
+      note:"環境変数PGDATAが指すディレクトリ配下に、各データベースのbase/やpg_wal/などが置かれる。「クラスタ」といっても複数サーバー構成のことではない点に注意。" },
+    { cat:"内部構造", q:"PostgreSQLがテーブルやインデックスのファイルを読み書きする単位「ページ(ブロック)」のデフォルトサイズは?",
+      choices:["8KB","4KB","16KB","64KB"], answer:0,
+      note:"ヒープファイルは8192バイトのページの並びで構成され、各ページはヘッダ・行ポインタ・タプル(行データ)からなる。サイズ変更はビルド時のみ可能。" },
+    { cat:"内部構造", q:"1ページに収まらない大きなカラム値を、圧縮したり専用の別テーブルへ分割格納したりする仕組みは?",
+      choices:["TOAST","ラージオブジェクト","ページ連結","WALスピル"], answer:0,
+      note:"TOAST(The Oversized-Attribute Storage Technique)。約2KBを超える値が対象で、アプリからは透過的に扱われる。" },
+    { cat:"内部構造", q:"クライアント接続を待ち受け、接続ごとにバックエンドプロセスを起動する親プロセスは?",
+      choices:["postmaster","walwriter","bgwriter","logger"], answer:0,
+      note:"PostgreSQLはマルチプロセス構成で、1接続=1バックエンドプロセス。checkpointer・autovacuum launcherなどのバックグラウンドプロセスもpostmasterの子プロセス。" },
+    { cat:"内部構造", q:"全プロセスが共有する、テーブルやインデックスのページをキャッシュするメモリ領域の大きさを決める設定パラメータは?",
+      choices:["shared_buffers","work_mem","maintenance_work_mem","temp_buffers"], answer:0,
+      note:"shared_buffersは共有のページキャッシュ。work_memはソートやハッシュ結合など1操作ごとに使われるプロセスローカルなメモリで、役割が異なる。" },
+    { cat:"内部構造", q:"SQL文が実行されるまでの内部処理の正しい順序は?",
+      choices:["パーサ → リライタ → プランナ → エグゼキュータ","プランナ → パーサ → リライタ → エグゼキュータ","パーサ → プランナ → リライタ → エグゼキュータ","リライタ → パーサ → エグゼキュータ → プランナ"], answer:0,
+      note:"パーサが構文木を作り、リライタがビュー展開などの書き換えを行い、プランナ(コストベースオプティマイザ)が実行計画を作り、エグゼキュータが実行する。" },
+    { cat:"内部構造", q:"各行に記録され、MVCCの可視性判定に使われる「行を作成したトランザクションID」と「行を削除したトランザクションID」を保持する隠しカラムは?",
+      choices:["xmin と xmax","ctid と oid","cmin と cmax","tid と xid"], answer:0,
+      note:"SELECT xmin, xmax, * FROM ... で実際に確認できる。トランザクションのスナップショットと突き合わせて、どの行バージョンが見えるかを判定する。" },
+    { cat:"内部構造", q:"「このページには全トランザクションから見える行しかない」ことを記録し、VACUUMのページスキップやインデックスオンリースキャンに使われる構造は?",
+      choices:["可視性マップ(Visibility Map)","空き領域マップ(FSM)","コミットログ(clog)","ページヘッダ"], answer:0,
+      note:"テーブルごとに_vmフォークとして保存される。空き領域マップ(FSM)は挿入先の空きを探すための別の構造。" },
+    { cat:"内部構造", q:"インデックス対象外のカラムだけを更新し、新しい行バージョンが同じページに収まる場合に、インデックスへの追記を省略できる仕組みは?",
+      choices:["HOT(Heap Only Tuple)","FILLFACTOR","インデックスプルーニング","インプレース更新"], answer:0,
+      note:"HOTにより「更新のたびに全インデックスへ挿入」のコストを回避できる。fillfactorを下げてページに空きを残すとHOT更新が効きやすくなる。" },
+    { cat:"内部構造", q:"共有バッファが満杯のとき、追い出すページを選ぶためにPostgreSQLが使う置換アルゴリズムは?",
+      choices:["クロックスイープ","厳密なLRUリスト","FIFO","ランダム置換"], answer:0,
+      note:"使用頻度カウンタを持つクロックスイープ方式で犠牲ページを選ぶ。大きなテーブルのSeq Scanは小さなリングバッファを使い、キャッシュ全体を汚さない工夫もある。" },
+    { cat:"内部構造", q:"WAL上のバイト位置を表す通し番号で、レプリケーションの進み具合の比較などにも使われる値は?",
+      choices:["LSN(Log Sequence Number)","XID","OID","TID"], answer:0,
+      note:"pg_current_wal_lsn()などで取得でき、pg_lsn型として比較・減算もできる。スタンバイの遅延量の計測にも使われる。" },
+    { cat:"内部構造", q:"ストリーミングレプリケーションで、プライマリからWALを送るプロセスとスタンバイで受け取るプロセスの組み合わせは?",
+      choices:["walsender と walreceiver","bgwriter と checkpointer","archiver と restorer","logger と collector"], answer:0,
+      note:"プライマリのwalsenderがWALを送信し、スタンバイのwalreceiverが受信、スタートアッププロセスが適用する。pg_stat_replicationで状態を確認できる。" }
   ];
 
   var CATEGORY_EMOJI = {
     "基本概念":"🧩", "インデックス":"📇", "クエリ最適化":"🔍", "JSON/JSONB":"🗂️",
     "パーティション/レプリケーション":"🔗", "バキューム/運用":"🧹", "高度なSQL":"🪄",
-    "データ型":"🧮", "セキュリティ/権限":"🔐", "17の新機能":"🆕", "18の新機能":"🚀"
+    "データ型":"🧮", "セキュリティ/権限":"🔐", "内部構造":"🔬", "17の新機能":"🆕", "18の新機能":"🚀"
   };
 
   var QUESTIONS_PER_QUIZ = 10;
