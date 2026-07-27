@@ -1,6 +1,0 @@
-.build/
-.swiftpm/
-*.xcodeproj
-dist/
-AppIcon.icns
-AppIcon.iconset/

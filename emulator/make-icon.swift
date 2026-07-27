@@ -1,10 +1,10 @@
 #!/usr/bin/env swift
-// NetWorth と同じ紫グラデーション背景にゲームコントローラーを描いたアイコンを生成する。
+// 薄い青グラデーション背景にゲームコントローラーを描いたアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let purpleTop = NSColor(srgbRed: 0.55, green: 0.36, blue: 0.96, alpha: 1)   // #8C5CF5
-let purpleBottom = NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1) // #5C33B3
+let blueTop = NSColor(srgbRed: 0.56, green: 0.78, blue: 0.95, alpha: 1)    // #8FC7F2
+let blueBottom = NSColor(srgbRed: 0.31, green: 0.56, blue: 0.78, alpha: 1) // #4F8FC7
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -23,7 +23,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
+    let gradient = NSGradient(colors: [blueTop, blueBottom])!
     gradient.draw(in: path, angle: -90)
 
     // Draw game controller in white
@@ -63,7 +63,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let dpadCy = cy + s * 0.01
     let dpadArm = s * 0.035
     let dpadLen = s * 0.05
-    g.setFillColor(NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1).cgColor)
+    g.setFillColor(NSColor(srgbRed: 0.24, green: 0.44, blue: 0.62, alpha: 1).cgColor)
     // Horizontal
     g.fill(CGRect(x: dpadCx - dpadLen, y: dpadCy - dpadArm / 2, width: dpadLen * 2, height: dpadArm))
     // Vertical
@@ -74,7 +74,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let btnCy = cy + s * 0.01
     let btnR = s * 0.025
     let btnSpacing = s * 0.045
-    g.setFillColor(NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1).cgColor)
+    g.setFillColor(NSColor(srgbRed: 0.24, green: 0.44, blue: 0.62, alpha: 1).cgColor)
     // Top (X)
     g.fillEllipse(in: CGRect(x: btnCx - btnR, y: btnCy + btnSpacing - btnR, width: btnR * 2, height: btnR * 2))
     // Bottom (B)
@@ -88,7 +88,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let smallW = s * 0.035
     let smallH = s * 0.015
     let smallY = cy - s * 0.02
-    g.setFillColor(NSColor(srgbRed: 0.45, green: 0.28, blue: 0.80, alpha: 1).cgColor)
+    g.setFillColor(NSColor(srgbRed: 0.31, green: 0.53, blue: 0.72, alpha: 1).cgColor)
     g.fill(CGRect(x: cx - smallW - s * 0.01, y: smallY, width: smallW, height: smallH))
     g.fill(CGRect(x: cx + s * 0.01, y: smallY, width: smallW, height: smallH))
 

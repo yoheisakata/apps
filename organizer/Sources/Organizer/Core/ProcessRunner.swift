@@ -1,0 +1,70 @@
+import Foundation
+
+enum ProcessRunnerError: Error, LocalizedError {
+    case launchFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .launchFailed(let reason):
+            return "コマンドを起動できませんでした: \(reason)"
+        }
+    }
+}
+
+/// 外部コマンド(ffmpeg/ffprobe/rsync/sips/mdls等)を実行し、標準出力/標準エラーを1行ずつ通知する。
+/// 呼び出し元が保持して cancel() を呼べば実行中のプロセスを終了できる。
+final class ProcessRunner {
+    private var process: Process?
+
+    @discardableResult
+    func run(
+        _ executable: String,
+        _ arguments: [String],
+        onLine: @escaping (String) -> Void = { _ in }
+    ) async throws -> Int32 {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+        self.process = process
+
+        // stdout/stderrのreadabilityHandlerはそれぞれ別スレッドから呼ばれ得るため、
+        // onLineの呼び出しは1本のシリアルキューに通して呼び出し元での競合を防ぐ。
+        let outputQueue = DispatchQueue(label: "ProcessRunner.output")
+
+        @Sendable func handle(_ data: Data) {
+            guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
+            // ffmpegの進捗表示など \r 区切りの上書き行も別行として扱う
+            let normalized = chunk.replacingOccurrences(of: "\r", with: "\n")
+            let lines = normalized.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+            outputQueue.async {
+                for line in lines { onLine(line) }
+            }
+        }
+
+        stdoutPipe.fileHandleForReading.readabilityHandler = { fh in handle(fh.availableData) }
+        stderrPipe.fileHandleForReading.readabilityHandler = { fh in handle(fh.availableData) }
+
+        do {
+            try process.run()
+        } catch {
+            throw ProcessRunnerError.launchFailed(error.localizedDescription)
+        }
+
+        return await withCheckedContinuation { continuation in
+            process.terminationHandler = { p in
+                stdoutPipe.fileHandleForReading.readabilityHandler = nil
+                stderrPipe.fileHandleForReading.readabilityHandler = nil
+                continuation.resume(returning: p.terminationStatus)
+            }
+        }
+    }
+
+    func cancel() {
+        process?.terminate()
+    }
+}

@@ -424,6 +424,10 @@
         keyEl.className = "kb-key";
         keyEl.dataset.key = key;
         keyEl.textContent = key;
+        keyEl.addEventListener("click", function () {
+          if (!typing.active) return;
+          onTypingKey(key);
+        });
         rowEl.appendChild(keyEl);
       });
       kb.appendChild(rowEl);
