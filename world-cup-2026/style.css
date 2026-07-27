@@ -82,6 +82,7 @@ body { display: flex; flex-direction: column; height: 100vh; }
 }
 .refresh-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .refresh-btn:disabled { opacity: .5; cursor: default; }
+a.refresh-btn { text-decoration: none; display: inline-flex; align-items: center; }
 
 #tabs { display: flex; gap: 6px; }
 .tab {

@@ -156,6 +156,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Hi
   .sp-row{padding:5px 0;gap:18px;}
 }
 
+/* ── HOME LINK ── */
+#home-link{
+  position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:12px;z-index:11;
+  width:38px;height:38px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,5,30,0.82);
+  border:2px solid rgba(180,220,255,0.3);
+  border-radius:50%;
+  font-size:1.05rem;text-decoration:none;
+  transition:transform 0.15s;
+}
+#home-link:active{transform:scale(0.9);}
+
 /* ── SPEED BUTTON ── */
 #speed-btn{
   position:fixed;
@@ -241,6 +254,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Hi
 </head>
 <body>
 <canvas id="c"></canvas>
+
+<a id="home-link" href="../" aria-label="アプリいちらんへもどる">🏠</a>
 
 <div id="info">
   <div id="mode-title">🌏 ちきゅうをまわそう</div>
