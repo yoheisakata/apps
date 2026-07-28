@@ -1,6 +1,6 @@
 import SwiftUI
 
-let appVersion = "1.1.0"
+let appVersion = "1.2.0"
 
 @main
 struct OrganizerApp: App {

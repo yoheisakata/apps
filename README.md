@@ -35,23 +35,22 @@ FIFA ワールドカップ 2026 のダッシュボード。日本代表ページ
 
 SwiftUI / Swift Package Manager 製のローカル専用ツール群。ビルドして `/Applications` にインストールして使う、Webランチャーには載らないアプリです。
 
-### 🧹 CleanMac — `cleanmac/`
-キャッシュ・不要アプリの削除（ゴミ箱経由）と、重複写真の検出・整理を行う掃除アプリ。
+### 🗂️ Organizer — `organizer/`
+写真・動画のバックアップ整理（日付フォルダへの振り分け、H.265再エンコード、rsync同期）、
+ファイル一括リネーム、キャッシュ掃除・不要アプリ削除、重複写真・重複動画の検出、
+子ども動画のまとめ動画作成などをまとめたメディア管理アプリ。旧`cleanmac`／`renamer`／
+`omoide`アプリを統合済み。
 
 ### 💰 NetWorth — `networth/`
 SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッカー（macOS 26+）。メイン／週／月／投資／固定収支／レシートの6タブ構成で、純資産の推移・支出アラート・保有銘柄（Yahoo Finance の現在株価で時価補正）・固定収支表（Markdown）・Schedule C 向けレシート管理（Vision OCR + オンデバイス LLM）まで1つのアプリにまとめている。`--fetch` オプションで launchd による毎朝の自動記録に対応。
 
-### ✏️ Renamer — `renamer/`
-検索置換・連番・EXIF日付・音楽メタデータなど多彩なルールを組み合わせて使えるファイル一括リネームアプリ（Better Rename の代替）。
-
-### ⬇️ YouTube-downloader — `youtube-dl-mac/`
-`yt-dlp` / `ffmpeg` を内部で呼び出し、YouTube の動画・音声をダウンロードするデスクトップアプリ。
+### ⬇️ Downloader — `downloader/`
+`yt-dlp` / `ffmpeg` を内部で呼び出す YouTube ダウンロードと、`aria2c` を使ったトレント
+ダウンロードをメニューバー常駐アプリでまとめて扱う。旧`youtube-dl-mac`／`torrent-dl-mac`
+アプリを統合済み。
 
 ### 📲 Kindle Fire → Mac 転送ツール — `kindle-transfer/`
 `adb` を使って Kindle Fire の SD カード・内部ストレージの中身を Mac にまるごとコピーする対話型 Terminalスクリプト。
-
-### 🎬 Omoide — `omoide/`
-子どもの動画フォルダから短いクリップをまとめて1本のまとめ動画を生成するアプリ。
 
 ### 🗂️ utilities — `utilities/`
 写真・動画のバックアップ整理、H.265再エンコード、短尺動画の検出などを行う、個人の写真/動画パイプライン用 Python / シェルスクリプト集（アプリではなくスクリプト置き場）。
@@ -65,7 +64,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 | ちきゅう／新幹線／タロット／PostgreSQLまなびカード | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | まなびアプリ | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ JSON データ + Cloudflare Worker（API プロキシ） |
-| CleanMac／NetWorth／Omoide／Renamer／YouTube-downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
+| Organizer／NetWorth／Downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
 | kindle-transfer | Bash + adb |
 | utilities | Python 3 / Bash スクリプト |
 
@@ -77,7 +76,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
 - ワールドカップ 2026 の Cloudflare Worker のみ、`world-cup-2026/worker/` から Wrangler で個別にデプロイします。
-- macOSネイティブアプリ（cleanmac / networth / omoide / renamer / youtube-dl-mac）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh` でローカルビルドし、`/Applications` にインストールして使います。
+- macOSネイティブアプリ（organizer / networth / downloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh` でローカルビルドし、`/Applications` にインストールして使います。
 
 ## アプリの追加・削除
 

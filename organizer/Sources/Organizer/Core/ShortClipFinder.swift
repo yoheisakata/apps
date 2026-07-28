@@ -64,14 +64,16 @@ enum ShortClipFinder {
         players.first { ToolLocator.isAvailable($0) }
     }
 
-    static func play(playlist: URL) {
+    /// プレイリスト(.m3u)にも単体の動画ファイルにも使える。iina/mpv/vlcのいずれも
+    /// 引数に渡されたパスが単体ファイルかプレイリストかを自分で判別して再生する。
+    static func play(_ url: URL) {
         if let player = findPlayer(), let path = ToolLocator.resolve(player) {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: path)
-            process.arguments = [playlist.path]
+            process.arguments = [url.path]
             try? process.run()
         } else {
-            NSWorkspace.shared.open(playlist)
+            NSWorkspace.shared.open(url)
         }
     }
 }

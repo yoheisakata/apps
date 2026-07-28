@@ -1,11 +1,11 @@
 #!/usr/bin/env swift
-// 青緑グラデーション背景に白い🗂️（インデックスディバイダー、整理整頓のイメージ）の
+// 緑グラデーション背景（downloaderと共通）に白い🗂️（インデックスディバイダー、整理整頓のイメージ）の
 // シルエットを描いたアプリアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let blueTop = NSColor(srgbRed: 0.15, green: 0.55, blue: 0.78, alpha: 1)    // #268CC7
-let blueBottom = NSColor(srgbRed: 0.07, green: 0.27, blue: 0.48, alpha: 1) // #12457A
+let blueTop = NSColor(srgbRed: 0.17, green: 0.72, blue: 0.45, alpha: 1)    // #2BB673（downloaderと共通）
+let blueBottom = NSColor(srgbRed: 0.11, green: 0.48, blue: 0.30, alpha: 1) // #1B7A4D（downloaderと共通）
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(

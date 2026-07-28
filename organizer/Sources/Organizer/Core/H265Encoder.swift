@@ -29,12 +29,16 @@ struct EncodeResult {
     var encoded = 0
     var failed = 0
     var errorSkipped = 0
+    /// 実際にH.265へ再エンコードした(dry-runでは「する予定」の)ファイルの元サイズ合計(MB)。
+    /// remux(コンテナ変換のみ)やskipは対象外 — 「エンコードにどれだけの元サイズが
+    /// 必要か」を知るための集計なので、実際に時間のかかる再エンコードだけを数える。
+    var encodedSizeMB: Double = 0
 
-    mutating func add(_ outcome: FileOutcome) {
+    mutating func add(_ outcome: FileOutcome, sizeMB: Double) {
         switch outcome {
         case .skipped: skipped += 1
         case .remuxed: remuxed += 1
-        case .encoded: encoded += 1
+        case .encoded: encoded += 1; encodedSizeMB += sizeMB
         case .failed: failed += 1
         case .errorSkipped: errorSkipped += 1
         }
@@ -167,14 +171,14 @@ enum H265Encoder {
             setProgress(nil)
             progress("[\(i + 1)/\(files.count)] \(url.lastPathComponent)")
 
-            let outcome = await processFile(
+            let (outcome, sizeMB) = await processFile(
                 url,
                 label: "[\(i + 1)/\(files.count)] \(url.lastPathComponent)",
                 crf: config.crf, preset: config.preset, remuxOnly: config.remuxOnly,
                 minSizeMB: config.minSizeMB, dryRun: config.dryRun,
                 progress: progress, setProgress: setProgress, setDetail: setDetail, onCancel: onCancel
             )
-            result.add(outcome)
+            result.add(outcome, sizeMB: sizeMB)
         }
 
         progress("\n=== エンコード結果 ===")
@@ -183,11 +187,15 @@ enum H265Encoder {
         progress("  H.265エンコード: \(result.encoded)件")
         progress("  失敗: \(result.failed)件")
         progress("  エラースキップ: \(result.errorSkipped)件")
+        if result.encoded > 0 {
+            progress("  エンコード対象の合計サイズ(元サイズ): \(ByteFmt.string(Int64(result.encodedSizeMB * 1024 * 1024)))")
+        }
         return result
     }
 
     /// 1ファイル分の判定(skip/remux/encode)と実行。`run`（フォルダ一括）と、動画整理の移動直後フックの
-    /// 両方から呼ばれる共通処理。
+    /// 両方から呼ばれる共通処理。戻り値の`sizeMB`は元ファイルのサイズ(`EncodeResult.encodedSizeMB`の
+    /// 集計に使う。呼び出し側で改めて`fileSizeMB`を呼び直さなくて済むようここで一緒に返す)。
     static func processFile(
         _ url: URL,
         label: String,
@@ -196,10 +204,11 @@ enum H265Encoder {
         setProgress: @escaping (Double?) -> Void,
         setDetail: @escaping (String) -> Void,
         onCancel: (@escaping () -> Void) -> Void
-    ) async -> FileOutcome {
+    ) async -> (outcome: FileOutcome, sizeMB: Double) {
+        let sizeMB = fileSizeMB(url)
         guard let codec = getVideoCodec(url) else {
             progress("  [SKIP] コーデック取得失敗")
-            return .errorSkipped
+            return (.errorSkipped, sizeMB)
         }
         let alreadyMp4 = url.pathExtension.lowercased() == "mp4"
         let isH265Flag = isH265(codec)
@@ -207,13 +216,12 @@ enum H265Encoder {
 
         if isH265Flag && alreadyMp4 {
             progress("  → スキップ（H.265かつ.mp4）")
-            return .skipped
+            return (.skipped, sizeMB)
         }
 
-        let sizeMB = fileSizeMB(url)
         if minSizeMB > 0 && sizeMB < minSizeMB {
             progress("  → スキップ（\(String(format: "%.1f", sizeMB)) MB < 最小 \(minSizeMB) MB）")
-            return .skipped
+            return (.skipped, sizeMB)
         }
 
         let tmpDst = url.deletingLastPathComponent()
@@ -225,24 +233,24 @@ enum H265Encoder {
             do {
                 try await remux(src: url, dst: tmpDst, dryRun: dryRun, progress: progress, setProgress: setProgress, onCancel: onCancel)
                 finalize(src: url, tmpDst: tmpDst, dryRun: dryRun, progress: progress)
-                return .remuxed
+                return (.remuxed, sizeMB)
             } catch {
                 progress("  [ERROR] \(error.localizedDescription)")
-                return .failed
+                return (.failed, sizeMB)
             }
         } else if remuxOnly {
             progress("  → スキップ（H.265でないためエンコードが必要、remux-onlyモード）")
-            return .skipped
+            return (.skipped, sizeMB)
         } else {
             progress("  → H.265に再エンコード")
             setDetail("\(label) - エンコード中")
             do {
                 try await encode(src: url, dst: tmpDst, crf: crf, preset: preset, dryRun: dryRun, progress: progress, setProgress: setProgress, onCancel: onCancel)
                 finalize(src: url, tmpDst: tmpDst, dryRun: dryRun, progress: progress)
-                return .encoded
+                return (.encoded, sizeMB)
             } catch {
                 progress("  [ERROR] \(error.localizedDescription)")
-                return .failed
+                return (.failed, sizeMB)
             }
         }
     }

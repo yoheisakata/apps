@@ -44,29 +44,8 @@ enum KeepRule: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Union-Find
-
-private struct UnionFind {
-    private var parent: [Int]
-    init(_ n: Int) { parent = Array(0..<n) }
-    mutating func find(_ x: Int) -> Int {
-        var root = x
-        while parent[root] != root { root = parent[root] }
-        var cur = x
-        while parent[cur] != root {
-            let next = parent[cur]
-            parent[cur] = root
-            cur = next
-        }
-        return root
-    }
-    mutating func union(_ a: Int, _ b: Int) {
-        let ra = find(a), rb = find(b)
-        if ra != rb { parent[ra] = rb }
-    }
-}
-
 // MARK: - ViewModel
+// (Union-Findは Core/UnionFind.swift に共通化済み。VideoDupFinderも同じ実装を使う)
 
 final class DupPhotosViewModel: ObservableObject {
     @Published var folders: [URL] = []

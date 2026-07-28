@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repo has two distinct kinds of projects:
 
 1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, a single flat icon grid (no category sections).
-2. **Native macOS/iOS tools** (`networth/`, `omoide/`, `organizer/`, `downloader/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
+2. **Native macOS/iOS tools** (`networth/`, `organizer/`, `downloader/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
 
@@ -28,10 +28,9 @@ Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` ク
 
 ### Native macOS/iOS tools (not deployed to GitHub Pages)
 
-- **networth/**, **omoide/**, **organizer/**, **downloader/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
+- **networth/**, **organizer/**, **downloader/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
   - All apps: build script (bundle in place) + `./install.sh` (build + copy to `/Applications`).
   - networth: `./build_app.sh` or `./install.sh`. `build_app.sh` reads `appVersion` from `Sources/NetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
-  - omoide: `./build_app.sh` or `./install.sh`.
   - organizer: `./build_app.sh` or `./install.sh`.
   - downloader: `./build_app.sh` or `./install.sh`.
 - **networth/** specifics (v0.4.x, requires **macOS 26** via `Package.swift` — FoundationModels): tabs are メイン / 週 / 月 / 投資 / 固定収支 / レシート.
@@ -41,7 +40,7 @@ Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` ク
   - レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). `ExpenseCategory` cases map to Schedule C Part II lines (8–27a) and their rawValues are persisted — never rename them.
 - **kindle-transfer/** — Single Bash script (`kindle-transfer.sh`), no build. Uses `adb` to pull files from a Kindle Fire's SD card/internal storage over USB.
 - **utilities/** — Standalone Python 3 / Bash scripts (not a packaged app) for a personal photo/video pipeline: backup organization (`backup-photos.sh`, `backup-videos.sh`, `sync-backups.sh`, `verify-photos.sh`), H.265 re-encoding (`encode_h265.py`), short-clip detection (`find_short_videos.py`). Run individually from the CLI; no shared entry point.
-- **organizer/** — GUI front-end covering all of `utilities/`'s functionality (写真整理/動画整理/エンコード/写真検証/同期/短い動画検索 in a sidebar) plus a dependency-check pane. Deliberately **reimplements** the scripts' logic natively in Swift rather than shelling out to `utilities/` — the two do not stay in sync automatically; see `organizer/CLAUDE.md`. External tools (`ffmpeg`/`ffprobe`/`rsync`/`sips`/`mdls`) are still invoked as subprocesses, not bundled. Also absorbed the former standalone `renamer/` app as its「リネーム」pane (rule-based batch renaming) and the former standalone `cleanmac/` app as its「キャッシュ掃除」/「アプリ削除」/「重複写真」panes (trash-only cache/app cleanup and SHA-256+dHash duplicate-photo detection — see `organizer/CLAUDE.md`) — do not re-add `renamer/` or `cleanmac/` as separate apps.
+- **organizer/** — GUI front-end covering all of `utilities/`'s functionality (写真整理/動画整理/エンコード/誤配置修正/同期/短い動画検索 in a sidebar) plus a dependency-check pane. Deliberately **reimplements** the scripts' logic natively in Swift rather than shelling out to `utilities/` — the two do not stay in sync automatically; see `organizer/CLAUDE.md`. External tools (`ffmpeg`/`ffprobe`/`rsync`/`sips`/`mdls`) are still invoked as subprocesses, not bundled. Also absorbed the former standalone `renamer/` app as its「リネーム」pane (rule-based batch renaming), the former standalone `cleanmac/` app as its「キャッシュ掃除」/「アプリ削除」/「重複写真」panes (trash-only cache/app cleanup and SHA-256+dHash duplicate-photo detection), and the former standalone `omoide/` app as its「まとめ動画」pane (clips a kids'-video folder into one movie with title cards + BGM via ffmpeg — see `organizer/CLAUDE.md`) — do not re-add `renamer/`, `cleanmac/`, or `omoide/` as separate apps.
 - **downloader/** — Menu-bar-resident app (`LSUIElement=true`, no Dock icon; closing the window doesn't quit the app) merging the former standalone `youtube-dl-mac` and `torrent-dl-mac` into one `TabView` ("YouTube" / "Torrent") — do not re-add either as a separate app. YouTube tab wraps `yt-dlp`/`ffmpeg`; Torrent tab wraps `aria2c` via its JSON-RPC interface rather than implementing BitTorrent itself (all three Homebrew, not bundled) — same "thin GUI over an existing CLI" approach throughout. Torrent defaults favor downloading over uploading (low upload-speed cap, seed-ratio/seed-time of 0 = stop seeding right after completion); speed limits apply live via `aria2.changeGlobalOption`, while seed-ratio/seed-time/download-dir are startup-only options requiring an engine restart. Registers the `magnet:` URL scheme so clicking a magnet link in a browser launches the app and starts the download (see `downloader/CLAUDE.md` for the Apple Event handling and metadata-GID pitfalls this uncovered).
 
 ## Build / Dev Commands
@@ -58,13 +57,13 @@ npx wrangler deploy   # Deploy to Cloudflare
 
 The Worker needs no API key or secrets (it only proxies the free FIFA rankings endpoint).
 
-### SwiftUI/SPM native apps (networth, omoide, organizer, downloader)
+### SwiftUI/SPM native apps (networth, organizer, downloader)
 
 ```bash
 cd <app>
 swift build         # compile check (verification method — see below)
 # Build the .app bundle:
-./build_app.sh      # networth, omoide, organizer, downloader
+./build_app.sh      # networth, organizer, downloader
 # Install/update in /Applications:
 ./install.sh        # all apps (build + copy to /Applications)
 ```

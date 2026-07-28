@@ -27,10 +27,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         Settings.registerDefaults()
+        setupMainMenu()
         aria2Engine.start()
         setupStatusItem()
         showWindow()
         aria2Engine.noteEvent("起動完了 (applicationDidFinishLaunching)")
+    }
+
+    /// `NSApplication.shared.run()` を直接呼ぶ構成(SwiftUI の App/WindowGroup を使わない)では
+    /// mainMenu が自動生成されない。Edit メニュー(Cut/Copy/Paste/Select All)が無いと
+    /// テキストフィールドで Cmd+V などの標準編集ショートカットが効かないため、最低限のメニューを組み立てる。
+    private func setupMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Downloader を終了", action: #selector(quitAction), keyEquivalent: "q")
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "編集")
+        editMenu.addItem(withTitle: "カット", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "コピー", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "ペースト", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "すべてを選択", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        NSApp.mainMenu = mainMenu
     }
 
     /// magnet: リンクからの起動・呼び出しを処理する。

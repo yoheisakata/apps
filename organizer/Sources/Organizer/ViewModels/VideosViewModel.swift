@@ -80,7 +80,7 @@ final class VideosViewModel: ObservableObject {
                 setProgress: { handle.setProgress($0) },
                 setDetail: { handle.setDetail($0) },
                 afterMove: doEncode ? { movedFile in
-                    let outcome = await H265Encoder.processFile(
+                    let (outcome, sizeMB) = await H265Encoder.processFile(
                         movedFile,
                         label: movedFile.lastPathComponent,
                         crf: crfValue, preset: presetValue, remuxOnly: false,
@@ -90,7 +90,7 @@ final class VideosViewModel: ObservableObject {
                         setDetail: { handle.setDetail($0) },
                         onCancel: { handle.onCancel($0) }
                     )
-                    encodeResult.add(outcome)
+                    encodeResult.add(outcome, sizeMB: sizeMB)
                 } : nil,
                 checkCancel: { try Task.checkCancellation() }
             )
@@ -103,6 +103,9 @@ final class VideosViewModel: ObservableObject {
                 handle.appendLog("  H.265エンコード: \(encodeResult.encoded)件")
                 handle.appendLog("  失敗: \(encodeResult.failed)件")
                 handle.appendLog("  エラースキップ: \(encodeResult.errorSkipped)件")
+                if encodeResult.encoded > 0 {
+                    handle.appendLog("  エンコード対象の合計サイズ(元サイズ): \(ByteFmt.string(Int64(encodeResult.encodedSizeMB * 1024 * 1024)))")
+                }
             }
         }
     }

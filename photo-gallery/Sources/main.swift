@@ -961,7 +961,10 @@ final class ViewerOverlay: NSView {
 // organizer(Organizer.app)の「重複写真」ペイン(DupPhotosViewModel)と同等のロジック:
 // サイズ→SHA-256 の完全一致に加え、dHash(知覚ハッシュ)のハミング距離によるあいまい
 // 一致(リサイズ/再エンコードされた「似ている」写真)を検出し、マッチレベル/残す基準を
-// 切り替えられる。
+// 切り替えられる。グループ単位の有効/無効切り替えと、1グループあたりの削除上限
+// (maxDeletePerGroup、既定3枚)も同ペインに合わせて実装している — 「ゆるい」等の
+// 緩いマッチレベルで誤って大きくクラスタリングされたグループを一気に削除しないための
+// 安全策。
 
 /// 完全一致(サイズ+SHA-256)か、dHash のハミング距離によるあいまい一致かを選ぶ。
 enum DupMatchLevel: Int, CaseIterable {
@@ -1025,6 +1028,7 @@ final class DuplicateCandidate {
 }
 
 struct DuplicateGroupData {
+    let id = UUID()
     var candidates: [DuplicateCandidate]
     var isExact: Bool
 
@@ -1217,9 +1221,15 @@ private func formatBytes(_ bytes: Int64) -> String {
 final class DuplicateItemCard: NSView {
     let candidate: DuplicateCandidate
     var onToggle: (() -> Void)?
+    /// これから「ゴミ箱行き」にマークしようとしたとき、許可するかを判定する
+    /// (グループが無効化されている/1グループあたりの上限に達している場合はfalse)。
+    var canMarkForTrash: (() -> Bool)?
 
     private let fill = FillImageView(gravity: .resizeAspectFill)
     private let badge = NSImageView()
+    /// サムネイルを読み込み済み/リクエスト中かどうか(スクロールで visible/invisible を
+    /// 何度も跨いでも同じURLを二重リクエストしないためのガード)。
+    private var thumbnailRequested = false
 
     init(candidate: DuplicateCandidate) {
         self.candidate = candidate
@@ -1269,13 +1279,6 @@ final class DuplicateItemCard: NSView {
         ])
 
         updateAppearance()
-        if let cached = ThumbnailLoader.shared.cached(candidate.photo.item.url) {
-            fill.image = cached
-        } else {
-            ThumbnailLoader.shared.request(candidate.photo.item.url, mtime: candidate.photo.item.mtime) { [weak self] _, img in
-                self?.fill.image = img
-            }
-        }
 
         let menu = NSMenu()
         let reveal = NSMenuItem(title: "Finder で表示", action: #selector(revealInFinder), keyEquivalent: "")
@@ -1289,7 +1292,32 @@ final class DuplicateItemCard: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    /// このカードがスクロール可視範囲に入ったときに呼ぶ(重複検出ウインドウ全体で
+    /// 数千枚分のサムネイルを一度に読み込んで大量のメモリを使わないよう、
+    /// DuplicatesWindowControllerが可視範囲のカードだけに対して呼び出す)。
+    func loadThumbnailIfNeeded() {
+        guard !thumbnailRequested else { return }
+        thumbnailRequested = true
+        if let cached = ThumbnailLoader.shared.cached(candidate.photo.item.url) {
+            fill.image = cached
+        } else {
+            ThumbnailLoader.shared.request(candidate.photo.item.url, mtime: candidate.photo.item.mtime) { [weak self] _, img in
+                self?.fill.image = img
+            }
+        }
+    }
+
+    /// 可視範囲から外れたときに呼ぶ。読み込み済みサムネイルを解放し、
+    /// 再度可視範囲に入ったら`loadThumbnailIfNeeded()`で読み直せるようにする。
+    func unloadThumbnail() {
+        thumbnailRequested = false
+        fill.image = nil
+    }
+
     override func mouseDown(with event: NSEvent) {
+        if !candidate.markedForTrash, canMarkForTrash?() == false {
+            return
+        }
         candidate.markedForTrash.toggle()
         updateAppearance()
         onToggle?()
@@ -1313,22 +1341,31 @@ final class DuplicateItemCard: NSView {
     }
 }
 
-/// 1 つの重複グループ: 見出し(完全一致/類似バッジつき) + 横スクロールのカード列。
+/// 1 つの重複グループ: 有効/無効チェックボックス + 見出し(完全一致/類似バッジつき) + 横スクロールのカード列。
 final class GroupSectionView: NSView {
     let cardsStack = NSStackView()
+    private let checkbox: NSButton
+    /// グループを削除対象から除外/含めるを切り替えたときに呼ばれる(organizerの
+    /// DupPhotosViewModel.setGroupEnabledと同じ役割)。
+    var onToggleEnabled: ((Bool) -> Void)?
 
-    init(title: String, isExact: Bool) {
+    init(number: Int, isExact: Bool, count: Int, wastedBytes: Int64, enabled: Bool, capWarning: String?) {
+        checkbox = NSButton(checkboxWithTitle: "グループ \(number)", target: nil, action: nil)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
+
+        checkbox.state = enabled ? .on : .off
+        checkbox.font = .boldSystemFont(ofSize: 12)
+        checkbox.toolTip = "チェックを外すと、このグループを削除対象から除外します(誤検出グループの保護用)"
+        checkbox.target = self
+        checkbox.action = #selector(checkboxTapped)
+        checkbox.translatesAutoresizingMaskIntoConstraints = false
 
         let headerStack = NSStackView()
         headerStack.orientation = .horizontal
         headerStack.spacing = 8
         headerStack.alignment = .firstBaseline
         headerStack.translatesAutoresizingMaskIntoConstraints = false
-
-        let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = .boldSystemFont(ofSize: 12)
 
         let badge = NSTextField(labelWithString: isExact ? "完全一致" : "類似")
         badge.font = .systemFont(ofSize: 10, weight: .semibold)
@@ -1341,14 +1378,28 @@ final class GroupSectionView: NSView {
         badge.layer?.masksToBounds = true
         badge.translatesAutoresizingMaskIntoConstraints = false
 
-        headerStack.addArrangedSubview(titleLabel)
+        let infoLabel = NSTextField(labelWithString: "\(count) 件 · 最大 \(formatBytes(wastedBytes)) 節約可能")
+        infoLabel.font = .systemFont(ofSize: 11)
+        infoLabel.textColor = .secondaryLabelColor
+
+        headerStack.addArrangedSubview(checkbox)
         headerStack.addArrangedSubview(badge)
+        headerStack.addArrangedSubview(infoLabel)
+
+        if let capWarning {
+            let warnLabel = NSTextField(labelWithString: "⚠️ 上限のため一部のみ自動選択")
+            warnLabel.font = .systemFont(ofSize: 10, weight: .semibold)
+            warnLabel.textColor = .systemOrange
+            warnLabel.toolTip = capWarning
+            headerStack.addArrangedSubview(warnLabel)
+        }
         addSubview(headerStack)
 
         cardsStack.orientation = .horizontal
         cardsStack.spacing = 10
         cardsStack.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
         cardsStack.translatesAutoresizingMaskIntoConstraints = false
+        cardsStack.alphaValue = enabled ? 1 : 0.4
 
         let hScroll = NSScrollView()
         hScroll.hasHorizontalScroller = true
@@ -1377,6 +1428,22 @@ final class GroupSectionView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func checkboxTapped() {
+        onToggleEnabled?(checkbox.state == .on)
+    }
+
+    /// このグループのカードすべてに対して、サムネイルの読み込み/解放をまとめて指示する
+    /// (DuplicatesWindowControllerがスクロール可視範囲に応じて呼ぶ)。
+    func setThumbnailsLoaded(_ loaded: Bool) {
+        for case let card as DuplicateItemCard in cardsStack.arrangedSubviews {
+            if loaded {
+                card.loadThumbnailIfNeeded()
+            } else {
+                card.unloadThumbnail()
+            }
+        }
+    }
 }
 
 /// 重複検出ウインドウ: 解析(サイズ/寸法/dHash) → グループ化 → 一覧表示。
@@ -1388,6 +1455,10 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
 
     private var analyzed: [AnalyzedPhoto] = []
     private var groups: [DuplicateGroupData] = []
+    /// 削除対象として扱う(=チェックの入った)グループのid。外したグループは自動選択の対象外になり、
+    /// 個々の写真も手動選択できない(誤検出グループを丸ごと除外できるようにするため。organizerの
+    /// DupPhotosViewModel.enabledGroupsと同じ役割)。
+    private var enabledGroupIDs: Set<UUID> = []
     private let shaCache = ShaCache()
     private let cancelFlag = CancelFlag()
 
@@ -1397,22 +1468,34 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
     private var keepRule: DupKeepRule = .highestResolution {
         didSet { autoSelect(); rebuildGroupViews(); updateStatus() }
     }
+    /// 1グループあたり削除対象にできる枚数の上限。「類似」等の緩いマッチレベルで誤って大きく
+    /// クラスタリングされたグループを一気に削除しないための安全策(organizerのDupPhotosViewModel.
+    /// maxDeletePerGroupと同じ既定値・永続化キーの役割)。
+    private var maxDeletePerGroup: Int {
+        didSet { UserDefaults.standard.set(maxDeletePerGroup, forKey: "duplicates.maxDeletePerGroup") }
+    }
 
     private let statusLabel = NSTextField(labelWithString: "スキャン中…")
     private let progressIndicator = NSProgressIndicator()
     private let cancelButton = NSButton(title: "キャンセル", target: nil, action: nil)
     private let matchLevelControl = NSSegmentedControl()
     private let keepRulePopup = NSPopUpButton()
+    private let maxDeleteStepper = NSStepper()
+    private let maxDeleteLabel = NSTextField(labelWithString: "")
     private let scrollView = NSScrollView()
     private let stack = NSStackView()
+    private let selectAllGroupsButton = NSButton(title: "全グループ選択", target: nil, action: nil)
+    private let deselectAllGroupsButton = NSButton(title: "全グループ解除", target: nil, action: nil)
     private let autoSelectButton = NSButton(title: "自動選択をやり直す", target: nil, action: nil)
     private let trashButton = NSButton(title: "選択した写真をゴミ箱へ", target: nil, action: nil)
 
     init(photos: [PhotoItem], onTrashed: @escaping (Set<String>, [String]) -> Void) {
         self.photos = photos
         self.onTrashed = onTrashed
+        let saved = UserDefaults.standard.integer(forKey: "duplicates.maxDeletePerGroup")
+        maxDeletePerGroup = saved > 0 ? saved : 3
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 620),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered, defer: false)
         window.title = "重複写真を検出"
@@ -1425,6 +1508,10 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     func windowWillClose(_ notification: Notification) {
         cancelFlag.cancel()
@@ -1457,6 +1544,22 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
         keepRulePopup.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(keepRulePopup)
 
+        maxDeleteStepper.minValue = 1
+        maxDeleteStepper.maxValue = 20
+        maxDeleteStepper.increment = 1
+        maxDeleteStepper.integerValue = maxDeletePerGroup
+        maxDeleteStepper.target = self
+        maxDeleteStepper.action = #selector(maxDeleteChanged)
+        maxDeleteStepper.isEnabled = false
+        maxDeleteStepper.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(maxDeleteStepper)
+
+        maxDeleteLabel.stringValue = "1グループ最大\(maxDeletePerGroup)枚"
+        maxDeleteLabel.font = .systemFont(ofSize: 11)
+        maxDeleteLabel.toolTip = "1つの重複グループ内で削除対象にできる枚数の上限。誤って大きくクラスタリングされたグループを一気に削除しないための安全策です。"
+        maxDeleteLabel.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(maxDeleteLabel)
+
         cancelButton.target = self
         cancelButton.action = #selector(cancelAnalyze)
         cancelButton.bezelStyle = .rounded
@@ -1485,6 +1588,27 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
         scrollView.isHidden = true
         content.addSubview(scrollView)
 
+        // 数千件の重複候補があっても表示中の分だけサムネイルを読み込むため、
+        // スクロール(・ウインドウリサイズによるbounds変化)を監視する。
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(visibleRectDidChange),
+            name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+
+        selectAllGroupsButton.target = self
+        selectAllGroupsButton.action = #selector(selectAllGroupsTapped)
+        selectAllGroupsButton.bezelStyle = .rounded
+        selectAllGroupsButton.isHidden = true
+        selectAllGroupsButton.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(selectAllGroupsButton)
+
+        deselectAllGroupsButton.target = self
+        deselectAllGroupsButton.action = #selector(deselectAllGroupsTapped)
+        deselectAllGroupsButton.bezelStyle = .rounded
+        deselectAllGroupsButton.isHidden = true
+        deselectAllGroupsButton.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(deselectAllGroupsButton)
+
         autoSelectButton.target = self
         autoSelectButton.action = #selector(autoSelectTapped)
         autoSelectButton.bezelStyle = .rounded
@@ -1505,6 +1629,10 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
             matchLevelControl.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             keepRulePopup.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
             keepRulePopup.leadingAnchor.constraint(equalTo: matchLevelControl.trailingAnchor, constant: 12),
+            maxDeleteLabel.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
+            maxDeleteLabel.leadingAnchor.constraint(equalTo: keepRulePopup.trailingAnchor, constant: 14),
+            maxDeleteStepper.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
+            maxDeleteStepper.leadingAnchor.constraint(equalTo: maxDeleteLabel.trailingAnchor, constant: 4),
             cancelButton.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
             cancelButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             progressIndicator.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
@@ -1522,8 +1650,12 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
             stack.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
             stack.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
 
-            autoSelectButton.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            autoSelectButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
+            selectAllGroupsButton.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            selectAllGroupsButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
+            deselectAllGroupsButton.leadingAnchor.constraint(equalTo: selectAllGroupsButton.trailingAnchor, constant: 8),
+            deselectAllGroupsButton.centerYAnchor.constraint(equalTo: selectAllGroupsButton.centerYAnchor),
+            autoSelectButton.leadingAnchor.constraint(equalTo: deselectAllGroupsButton.trailingAnchor, constant: 8),
+            autoSelectButton.centerYAnchor.constraint(equalTo: selectAllGroupsButton.centerYAnchor),
             trashButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             trashButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
         ])
@@ -1549,6 +1681,7 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
         cancelButton.isHidden = true
         matchLevelControl.isEnabled = true
         keepRulePopup.isEnabled = true
+        maxDeleteStepper.isEnabled = true
 
         if cancelFlag.isCancelled {
             statusLabel.stringValue = "キャンセルしました"
@@ -1571,6 +1704,7 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.groups = groups
+                self.enabledGroupIDs = Set(groups.map(\.id))
                 self.autoSelect()
                 self.afterGroupsChanged()
             }
@@ -1583,6 +1717,8 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
             ? "重複は見つかりませんでした(\(analyzed.count) 枚を検査)"
             : "\(groups.count) グループ・重複 \(dupCount) 枚が見つかりました(\(analyzed.count) 枚を検査)"
         scrollView.isHidden = groups.isEmpty
+        selectAllGroupsButton.isHidden = groups.isEmpty
+        deselectAllGroupsButton.isHidden = groups.isEmpty
         autoSelectButton.isHidden = groups.isEmpty
         trashButton.isHidden = groups.isEmpty
         rebuildGroupViews()
@@ -1599,20 +1735,68 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
         keepRule = rule
     }
 
+    @objc private func maxDeleteChanged() {
+        maxDeletePerGroup = maxDeleteStepper.integerValue
+        maxDeleteLabel.stringValue = "1グループ最大\(maxDeletePerGroup)枚"
+        autoSelect()
+        rebuildGroupViews()
+        updateStatus()
+    }
+
     @objc private func autoSelectTapped() {
         autoSelect()
         rebuildGroupViews()
         updateStatus()
     }
 
-    /// keepRule に従って各グループの「残す1枚」以外を選択する。
+    @objc private func selectAllGroupsTapped() {
+        enabledGroupIDs = Set(groups.map(\.id))
+        autoSelect()
+        rebuildGroupViews()
+        updateStatus()
+    }
+
+    @objc private func deselectAllGroupsTapped() {
+        enabledGroupIDs = []
+        for group in groups {
+            for c in group.candidates { c.markedForTrash = false }
+        }
+        rebuildGroupViews()
+        updateStatus()
+    }
+
+    /// グループ単位の「このグループの重複を削除するか」チェックボックス用。他のグループの
+    /// 選択状態には触れない(手動選択を保持するため、全体のautoSelect()は呼ばない。organizerの
+    /// DupPhotosViewModel.setGroupEnabledと同じ役割)。
+    private func setGroupEnabled(_ group: DuplicateGroupData, enabled: Bool) {
+        if enabled {
+            enabledGroupIDs.insert(group.id)
+            applyAutoSelect(to: group)
+        } else {
+            enabledGroupIDs.remove(group.id)
+            for c in group.candidates { c.markedForTrash = false }
+        }
+        rebuildGroupViews()
+        updateStatus()
+    }
+
+    /// keepRule に従って、有効なグループだけ「残す1枚」以外を上限(maxDeletePerGroup)まで選択する。
+    /// 無効化したグループはここで明示的にクリアする(誤検出グループを丸ごと除外するため)。
     private func autoSelect() {
         for group in groups {
-            guard let keeper = keeper(in: group) else { continue }
-            for c in group.candidates {
-                c.markedForTrash = (c !== keeper)
+            if enabledGroupIDs.contains(group.id) {
+                applyAutoSelect(to: group)
+            } else {
+                for c in group.candidates { c.markedForTrash = false }
             }
         }
+    }
+
+    private func applyAutoSelect(to group: DuplicateGroupData) {
+        for c in group.candidates { c.markedForTrash = false }
+        guard let keeper = keeper(in: group) else { return }
+        let others = group.candidates.filter { $0 !== keeper }
+        for c in others.prefix(maxDeletePerGroup) { c.markedForTrash = true }
     }
 
     private func keeper(in group: DuplicateGroupData) -> DuplicateCandidate? {
@@ -1635,16 +1819,54 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
     private func rebuildGroupViews() {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for (i, group) in groups.enumerated() {
+            let enabled = enabledGroupIDs.contains(group.id)
+            let overflow = group.candidates.count - 1 - maxDeletePerGroup
+            let capWarning: String? = overflow > 0
+                ? "このグループは\(group.candidates.count - 1)枚が削除候補ですが、1グループあたりの上限(\(maxDeletePerGroup)枚)のため一部しか自動選択されていません。残りを削除するには手動で選択してください(上限までのみ)。"
+                : nil
             let section = GroupSectionView(
-                title: "グループ \(i + 1) — \(group.candidates.count) 件 · 最大 \(formatBytes(group.wastedBytes)) 節約可能",
-                isExact: group.isExact)
+                number: i + 1, isExact: group.isExact,
+                count: group.candidates.count, wastedBytes: group.wastedBytes,
+                enabled: enabled, capWarning: capWarning)
+            section.onToggleEnabled = { [weak self] newValue in
+                self?.setGroupEnabled(group, enabled: newValue)
+            }
             for cand in group.candidates {
                 let card = DuplicateItemCard(candidate: cand)
                 card.onToggle = { [weak self] in self?.updateStatus() }
+                card.canMarkForTrash = { [weak self] in
+                    guard let self, self.enabledGroupIDs.contains(group.id) else { return false }
+                    let current = group.candidates.filter { $0.markedForTrash }.count
+                    if current >= self.maxDeletePerGroup {
+                        self.statusLabel.stringValue = "1グループあたり削除対象にできるのは最大\(self.maxDeletePerGroup)枚までです"
+                        return false
+                    }
+                    return true
+                }
                 section.cardsStack.addArrangedSubview(card)
             }
             stack.addArrangedSubview(section)
             section.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -32).isActive = true
+        }
+        // レイアウト確定後(次のランループ)でないとsection.frameがまだ古い/ゼロのままなので、
+        // 可視判定を1ティック遅らせる。
+        DispatchQueue.main.async { [weak self] in self?.updateVisibleThumbnails() }
+    }
+
+    @objc private func visibleRectDidChange() {
+        updateVisibleThumbnails()
+    }
+
+    /// スクロールの可視矩形(前後にバッファを付けたもの)と交差するグループだけ
+    /// サムネイルを読み込み、外れたグループは解放する。重複候補が数千件あっても
+    /// 画面に出ている分だけがメモリ上のサムネイルを保持するようにするための仕組み
+    /// (メイン写真グリッドのNSCollectionViewによるセル再利用と同じ狙いを、
+    /// この画面ではプレーンなNSStackViewの上に手動で実現している)。
+    private func updateVisibleThumbnails() {
+        let buffer: CGFloat = 460   // 概ねグループ2つ分。スクロール時のちらつきを避けるため
+        let visible = scrollView.documentVisibleRect.insetBy(dx: 0, dy: -buffer)
+        for case let section as GroupSectionView in stack.arrangedSubviews {
+            section.setThumbnailsLoaded(section.frame.intersects(visible))
         }
     }
 
@@ -1690,6 +1912,7 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
                 return g
             }
             .filter { $0.candidates.count > 1 }
+        enabledGroupIDs = enabledGroupIDs.intersection(groups.map(\.id))
         afterGroupsChanged()
     }
 }

@@ -3,7 +3,7 @@ import Foundation
 /// 実行ボタンを持つ各ペインに対応するジョブの種別。ログは種別ごとに保持し、
 /// 各ペインの実行ログセクションは自分の種別のログだけを表示する。
 enum JobKind: String {
-    case photos, videos, encode, verify, sync, shortClips, misplacedFix
+    case photos, videos, encode, sync, shortClips, misplacedFix, videoMaker
 }
 
 /// ログ1行分。`id`は間引き(`removeFirst`)後もずれない通し番号にすることで、
