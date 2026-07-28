@@ -7,6 +7,16 @@ struct VerifyIssue {
     let file: URL
     let expected: URL
     let dateSource: String
+    /// 類似写真フォールバックで日付を借用した場合、借用元のファイル。それ以外は常にnil。
+    let matchedFrom: URL?
+
+    init(kind: String, file: URL, expected: URL, dateSource: String, matchedFrom: URL? = nil) {
+        self.kind = kind
+        self.file = file
+        self.expected = expected
+        self.dateSource = dateSource
+        self.matchedFrom = matchedFrom
+    }
 }
 
 struct VerifyResult {
@@ -14,6 +24,9 @@ struct VerifyResult {
     var okCount = 0
     var fixed = 0
     var skippedDuplicate = 0
+    var failed = 0
+    /// 類似写真フォールバックで日付を借用できたファイルの件数(fixモードで実際に移動したかは問わない)。
+    var similarityMatched = 0
 }
 
 enum PhotoVerifierError: Error, LocalizedError {
@@ -27,14 +40,54 @@ enum PhotoVerifierError: Error, LocalizedError {
 
 /// verify-photos.sh の移植。想定構造 <root>/<MM>/<MMDD>/YYYY_MMDD_HHMMSS.<ext> を検証・修正する。
 /// rootは年フォルダ（例: .../0_Photo/2026）を渡す想定。
+/// monthFilterを渡すと、root直下の月フォルダのうち一致するもの(例: "07")だけを処理する
+/// (MisplacedFixViewModelが月単位の修正で使う)。
+/// maxFixCountを渡すと、fixモードでは問題が上限件数見つかった時点でスキャン自体を打ち切る
+/// (EXIF/mdls呼び出しが主なコストなので、全件スキャンを待たずに済む。検出された問題が多い
+/// 場合に一度の実行で大量のファイルを動かさないようにするための機能でもある。report/dryRun
+/// モードでは全件を見せたいので上限を適用しない)。
+/// similarityIndexを渡すと、EXIF/mdls/フォルダ名/ファイル名のどこからも撮影日が分からず
+/// mtimeフォールバックになったファイルについて、見た目が近い(dHash)・EXIF付きの写真が
+/// インデックス内にあればその日付を借用する(`類似写真(EXIF)`というdateSourceになる)。
+/// 借用に使った元ファイルは`VerifyIssue.matchedFrom`に記録し、report/dryRun/fixのログに
+/// 「類似元: ...」として出す(あいまいな根拠に基づく変更なので、実行前に確認できるようにする)。
 enum PhotoVerifier {
     private static let expectedNamePattern = #"^\d{4}_\d{4}_\d{6}(_\d+)?\."#
     private static let suffixedPattern = #"^(\d{4}_\d{4}_\d{6})_\d+(\..+)$"#
+
+    /// 進捗バー用に、対象ファイル数を軽量に数える(日付解決はしない。EXIF/mdls呼び出しがない分、
+    /// 本処理よりずっと速い)。複数の対象(年・月)をまたいだ「全体の進捗」の分母を出すために使う。
+    static func estimateFileCount(root: URL, extensions: Set<String>, monthFilter: String? = nil) -> Int {
+        let fm = FileManager.default
+        guard let monthDirs = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey]) else { return 0 }
+        var count = 0
+        for monthDir in monthDirs {
+            guard (try? monthDir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
+            guard !monthDir.lastPathComponent.hasPrefix("."), monthDir.lastPathComponent.fullyMatches(#"\d{2}"#) else { continue }
+            if let monthFilter, monthDir.lastPathComponent != monthFilter { continue }
+            guard let items = try? fm.contentsOfDirectory(at: monthDir, includingPropertiesForKeys: [.isDirectoryKey]) else { continue }
+            for item in items {
+                if item.lastPathComponent.hasPrefix(".") { continue }
+                let isItemDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+                if !isItemDir, extensions.contains(item.pathExtension.lowercased()) {
+                    count += 1
+                    continue
+                }
+                guard isItemDir, !item.lastPathComponent.isEmpty, item.lastPathComponent.first!.isNumber else { continue }
+                count += enumerateFiles(in: item, extensions: extensions)?.count ?? 0
+            }
+        }
+        return count
+    }
 
     static func run(
         root: URL,
         mode: VerifyMode,
         extensions: Set<String>,
+        monthFilter: String? = nil,
+        maxFixCount: Int? = nil,
+        similarityIndex: LazySimilarityIndex? = nil,
+        onFileProcessed: (() -> Void)? = nil,
         progress: @escaping (String) -> Void,
         setDetail: @escaping (String) -> Void = { _ in },
         checkCancel: () throws -> Void
@@ -47,6 +100,14 @@ enum PhotoVerifier {
 
         let base = root.deletingLastPathComponent()
         var result = VerifyResult()
+        var scanStoppedEarly = false
+
+        // fixモードでmaxFixCountが指定されている場合、問題が上限件数見つかった時点でスキャン自体を
+        // 打ち切る(EXIF/mdls呼び出しが主なコストのため、全件スキャンを待たずに済む)。
+        func fixCapReached() -> Bool {
+            guard mode == .fix, let maxFixCount else { return false }
+            return result.issues.count >= maxFixCount
+        }
 
         progress("スキャン中: \(root.path)")
         progress("モード: \(modeLabel(mode))\n")
@@ -55,10 +116,11 @@ enum PhotoVerifier {
             return result
         }
 
-        for monthDir in monthDirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+        monthLoop: for monthDir in monthDirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
             try checkCancel()
             guard (try? monthDir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
             guard !monthDir.lastPathComponent.hasPrefix("."), monthDir.lastPathComponent.fullyMatches(#"\d{2}"#) else { continue }
+            if let monthFilter, monthDir.lastPathComponent != monthFilter { continue }
 
             guard let items = try? fm.contentsOfDirectory(at: monthDir, includingPropertiesForKeys: [.isDirectoryKey]) else { continue }
 
@@ -71,13 +133,28 @@ enum PhotoVerifier {
                 // MM直下にある写真ファイル(MMDDフォルダの下にない)
                 if !isItemDir, extensions.contains(item.pathExtension.lowercased()) {
                     setDetail(item.lastPathComponent)
-                    let resolved = MediaDateResolver.resolve(for: item, primarySources: [MediaDateResolver.fromSips])
+                    defer { onFileProcessed?() }
+                    var resolved = MediaDateResolver.resolve(for: item, primarySources: [MediaDateResolver.fromSips])
+                    var matchedFrom: URL?
+                    if resolved.source == "mtime", let similarityIndex,
+                       let dhash = PerceptualHash.dHash(of: item),
+                       let match = try similarityIndex.get().closestMatch(for: dhash) {
+                        resolved = ResolvedDate(date: match.date, source: "類似写真(EXIF)")
+                        matchedFrom = match.url
+                        result.similarityMatched += 1
+                    }
+                    if resolved.source == "mtime" {
+                        result.issues.append(VerifyIssue(kind: "Unknown", file: item, expected: unknownDest(for: item, base: base), dateSource: resolved.source))
+                        if fixCapReached() { scanStoppedEarly = true; break monthLoop }
+                        continue
+                    }
                     let expectedDir = base
                         .appendingPathComponent(resolved.date.formatted("yyyy"))
                         .appendingPathComponent(resolved.date.formatted("MM"))
                         .appendingPathComponent(resolved.date.formatted("MMdd"))
                     let newName = "\(resolved.date.formatted("yyyy_MMdd_HHmmss")).\(item.pathExtension.lowercased())"
-                    result.issues.append(VerifyIssue(kind: "MM直下ファイル", file: item, expected: expectedDir.appendingPathComponent(newName), dateSource: resolved.source))
+                    result.issues.append(VerifyIssue(kind: "MM直下ファイル", file: item, expected: expectedDir.appendingPathComponent(newName), dateSource: resolved.source, matchedFrom: matchedFrom))
+                    if fixCapReached() { scanStoppedEarly = true; break monthLoop }
                     continue
                 }
 
@@ -87,7 +164,32 @@ enum PhotoVerifier {
                 for file in files.sorted(by: { $0.path < $1.path }) {
                     try checkCancel()
                     setDetail(file.lastPathComponent)
-                    let resolved = MediaDateResolver.resolve(for: file, primarySources: [MediaDateResolver.fromSips])
+                    defer { onFileProcessed?() }
+                    var resolved = MediaDateResolver.resolve(for: file, primarySources: [MediaDateResolver.fromSips])
+                    var matchedFrom: URL?
+
+                    // EXIF/mdls/フォルダ名/ファイル名のいずれからも撮影日が分からず、mtimeまで
+                    // フォールバックした場合、まず類似写真フォールバック(あれば)で復旧を試みる。
+                    // それでも駄目なら、日付を捏造せずルート直下のUnknownへ元のファイル名のまま
+                    // 退避する(誤った年月日フォルダへ誤配置する方が害が大きい)。
+                    if resolved.source == "mtime", let similarityIndex,
+                       let dhash = PerceptualHash.dHash(of: file),
+                       let match = try similarityIndex.get().closestMatch(for: dhash) {
+                        resolved = ResolvedDate(date: match.date, source: "類似写真(EXIF)")
+                        matchedFrom = match.url
+                        result.similarityMatched += 1
+                    }
+                    if resolved.source == "mtime" {
+                        let dest = unknownDest(for: file, base: base)
+                        if file.deletingLastPathComponent().standardizedFileURL == dest.deletingLastPathComponent().standardizedFileURL {
+                            result.okCount += 1
+                        } else {
+                            result.issues.append(VerifyIssue(kind: "Unknown", file: file, expected: dest, dateSource: resolved.source))
+                            if fixCapReached() { scanStoppedEarly = true; break monthLoop }
+                        }
+                        continue
+                    }
+
                     let year = resolved.date.formatted("yyyy")
                     let month = resolved.date.formatted("MM")
                     let mmdd = resolved.date.formatted("MMdd")
@@ -103,7 +205,8 @@ enum PhotoVerifier {
                         let baseName = g[0] + g[1].lowercased()
                         let baseCandidate = file.deletingLastPathComponent().appendingPathComponent(baseName)
                         if !fm.fileExists(atPath: baseCandidate.path) {
-                            result.issues.append(VerifyIssue(kind: "suffix除去", file: file, expected: baseCandidate, dateSource: resolved.source))
+                            result.issues.append(VerifyIssue(kind: "suffix除去", file: file, expected: baseCandidate, dateSource: resolved.source, matchedFrom: matchedFrom))
+                            if fixCapReached() { scanStoppedEarly = true; break monthLoop }
                             continue
                         } else {
                             result.okCount += 1
@@ -119,20 +222,29 @@ enum PhotoVerifier {
                     var kinds: [String] = []
                     if !nameOK { kinds.append("名前") }
                     if !folderOK { kinds.append("フォルダ") }
-                    result.issues.append(VerifyIssue(kind: kinds.joined(separator: "+"), file: file, expected: expectedDir.appendingPathComponent(newName), dateSource: resolved.source))
+                    result.issues.append(VerifyIssue(kind: kinds.joined(separator: "+"), file: file, expected: expectedDir.appendingPathComponent(newName), dateSource: resolved.source, matchedFrom: matchedFrom))
+                    if fixCapReached() { scanStoppedEarly = true; break monthLoop }
                 }
             }
         }
 
         progress(String(repeating: "=", count: 50))
-        progress("  問題あり: \(result.issues.count) 件 / 正常: \(result.okCount) 件")
+        if scanStoppedEarly {
+            progress("  問題あり: \(result.issues.count) 件以上(上限に達したためスキャンを打ち切り、これ以降は未確認) / 正常: \(result.okCount) 件")
+        } else {
+            progress("  問題あり: \(result.issues.count) 件 / 正常: \(result.okCount) 件")
+        }
+        if result.similarityMatched > 0 {
+            progress("  うち類似写真から日付を推定: \(result.similarityMatched) 件")
+        }
         progress(String(repeating: "=", count: 50) + "\n")
 
         switch mode {
         case .report:
             for issue in result.issues.prefix(50) {
-                progress("  [\(issue.kind)] \(relativePath(issue.file, base: base))")
+                progress("  [\(kindLabel(issue))] \(relativePath(issue.file, base: base))")
                 progress("    → \(relativePath(issue.expected, base: base))  (\(issue.dateSource))")
+                if let line = matchedFromLine(issue, base: base) { progress(line) }
             }
             if result.issues.count > 50 {
                 progress("\n  ...他 \(result.issues.count - 50) 件（Dry runまたは修正実行で全件確認）")
@@ -140,28 +252,59 @@ enum PhotoVerifier {
 
         case .dryRun:
             for issue in result.issues {
-                progress("  [\(issue.kind)] \(relativePath(issue.file, base: base))")
+                progress("  [\(kindLabel(issue))] \(relativePath(issue.file, base: base))")
                 progress("    → \(relativePath(issue.expected, base: base))  (\(issue.dateSource))")
+                if let line = matchedFromLine(issue, base: base) { progress(line) }
             }
             progress("\n処理予定: \(result.issues.count) 件")
 
         case .fix:
-            for issue in result.issues {
+            let issuesToFix = maxFixCount.map { Array(result.issues.prefix(max(0, $0))) } ?? result.issues
+            for issue in issuesToFix {
                 try checkCancel()
-                let (dst, isDuplicate) = safeMove(from: issue.file, to: issue.expected, fm: fm)
-                if isDuplicate {
-                    progress("  SKIP(同一): \(issue.file.lastPathComponent)")
-                    result.skippedDuplicate += 1
-                } else {
-                    progress("  FIX [\(issue.kind)]: \(issue.file.lastPathComponent) -> \(relativePath(dst, base: base))  (\(issue.dateSource))")
-                    result.fixed += 1
+                do {
+                    let (dst, isDuplicate) = try safeMove(from: issue.file, to: issue.expected, fm: fm)
+                    if isDuplicate {
+                        progress("  SKIP(同一): \(issue.file.lastPathComponent)")
+                        if let line = matchedFromLine(issue, base: base) { progress(line) }
+                        result.skippedDuplicate += 1
+                    } else {
+                        progress("  FIX [\(kindLabel(issue))]: \(issue.file.lastPathComponent) -> \(relativePath(dst, base: base))  (\(issue.dateSource))")
+                        if let line = matchedFromLine(issue, base: base) { progress(line) }
+                        result.fixed += 1
+                    }
+                } catch {
+                    progress("  [ERROR] \(issue.file.lastPathComponent): \(error.localizedDescription)")
+                    result.failed += 1
                 }
             }
-            removeEmptySubfolders(of: root, fm: fm)
-            progress("\n修正: \(result.fixed) 件  スキップ: \(result.skippedDuplicate) 件")
+            if scanStoppedEarly, let maxFixCount {
+                progress("\n上限(\(maxFixCount)件)に達したため、途中でスキャンを打ち切りました。残りは次回以降の実行で検出されます。")
+            }
+            let cleanupRoot = monthFilter.map { root.appendingPathComponent($0) } ?? root
+            removeEmptySubfolders(of: cleanupRoot, fm: fm)
+            progress("\n修正: \(result.fixed) 件  スキップ: \(result.skippedDuplicate) 件  失敗: \(result.failed) 件")
         }
 
         return result
+    }
+
+    /// 撮影日が全く分からないファイルの退避先。ルート(年フォルダ)の親、つまりライブラリ直下の
+    /// Unknown/ に、元のファイル名のまま置く(捏造した日付でフォルダ名・ファイル名を作らない)。
+    private static func unknownDest(for file: URL, base: URL) -> URL {
+        base.appendingPathComponent("Unknown").appendingPathComponent(file.lastPathComponent)
+    }
+
+    /// 類似写真フォールバックで日付を借用した場合に、借用元をログへ表示する行。
+    private static func matchedFromLine(_ issue: VerifyIssue, base: URL) -> String? {
+        guard let matchedFrom = issue.matchedFrom else { return nil }
+        return "    類似元: \(relativePath(matchedFrom, base: base))"
+    }
+
+    /// ログの`[kind]`表示用。類似写真フォールバックで日付を借用した場合は一目でわかるよう
+    /// タグを付ける(通常のEXIF/mdls等での解決と混ざって見えないようにするため)。
+    private static func kindLabel(_ issue: VerifyIssue) -> String {
+        issue.matchedFrom != nil ? "\(issue.kind)・類似写真" : issue.kind
     }
 
     private static func modeLabel(_ mode: VerifyMode) -> String {
@@ -191,11 +334,14 @@ enum PhotoVerifier {
     }
 
     /// 重複を考慮して移動する。既に同一ファイルが存在すれば元を削除してSKIP、内容が違えばsuffixを付けて移動。
-    private static func safeMove(from src: URL, to dst: URL, fm: FileManager) -> (URL, Bool) {
+    /// 以前は各操作を`try?`で握りつぶしていたため、OneDriveのプレースホルダー(未ダウンロード)ファイル等で
+    /// 移動が実際には失敗していてもログ上は「FIX」と表示され続けるバグがあった。エラーは呼び出し側に
+    /// 伝播させ、実際に成功した場合だけ`fixed`をカウントする。
+    private static func safeMove(from src: URL, to dst: URL, fm: FileManager) throws -> (URL, Bool) {
         if fm.fileExists(atPath: dst.path) {
             let same = (try? FileHasher.md5(of: src)) == (try? FileHasher.md5(of: dst))
             if same {
-                try? fm.removeItem(at: src)
+                try fm.removeItem(at: src)
                 return (dst, true)
             }
             let stem = dst.deletingPathExtension().lastPathComponent
@@ -206,12 +352,12 @@ enum PhotoVerifier {
                 n += 1
                 candidate = dst.deletingLastPathComponent().appendingPathComponent("\(stem)_\(n).\(ext)")
             }
-            try? fm.createDirectory(at: candidate.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? fm.moveItem(at: src, to: candidate)
+            try fm.createDirectory(at: candidate.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try fm.moveItem(at: src, to: candidate)
             return (candidate, false)
         } else {
-            try? fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? fm.moveItem(at: src, to: dst)
+            try fm.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try fm.moveItem(at: src, to: dst)
             return (dst, false)
         }
     }

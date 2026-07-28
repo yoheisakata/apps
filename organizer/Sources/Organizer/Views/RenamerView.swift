@@ -283,6 +283,7 @@ private struct RuleCard: View {
 private struct FilesPane: View {
     @ObservedObject var vm: RenamerViewModel
     @Binding var dropTargeted: Bool
+    @ObservedObject private var jobRunner = JobRunner.shared
 
     var body: some View {
         let previews = vm.previews()
@@ -374,7 +375,11 @@ private struct FilesPane: View {
                 }
                 .disabled(vm.undoBatches.isEmpty)
                 Button("リネーム実行（\(changedCount) 件）") {
-                    vm.performRename()
+                    if jobRunner.isRunning {
+                        vm.errorMessage = "他の処理(\(jobRunner.title))を実行中です。完了してからもう一度お試しください。"
+                    } else {
+                        vm.performRename()
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)

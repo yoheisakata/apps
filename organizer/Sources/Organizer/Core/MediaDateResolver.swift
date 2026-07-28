@@ -39,14 +39,16 @@ enum MediaDateResolver {
     static func fromFolderName(_ url: URL) -> ResolvedDate? {
         let parts = url.pathComponents
 
-        for part in parts.reversed() {
+        for i in parts.indices.reversed() {
+            let part = parts[i]
+            // "0517"のようなMMDDフォルダは、その直接の親フォルダが年(西暦4桁)である場合だけ採用する。
+            // パス中のどこかにある無関係な"20XX"フォルダと組み合わせてしまうと、実際の撮影日と無関係な
+            // 日付を捏造してしまう(パス全体から独立に年とMMDDを探していた旧実装で実際に発生した)。
             if part.fullyMatches(#"(\d{2})(\d{2})"#), let g = part.firstMatchGroups(#"^(\d{2})(\d{2})$"#),
-               let mm = Int(g[0]), let dd = Int(g[1]), (1...12).contains(mm), (1...31).contains(dd) {
-                if let yearPart = parts.reversed().first(where: { $0.fullyMatches(#"20\d{2}"#) }),
-                   let year = Int(yearPart) {
-                    if let date = makeDate(year: year, month: mm, day: dd) {
-                        return ResolvedDate(date: date, source: "フォルダ名(MMDD)")
-                    }
+               let mm = Int(g[0]), let dd = Int(g[1]), (1...12).contains(mm), (1...31).contains(dd),
+               i > 0, parts[i - 1].fullyMatches(#"20\d{2}"#), let year = Int(parts[i - 1]) {
+                if let date = makeDate(year: year, month: mm, day: dd) {
+                    return ResolvedDate(date: date, source: "フォルダ名(MMDD)")
                 }
             }
             if let g = part.firstMatchGroups(#"([A-Za-z]+)\s+(\d{1,2}),?\s+(20\d{2})"#),
@@ -89,10 +91,20 @@ enum MediaDateResolver {
         return ResolvedDate(date: date ?? Date(), source: "mtime")
     }
 
+    /// sips/mdlsはスリープ復帰・外付けドライブの瞬断・大量連続実行時のプロセス起動失敗などで
+    /// 一時的にエラーを返すことがある(数万枚を数時間かけて処理する整理ジョブで実際に発生し、
+    /// 本来読めるはずのEXIF/メタデータがnil扱いになってフォルダ名フォールバックへ落ちる原因になった)。
+    /// 1回だけ間を置いて再試行する。
+    private static func execWithRetry(_ executable: String, _ arguments: [String]) -> String? {
+        if let output = try? SyncExec.run(executable, arguments) { return output }
+        Thread.sleep(forTimeInterval: 0.5)
+        return try? SyncExec.run(executable, arguments)
+    }
+
     // MARK: - 写真EXIF: sips -g creation
 
     static func fromSips(_ url: URL) -> ResolvedDate? {
-        guard let output = try? SyncExec.run("/usr/bin/sips", ["-g", "creation", url.path]) else { return nil }
+        guard let output = execWithRetry("/usr/bin/sips", ["-g", "creation", url.path]) else { return nil }
         guard let g = output.firstMatchGroups(#"creation:\s*(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})"#), g.count == 6 else { return nil }
         guard let date = makeDate(year: Int(g[0]), month: Int(g[1]), day: Int(g[2]), hour: Int(g[3]), minute: Int(g[4]), second: Int(g[5])) else { return nil }
         return ResolvedDate(date: date, source: "EXIF(sips)")
@@ -101,7 +113,7 @@ enum MediaDateResolver {
     // MARK: - コンテンツ作成日: mdls -name kMDItemContentCreationDate（UTC → ローカル変換）
 
     static func fromMdls(_ url: URL) -> ResolvedDate? {
-        guard let output = try? SyncExec.run("/usr/bin/mdls", ["-name", "kMDItemContentCreationDate", "-raw", url.path]) else { return nil }
+        guard let output = execWithRetry("/usr/bin/mdls", ["-name", "kMDItemContentCreationDate", "-raw", url.path]) else { return nil }
         let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed != "(null)", !trimmed.isEmpty else { return nil }
 
@@ -117,7 +129,7 @@ enum MediaDateResolver {
 
     static func fromFfprobeQuickTime(_ url: URL) -> ResolvedDate? {
         guard let ffprobe = ToolLocator.resolve("ffprobe") else { return nil }
-        guard let output = try? SyncExec.run(ffprobe, ["-v", "quiet", "-print_format", "json", "-show_format", url.path]) else { return nil }
+        guard let output = execWithRetry(ffprobe, ["-v", "quiet", "-print_format", "json", "-show_format", url.path]) else { return nil }
         guard let data = output.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let format = json["format"] as? [String: Any],

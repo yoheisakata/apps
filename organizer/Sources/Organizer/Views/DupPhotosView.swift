@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct DupPhotosView: View {
     @StateObject private var vm = DupPhotosViewModel()
+    @ObservedObject private var jobRunner = JobRunner.shared
     @State private var dropTargeted = false
     @State private var confirmingTrash = false
 
@@ -99,6 +100,14 @@ struct DupPhotosView: View {
                 .fixedSize()
                 .disabled(vm.isWorking)
 
+                Stepper(value: $vm.maxDeletePerGroup, in: 1...20) {
+                    Text("1グループ最大\(vm.maxDeletePerGroup)枚")
+                        .monospacedDigit()
+                }
+                .fixedSize()
+                .disabled(vm.isWorking)
+                .help("1つの重複グループ内で削除対象にできる枚数の上限。誤って大きくクラスタリングされたグループを一気に削除しないための安全策です。")
+
                 Spacer()
             }
             if !vm.folders.isEmpty {
@@ -165,12 +174,24 @@ struct DupPhotosView: View {
                 .foregroundColor(.secondary)
                 .font(.callout)
             Spacer()
+            Button("全グループ選択") {
+                vm.enableAllGroups()
+            }
+            .disabled(vm.groups.isEmpty)
+            Button("全グループ解除") {
+                vm.disableAllGroups()
+            }
+            .disabled(vm.groups.isEmpty)
             Button("自動選択をやり直す") {
                 vm.autoSelect()
             }
             .disabled(vm.groups.isEmpty)
             Button(role: .destructive) {
-                confirmingTrash = true
+                if jobRunner.isRunning {
+                    vm.errorMessage = "他の処理(\(jobRunner.title))を実行中です。完了してからもう一度お試しください。"
+                } else {
+                    confirmingTrash = true
+                }
             } label: {
                 Label("選択した \(vm.selectedPhotos.count) 枚をゴミ箱へ（\(ByteFmt.string(vm.selectedBytes))）",
                       systemImage: "trash")
@@ -192,11 +213,29 @@ struct DupGroupSection: View {
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 10)]
 
+    private var isEnabled: Bool { vm.enabledGroups.contains(group.id) }
+
+    /// ネイティブの`Toggle`+`.checkbox`スタイルは当たり判定が小さく、隣接するバッジ/警告ラベルと
+    /// 詰まって見えると外しにくいことがあるため、当たり判定を広く取ったカスタムチェックボックスにする。
+    private var groupCheckbox: some View {
+        HStack(spacing: 6) {
+            Image(systemName: isEnabled ? "checkmark.square.fill" : "square")
+                .foregroundStyle(isEnabled ? Color.accentColor : Color.secondary)
+                .font(.body)
+            Text("グループ \(number)")
+                .font(.headline)
+                .foregroundStyle(.primary)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture { vm.setGroupEnabled(group, enabled: !isEnabled) }
+        .help("クリックすると、このグループを削除対象から外す/含めるを切り替えます")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text("グループ \(number)")
-                    .font(.headline)
+                groupCheckbox
                 Text(group.isExact ? "完全一致" : "類似")
                     .font(.caption)
                     .padding(.horizontal, 6)
@@ -205,12 +244,18 @@ struct DupGroupSection: View {
                 Text("\(group.photos.count) 枚 · 最大 \(ByteFmt.string(group.wastedBytes)) 節約可能")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                if group.photos.count - 1 > vm.maxDeletePerGroup {
+                    Label("上限のため一部のみ自動選択", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .help("このグループは\(group.photos.count - 1)枚が削除候補ですが、1グループあたりの上限(\(vm.maxDeletePerGroup)枚)のため一部しか自動選択されていません。残りを削除するには手動で選択してください(上限までのみ)。")
+                }
                 Spacer()
             }
             LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
                 ForEach(group.photos) { photo in
                     DupPhotoCell(photo: photo, selected: vm.selection.contains(photo.id))
-                        .onTapGesture { vm.toggle(photo) }
+                        .onTapGesture { if isEnabled { vm.toggle(photo) } }
                         .contextMenu {
                             Button("Finder で表示") {
                                 NSWorkspace.shared.activateFileViewerSelecting([photo.url])
@@ -221,6 +266,7 @@ struct DupGroupSection: View {
                         }
                 }
             }
+            .opacity(isEnabled ? 1 : 0.4)
         }
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor))

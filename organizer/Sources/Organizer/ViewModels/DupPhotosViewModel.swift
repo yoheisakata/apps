@@ -31,28 +31,6 @@ struct DupGroup: Identifiable {
     }
 }
 
-enum MatchLevel: Int, CaseIterable, Identifiable {
-    case exact = 0, strict, normal, loose
-    var id: Int { rawValue }
-    var label: String {
-        switch self {
-        case .exact: return "完全一致"
-        case .strict: return "厳密"
-        case .normal: return "標準"
-        case .loose: return "ゆるい"
-        }
-    }
-    /// dHash のハミング距離のしきい値（exact はバイト単位比較）
-    var threshold: Int {
-        switch self {
-        case .exact: return 0
-        case .strict: return 2
-        case .normal: return 5
-        case .loose: return 9
-        }
-    }
-}
-
 enum KeepRule: String, CaseIterable, Identifiable {
     case highestResolution, largestFile, newest, oldest
     var id: String { rawValue }
@@ -95,6 +73,9 @@ final class DupPhotosViewModel: ObservableObject {
     @Published var photos: [Photo] = []
     @Published var groups: [DupGroup] = []
     @Published var selection: Set<UUID> = []
+    /// 削除対象として扱う(=チェックの入った)グループのid。外したグループは自動選択の対象外になり、
+    /// 個々の写真も手動選択できない(誤検出グループを丸ごと除外できるようにするため)。
+    @Published var enabledGroups: Set<UUID> = []
     @Published var isWorking = false
     @Published var progress: Double = 0
     @Published var progressText = ""
@@ -106,6 +87,15 @@ final class DupPhotosViewModel: ObservableObject {
     @Published var keepRule: KeepRule = .highestResolution {
         didSet { autoSelect() }
     }
+    /// 1グループあたり削除対象にできる枚数の上限。「ゆるい」等の緩いマッチレベルで
+    /// 誤って大きくクラスタリングされたグループを、自動選択(・手動選択)から丸ごと
+    /// 大量削除してしまわないための安全策(既定3枚、`toggle`でも同じ上限を守る)。
+    @Published var maxDeletePerGroup: Int {
+        didSet {
+            UserDefaults.standard.set(maxDeletePerGroup, forKey: "dupPhotos.maxDeletePerGroup")
+            autoSelect()
+        }
+    }
 
     private var shaCache: [URL: String] = [:]
     private var cancelRequested = false
@@ -115,6 +105,13 @@ final class DupPhotosViewModel: ObservableObject {
         "jpg", "jpeg", "png", "heic", "heif", "tiff", "tif", "gif", "bmp", "webp",
         "arw", "cr2", "cr3", "nef", "raf", "orf", "dng", "pef", "rw2",
     ]
+
+    private static let defaultMaxDeletePerGroup = 3
+
+    init() {
+        let saved = UserDefaults.standard.integer(forKey: "dupPhotos.maxDeletePerGroup")
+        maxDeletePerGroup = saved > 0 ? saved : Self.defaultMaxDeletePerGroup
+    }
 
     // MARK: フォルダ
 
@@ -228,40 +225,12 @@ final class DupPhotosViewModel: ObservableObject {
             width = props[kCGImagePropertyPixelWidth] as? Int ?? 0
             height = props[kCGImagePropertyPixelHeight] as? Int ?? 0
         }
-        guard let hash = dHash(source: src) else { return nil }
+        guard let hash = PerceptualHash.dHash(source: src) else { return nil }
         return Photo(url: url,
                      fileSize: Int64(size),
                      modDate: values.contentModificationDate ?? Date(),
                      pixelWidth: width, pixelHeight: height,
                      dhash: hash)
-    }
-
-    /// 9x8 グレースケールに縮小し、隣接ピクセルの明暗で 64bit の知覚ハッシュを作る
-    private static func dHash(source: CGImageSource) -> UInt64? {
-        let opts: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 64,
-        ]
-        guard let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) else { return nil }
-        let w = 9, h = 8
-        var pixels = [UInt8](repeating: 0, count: w * h)
-        guard let ctx = CGContext(data: &pixels, width: w, height: h,
-                                  bitsPerComponent: 8, bytesPerRow: w,
-                                  space: CGColorSpaceCreateDeviceGray(),
-                                  bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
-        ctx.interpolationQuality = .medium
-        ctx.draw(thumb, in: CGRect(x: 0, y: 0, width: w, height: h))
-        var hash: UInt64 = 0
-        for row in 0..<8 {
-            for col in 0..<8 {
-                hash <<= 1
-                if pixels[row * w + col] < pixels[row * w + col + 1] {
-                    hash |= 1
-                }
-            }
-        }
-        return hash
     }
 
     // MARK: グループ化
@@ -274,6 +243,7 @@ final class DupPhotosViewModel: ObservableObject {
             progressText = ""
             return
         }
+        cancelRequested = false
         isWorking = true
         progressText = "グループ化しています…"
         let photos = self.photos
@@ -287,9 +257,14 @@ final class DupPhotosViewModel: ObservableObject {
             } else {
                 result = self.groupSimilar(photos, threshold: level.threshold)
             }
+            if self.cancelRequested {
+                DispatchQueue.main.async { self.finishCancelled() }
+                return
+            }
             let sorted = result.sorted { $0.wastedBytes > $1.wastedBytes }
             DispatchQueue.main.async {
                 self.groups = sorted
+                self.enabledGroups = Set(sorted.map(\.id))
                 self.isWorking = false
                 self.progress = 1
                 self.progressText = ""
@@ -308,8 +283,10 @@ final class DupPhotosViewModel: ObservableObject {
         for p in photos { bySize[p.fileSize, default: []].append(p) }
         var groups: [DupGroup] = []
         for (_, candidates) in bySize where candidates.count > 1 {
+            if cancelRequested { break }
             var byHash: [String: [Photo]] = [:]
             for p in candidates {
+                if cancelRequested { break }
                 guard let sha = sha256(of: p.url) else { continue }
                 byHash[sha, default: []].append(p)
             }
@@ -374,16 +351,42 @@ final class DupPhotosViewModel: ObservableObject {
 
     // MARK: 選択
 
-    /// keepRule に従って各グループの「残す1枚」以外を選択する
+    /// keepRule に従って各グループの「残す1枚」以外を選択する(チェックを外したグループは対象外)
     func autoSelect() {
         var sel: Set<UUID> = []
-        for group in groups {
-            guard let keeper = keeper(in: group) else { continue }
-            for p in group.photos where p.id != keeper.id {
-                sel.insert(p.id)
-            }
+        for group in groups where enabledGroups.contains(group.id) {
+            sel.formUnion(autoSelectIDs(for: group))
         }
         selection = sel
+    }
+
+    /// グループ単位の「このグループの重複を削除するか」チェックボックス用。
+    /// オフにするとそのグループの写真は選択から外れ、手動選択もできなくする。
+    /// オンに戻すとkeepRuleに従って再度自動選択する。
+    func setGroupEnabled(_ group: DupGroup, enabled: Bool) {
+        if enabled {
+            enabledGroups.insert(group.id)
+            selection.formUnion(autoSelectIDs(for: group))
+        } else {
+            enabledGroups.remove(group.id)
+            selection.subtract(group.photos.map(\.id))
+        }
+    }
+
+    func enableAllGroups() {
+        enabledGroups = Set(groups.map(\.id))
+        autoSelect()
+    }
+
+    func disableAllGroups() {
+        enabledGroups = []
+        selection = []
+    }
+
+    private func autoSelectIDs(for group: DupGroup) -> Set<UUID> {
+        guard let keeper = keeper(in: group) else { return [] }
+        let candidates = group.photos.filter { $0.id != keeper.id }
+        return Set(candidates.prefix(maxDeletePerGroup).map(\.id))
     }
 
     private func keeper(in group: DupGroup) -> Photo? {
@@ -399,12 +402,21 @@ final class DupPhotosViewModel: ObservableObject {
         }
     }
 
+    /// グループごとの上限(maxDeletePerGroup)を守りながら選択をトグルする。既に上限まで
+    /// 選択済みのグループでは、新規の選択追加を拒否する(既存の選択解除は常に許可)。
     func toggle(_ photo: Photo) {
         if selection.contains(photo.id) {
             selection.remove(photo.id)
-        } else {
-            selection.insert(photo.id)
+            return
         }
+        if let group = groups.first(where: { g in g.photos.contains { $0.id == photo.id } }) {
+            let selectedInGroup = group.photos.filter { selection.contains($0.id) }.count
+            guard selectedInGroup < maxDeletePerGroup else {
+                statusMessage = "1グループあたり削除対象にできるのは最大\(maxDeletePerGroup)枚までです"
+                return
+            }
+        }
+        selection.insert(photo.id)
     }
 
     var selectedPhotos: [Photo] {
@@ -442,6 +454,7 @@ final class DupPhotosViewModel: ObservableObject {
             if g.photos.count > 1 { newGroups.append(g) }
         }
         groups = newGroups
+        enabledGroups = enabledGroups.intersection(newGroups.map(\.id))
         selection = []
         statusMessage = "\(moved) 枚をゴミ箱へ移動しました（\(ByteFmt.string(movedBytes)) を回収）"
         if !failed.isEmpty {
@@ -467,7 +480,12 @@ private final class Counter {
 // MARK: - サムネイル
 
 enum ThumbLoader {
-    static let cache = NSCache<NSURL, NSImage>()
+    static let cache: NSCache<NSURL, NSImage> = {
+        let c = NSCache<NSURL, NSImage>()
+        c.countLimit = 1000
+        c.totalCostLimit = 300 << 20 // 約300MB分(256pxデコード済みビットマップのRGBAサイズをコストとして計上)
+        return c
+    }()
 
     static func load(_ url: URL, completion: @escaping (NSImage?) -> Void) {
         if let img = cache.object(forKey: url as NSURL) {
@@ -484,7 +502,8 @@ enum ThumbLoader {
                 ]
                 if let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) {
                     let img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-                    cache.setObject(img, forKey: url as NSURL)
+                    let cost = cg.width * cg.height * 4
+                    cache.setObject(img, forKey: url as NSURL, cost: cost)
                     result = img
                 }
             }

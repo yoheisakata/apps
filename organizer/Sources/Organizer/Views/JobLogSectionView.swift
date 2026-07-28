@@ -42,7 +42,7 @@ struct JobLogSectionView: View {
                     }
                 }
                 Button {
-                    let text = jobRunner.logLines(for: kind).joined(separator: "\n")
+                    let text = jobRunner.logLines(for: kind).map(\.text).joined(separator: "\n")
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(text, forType: .string)

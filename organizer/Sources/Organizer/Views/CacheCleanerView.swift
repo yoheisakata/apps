@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CacheCleanerView: View {
     @StateObject private var vm = CacheViewModel()
+    @ObservedObject private var jobRunner = JobRunner.shared
     @State private var showConfirm = false
 
     var body: some View {
@@ -52,7 +53,11 @@ struct CacheCleanerView: View {
             .disabled(vm.isScanning || vm.isCleaning)
 
             Button(role: .destructive) {
-                showConfirm = true
+                if jobRunner.isRunning {
+                    vm.errorMessage = "他の処理(\(jobRunner.title))を実行中です。完了してからもう一度お試しください。"
+                } else {
+                    showConfirm = true
+                }
             } label: {
                 Label("ゴミ箱へ移動", systemImage: "trash")
             }

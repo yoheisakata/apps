@@ -26,6 +26,7 @@ struct OrganizerResult {
     var skippedDuplicate = 0
     var renamed = 0
     var convertedHEIC = 0
+    var failed = 0
     var total: Int { moved + skippedDuplicate + renamed + convertedHEIC }
 }
 
@@ -62,7 +63,14 @@ enum MediaOrganizer {
             try checkCancel()
             setProgress(total > 0 ? Double(i) / Double(total) : nil)
             setDetail("[\(i + 1)/\(total)] \(file.lastPathComponent)")
-            try await processOne(file, config: config, fm: fm, result: &result, progress: progress, afterMove: afterMove)
+            do {
+                try await processOne(file, config: config, fm: fm, result: &result, progress: progress, afterMove: afterMove)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                result.failed += 1
+                progress("  [ERROR] \(file.lastPathComponent): \(describe(error))")
+            }
         }
         setProgress(total > 0 ? 1.0 : nil)
 
@@ -79,10 +87,46 @@ enum MediaOrganizer {
         } else {
             progress("===============================")
             progress("  移動: \(result.moved)件\(heicPart)  スキップ(重複): \(result.skippedDuplicate)件  リネーム: \(result.renamed)件")
+            if result.failed > 0 {
+                progress("  失敗: \(result.failed)件（詳細は上記の[ERROR]行を参照）")
+            }
             progress("  整理先: \(config.destRoot.path)")
             progress("===============================")
         }
         return result
+    }
+
+    /// エラーの説明文。localizedDescriptionだけだと原因(権限・空き容量不足等)が
+    /// 省かれることがあるため、localizedFailureReasonを補って表示する。
+    private static func describe(_ error: Error) -> String {
+        let ns = error as NSError
+        let desc = ns.localizedDescription
+        if let reason = ns.localizedFailureReason, !reason.isEmpty, !desc.contains(reason) {
+            return "\(desc) \(reason)"
+        }
+        return desc
+    }
+
+    /// removeItemはエラーを投げないまま実際には削除できていないことがある(使用中のファイル等)ため、
+    /// FileRemover.moveToTrashと同様に消えたかどうかを必ず確認し、失敗はresult.failedとログに残す。
+    private static func removeSource(
+        _ file: URL,
+        reason: String,
+        fm: FileManager,
+        result: inout OrganizerResult,
+        progress: @escaping (String) -> Void
+    ) {
+        do {
+            try fm.removeItem(at: file)
+        } catch {
+            result.failed += 1
+            progress("  [ERROR] ソース削除に失敗(\(reason)): \(file.lastPathComponent): \(describe(error))")
+            return
+        }
+        if fm.fileExists(atPath: file.path) {
+            result.failed += 1
+            progress("  [ERROR] ソース削除が完了しませんでした(\(reason)、使用中の可能性): \(file.lastPathComponent)")
+        }
     }
 
     private static func processOne(
@@ -133,7 +177,7 @@ enum MediaOrganizer {
                         candidate = destDir.appendingPathComponent("\(ts)_\(n).\(ext)")
                     }
                     result.renamed += 1
-                    progress("  RENAME予定: \(tag)\(file.lastPathComponent) -> \(candidate.lastPathComponent)  [\(resolved.source)]")
+                    progress("  RENAME予定: \(tag)\(file.lastPathComponent) -> \(year)/\(month)/\(mmdd)/\(candidate.lastPathComponent)  [\(resolved.source)]")
                 }
             } else if heicTemp != nil {
                 result.convertedHEIC += 1
@@ -150,7 +194,7 @@ enum MediaOrganizer {
         if fm.fileExists(atPath: destFile.path) {
             let same = (try? FileHasher.md5(of: actualFile)) == (try? FileHasher.md5(of: destFile))
             if same {
-                try? fm.removeItem(at: file)
+                removeSource(file, reason: "重複", fm: fm, result: &result, progress: progress)
                 result.skippedDuplicate += 1
                 progress("  SKIP (重複のため): \(file.lastPathComponent)")
             } else {
@@ -161,15 +205,15 @@ enum MediaOrganizer {
                     candidate = destDir.appendingPathComponent("\(ts)_\(n).\(ext)")
                 }
                 try fm.moveItem(at: actualFile, to: candidate)
-                if heicTemp != nil { try? fm.removeItem(at: file) }
+                if heicTemp != nil { removeSource(file, reason: "HEIC変換", fm: fm, result: &result, progress: progress) }
                 result.renamed += 1
-                progress("  RENAMED: \(file.lastPathComponent) -> \(candidate.lastPathComponent)  [\(resolved.source)]")
+                progress("  RENAMED: \(file.lastPathComponent) -> \(year)/\(month)/\(mmdd)/\(candidate.lastPathComponent)  [\(resolved.source)]")
                 await afterMove?(candidate)
             }
         } else {
             try fm.moveItem(at: actualFile, to: destFile)
             if heicTemp != nil {
-                try? fm.removeItem(at: file)
+                removeSource(file, reason: "HEIC変換", fm: fm, result: &result, progress: progress)
                 result.convertedHEIC += 1
                 progress("  OK: \(file.lastPathComponent) -> \(year)/\(month)/\(mmdd)/\(newName)  [HEIC→JPG, \(resolved.source)]")
             } else {

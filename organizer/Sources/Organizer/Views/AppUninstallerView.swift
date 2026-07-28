@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AppUninstallerView: View {
     @StateObject private var vm = AppViewModel()
+    @ObservedObject private var jobRunner = JobRunner.shared
     @State private var showConfirm = false
 
     var body: some View {
@@ -63,9 +64,13 @@ struct AppUninstallerView: View {
             .disabled(vm.isScanning || vm.isCleaning)
 
             Button(role: .destructive) {
-                Task {
-                    await vm.prepareLeftovers()
-                    showConfirm = true
+                if jobRunner.isRunning {
+                    vm.errorMessage = "他の処理(\(jobRunner.title))を実行中です。完了してからもう一度お試しください。"
+                } else {
+                    Task {
+                        await vm.prepareLeftovers()
+                        showConfirm = true
+                    }
                 }
             } label: {
                 Label("アンインストール", systemImage: "trash")

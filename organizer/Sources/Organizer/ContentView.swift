@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SidebarItem: String, CaseIterable, Identifiable {
-    case rename, photos, videos, encode, verify, sync, shortClips, cacheClean, appUninstall, dupPhotos, preflight
+    case rename, photos, videos, encode, verify, misplacedFix, sync, shortClips, cacheClean, appUninstall, dupPhotos, preflight
 
     var id: String { rawValue }
 
@@ -12,6 +12,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .videos: return "動画整理"
         case .encode: return "エンコード"
         case .verify: return "写真検証"
+        case .misplacedFix: return "誤配置修正"
         case .sync: return "同期"
         case .shortClips: return "短い動画検索"
         case .cacheClean: return "キャッシュ掃除"
@@ -28,6 +29,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .videos: return "film"
         case .encode: return "arrow.triangle.2.circlepath"
         case .verify: return "checkmark.seal"
+        case .misplacedFix: return "wrench.and.screwdriver"
         case .sync: return "externaldrive.fill.badge.checkmark"
         case .shortClips: return "timer"
         case .cacheClean: return "sparkles"
@@ -73,6 +75,7 @@ struct ContentView: View {
                 case .videos: VideosView()
                 case .encode: EncodeView()
                 case .verify: VerifyView()
+                case .misplacedFix: MisplacedFixView()
                 case .sync: SyncView()
                 case .shortClips: ShortClipsView()
                 case .cacheClean: CacheCleanerView()

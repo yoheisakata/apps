@@ -58,7 +58,43 @@ swift run                        # 開発ビルド(ウィンドウ起動)
     に切り出してあり、フォルダ一括の`run(config:...)`(「エンコード」ペイン用)と、
     動画整理の`afterMove`フック(移動直後の1ファイルだけ)の両方から呼ばれる
     (`encode_h265.py`と`backup-videos.sh`内の重複を統合した上の共通実装)。
-  - `PhotoVerifier.swift` — 構造検証・修正(report/dry-run/fixの3モード)。
+  - `PhotoVerifier.swift` — 構造検証・修正(report/dry-run/fixの3モード)。EXIF/mdls/フォルダ名/
+    ファイル名のどこからも撮影日が分からずmtimeフォールバックになったファイルは、誤った年月日
+    フォルダを作らずルート(年フォルダ)の親直下のUnknown/へ元のファイル名のまま退避する
+    (`MisplacedFixViewModel`が年単位・月単位でこれを呼び出す用途で使う。`monthFilter`を
+    渡すとroot直下の一致する月フォルダだけを処理する。`maxFixCount`を渡すとfixモードでは
+    問題が上限件数見つかった時点でスキャン自体を打ち切る(EXIF/mdls呼び出しが主なコスト
+    なので全件スキャンを待たずに済む。report/dryRunは全件見せたいので上限を適用しない)。
+    `estimateFileCount`は日付解決なしで対象ファイル数だけ軽く数える、全体進捗バー用の
+    ヘルパー。`safeMove`(実際のファイル移動)は`fm.moveItem`/`createDirectory`の失敗を
+    `try?`で握りつぶさずthrowする — 以前はOneDrive等のプレースホルダー(未ダウンロード)
+    ファイルで移動が実際には失敗していてもログ上「FIX」と表示され`fixed`にカウントされる
+    バグがあったため、失敗は`VerifyResult.failed`に計上し`[ERROR]`としてログに出す。
+    `similarityIndex: LazySimilarityIndex?`を渡すと、mtimeフォールバックになったファイルに
+    ついて`SimilarityIndex`(下記)でEXIF付きの類似写真を探し、見つかれば`類似写真(EXIF)`
+    という`dateSource`でその日付を借用する。借用元は`VerifyIssue.matchedFrom`に記録し、
+    report/dryRun/fixのログに「類似元: ...」として出す。類似写真経由で解決した件は
+    `[kind]`表示が`[kind・類似写真]`になり(`kindLabel`)、`VerifyResult.similarityMatched`
+    に件数を集計してサマリー行にも「うち類似写真から日付を推定: N件」として出す — 通常の
+    EXIF/mdls等での解決と混ざって見えないよう、あいまいな根拠に基づく変更だと一目でわかる
+    ようにするため)。
+  - `PerceptualHash.swift` — 知覚ハッシュ(dHash、9x8グレースケール縮小+隣接ピクセル比較で
+    64bit化)としきい値`enum MatchLevel`(exact/strict/normal/loose)。`DupPhotosViewModel`
+    (重複写真)と`SimilarityIndex`(誤配置修正の類似写真フォールバック)の両方から使う共通実装
+    (元は`DupPhotosViewModel`内に private であったものをCoreへ移動)。`MatchLevel.exact`は
+    重複写真パインではSHA-256バイト一致に特殊扱いされる(`threshold`は使われない)が、
+    `SimilarityIndex`側は常にdHashのハミング距離で比較するため「完全一致」の意味が
+    微妙に異なる(dHash距離0=見た目が完全一致、であってバイト一致ではない)点に注意。
+  - `SimilarityIndex.swift` — 誤配置修正の「類似写真からEXIF日付を借用する」機能の中核。
+    `SimilarityIndex.build(roots:extensions:threshold:...)`が候補フォルダ(例: 2020年・
+    2021年)を再帰列挙し、`MediaDateResolver.fromSips(url)`が非nilを返す(=本物のTIFF/EXIF
+    撮影日を持つ)ファイルだけを候補にする(推定日付は信用しない)。`DupPhotosViewModel.scan()`
+    と同じ「`[T?](repeating:nil)` + `concurrentPerform` + 各iterationが自分のindexだけに
+    書く」パターンで並列化(共有配列へのappendは並行安全ではないため)。`closestMatch(for:)`は
+    しきい値以内でハミング距離最小の候補を返す(同距離は列挙順=先勝ちで決定的)。
+    `LazySimilarityIndex`はビルドを実際に必要になるまで遅延するラッパー(候補年を設定して
+    いてもmtimeフォールバックが発生しなければビルドコストがかからない。`MisplacedFixViewModel`
+    が対象(年・月)をまたいで同じインスタンスを使い回すことでビルドは最大1回だけになる)。
   - `RsyncSync.swift` — rsyncのdry-run差分パース・実同期・レポート生成。実削除を伴う
     ため呼び出し側(SyncViewModel)は必ず差分確認→ユーザー確認→実行の順を守ること。
   - `ShortClipFinder.swift` — 長さ解析・レポート/M3U生成。
@@ -91,20 +127,57 @@ swift run                        # 開発ビルド(ウィンドウ起動)
 - `Views/RenamerView.swift` — 「リネーム」ペイン。ルール一覧(`RulesPane`)+
   ドラッグ&ドロップ対応のファイルリスト(`FilesPane`、ライブプレビュー付き)の
   2ペイン構成。他ペインと違い`JobLogSectionView`を使わず、旧renamerアプリと同じ
-  即時プレビュー+実行ボタンのみのUI。
+  即時プレビュー+実行ボタンのみのUI。「リネーム実行」ボタンは`vm.performRename()`を
+  呼ぶ前に`JobRunner.shared.isRunning`を確認し、他のジョブ実行中なら
+  (`JobRunner`は使わないこのペイン自身は待たされないが、写真整理等の裏の処理と
+  ファイル操作が競合しうるため)実行せず既存の`errorMessage`アラートで警告する。
 - `ViewModels/CacheViewModel.swift` + `Views/CacheCleanerView.swift` — 「キャッシュ掃除」
   ペイン(旧cleanmac由来)。`CacheScanner`でスキャン→カテゴリ別に選択→`FileRemover`で
-  ゴミ箱へ移動。`JobRunner`は使わない。
+  ゴミ箱へ移動。`JobRunner`は使わないが、「ゴミ箱へ移動」ボタンは確認ダイアログを出す前に
+  `JobRunner.shared.isRunning`を確認し、他のジョブ実行中なら`errorMessage`アラートで警告する
+  (下記3ペインも同じパターン)。
 - `ViewModels/AppViewModel.swift` + `Views/AppUninstallerView.swift` — 「アプリ削除」
   ペイン(旧cleanmac由来)。`AppScanner`でインストール済みアプリを列挙→選択したアプリ+
-  残存ファイルを`FileRemover`でゴミ箱へ移動。`JobRunner`は使わない。
+  残存ファイルを`FileRemover`でゴミ箱へ移動。`JobRunner`は使わない(実行前の
+  busy確認は上記と同じ)。
 - `ViewModels/DupPhotosViewModel.swift` + `Views/DupPhotosView.swift` — 「重複写真」
   ペイン(旧cleanmac由来。クラス名は旧`DupPhotosEngine`から改名)。重複写真検出
   エンジン(サイズ→SHA-256の完全一致 + dHashの類似判定、マルチコア並列スキャン、
-  Union-Findによるグループ化)・モデル(`Photo`/`DupGroup`/`MatchLevel`/`KeepRule`)・
-  サムネイルローダー(`ThumbLoader`)を単一ファイルに内包する(`RenamerViewModel`と同様、
-  単一ペイン専用の複雑なロジックはCoreに分離せずViewModel内に置く方針)。`JobRunner`は
-  使わない。「写真」アプリの`.photoslibrary`内部は対象外(意図的)。
+  Union-Findによるグループ化)・モデル(`Photo`/`DupGroup`/`KeepRule`)・
+  サムネイルローダー(`ThumbLoader`)を単一ファイルに内包する(dHash自体と`MatchLevel`は
+  `Core/PerceptualHash.swift`に共通化済み、`RenamerViewModel`と同様、
+  単一ペイン専用の複雑なロジックはCoreに分離せずViewModel内に置く方針)。各グループの
+  見出しにチェックボックス(`enabledGroups`)があり、外すとそのグループはkeepRuleによる
+  自動選択の対象外になり個々の写真も手動選択できなくなる(誤検出したグループを丸ごと
+  削除対象から除外するため)。「全グループ選択」/「全グループ解除」
+  (`enableAllGroups()`/`disableAllGroups()`)で一括切り替えもできる。`maxDeletePerGroup`
+  (既定3、`dupPhotos.maxDeletePerGroup`に永続化)は1グループあたり削除対象にできる枚数の
+  上限で、`autoSelectIDs`はこの上限までしか自動選択せず、`toggle`も手動選択でこの上限を
+  超えようとすると拒否する(「ゆるい」等の緩いマッチレベルで誤って大きくクラスタリング
+  されたグループを一気に削除しないための安全策)。上限を超えるグループはUIに
+  警告アイコンを出す。`JobRunner`は使わない(実行前のbusy確認は上記と同じ)。
+  「写真」アプリの`.photoslibrary`内部は対象外(意図的)。
+- `ViewModels/MisplacedFixViewModel.swift` + `Views/MisplacedFixView.swift` — 「誤配置修正」
+  ペイン。写真ライブラリのルート(年フォルダの親)を指定すると直下の年フォルダをチェック
+  ボックス一覧で出す。「単位」セグメントで年単位/月単位を切り替えられ、月単位では選んだ
+  年の中の月フォルダ(MM)を"YYYY-MM"キーでさらに選べる(`scanMonths()`)。選んだ年、または
+  選んだ月(年フォルダ+`monthFilter`)ごとに`PhotoVerifier.run`を順番に呼ぶ
+  (共通の`Target(label:yearRoot:monthFilter:)`にまとめてから1つのループで実行)。
+  過去のMediaDateResolverフォールバック不具合(フォルダ名フォールバックが無関係な年+MMDD
+  フォルダを組み合わせて誤った日付を捏造し、大量のファイルが同一フォルダに誤配置された)の
+  復旧用に追加した、年単位・月単位で少しずつ実行するための一時的な修復ツール。
+  fixモードでは「一度に修正する最大数」(既定50、`misplacedFix.maxFixCount`に永続化)を
+  選んだ対象**全体**を通しての上限として適用し、上限に達した時点で残りの対象を未処理のまま
+  打ち切る(`remainingBudget`を対象間で引き継ぐ)。実行前に`PhotoVerifier.estimateFileCount`
+  で対象全体のファイル数を数え、`onFileProcessed`フックのたびに`JobRunner.Handle.setProgress`
+  を呼んで全体進捗(%)を出す。「EXIFが無い写真を類似写真から推定」トグル
+  (`similarityFallbackEnabled`、既定OFF)をONにすると、「候補年(参照元)」チェックボックス
+  (`candidateYears`、fix対象の`selectedYears`/`selectedMonths`とは独立)と`MatchLevel`
+  ピッカー(`similarityMatchLevel`、既定`.exact`= dHash距離0)が出る。`run()`内で
+  `LazySimilarityIndex`を対象ループの前に1つだけ作り(ビルド自体は実際にmtime
+  フォールバックが発生するまで遅延)、全対象の`PhotoVerifier.run`呼び出しに使い回す。
+  候補年と実行対象の年が重なっている場合はログに警告を出す(ブロックはしない)。
+  `JobRunner`は`.misplacedFix`を使う。
 - `ViewModels/` / `Views/`(上記を除く) — ペインごとに1組。共通コンポーネントは
   `Views/JobLogSectionView.swift`(実行ボタンの下に置く実行ログセクション。`kind: JobKind`
   を受け取り、そのタブ自身のタイトル/詳細/進捗/中止ボタン + `LogConsoleView`のみを表示。
@@ -119,6 +192,13 @@ swift run                        # 開発ビルド(ウィンドウ起動)
 
 - 「同期」機能はターゲット側のファイルを削除する。UIから確認ダイアログを外したり、
   差分確認なしに実行できるようにしたりしない。
+- `JobRunner`を使わない4ペイン(リネーム/キャッシュ掃除/アプリ削除/重複写真)の実際に
+  ファイルを変更するボタンは、実行前に`JobRunner.shared.isRunning`を確認し、他のジョブ
+  (写真整理/動画整理/エンコード/写真検証/同期/短い動画検索/誤配置修正のいずれか)が
+  実行中なら、既存の`errorMessage`アラートで警告して処理を中断する(ボタン自体は
+  disabledにしない — 「実行しようとしたら警告する」体験にするため。裏で走っている
+  ジョブと同時にファイルを動かして競合しないようにするための保護)。新しく実行系の
+  ボタンを追加する際はこのパターンを踏襲する。
 - 各機能は独立したView/ViewModelに保つ(utilities/のスクリプトが単体完結する方針を
   アプリ内でも踏襲)。ただし`MediaOrganizer`/`H265Encoder`のように、複数ペインで
   完全に同一のロジックを使う場合はCoreに1本化してよい(実際にそうしている)。

@@ -3,7 +3,14 @@ import Foundation
 /// 実行ボタンを持つ各ペインに対応するジョブの種別。ログは種別ごとに保持し、
 /// 各ペインの実行ログセクションは自分の種別のログだけを表示する。
 enum JobKind: String {
-    case photos, videos, encode, verify, sync, shortClips
+    case photos, videos, encode, verify, sync, shortClips, misplacedFix
+}
+
+/// ログ1行分。`id`は間引き(`removeFirst`)後もずれない通し番号にすることで、
+/// SwiftUI側が既存行を「同じ行」と認識でき、全行再構築による無駄なメモリ増加を防ぐ。
+struct LogLine: Identifiable {
+    let id: Int
+    let text: String
 }
 
 /// アプリ全体で同時に1本しかジョブを走らせないための実行キュー。
@@ -24,15 +31,16 @@ final class JobRunner: ObservableObject {
     @Published private(set) var detail = ""
     @Published private(set) var progress: Double?
     @Published private(set) var currentKind: JobKind?
-    @Published private(set) var logsByKind: [JobKind: [String]] = [:]
+    @Published private(set) var logsByKind: [JobKind: [LogLine]] = [:]
 
     private var activity: NSObjectProtocol?
     private var task: Task<Void, Never>?
     private var cancelHandler: (() -> Void)?
+    private var nextLogID: [JobKind: Int] = [:]
 
     private init() {}
 
-    func logLines(for kind: JobKind) -> [String] {
+    func logLines(for kind: JobKind) -> [LogLine] {
         logsByKind[kind] ?? []
     }
 
@@ -44,6 +52,7 @@ final class JobRunner: ObservableObject {
         detail = ""
         progress = nil
         logsByKind[kind] = []
+        nextLogID[kind] = 0
         cancelHandler = nil
         activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiated, .idleSystemSleepDisabled],
@@ -84,7 +93,9 @@ final class JobRunner: ObservableObject {
 
     private func appendLog(_ line: String) {
         guard let kind = currentKind else { return }
-        logsByKind[kind, default: []].append(line)
+        let id = nextLogID[kind, default: 0]
+        nextLogID[kind] = id + 1
+        logsByKind[kind, default: []].append(LogLine(id: id, text: line))
         if let count = logsByKind[kind]?.count, count > 3000 {
             logsByKind[kind]?.removeFirst(1000)
         }
