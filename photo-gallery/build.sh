@@ -24,7 +24,7 @@ VERSION="$(tr -d ' \n' < "$DIR/VERSION" 2>/dev/null || echo 1.0)"
 build() {
   mkdir -p "$DIR/build"
   echo "Building photo-gallery…"
-  swiftc -O -framework AppKit -o "$BIN" "$SRC"
+  swiftc -O -framework AppKit -framework Vision -o "$BIN" "$SRC"
   echo "Built $BIN"
 }
 

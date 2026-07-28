@@ -9,6 +9,8 @@
 import AppKit
 import ImageIO
 import CryptoKit
+import CoreImage
+import Vision
 
 // MARK: - Configuration
 
@@ -109,13 +111,26 @@ final class PhotoStore {
         rebuildTree()
     }
 
-    func photos(under node: FolderNode?, order: SortOrder) -> [PhotoItem] {
+    /// ローテーション保存などでファイル内容を書き換えた後、その1枚の mtime だけを
+    /// ディスクから再取得する(フォルダ構成は変わらないので再スキャンは不要)。
+    func refreshMtime(at path: String) {
+        guard let idx = photos.firstIndex(where: { $0.url.path == path }) else { return }
+        guard let rv = try? photos[idx].url.resourceValues(forKeys: [.contentModificationDateKey])
+        else { return }
+        photos[idx] = PhotoItem(url: photos[idx].url, mtime: rv.contentModificationDate ?? photos[idx].mtime)
+    }
+
+    /// サイドバーでチェックされたフォルダ群の写真の和集合。パスは常にルート配下の
+    /// ディレクトリなので、`path + "/"` を前置詞に持つ写真を集めれば十分(ルート自身が
+    /// チェックされている場合も同じ判定で「すべて」になる)。
+    func photos(checkedPaths: Set<String>, order: SortOrder) -> [PhotoItem] {
         var list: [PhotoItem]
-        if let node = node, let root = rootNode, node !== root {
-            let prefix = node.url.path + "/"
-            list = photos.filter { $0.url.path.hasPrefix(prefix) }
+        if checkedPaths.isEmpty {
+            list = []
         } else {
-            list = photos
+            list = photos.filter { item in
+                checkedPaths.contains { item.url.path.hasPrefix($0 + "/") }
+            }
         }
         switch order {
         case .name:
@@ -126,16 +141,6 @@ final class PhotoStore {
             list.sort { $0.mtime < $1.mtime }
         }
         return list
-    }
-
-    func findNode(path: String) -> FolderNode? {
-        guard let root = rootNode else { return nil }
-        var stack = [root]
-        while let n = stack.popLast() {
-            if n.url.path == path { return n }
-            stack.append(contentsOf: n.children)
-        }
-        return nil
     }
 
     /// photos の親ディレクトリ群からフォルダツリーを組み立てる(画像を含むフォルダのみ)。
@@ -211,6 +216,12 @@ final class ThumbnailLoader {
 
     func cached(_ url: URL) -> NSImage? {
         cache.object(forKey: url.path as NSString)
+    }
+
+    /// ファイル内容を書き換えた後、メモリキャッシュの古いサムネイルを追い出す
+    /// (ディスクキャッシュは mtime をキーに含むので新しい mtime で自動的に再生成される)。
+    func invalidate(_ url: URL) {
+        cache.removeObject(forKey: url.path as NSString)
     }
 
     /// mtime も鍵に含めるので、ファイルが更新されればディスクキャッシュは自動的に無効化される。
@@ -308,6 +319,81 @@ final class ThumbnailLoader {
     }
 }
 
+// MARK: - Photo rotation (in-place, ⌘R)
+
+/// 元のファイルを直接上書きして 90°時計回りに回転する(EXIF の向きを画素に焼き込んでから
+/// リセットするので、以後どのビューアで開いても正しい向きで表示される)。ゴミ箱と違って
+/// 元に戻せない直接上書きのため、CGImageDestination が書き込みに対応した形式(JPEG/PNG/
+/// HEIC/TIFF 等)だけを対象にし、書き込み非対応の RAW 等は事前チェックで弾く。
+enum PhotoRotator {
+    enum RotateError: Error {
+        case unsupportedFormat
+        case decodeFailed
+        case writeFailed
+
+        var message: String {
+            switch self {
+            case .unsupportedFormat: return "この形式の保存には対応していません(RAW など)"
+            case .decodeFailed: return "画像を読み込めませんでした"
+            case .writeFailed: return "書き込みに失敗しました"
+            }
+        }
+    }
+
+    static func rotateClockwise(url: URL) -> Result<Void, RotateError> {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let uti = CGImageSourceGetType(src)
+        else { return .failure(.decodeFailed) }
+
+        let writableTypes = CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []
+        guard writableTypes.contains(uti as String) else { return .failure(.unsupportedFormat) }
+
+        // ダウンサンプルされないよう実寸以上の maxPixel を渡し、EXIF の向きを画素に反映させる。
+        var maxSide = 8192
+        if let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] {
+            let w = props[kCGImagePropertyPixelWidth] as? Int ?? 0
+            let h = props[kCGImagePropertyPixelHeight] as? Int ?? 0
+            maxSide = max(maxSide, w, h)
+        }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxSide,
+        ]
+        guard let oriented = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary),
+              let rotated = rotatedClockwise(oriented)
+        else { return .failure(.decodeFailed) }
+
+        let tmpURL = url.deletingLastPathComponent()
+            .appendingPathComponent(".rotate-\(UUID().uuidString)")
+            .appendingPathExtension(url.pathExtension)
+        guard let dest = CGImageDestinationCreateWithURL(tmpURL as CFURL, uti, 1, nil) else {
+            return .failure(.unsupportedFormat)
+        }
+        // 向きは画素側に焼き込み済みなので、書き出す EXIF の Orientation は 1(正立)にリセットする。
+        CGImageDestinationAddImage(dest, rotated, [kCGImagePropertyOrientation: 1] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else {
+            try? FileManager.default.removeItem(at: tmpURL)
+            return .failure(.writeFailed)
+        }
+
+        do {
+            _ = try FileManager.default.replaceItemAt(url, withItemAt: tmpURL)
+            return .success(())
+        } catch {
+            try? FileManager.default.removeItem(at: tmpURL)
+            return .failure(.writeFailed)
+        }
+    }
+
+    private static func rotatedClockwise(_ cg: CGImage) -> CGImage? {
+        let ci = CIImage(cgImage: cg).transformed(by: CGAffineTransform(rotationAngle: -.pi / 2))
+        let normalized = ci.transformed(by: CGAffineTransform(translationX: -ci.extent.minX, y: -ci.extent.minY))
+        return CIContext(options: nil).createCGImage(normalized, from: normalized.extent)
+    }
+}
+
 // MARK: - FillImageView
 
 /// CALayer の contentsGravity で aspect-fill(グリッド)/ aspect-fit(ビューア)描画する軽量ビュー。
@@ -392,6 +478,11 @@ final class GridCollectionView: NSCollectionView {
     var onDropFolder: ((URL) -> Void)?
     var onSelectionChanged: (() -> Void)?
 
+    /// ⇧←/⇧→ 範囲選択の起点(anchor)と現在位置(focus)。直前に単独クリックした
+    /// アイテムや `resetKeyboardAnchor(to:)` の呼び出しで更新される。
+    private var keyboardAnchor: IndexPath?
+    private var keyboardFocus: IndexPath?
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         registerForDraggedTypes([.fileURL])
@@ -399,11 +490,42 @@ final class GridCollectionView: NSCollectionView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    // ⌘クリック(個別トグル)とドラッグ開始は NSCollectionView 標準の mouseDown に任せる。
+    // ただし⇧クリックの範囲選択は NSCollectionView が自前実装しないと効かないため、
+    // ここで明示的に処理する(起点は直前の単独クリック、なければ現在の選択の先頭)。
     override func mouseDown(with event: NSEvent) {
+        let pt = convert(event.locationInWindow, from: nil)
+        let ip = indexPathForItem(at: pt)
+
+        if event.clickCount == 2, let ip = ip {
+            onOpen?(ip.item)
+            return
+        }
+
+        if event.modifierFlags.contains(.shift), let ip = ip {
+            let anchor = keyboardAnchor ?? selectionIndexPaths.sorted().first ?? ip
+            keyboardAnchor = anchor
+            keyboardFocus = ip
+            let lo = min(anchor.item, ip.item)
+            let hi = max(anchor.item, ip.item)
+            let range = Set((lo...hi).map { IndexPath(item: $0, section: 0) })
+            selectItems(at: range, scrollPosition: [])
+            deselectItems(at: Set(selectionIndexPaths).subtracting(range))
+            onSelectionChanged?()
+            return
+        }
+
         super.mouseDown(with: event)
-        if event.clickCount == 2 {
-            let pt = convert(event.locationInWindow, from: nil)
-            if let ip = indexPathForItem(at: pt) { onOpen?(ip.item) }
+        guard let ip = ip else {
+            if event.modifierFlags.intersection([.shift, .command]).isEmpty {
+                keyboardAnchor = nil
+                keyboardFocus = nil
+            }
+            return
+        }
+        if event.modifierFlags.intersection([.shift, .command]).isEmpty {
+            keyboardAnchor = ip
+            keyboardFocus = ip
         }
     }
 
@@ -415,9 +537,53 @@ final class GridCollectionView: NSCollectionView {
             } else {
                 super.keyDown(with: event)
             }
+        // ⇧← / ⇧↑ → 選択範囲を伸縮(where は各パターンに個別に効くため両方に付ける)
+        case 123 where event.modifierFlags.contains(.shift),
+             126 where event.modifierFlags.contains(.shift):
+            extendSelection(by: -1)
+        // ⇧→ / ⇧↓ → 選択範囲を伸縮
+        case 124 where event.modifierFlags.contains(.shift),
+             125 where event.modifierFlags.contains(.shift):
+            extendSelection(by: 1)
         default:
             super.keyDown(with: event)
         }
+    }
+
+    /// フォルダ切替・ソート変更・トラッシュ後の再選択など、選択が外部要因で変わったときに
+    /// ⇧←/⇧→ 範囲選択の起点をリセットする。
+    func resetKeyboardAnchor(to indexPath: IndexPath?) {
+        keyboardAnchor = indexPath
+        keyboardFocus = indexPath
+    }
+
+    /// 直前に単独クリックした(または resetKeyboardAnchor で指定された)アイテムを起点に、
+    /// 選択範囲を1件ずつ伸縮する(Finder のリスト表示と同じ操作感)。
+    private func extendSelection(by delta: Int) {
+        let total = numberOfItems(inSection: 0)
+        guard total > 0 else { return }
+        let anchor = keyboardAnchor ?? selectionIndexPaths.sorted().first ?? IndexPath(item: 0, section: 0)
+        keyboardAnchor = anchor
+        let focus = keyboardFocus ?? anchor
+        let nextItem = max(0, min(total - 1, focus.item + delta))
+        let next = IndexPath(item: nextItem, section: 0)
+        keyboardFocus = next
+
+        let lo = min(anchor.item, nextItem)
+        let hi = max(anchor.item, nextItem)
+        let range = Set((lo...hi).map { IndexPath(item: $0, section: 0) })
+        selectItems(at: range, scrollPosition: [])
+        deselectItems(at: Set(selectionIndexPaths).subtracting(range))
+        scrollToItems(at: [next], scrollPosition: .nearestHorizontalEdge)
+        onSelectionChanged?()
+    }
+
+    /// ⌘A ですべて選択する(NSCollectionView は selectAll(_:) を自前実装しないと効かないため)。
+    override func selectAll(_ sender: Any?) {
+        let total = numberOfItems(inSection: 0)
+        guard total > 0 else { return }
+        selectItems(at: Set((0..<total).map { IndexPath(item: $0, section: 0) }), scrollPosition: [])
+        onSelectionChanged?()
     }
 
     // 右クリック: カーソル下のアイテムが未選択なら選択してからメニューを出す(Finder 流)
@@ -467,6 +633,7 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
     var items: [PhotoItem] = [] {
         didSet {
             collectionView.reloadData()
+            collectionView.resetKeyboardAnchor(to: nil)
             collectionView.onSelectionChanged?()
         }
     }
@@ -540,6 +707,7 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
         let ip = IndexPath(item: index, section: 0)
         collectionView.deselectAll(nil)
         collectionView.selectItems(at: [ip], scrollPosition: .nearestHorizontalEdge)
+        collectionView.resetKeyboardAnchor(to: ip)
         collectionView.onSelectionChanged?()
     }
 
@@ -575,12 +743,24 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
 
 // MARK: - Sidebar
 
+/// フォルダ行のチェックボックス。再利用されるセルからどの FolderNode に対応するか
+/// 引けるよう、node を直接持たせる(NSOutlineView は行の再利用でセルを使い回すため)。
+private final class SidebarCheckbox: NSButton {
+    weak var node: FolderNode?
+}
+
+private final class SidebarCellView: NSTableCellView {
+    var checkbox: SidebarCheckbox!
+}
+
 final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate {
     let outline = NSOutlineView()
-    var onSelect: ((FolderNode?) -> Void)?
+    /// チェック状態(=表示に含めるフォルダ)が変わるたびに呼ばれる。
+    var onCheckedChanged: (() -> Void)?
 
     private(set) var rootNode: FolderNode?
-    private var suppressSelectionCallback = false
+    /// チェック済みフォルダのパス集合。複数チェックした場合はその和集合の写真を表示する。
+    private(set) var checkedPaths: Set<String> = []
     private let cellID = NSUserInterfaceItemIdentifier("SidebarCell")
 
     override func loadView() {
@@ -597,6 +777,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         outline.style = .sourceList
         outline.floatsGroupRows = false
         outline.allowsEmptySelection = true
+        outline.selectionHighlightStyle = .none   // 選択ではなくチェックボックスで絞り込む
         outline.dataSource = self
         outline.delegate = self
         outline.autoresizesOutlineColumn = true
@@ -605,39 +786,25 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         view = scroll
     }
 
-    /// ツリーを差し替え、可能なら以前と同じフォルダを選択し直す。
-    func setRoot(_ node: FolderNode?, selectPath: String?) {
+    /// ツリーを差し替える。チェック状態は新しいツリーにも同じパスが残っていれば引き継ぎ、
+    /// 何も残らなければ(新しいルートを開いた直後など)ルート = すべての写真をチェックする。
+    func setRoot(_ node: FolderNode?) {
         rootNode = node
-        suppressSelectionCallback = true
+        guard let root = node else {
+            checkedPaths = []
+            outline.reloadData()
+            return
+        }
+        checkedPaths.formIntersection(allPaths(in: root))
+        if checkedPaths.isEmpty { checkedPaths = [root.url.path] }
         outline.reloadData()
-        if let root = node {
-            outline.expandItem(root)
-            var target = root
-            if let path = selectPath, let found = find(path: path, in: root) {
-                target = found
-                var chain: [FolderNode] = []
-                var p = found.parent
-                while let n = p { chain.append(n); p = n.parent }
-                for n in chain.reversed() { outline.expandItem(n) }
-            }
-            let row = outline.row(forItem: target)
-            if row >= 0 {
-                outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-            }
-        }
-        suppressSelectionCallback = false
+        outline.expandItem(root)
     }
 
-    var selectedNode: FolderNode? {
-        outline.item(atRow: outline.selectedRow) as? FolderNode
-    }
-
-    private func find(path: String, in node: FolderNode) -> FolderNode? {
-        if node.url.path == path { return node }
-        for c in node.children {
-            if let f = find(path: path, in: c) { return f }
-        }
-        return nil
+    private func allPaths(in node: FolderNode) -> Set<String> {
+        var s: Set<String> = [node.url.path]
+        for c in node.children { s.formUnion(allPaths(in: c)) }
+        return s
     }
 
     // MARK: data source
@@ -660,8 +827,10 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     func outlineView(_ ov: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         let node = item as! FolderNode
-        let cell = ov.makeView(withIdentifier: cellID, owner: nil) as? NSTableCellView ?? makeCell()
+        let cell = ov.makeView(withIdentifier: cellID, owner: nil) as? SidebarCellView ?? makeCell()
         let isRoot = node === rootNode
+        cell.checkbox.node = node
+        cell.checkbox.state = checkedPaths.contains(node.url.path) ? .on : .off
         cell.textField?.stringValue =
             (isRoot ? "すべての写真" : node.name) + " (\(node.totalCount))"
         cell.imageView?.image = NSImage(
@@ -670,25 +839,36 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         return cell
     }
 
-    func outlineViewSelectionDidChange(_ notification: Notification) {
-        guard !suppressSelectionCallback else { return }
-        onSelect?(selectedNode)
+    @objc private func checkboxToggled(_ sender: SidebarCheckbox) {
+        guard let node = sender.node else { return }
+        if sender.state == .on {
+            checkedPaths.insert(node.url.path)
+        } else {
+            checkedPaths.remove(node.url.path)
+        }
+        onCheckedChanged?()
     }
 
-    private func makeCell() -> NSTableCellView {
-        let cell = NSTableCellView()
+    private func makeCell() -> SidebarCellView {
+        let cell = SidebarCellView()
         cell.identifier = cellID
+        let checkbox = SidebarCheckbox(checkboxWithTitle: "", target: self, action: #selector(checkboxToggled(_:)))
         let iv = NSImageView()
         let tf = NSTextField(labelWithString: "")
         tf.lineBreakMode = .byTruncatingTail
+        checkbox.translatesAutoresizingMaskIntoConstraints = false
         iv.translatesAutoresizingMaskIntoConstraints = false
         tf.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(checkbox)
         cell.addSubview(iv)
         cell.addSubview(tf)
+        cell.checkbox = checkbox
         cell.imageView = iv
         cell.textField = tf
         NSLayoutConstraint.activate([
-            iv.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+            checkbox.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 0),
+            checkbox.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            iv.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 4),
             iv.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             iv.widthAnchor.constraint(equalToConstant: 16),
             iv.heightAnchor.constraint(equalToConstant: 16),
@@ -776,6 +956,1012 @@ final class ViewerOverlay: NSView {
     }
 }
 
+// MARK: - Duplicate detection
+//
+// organizer(Organizer.app)の「重複写真」ペイン(DupPhotosViewModel)と同等のロジック:
+// サイズ→SHA-256 の完全一致に加え、dHash(知覚ハッシュ)のハミング距離によるあいまい
+// 一致(リサイズ/再エンコードされた「似ている」写真)を検出し、マッチレベル/残す基準を
+// 切り替えられる。
+
+/// 完全一致(サイズ+SHA-256)か、dHash のハミング距離によるあいまい一致かを選ぶ。
+enum DupMatchLevel: Int, CaseIterable {
+    case exact = 0, strict, normal, loose
+
+    var label: String {
+        switch self {
+        case .exact: return "完全一致"
+        case .strict: return "厳密"
+        case .normal: return "標準"
+        case .loose: return "ゆるい"
+        }
+    }
+
+    /// dHash のハミング距離のしきい値(exact はバイト単位比較のため未使用)。
+    var threshold: Int {
+        switch self {
+        case .exact: return 0
+        case .strict: return 2
+        case .normal: return 5
+        case .loose: return 9
+        }
+    }
+}
+
+/// 各グループでどの1枚を残すか。
+enum DupKeepRule: Int, CaseIterable {
+    case highestResolution = 0, largestFile, newest, oldest
+
+    var label: String {
+        switch self {
+        case .highestResolution: return "解像度が最大のものを残す"
+        case .largestFile: return "ファイルサイズが最大のものを残す"
+        case .newest: return "最新のものを残す"
+        case .oldest: return "最古のものを残す"
+        }
+    }
+}
+
+/// 解析済みの1枚(サイズ・寸法・知覚ハッシュ)。マッチレベルの切り替え時にファイルを
+/// 読み直さずグループ化だけやり直せるよう、スキャン時に一度だけ計算しておく。
+struct AnalyzedPhoto {
+    let item: PhotoItem
+    let fileSize: Int64
+    let pixelWidth: Int
+    let pixelHeight: Int
+    let dhash: UInt64
+
+    var resolution: Int { pixelWidth * pixelHeight }
+}
+
+/// 重複候補 1 件(解析済み写真 + ゴミ箱へ入れるかどうかのチェック状態)。
+final class DuplicateCandidate {
+    let photo: AnalyzedPhoto
+    var markedForTrash: Bool
+
+    init(photo: AnalyzedPhoto, markedForTrash: Bool) {
+        self.photo = photo
+        self.markedForTrash = markedForTrash
+    }
+}
+
+struct DuplicateGroupData {
+    var candidates: [DuplicateCandidate]
+    var isExact: Bool
+
+    /// このグループで最大の1枚を残した場合に回収できるバイト数。
+    var wastedBytes: Int64 {
+        let total = candidates.reduce(Int64(0)) { $0 + $1.photo.fileSize }
+        let biggest = candidates.map { $0.photo.fileSize }.max() ?? 0
+        return total - biggest
+    }
+}
+
+/// SHA-256 を URL ごとにキャッシュする(完全一致判定・あいまい一致グループの
+/// isExact 判定の両方から使い回す)。
+final class ShaCache {
+    private var cache: [URL: String] = [:]
+    private let lock = NSLock()
+
+    func sha256(of url: URL) -> String? {
+        lock.lock()
+        if let cached = cache[url] { lock.unlock(); return cached }
+        lock.unlock()
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let chunk = try? handle.read(upToCount: 1 << 20), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
+        let sha = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        lock.lock(); cache[url] = sha; lock.unlock()
+        return sha
+    }
+}
+
+/// スレッドセーフなキャンセルフラグ(解析フェーズの並列処理から参照する)。
+final class CancelFlag {
+    private var flag = false
+    private let lock = NSLock()
+    func cancel() { lock.lock(); flag = true; lock.unlock() }
+    var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return flag }
+}
+
+private struct UnionFind {
+    private var parent: [Int]
+    init(_ n: Int) { parent = Array(0..<n) }
+    mutating func find(_ x: Int) -> Int {
+        var root = x
+        while parent[root] != root { root = parent[root] }
+        var cur = x
+        while parent[cur] != root {
+            let next = parent[cur]
+            parent[cur] = root
+            cur = next
+        }
+        return root
+    }
+    mutating func union(_ a: Int, _ b: Int) {
+        let ra = find(a), rb = find(b)
+        if ra != rb { parent[ra] = rb }
+    }
+}
+
+/// 解析(サイズ・寸法・dHash の並列計算)とグループ化(完全一致 or あいまい一致)を行う。
+enum DuplicateScanner {
+    static func analyze(photos: [PhotoItem],
+                        cancelFlag: CancelFlag,
+                        progress: @escaping (Int, Int) -> Void,
+                        completion: @escaping ([AnalyzedPhoto]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let total = photos.count
+            var results = [AnalyzedPhoto?](repeating: nil, count: total)
+            let lock = NSLock()
+            var done = 0
+            results.withUnsafeMutableBufferPointer { buf in
+                DispatchQueue.concurrentPerform(iterations: total) { i in
+                    if cancelFlag.isCancelled { return }
+                    buf[i] = analyzeOne(photos[i])
+                    lock.lock()
+                    done += 1
+                    let d = done
+                    lock.unlock()
+                    if d == total || d % 25 == 0 {
+                        DispatchQueue.main.async { progress(d, total) }
+                    }
+                }
+            }
+            let analyzed = cancelFlag.isCancelled ? [] : results.compactMap { $0 }
+            DispatchQueue.main.async { completion(analyzed) }
+        }
+    }
+
+    private static func analyzeOne(_ item: PhotoItem) -> AnalyzedPhoto? {
+        guard let size = (try? item.url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else { return nil }
+        guard let src = CGImageSourceCreateWithURL(item.url as CFURL, nil) else { return nil }
+        var width = 0, height = 0
+        if let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] {
+            width = props[kCGImagePropertyPixelWidth] as? Int ?? 0
+            height = props[kCGImagePropertyPixelHeight] as? Int ?? 0
+        }
+        guard let hash = dHash(source: src) else { return nil }
+        return AnalyzedPhoto(item: item, fileSize: Int64(size), pixelWidth: width, pixelHeight: height, dhash: hash)
+    }
+
+    /// 9x8 グレースケールに縮小し、隣接ピクセルの明暗で 64bit の知覚ハッシュを作る。
+    private static func dHash(source: CGImageSource) -> UInt64? {
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 64,
+        ]
+        guard let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) else { return nil }
+        let w = 9, h = 8
+        var pixels = [UInt8](repeating: 0, count: w * h)
+        guard let ctx = CGContext(data: &pixels, width: w, height: h,
+                                  bitsPerComponent: 8, bytesPerRow: w,
+                                  space: CGColorSpaceCreateDeviceGray(),
+                                  bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
+        ctx.interpolationQuality = .medium
+        ctx.draw(thumb, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var hash: UInt64 = 0
+        for row in 0..<8 {
+            for col in 0..<8 {
+                hash <<= 1
+                if pixels[row * w + col] < pixels[row * w + col + 1] { hash |= 1 }
+            }
+        }
+        return hash
+    }
+
+    // MARK: グループ化
+
+    static func group(_ photos: [AnalyzedPhoto], level: DupMatchLevel, shaCache: ShaCache) -> [DuplicateGroupData] {
+        let rawGroups: [[AnalyzedPhoto]] = level == .exact
+            ? groupExact(photos, shaCache: shaCache)
+            : groupSimilar(photos, threshold: level.threshold)
+
+        return rawGroups.map { members in
+            let sorted = members.sorted { $0.item.mtime < $1.item.mtime }
+            let isExact = level == .exact || isExactGroup(sorted, shaCache: shaCache)
+            return DuplicateGroupData(
+                candidates: sorted.map { DuplicateCandidate(photo: $0, markedForTrash: false) },
+                isExact: isExact)
+        }
+    }
+
+    /// バイト単位の完全一致(サイズ → SHA-256 の二段階)。
+    private static func groupExact(_ photos: [AnalyzedPhoto], shaCache: ShaCache) -> [[AnalyzedPhoto]] {
+        var bySize: [Int64: [AnalyzedPhoto]] = [:]
+        for p in photos { bySize[p.fileSize, default: []].append(p) }
+        var groups: [[AnalyzedPhoto]] = []
+        for (_, candidates) in bySize where candidates.count > 1 {
+            var byHash: [String: [AnalyzedPhoto]] = [:]
+            for p in candidates {
+                guard let sha = shaCache.sha256(of: p.item.url) else { continue }
+                byHash[sha, default: []].append(p)
+            }
+            groups.append(contentsOf: byHash.values.filter { $0.count > 1 })
+        }
+        return groups
+    }
+
+    /// dHash のハミング距離による Union-Find クラスタリング。
+    private static func groupSimilar(_ photos: [AnalyzedPhoto], threshold: Int) -> [[AnalyzedPhoto]] {
+        let n = photos.count
+        var uf = UnionFind(n)
+        for i in 0..<n {
+            for j in (i + 1)..<n {
+                if (photos[i].dhash ^ photos[j].dhash).nonzeroBitCount <= threshold {
+                    uf.union(i, j)
+                }
+            }
+        }
+        var clusters: [Int: [AnalyzedPhoto]] = [:]
+        for i in 0..<n { clusters[uf.find(i), default: []].append(photos[i]) }
+        return clusters.values.filter { $0.count > 1 }.map { $0 }
+    }
+
+    /// あいまい一致で見つかったグループが実はバイト完全一致でもあるか(表示バッジ用)。
+    private static func isExactGroup(_ members: [AnalyzedPhoto], shaCache: ShaCache) -> Bool {
+        guard Set(members.map { $0.fileSize }).count == 1 else { return false }
+        let shas = Set(members.compactMap { shaCache.sha256(of: $0.item.url) })
+        return shas.count == 1
+    }
+}
+
+private func formatBytes(_ bytes: Int64) -> String {
+    ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+}
+
+/// 重複候補 1 件のカード。クリックでゴミ箱行き/残す をトグルする(organizer と同じ操作感)。
+final class DuplicateItemCard: NSView {
+    let candidate: DuplicateCandidate
+    var onToggle: (() -> Void)?
+
+    private let fill = FillImageView(gravity: .resizeAspectFill)
+    private let badge = NSImageView()
+
+    init(candidate: DuplicateCandidate) {
+        self.candidate = candidate
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        layer?.masksToBounds = true
+        translatesAutoresizingMaskIntoConstraints = false
+
+        fill.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(fill)
+
+        badge.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(badge)
+
+        let nameLabel = NSTextField(labelWithString: candidate.photo.item.url.lastPathComponent)
+        nameLabel.font = .systemFont(ofSize: 11)
+        nameLabel.lineBreakMode = .byTruncatingMiddle
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(nameLabel)
+
+        let infoLabel = NSTextField(labelWithString:
+            "\(candidate.photo.pixelWidth)×\(candidate.photo.pixelHeight) · \(formatBytes(candidate.photo.fileSize))")
+        infoLabel.font = .systemFont(ofSize: 10)
+        infoLabel.textColor = .secondaryLabelColor
+        infoLabel.lineBreakMode = .byTruncatingTail
+        infoLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(infoLabel)
+
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 150),
+            fill.topAnchor.constraint(equalTo: topAnchor),
+            fill.leadingAnchor.constraint(equalTo: leadingAnchor),
+            fill.trailingAnchor.constraint(equalTo: trailingAnchor),
+            fill.heightAnchor.constraint(equalToConstant: 120),
+            badge.topAnchor.constraint(equalTo: fill.topAnchor, constant: 5),
+            badge.leadingAnchor.constraint(equalTo: fill.leadingAnchor, constant: 5),
+            badge.widthAnchor.constraint(equalToConstant: 20),
+            badge.heightAnchor.constraint(equalToConstant: 20),
+            nameLabel.topAnchor.constraint(equalTo: fill.bottomAnchor, constant: 4),
+            nameLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            nameLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            infoLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 1),
+            infoLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            infoLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            infoLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -2),
+        ])
+
+        updateAppearance()
+        if let cached = ThumbnailLoader.shared.cached(candidate.photo.item.url) {
+            fill.image = cached
+        } else {
+            ThumbnailLoader.shared.request(candidate.photo.item.url, mtime: candidate.photo.item.mtime) { [weak self] _, img in
+                self?.fill.image = img
+            }
+        }
+
+        let menu = NSMenu()
+        let reveal = NSMenuItem(title: "Finder で表示", action: #selector(revealInFinder), keyEquivalent: "")
+        let open = NSMenuItem(title: "開く", action: #selector(openInDefaultApp), keyEquivalent: "")
+        reveal.target = self
+        open.target = self
+        menu.addItem(reveal)
+        menu.addItem(open)
+        self.menu = menu
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func mouseDown(with event: NSEvent) {
+        candidate.markedForTrash.toggle()
+        updateAppearance()
+        onToggle?()
+    }
+
+    @objc private func revealInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([candidate.photo.item.url])
+    }
+
+    @objc private func openInDefaultApp() {
+        NSWorkspace.shared.open(candidate.photo.item.url)
+    }
+
+    private func updateAppearance() {
+        let marked = candidate.markedForTrash
+        layer?.borderWidth = marked ? 3 : 0
+        layer?.borderColor = NSColor.systemRed.cgColor
+        badge.image = NSImage(systemSymbolName: marked ? "checkmark.circle.fill" : "circle",
+                              accessibilityDescription: nil)
+        badge.contentTintColor = marked ? .systemRed : .white
+    }
+}
+
+/// 1 つの重複グループ: 見出し(完全一致/類似バッジつき) + 横スクロールのカード列。
+final class GroupSectionView: NSView {
+    let cardsStack = NSStackView()
+
+    init(title: String, isExact: Bool) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let headerStack = NSStackView()
+        headerStack.orientation = .horizontal
+        headerStack.spacing = 8
+        headerStack.alignment = .firstBaseline
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.font = .boldSystemFont(ofSize: 12)
+
+        let badge = NSTextField(labelWithString: isExact ? "完全一致" : "類似")
+        badge.font = .systemFont(ofSize: 10, weight: .semibold)
+        badge.textColor = .white
+        badge.backgroundColor = isExact ? NSColor.systemGreen : NSColor.systemOrange
+        badge.drawsBackground = true
+        badge.alignment = .center
+        badge.wantsLayer = true
+        badge.layer?.cornerRadius = 7
+        badge.layer?.masksToBounds = true
+        badge.translatesAutoresizingMaskIntoConstraints = false
+
+        headerStack.addArrangedSubview(titleLabel)
+        headerStack.addArrangedSubview(badge)
+        addSubview(headerStack)
+
+        cardsStack.orientation = .horizontal
+        cardsStack.spacing = 10
+        cardsStack.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        cardsStack.translatesAutoresizingMaskIntoConstraints = false
+
+        let hScroll = NSScrollView()
+        hScroll.hasHorizontalScroller = true
+        hScroll.hasVerticalScroller = false
+        hScroll.drawsBackground = false
+        hScroll.documentView = cardsStack
+        hScroll.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(hScroll)
+
+        NSLayoutConstraint.activate([
+            headerStack.topAnchor.constraint(equalTo: topAnchor),
+            headerStack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            headerStack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
+            badge.widthAnchor.constraint(greaterThanOrEqualToConstant: 46),
+            badge.heightAnchor.constraint(equalToConstant: 16),
+            hScroll.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 6),
+            hScroll.leadingAnchor.constraint(equalTo: leadingAnchor),
+            hScroll.trailingAnchor.constraint(equalTo: trailingAnchor),
+            hScroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            hScroll.heightAnchor.constraint(equalToConstant: 190),
+            cardsStack.topAnchor.constraint(equalTo: hScroll.contentView.topAnchor),
+            cardsStack.bottomAnchor.constraint(equalTo: hScroll.contentView.bottomAnchor),
+            cardsStack.leadingAnchor.constraint(equalTo: hScroll.contentView.leadingAnchor),
+            cardsStack.heightAnchor.constraint(equalToConstant: 190),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+/// 重複検出ウインドウ: 解析(サイズ/寸法/dHash) → グループ化 → 一覧表示。
+/// マッチレベル・残す基準は解析後にファイルを読み直さず切り替えられる。
+final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
+    private let photos: [PhotoItem]
+    private let onTrashed: (Set<String>, [String]) -> Void
+    var onClose: (() -> Void)?
+
+    private var analyzed: [AnalyzedPhoto] = []
+    private var groups: [DuplicateGroupData] = []
+    private let shaCache = ShaCache()
+    private let cancelFlag = CancelFlag()
+
+    private var matchLevel: DupMatchLevel = .exact {
+        didSet { if !analyzed.isEmpty { regroup() } }
+    }
+    private var keepRule: DupKeepRule = .highestResolution {
+        didSet { autoSelect(); rebuildGroupViews(); updateStatus() }
+    }
+
+    private let statusLabel = NSTextField(labelWithString: "スキャン中…")
+    private let progressIndicator = NSProgressIndicator()
+    private let cancelButton = NSButton(title: "キャンセル", target: nil, action: nil)
+    private let matchLevelControl = NSSegmentedControl()
+    private let keepRulePopup = NSPopUpButton()
+    private let scrollView = NSScrollView()
+    private let stack = NSStackView()
+    private let autoSelectButton = NSButton(title: "自動選択をやり直す", target: nil, action: nil)
+    private let trashButton = NSButton(title: "選択した写真をゴミ箱へ", target: nil, action: nil)
+
+    init(photos: [PhotoItem], onTrashed: @escaping (Set<String>, [String]) -> Void) {
+        self.photos = photos
+        self.onTrashed = onTrashed
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered, defer: false)
+        window.title = "重複写真を検出"
+        window.center()
+        window.isReleasedWhenClosed = false
+        super.init(window: window)
+        window.delegate = self
+        setupUI()
+        startAnalyze()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func windowWillClose(_ notification: Notification) {
+        cancelFlag.cancel()
+        onClose?()
+    }
+
+    private func setupUI() {
+        guard let content = window?.contentView else { return }
+
+        matchLevelControl.segmentStyle = .automatic
+        matchLevelControl.segmentCount = DupMatchLevel.allCases.count
+        for level in DupMatchLevel.allCases {
+            matchLevelControl.setLabel(level.label, forSegment: level.rawValue)
+            matchLevelControl.setWidth(56, forSegment: level.rawValue)
+        }
+        matchLevelControl.selectedSegment = matchLevel.rawValue
+        matchLevelControl.target = self
+        matchLevelControl.action = #selector(matchLevelChanged)
+        matchLevelControl.isEnabled = false
+        matchLevelControl.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(matchLevelControl)
+
+        for rule in DupKeepRule.allCases {
+            keepRulePopup.addItem(withTitle: rule.label)
+        }
+        keepRulePopup.selectItem(at: keepRule.rawValue)
+        keepRulePopup.target = self
+        keepRulePopup.action = #selector(keepRuleChanged)
+        keepRulePopup.isEnabled = false
+        keepRulePopup.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(keepRulePopup)
+
+        cancelButton.target = self
+        cancelButton.action = #selector(cancelAnalyze)
+        cancelButton.bezelStyle = .rounded
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(cancelButton)
+
+        progressIndicator.style = .spinning
+        progressIndicator.controlSize = .small
+        progressIndicator.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(progressIndicator)
+        progressIndicator.startAnimation(nil)
+
+        statusLabel.font = .systemFont(ofSize: 12)
+        statusLabel.lineBreakMode = .byTruncatingTail
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(statusLabel)
+
+        stack.orientation = .vertical
+        stack.spacing = 16
+        stack.edgeInsets = NSEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        scrollView.hasVerticalScroller = true
+        scrollView.documentView = stack
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.isHidden = true
+        content.addSubview(scrollView)
+
+        autoSelectButton.target = self
+        autoSelectButton.action = #selector(autoSelectTapped)
+        autoSelectButton.bezelStyle = .rounded
+        autoSelectButton.isHidden = true
+        autoSelectButton.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(autoSelectButton)
+
+        trashButton.target = self
+        trashButton.action = #selector(trashSelected)
+        trashButton.bezelStyle = .rounded
+        trashButton.bezelColor = .systemRed
+        trashButton.isHidden = true
+        trashButton.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(trashButton)
+
+        NSLayoutConstraint.activate([
+            matchLevelControl.topAnchor.constraint(equalTo: content.topAnchor, constant: 14),
+            matchLevelControl.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            keepRulePopup.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
+            keepRulePopup.leadingAnchor.constraint(equalTo: matchLevelControl.trailingAnchor, constant: 12),
+            cancelButton.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
+            cancelButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            progressIndicator.centerYAnchor.constraint(equalTo: matchLevelControl.centerYAnchor),
+            progressIndicator.trailingAnchor.constraint(equalTo: cancelButton.leadingAnchor, constant: -10),
+
+            statusLabel.topAnchor.constraint(equalTo: matchLevelControl.bottomAnchor, constant: 10),
+            statusLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
+
+            scrollView.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 8),
+            scrollView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: trashButton.topAnchor, constant: -10),
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
+
+            autoSelectButton.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            autoSelectButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
+            trashButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            trashButton.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
+        ])
+    }
+
+    // MARK: 解析フェーズ
+
+    private func startAnalyze() {
+        DuplicateScanner.analyze(photos: photos, cancelFlag: cancelFlag, progress: { [weak self] done, total in
+            self?.statusLabel.stringValue = "解析中… \(done) / \(total) 枚"
+        }, completion: { [weak self] analyzed in
+            self?.analyzeFinished(analyzed)
+        })
+    }
+
+    @objc private func cancelAnalyze() {
+        cancelFlag.cancel()
+    }
+
+    private func analyzeFinished(_ analyzed: [AnalyzedPhoto]) {
+        progressIndicator.stopAnimation(nil)
+        progressIndicator.isHidden = true
+        cancelButton.isHidden = true
+        matchLevelControl.isEnabled = true
+        keepRulePopup.isEnabled = true
+
+        if cancelFlag.isCancelled {
+            statusLabel.stringValue = "キャンセルしました"
+            return
+        }
+        self.analyzed = analyzed
+        regroup()
+    }
+
+    // MARK: グループ化 / 自動選択
+
+    private func regroup() {
+        statusLabel.stringValue = "グループ化しています…"
+        let photos = analyzed
+        let level = matchLevel
+        let shaCache = self.shaCache
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let groups = DuplicateScanner.group(photos, level: level, shaCache: shaCache)
+                .sorted { $0.wastedBytes > $1.wastedBytes }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.groups = groups
+                self.autoSelect()
+                self.afterGroupsChanged()
+            }
+        }
+    }
+
+    private func afterGroupsChanged() {
+        let dupCount = groups.reduce(0) { $0 + $1.candidates.count - 1 }
+        statusLabel.stringValue = groups.isEmpty
+            ? "重複は見つかりませんでした(\(analyzed.count) 枚を検査)"
+            : "\(groups.count) グループ・重複 \(dupCount) 枚が見つかりました(\(analyzed.count) 枚を検査)"
+        scrollView.isHidden = groups.isEmpty
+        autoSelectButton.isHidden = groups.isEmpty
+        trashButton.isHidden = groups.isEmpty
+        rebuildGroupViews()
+        updateStatus()
+    }
+
+    @objc private func matchLevelChanged() {
+        guard let level = DupMatchLevel(rawValue: matchLevelControl.selectedSegment) else { return }
+        matchLevel = level
+    }
+
+    @objc private func keepRuleChanged() {
+        guard let rule = DupKeepRule(rawValue: keepRulePopup.indexOfSelectedItem) else { return }
+        keepRule = rule
+    }
+
+    @objc private func autoSelectTapped() {
+        autoSelect()
+        rebuildGroupViews()
+        updateStatus()
+    }
+
+    /// keepRule に従って各グループの「残す1枚」以外を選択する。
+    private func autoSelect() {
+        for group in groups {
+            guard let keeper = keeper(in: group) else { continue }
+            for c in group.candidates {
+                c.markedForTrash = (c !== keeper)
+            }
+        }
+    }
+
+    private func keeper(in group: DuplicateGroupData) -> DuplicateCandidate? {
+        switch keepRule {
+        case .highestResolution:
+            return group.candidates.max {
+                ($0.photo.resolution, $0.photo.fileSize) < ($1.photo.resolution, $1.photo.fileSize)
+            }
+        case .largestFile:
+            return group.candidates.max { $0.photo.fileSize < $1.photo.fileSize }
+        case .newest:
+            return group.candidates.max { $0.photo.item.mtime < $1.photo.item.mtime }
+        case .oldest:
+            return group.candidates.min { $0.photo.item.mtime < $1.photo.item.mtime }
+        }
+    }
+
+    // MARK: 表示
+
+    private func rebuildGroupViews() {
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for (i, group) in groups.enumerated() {
+            let section = GroupSectionView(
+                title: "グループ \(i + 1) — \(group.candidates.count) 件 · 最大 \(formatBytes(group.wastedBytes)) 節約可能",
+                isExact: group.isExact)
+            for cand in group.candidates {
+                let card = DuplicateItemCard(candidate: cand)
+                card.onToggle = { [weak self] in self?.updateStatus() }
+                section.cardsStack.addArrangedSubview(card)
+            }
+            stack.addArrangedSubview(section)
+            section.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -32).isActive = true
+        }
+    }
+
+    private func updateStatus() {
+        let all = groups.flatMap { $0.candidates }
+        let marked = all.filter { $0.markedForTrash }
+        let totalBytes = marked.reduce(Int64(0)) { $0 + $1.photo.fileSize }
+        trashButton.title = "選択した \(marked.count) 枚をゴミ箱へ(\(formatBytes(totalBytes)))"
+        trashButton.isEnabled = !marked.isEmpty
+    }
+
+    // MARK: 削除(ゴミ箱へ移動)
+
+    @objc private func trashSelected() {
+        let toTrash = groups.flatMap { $0.candidates }.filter { $0.markedForTrash }
+        guard !toTrash.isEmpty else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "\(toTrash.count) 枚をゴミ箱に入れますか?"
+        alert.informativeText = "Finder のゴミ箱からいつでも戻せます。"
+        alert.addButton(withTitle: "ゴミ箱に入れる")
+        alert.addButton(withTitle: "キャンセル")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        var removed = Set<String>()
+        var failures: [String] = []
+        for c in toTrash {
+            do {
+                try FileManager.default.trashItem(at: c.photo.item.url, resultingItemURL: nil)
+                removed.insert(c.photo.item.url.path)
+            } catch {
+                failures.append(c.photo.item.url.lastPathComponent)
+            }
+        }
+
+        onTrashed(removed, failures)
+
+        analyzed.removeAll { removed.contains($0.item.url.path) }
+        groups = groups
+            .map { g -> DuplicateGroupData in
+                var g = g
+                g.candidates.removeAll { removed.contains($0.photo.item.url.path) }
+                return g
+            }
+            .filter { $0.candidates.count > 1 }
+        afterGroupsChanged()
+    }
+}
+
+// MARK: - Photo filtering (date range + person detection)
+
+enum DateRangeFilter: Equatable {
+    case all
+    case today
+    case thisWeek
+    case thisMonth
+    case custom(from: Date, to: Date)
+
+    func apply(to items: [PhotoItem]) -> [PhotoItem] {
+        guard let interval = interval() else { return items }
+        return items.filter { interval.contains($0.mtime) }
+    }
+
+    private func interval() -> DateInterval? {
+        let cal = Calendar.current
+        let now = Date()
+        switch self {
+        case .all:
+            return nil
+        case .today:
+            return cal.dateInterval(of: .day, for: now)
+        case .thisWeek:
+            return cal.dateInterval(of: .weekOfYear, for: now)
+        case .thisMonth:
+            return cal.dateInterval(of: .month, for: now)
+        case .custom(let from, let to):
+            let start = cal.startOfDay(for: min(from, to))
+            let endDay = cal.startOfDay(for: max(from, to))
+            let end = cal.date(byAdding: .day, value: 1, to: endDay) ?? endDay
+            return DateInterval(start: start, end: end)
+        }
+    }
+}
+
+enum PersonFilter: Int {
+    case all = 0, hasPerson, noPerson
+}
+
+struct PhotoFilter {
+    var dateRange: DateRangeFilter = .all
+    var personFilter: PersonFilter = .all
+    var isActive: Bool { dateRange != .all || personFilter != .all }
+}
+
+/// Vision の顔検出結果を (パス, mtime) キーでキャッシュする。ファイルが変われば
+/// mtime が変わるので古い判定結果は使われない。判定はセッション内メモリのみ
+/// (ディスク永続化はしない)。
+final class FaceCache {
+    private var results: [String: Bool] = [:]
+    private let lock = NSLock()
+    private var cancelFlag = CancelFlag()
+
+    func result(for item: PhotoItem) -> Bool? {
+        lock.lock(); defer { lock.unlock() }
+        return results[key(for: item)]
+    }
+
+    /// まだ未解析の写真だけを顔検出し、キャッシュに書き込む。
+    /// Visionは内部でNeural Engine/GPU処理を直列化しているため、concurrentPerformで
+    /// 一度に大量投入すると「Vision待ちでブロックされたGCDスレッド」が積み上がり、
+    /// ディスパッチのワーカースレッド上限(既定64)に達してアプリ全体がハングする
+    /// (フィルター切替中にQuitすると顔検出の残タスクが捌け切るまで終了できない、
+    /// という実機ハングの原因だった)。OperationQueueで同時実行数を絞り、
+    /// フィルターを切り替えたら古い解析はcancelFlagで打ち切る。
+    func analyze(_ items: [PhotoItem],
+                progress: @escaping (Int, Int) -> Void,
+                completion: @escaping () -> Void) {
+        let total = items.count
+        guard total > 0 else { completion(); return }
+        cancelFlag.cancel()
+        let flag = CancelFlag()
+        cancelFlag = flag
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let queue = OperationQueue()
+            queue.maxConcurrentOperationCount = max(1, ProcessInfo.processInfo.activeProcessorCount / 2)
+            queue.qualityOfService = .userInitiated
+
+            let lock = NSLock()
+            var done = 0
+            for item in items {
+                queue.addOperation {
+                    if flag.isCancelled { return }
+                    let has = Self.detectFace(url: item.url)
+                    self.store(has, for: item)
+                    lock.lock()
+                    done += 1
+                    let d = done
+                    lock.unlock()
+                    if !flag.isCancelled, d == total || d % 10 == 0 {
+                        DispatchQueue.main.async { progress(d, total) }
+                    }
+                }
+            }
+            queue.waitUntilAllOperationsAreFinished()
+            if !flag.isCancelled {
+                DispatchQueue.main.async { completion() }
+            }
+        }
+    }
+
+    /// フィルター変更やアプリ終了時に、実行中/待機中の顔検出を打ち切る。
+    func cancelCurrent() {
+        cancelFlag.cancel()
+    }
+
+    private func store(_ has: Bool, for item: PhotoItem) {
+        lock.lock(); results[key(for: item)] = has; lock.unlock()
+    }
+
+    private func key(for item: PhotoItem) -> String {
+        "\(item.url.path)|\(item.mtime.timeIntervalSince1970)"
+    }
+
+    /// 速度優先でダウンサンプルした画像に対して Vision の顔検出をかける
+    /// (EXIF の向きを反映してから縮小するので、回転していても正しく検出できる)。
+    private static func detectFace(url: URL) -> Bool {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: 800,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return false }
+        let request = VNDetectFaceRectanglesRequest()
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+        try? handler.perform([request])
+        return !(request.results?.isEmpty ?? true)
+    }
+}
+
+/// ツールバーの「フィルター」ボタンから開くポップオーバーの中身。
+/// 日付範囲(すべて/今日/今週/今月/カスタム)と人物あり/なしを切り替えられる。
+final class FilterPopoverViewController: NSViewController {
+    var onChange: ((PhotoFilter) -> Void)?
+    private(set) var filter = PhotoFilter()
+
+    private let dateControl = NSSegmentedControl()
+    private let fromPicker = NSDatePicker()
+    private let toPicker = NSDatePicker()
+    private let customStack = NSStackView()
+    private let personControl = NSSegmentedControl()
+    private let statusLabel = NSTextField(labelWithString: "")
+
+    override func loadView() {
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 210))
+
+        let dateLabel = NSTextField(labelWithString: "日付")
+        dateLabel.font = .boldSystemFont(ofSize: 11)
+
+        dateControl.segmentStyle = .automatic
+        dateControl.segmentCount = 5
+        for (i, l) in ["すべて", "今日", "今週", "今月", "カスタム"].enumerated() {
+            dateControl.setLabel(l, forSegment: i)
+            dateControl.setWidth(56, forSegment: i)
+        }
+        dateControl.selectedSegment = 0
+        dateControl.target = self
+        dateControl.action = #selector(dateControlChanged)
+
+        let now = Date()
+        fromPicker.datePickerStyle = .textFieldAndStepper
+        fromPicker.datePickerElements = .yearMonthDay
+        fromPicker.dateValue = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
+        fromPicker.target = self
+        fromPicker.action = #selector(customDateChanged)
+
+        toPicker.datePickerStyle = .textFieldAndStepper
+        toPicker.datePickerElements = .yearMonthDay
+        toPicker.dateValue = now
+        toPicker.target = self
+        toPicker.action = #selector(customDateChanged)
+
+        let fromLabel = NSTextField(labelWithString: "〜")
+
+        customStack.orientation = .horizontal
+        customStack.spacing = 4
+        customStack.addArrangedSubview(fromPicker)
+        customStack.addArrangedSubview(fromLabel)
+        customStack.addArrangedSubview(toPicker)
+        customStack.isHidden = true
+
+        let personLabel = NSTextField(labelWithString: "人物")
+        personLabel.font = .boldSystemFont(ofSize: 11)
+
+        personControl.segmentStyle = .automatic
+        personControl.segmentCount = 3
+        for (i, l) in ["すべて", "人物あり", "人物なし"].enumerated() {
+            personControl.setLabel(l, forSegment: i)
+            personControl.setWidth(72, forSegment: i)
+        }
+        personControl.selectedSegment = 0
+        personControl.target = self
+        personControl.action = #selector(personControlChanged)
+
+        statusLabel.font = .systemFont(ofSize: 10)
+        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.lineBreakMode = .byTruncatingTail
+
+        let resetButton = NSButton(title: "フィルターを解除", target: self, action: #selector(resetTapped))
+        resetButton.bezelStyle = .rounded
+
+        for v in [dateLabel, dateControl, customStack, personLabel, personControl, statusLabel, resetButton] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(v)
+        }
+
+        NSLayoutConstraint.activate([
+            dateLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 14),
+            dateLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            dateControl.topAnchor.constraint(equalTo: dateLabel.bottomAnchor, constant: 6),
+            dateControl.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            customStack.topAnchor.constraint(equalTo: dateControl.bottomAnchor, constant: 8),
+            customStack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            personLabel.topAnchor.constraint(equalTo: customStack.bottomAnchor, constant: 12),
+            personLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            personControl.topAnchor.constraint(equalTo: personLabel.bottomAnchor, constant: 6),
+            personControl.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            statusLabel.topAnchor.constraint(equalTo: personControl.bottomAnchor, constant: 10),
+            statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -14),
+            resetButton.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 8),
+            resetButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            resetButton.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -14),
+        ])
+
+        view = root
+    }
+
+    func setStatus(_ text: String) {
+        statusLabel.stringValue = text
+    }
+
+    @objc private func dateControlChanged() {
+        switch dateControl.selectedSegment {
+        case 0: filter.dateRange = .all
+        case 1: filter.dateRange = .today
+        case 2: filter.dateRange = .thisWeek
+        case 3: filter.dateRange = .thisMonth
+        default: filter.dateRange = .custom(from: fromPicker.dateValue, to: toPicker.dateValue)
+        }
+        customStack.isHidden = dateControl.selectedSegment != 4
+        onChange?(filter)
+    }
+
+    @objc private func customDateChanged() {
+        guard dateControl.selectedSegment == 4 else { return }
+        filter.dateRange = .custom(from: fromPicker.dateValue, to: toPicker.dateValue)
+        onChange?(filter)
+    }
+
+    @objc private func personControlChanged() {
+        filter.personFilter = PersonFilter(rawValue: personControl.selectedSegment) ?? .all
+        onChange?(filter)
+    }
+
+    @objc private func resetTapped() {
+        filter = PhotoFilter()
+        dateControl.selectedSegment = 0
+        personControl.selectedSegment = 0
+        customStack.isHidden = true
+        statusLabel.stringValue = ""
+        onChange?(filter)
+    }
+}
+
 // MARK: - Main window controller
 
 final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuItemValidation {
@@ -786,13 +1972,26 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private var viewer: ViewerOverlay?
     private var viewerIndex = 0
     private var slider: NSSlider!
+    private var duplicatesWC: DuplicatesWindowController?
 
-    private var currentFolderPath: String?
     private var sortOrder: SortOrder = .dateDesc {
         didSet { UserDefaults.standard.set(sortOrder.rawValue, forKey: defaultsSortKey) }
     }
 
+    private var currentFilter = PhotoFilter()
+    private var currentBaseCount = 0
+    private var filterGeneration = 0
+    private let faceCache = FaceCache()
+    private var filterPopover: NSPopover?
+
+    /// アプリ終了時に呼ばれ、実行中の顔検出をすぐ打ち切って終了処理をブロックしないようにする。
+    func cancelBackgroundWork() {
+        faceCache.cancelCurrent()
+    }
+    private var filterPopoverVC: FilterPopoverViewController?
+
     private static let thumbSliderItemID = NSToolbarItem.Identifier("thumbSize")
+    private static let filterItemID = NSToolbarItem.Identifier("filter")
 
     convenience init() {
         let window = NSWindow(
@@ -850,11 +2049,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private func setupCallbacks() {
         store.onScanFinished = { [weak self] in self?.scanFinished() }
 
-        sidebarVC.onSelect = { [weak self] node in
-            guard let self = self else { return }
-            self.currentFolderPath = node?.url.path
-            self.reloadGrid()
-        }
+        sidebarVC.onCheckedChanged = { [weak self] in self?.reloadGrid() }
 
         gridVC.collectionView.onOpen = { [weak self] index in self?.openViewer(at: index) }
         gridVC.collectionView.onDropFolder = { [weak self] url in self?.setRoot(url) }
@@ -865,6 +2060,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         menu.addItem(withTitle: "Finder で表示",
                      action: #selector(revealInFinder(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "コピー", action: #selector(copy(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "回転して保存",
+                     action: #selector(rotateAndSave(_:)), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "ゴミ箱に入れる",
                      action: #selector(trashSelection(_:)), keyEquivalent: "")
@@ -875,7 +2072,6 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
 
     func setRoot(_ url: URL) {
         closeViewer()
-        currentFolderPath = nil
         window?.title = url.lastPathComponent
         gridVC.items = []
         gridVC.setEmptyState("読み込み中…")
@@ -883,20 +2079,73 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     }
 
     private func scanFinished() {
-        sidebarVC.setRoot(store.rootNode, selectPath: currentFolderPath)
-        currentFolderPath = sidebarVC.selectedNode?.url.path
+        sidebarVC.setRoot(store.rootNode)
         reloadGrid()
     }
 
     private func reloadGrid() {
-        let node = currentFolderPath.flatMap { store.findNode(path: $0) }
-        gridVC.items = store.photos(under: node, order: sortOrder)
+        applyFilter(to: store.photos(checkedPaths: sidebarVC.checkedPaths, order: sortOrder))
+    }
+
+    /// 日付範囲フィルターは同期的に適用し、人物フィルターが有効な場合だけ
+    /// (未解析の写真がある場合のみ)Vision の顔検出をバックグラウンドで走らせてから反映する。
+    private func applyFilter(to base: [PhotoItem]) {
+        filterGeneration += 1
+        let gen = filterGeneration
+        let dateFiltered = currentFilter.dateRange.apply(to: base)
+
+        guard currentFilter.personFilter != .all else {
+            finalizeGrid(dateFiltered, baseCount: base.count)
+            return
+        }
+
+        let missing = dateFiltered.filter { faceCache.result(for: $0) == nil }
+        guard !missing.isEmpty else {
+            finalizeGrid(personFiltered(dateFiltered), baseCount: base.count)
+            return
+        }
+
+        filterPopoverVC?.setStatus("顔を検出中… 0 / \(missing.count)")
+        faceCache.analyze(missing, progress: { [weak self] done, total in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.filterPopoverVC?.setStatus("顔を検出中… \(done) / \(total)")
+        }, completion: { [weak self] in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.filterPopoverVC?.setStatus("")
+            self.finalizeGrid(self.personFiltered(dateFiltered), baseCount: base.count)
+        })
+    }
+
+    private func personFiltered(_ items: [PhotoItem]) -> [PhotoItem] {
+        items.filter { item in
+            let has = faceCache.result(for: item) ?? false
+            switch currentFilter.personFilter {
+            case .all: return true
+            case .hasPerson: return has
+            case .noPerson: return !has
+            }
+        }
+    }
+
+    private func finalizeGrid(_ items: [PhotoItem], baseCount: Int) {
+        currentBaseCount = baseCount
+        gridVC.items = items
         if store.rootURL == nil {
             gridVC.setEmptyState(
                 "フォルダを開いてください(⌘O)\nウインドウへのフォルダのドロップでも開けます",
                 showButton: true)
         } else if gridVC.items.isEmpty {
-            gridVC.setEmptyState(store.isScanning ? "読み込み中…" : "写真が見つかりません")
+            let message: String
+            if store.isScanning {
+                message = "読み込み中…"
+            } else if sidebarVC.checkedPaths.isEmpty {
+                message = "サイドバーでフォルダにチェックを入れてください"
+            } else if baseCount > 0 {
+                message = "条件に一致する写真がありません"
+            } else {
+                message = "写真が見つかりません"
+            }
+            gridVC.setEmptyState(message)
         } else {
             gridVC.setEmptyState(nil)
         }
@@ -911,7 +2160,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
         let n = gridVC.items.count
         let sel = gridVC.collectionView.selectionIndexPaths.count
-        window.subtitle = sel > 0 ? "\(n) 枚(\(sel) 枚選択)" : "\(n) 枚"
+        let countText = currentFilter.isActive ? "\(n) / \(currentBaseCount) 枚" : "\(n) 枚"
+        window.subtitle = sel > 0 ? "\(countText)(\(sel) 枚選択)" : countText
     }
 
     // MARK: viewer
@@ -982,18 +2232,10 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         pb.writeObjects(urls)
     }
 
+    /// ⌘⌫(Finder/Photos.app と同じく確認なしで即ゴミ箱へ。Finder のゴミ箱から復元可能)。
     @objc func trashSelection(_ sender: Any?) {
         let targets = targetPhotos()
         guard !targets.isEmpty else { return }
-
-        let alert = NSAlert()
-        alert.messageText = targets.count == 1
-            ? "“\(targets[0].url.lastPathComponent)” をゴミ箱に入れますか?"
-            : "\(targets.count) 枚の写真をゴミ箱に入れますか?"
-        alert.informativeText = "Finder のゴミ箱からいつでも戻せます。"
-        alert.addButton(withTitle: "ゴミ箱に入れる")
-        alert.addButton(withTitle: "キャンセル")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
 
         var removed = Set<String>()
         var failures: [String] = []
@@ -1005,9 +2247,66 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                 failures.append(p.url.lastPathComponent)
             }
         }
+        syncAfterExternalTrash(removed)
+        if !failures.isEmpty { showTrashFailureAlert(failures) }
+    }
+
+    /// 選択(またはビューア表示中)の写真を 90°時計回りに回転して元のファイルへ直接上書き保存する。
+    /// ゴミ箱と違って元に戻せないため、書き込みに対応していない形式(RAW 等)は失敗として報告する。
+    @objc func rotateAndSave(_ sender: Any?) {
+        let targets = targetPhotos()
+        guard !targets.isEmpty else { return }
+
+        var rotated: [PhotoItem] = []
+        var failures: [String] = []
+        for p in targets {
+            switch PhotoRotator.rotateClockwise(url: p.url) {
+            case .success:
+                rotated.append(p)
+            case .failure(let err):
+                failures.append("\(p.url.lastPathComponent) — \(err.message)")
+            }
+        }
+
+        for p in rotated {
+            ThumbnailLoader.shared.invalidate(p.url)
+            store.refreshMtime(at: p.url.path)
+        }
+        if !rotated.isEmpty {
+            reloadGrid()
+            if viewerVisible, viewerIndex < gridVC.items.count {
+                viewer?.show(photo: gridVC.items[viewerIndex], index: viewerIndex, total: gridVC.items.count)
+            }
+        }
+        if !failures.isEmpty {
+            let a = NSAlert()
+            a.messageText = "回転して保存できなかった写真があります"
+            a.informativeText = failures.joined(separator: "\n")
+            a.runModal()
+        }
+    }
+
+    @objc func findDuplicates(_ sender: Any?) {
+        guard store.rootURL != nil, !store.photos.isEmpty else { return }
+        if let existing = duplicatesWC {
+            existing.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+        let controller = DuplicatesWindowController(photos: store.photos) { [weak self] removed, failures in
+            self?.syncAfterExternalTrash(removed)
+            if !failures.isEmpty { self?.showTrashFailureAlert(failures) }
+        }
+        controller.onClose = { [weak self] in self?.duplicatesWC = nil }
+        duplicatesWC = controller
+        controller.showWindow(nil)
+    }
+
+    /// 写真がゴミ箱へ移動された後、ストア/サイドバー/グリッド/ビューアを同期させる
+    /// (通常のゴミ箱操作・重複検出ウインドウからの削除の両方から呼ばれる)。
+    private func syncAfterExternalTrash(_ removed: Set<String>) {
+        guard !removed.isEmpty else { return }
         store.removePhotos(withPaths: removed)
-        sidebarVC.setRoot(store.rootNode, selectPath: currentFolderPath)
-        currentFolderPath = sidebarVC.selectedNode?.url.path
+        sidebarVC.setRoot(store.rootNode)
         reloadGrid()
 
         if viewerVisible {
@@ -1019,13 +2318,13 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                              index: viewerIndex, total: gridVC.items.count)
             }
         }
+    }
 
-        if !failures.isEmpty {
-            let a = NSAlert()
-            a.messageText = "ゴミ箱に入れられなかったファイルがあります"
-            a.informativeText = failures.joined(separator: "\n")
-            a.runModal()
-        }
+    private func showTrashFailureAlert(_ failures: [String]) {
+        let a = NSAlert()
+        a.messageText = "ゴミ箱に入れられなかったファイルがあります"
+        a.informativeText = failures.joined(separator: "\n")
+        a.runModal()
     }
 
     @objc func changeSort(_ sender: NSMenuItem) {
@@ -1061,9 +2360,10 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
-        case #selector(revealInFinder(_:)), #selector(copy(_:)), #selector(trashSelection(_:)):
+        case #selector(revealInFinder(_:)), #selector(copy(_:)), #selector(trashSelection(_:)),
+             #selector(rotateAndSave(_:)):
             return !targetPhotos().isEmpty
-        case #selector(refresh(_:)):
+        case #selector(refresh(_:)), #selector(findDuplicates(_:)):
             return store.rootURL != nil
         case #selector(changeSort(_:)):
             menuItem.state = (menuItem.tag == sortOrder.rawValue) ? .on : .off
@@ -1080,7 +2380,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     // MARK: toolbar
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .flexibleSpace, Self.thumbSliderItemID]
+        [.toggleSidebar, Self.filterItemID, .flexibleSpace, Self.thumbSliderItemID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -1090,18 +2390,53 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     func toolbar(_ toolbar: NSToolbar,
                  itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        guard itemIdentifier == Self.thumbSliderItemID else { return nil }
-        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-        item.label = "サムネイルサイズ"
-        item.paletteLabel = "サムネイルサイズ"
-        let s = NSSlider(value: Double(gridVC.cellSize),
-                         minValue: Double(minCellSize), maxValue: Double(maxCellSize),
-                         target: self, action: #selector(sliderChanged(_:)))
-        s.isContinuous = true
-        s.widthAnchor.constraint(equalToConstant: 140).isActive = true
-        slider = s
-        item.view = s
-        return item
+        if itemIdentifier == Self.thumbSliderItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "サムネイルサイズ"
+            item.paletteLabel = "サムネイルサイズ"
+            let s = NSSlider(value: Double(gridVC.cellSize),
+                             minValue: Double(minCellSize), maxValue: Double(maxCellSize),
+                             target: self, action: #selector(sliderChanged(_:)))
+            s.isContinuous = true
+            s.widthAnchor.constraint(equalToConstant: 140).isActive = true
+            slider = s
+            item.view = s
+            return item
+        }
+        if itemIdentifier == Self.filterItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "フィルター"
+            item.paletteLabel = "フィルター"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "line.3.horizontal.decrease.circle",
+                               accessibilityDescription: "フィルター") ?? NSImage(),
+                target: self, action: #selector(toggleFilterPopover(_:)))
+            button.bezelStyle = .texturedRounded
+            item.view = button
+            return item
+        }
+        return nil
+    }
+
+    @objc private func toggleFilterPopover(_ sender: NSButton) {
+        if let pop = filterPopover, pop.isShown {
+            pop.performClose(nil)
+            return
+        }
+        let vc = filterPopoverVC ?? {
+            let vc = FilterPopoverViewController()
+            vc.onChange = { [weak self] filter in
+                self?.currentFilter = filter
+                self?.reloadGrid()
+            }
+            filterPopoverVC = vc
+            return vc
+        }()
+        let pop = NSPopover()
+        pop.contentViewController = vc
+        pop.behavior = .transient
+        pop.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+        filterPopover = pop
     }
 }
 
@@ -1118,6 +2453,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        mainWC?.cancelBackgroundWork()
+    }
 
     // Finder の「このアプリケーションで開く」やアイコンへのフォルダドロップ
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
@@ -1153,17 +2492,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(withTitle: "フォルダを開く…",
                          action: #selector(MainWindowController.openFolder(_:)), keyEquivalent: "o")
         fileMenu.addItem(withTitle: "再読み込み",
-                         action: #selector(MainWindowController.refresh(_:)), keyEquivalent: "r")
+                         action: #selector(MainWindowController.refresh(_:)), keyEquivalent: "")
+        fileMenu.addItem(NSMenuItem.separator())
+        let dedupe = NSMenuItem(title: "重複を検出…",
+                                action: #selector(MainWindowController.findDuplicates(_:)),
+                                keyEquivalent: "d")
+        dedupe.keyEquivalentModifierMask = [.command, .shift]
+        fileMenu.addItem(dedupe)
         fileMenu.addItem(NSMenuItem.separator())
         let reveal = NSMenuItem(title: "Finder で表示",
                                 action: #selector(MainWindowController.revealInFinder(_:)),
                                 keyEquivalent: "R")
         reveal.keyEquivalentModifierMask = [.command, .shift]
         fileMenu.addItem(reveal)
+        // Preview.app の「右に回転(⌘R)」と同じキー割り当て(元ファイルへ直接上書き保存)。
+        fileMenu.addItem(withTitle: "回転して保存",
+                         action: #selector(MainWindowController.rotateAndSave(_:)), keyEquivalent: "r")
         let trash = NSMenuItem(title: "ゴミ箱に入れる",
                                action: #selector(MainWindowController.trashSelection(_:)),
                                keyEquivalent: "\u{08}")
-        trash.keyEquivalentModifierMask = []   // Photos と同じく ⌫ 単独
+        trash.keyEquivalentModifierMask = [.command]   // Photos.app と同じく ⌘⌫
         fileMenu.addItem(trash)
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(withTitle: "閉じる",
