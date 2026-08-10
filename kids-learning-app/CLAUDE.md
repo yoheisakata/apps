@@ -17,6 +17,15 @@
   違い。星は `manabi-stars` キーで永続化。すべてのモードで共通の報酬系。
 - 画面切り替えは `document.body` への1つの click delegation（`data-action`
   属性）で行う。新しい画面・ボタンを足すときもこのパターンに合わせること。
+- 読み上げは2系統: 固定フレーズ（なぞりがきの説明・ほめことば・くくの読み）は
+  `audio/` の同梱 mp3（`tools/generate_audio.py` が Open JTalk/pyopenjtalk-plus
+  で生成、完全オフライン・無料）を `playAudio()` で再生し、失敗時と動的な文
+  （たしざんの問題文・タイピングのことば）だけ `speak()` = `speechSynthesis`
+  にフォールバックする。`speak()` は端末の日本語音声から高品質なもの
+  （Kyoko / Google 日本語 等）を明示選択する。フレーズを増やしたら
+  `tools/generate_audio.py` を再実行し（`audio-manifest.js` も再生成される）、
+  `CACHE_NAME` をバンプすること。より高音質にしたければ同じファイル構成で
+  VOICEVOX 等で作り直して差し替えればよい（アプリ側の変更不要）。
 - `sw.js` はオフラインキャッシュ用。`index.html`/`app.js`/`style.css` の
   いずれかを変更したら `CACHE_NAME` をインクリメントすること（しないと
   PWA としてインストール済みの端末に反映されない）。

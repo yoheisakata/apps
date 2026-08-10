@@ -23,7 +23,13 @@
     .filter(function (r) { return r.chars; })
     .reduce(function (acc, r) { return acc.concat(r.chars); }, []);
 
-  var PRAISE = ["せいかい!", "すごい!", "やったね!", "その ちょうし!"];
+  // ほめことば (file は tools/generate_audio.py で生成した同梱音声)
+  var PRAISE = [
+    { text: "せいかい!", file: "audio/common/praise1.mp3" },
+    { text: "すごい!", file: "audio/common/praise2.mp3" },
+    { text: "やったね!", file: "audio/common/praise3.mp3" },
+    { text: "その ちょうし!", file: "audio/common/praise4.mp3" }
+  ];
 
   // たしざんレベル
   var MATH_LEVELS = [
@@ -201,13 +207,65 @@
   }
 
   // ---- 音声読み上げ ----
+  // 固定フレーズは同梱の mp3 (audio/) を再生し、動的な文だけ
+  // speechSynthesis を使う。speechSynthesis は端末の日本語音声から
+  // なるべく高品質なものを明示的に選ぶ (デフォルトが低品質なことがある)。
+  var jaVoice = null;
+  var PREFERRED_VOICES = ["kyoko", "google 日本語", "nanami", "o-ren", "otoya", "hattori"];
+  function pickJaVoice() {
+    var voices = speechSynthesis.getVoices().filter(function (v) {
+      return v.lang && v.lang.toLowerCase().indexOf("ja") === 0;
+    });
+    if (!voices.length) { jaVoice = null; return; }
+    for (var i = 0; i < PREFERRED_VOICES.length; i++) {
+      for (var j = 0; j < voices.length; j++) {
+        if (voices[j].name.toLowerCase().indexOf(PREFERRED_VOICES[i]) !== -1) {
+          jaVoice = voices[j];
+          return;
+        }
+      }
+    }
+    jaVoice = voices[0];
+  }
+  if ("speechSynthesis" in window) {
+    pickJaVoice();
+    speechSynthesis.onvoiceschanged = pickJaVoice;
+  }
+
   function speak(text) {
     if (!("speechSynthesis" in window)) return;
     speechSynthesis.cancel();
     var u = new SpeechSynthesisUtterance(text);
     u.lang = "ja-JP";
+    if (jaVoice) u.voice = jaVoice;
     u.rate = 0.85;
     speechSynthesis.speak(u);
+  }
+
+  // ---- 同梱音声の再生 ----
+  var audioCacheMap = {};
+  var currentAudio = null;
+  function stopAudio() {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  function playAudio(path, fallbackText) {
+    stopAudio();
+    try {
+      var a = audioCacheMap[path];
+      if (!a) { a = new Audio(path); audioCacheMap[path] = a; }
+      currentAudio = a;
+      a.currentTime = 0;
+      var p = a.play();
+      if (p && p.catch) p.catch(function () { speak(fallbackText); });
+    } catch (e) {
+      speak(fallbackText);
+    }
+  }
+  function playPraise() {
+    var praise = pick(PRAISE);
+    playAudio(praise.file, praise.text);
+    return praise.text;
   }
 
   // ---- 効果音 ----
@@ -337,9 +395,7 @@
     if (String(chosen) === String(answer)) {
       btn.classList.add("correct");
       soundCorrect();
-      var praise = pick(PRAISE);
-      document.getElementById("feedback").textContent = "⭕ " + praise;
-      speak(praise);
+      document.getElementById("feedback").textContent = "⭕ " + playPraise();
       if (!state.answeredWrong) state.correctFirstTry++;
       // ボタンを無効化して次へ
       document.querySelectorAll(".choice-btn").forEach(function (b) { b.disabled = true; });
@@ -357,7 +413,7 @@
       btn.disabled = true;
       soundWrong();
       document.getElementById("feedback").textContent = "もういちど!";
-      speak("おしい! もういちど");
+      playAudio("audio/common/wrong.mp3", "おしい! もういちど");
       setTimeout(function () { btn.classList.remove("wrong"); }, 500);
     }
   }
@@ -368,7 +424,7 @@
     var starsEl = document.getElementById("earned-stars");
     starsEl.textContent = "⭐".repeat(Math.max(earned, 1)) + "  " + earned + "こ ゲット!";
     show("screen-celebrate");
-    speak("よくできました! ほし " + earned + "こ ゲット!");
+    playAudio("audio/common/goodjob.mp3", "よくできました!");
   }
 
   // ---- タイピング ----
@@ -523,9 +579,7 @@
   function finishTypingQuestion() {
     soundCorrect();
     if (!typing.madeMistake) typing.perfectCount++;
-    var praise = pick(PRAISE);
-    document.getElementById("typing-feedback").textContent = "⭕ " + praise;
-    speak(praise);
+    document.getElementById("typing-feedback").textContent = "⭕ " + playPraise();
     // 全文字を緑で見せる
     typing.charIndex = typing.chars.length;
     renderTypingState();
@@ -726,7 +780,11 @@
     trace.points = sampleTraceGlyph(ch);
     drawTraceBase(ch);
     renderTraceProgress();
-    speak("「" + ch + "」を なぞってね");
+    speakTraceChar(ch);
+  }
+
+  function speakTraceChar(ch) {
+    playAudio("audio/trace/" + ROMAJI[ch][0] + ".mp3", "「" + ch + "」を なぞってね");
   }
 
   function completeTraceChar() {
@@ -737,9 +795,7 @@
     soundCorrect();
     // なぞった文字を緑でくっきり見せる
     drawTraceGlyph(trace.ctx, trace.chars[trace.index - 1], "rgba(42, 157, 143, 0.75)");
-    var praise = pick(PRAISE);
-    document.getElementById("trace-feedback").textContent = "⭕ " + praise;
-    speak(praise);
+    document.getElementById("trace-feedback").textContent = "⭕ " + playPraise();
     setTimeout(function () {
       if (!trace.active) return;
       if (trace.index >= trace.chars.length) {
@@ -822,7 +878,12 @@
     document.getElementById("kuku-prev-btn").disabled = kuku.idx === 0;
     document.getElementById("kuku-next-btn").textContent = kuku.idx === 8 ? "できた! 🎉" : "つぎへ →";
 
-    speak(entry.yomi);
+    speakKukuEntry();
+  }
+
+  function speakKukuEntry() {
+    var entry = KUKU[kuku.dan][kuku.idx];
+    playAudio("audio/kuku/" + entry.a + "x" + entry.b + ".mp3", entry.yomi);
   }
 
   function kukuPrev() {
@@ -839,7 +900,7 @@
     addStars(earned);
     document.getElementById("earned-stars").textContent = "⭐".repeat(earned) + "  " + earned + "こ ゲット!";
     show("screen-celebrate");
-    speak((kuku.dan + 1) + "のだん、ぜんぶ できました! ほし " + earned + "こ ゲット!");
+    playAudio("audio/common/goodjob.mp3", "よくできました!");
   }
 
   // ---- ナビゲーション ----
@@ -862,14 +923,14 @@
         kukuNext();
         break;
       case "kuku-speak":
-        speak(KUKU[kuku.dan][kuku.idx].yomi);
+        speakKukuEntry();
         break;
       case "hiragana":
         buildRowScreen();
         show("screen-rows");
         break;
       case "trace-speak":
-        if (trace.active && !trace.charDone) speak(trace.chars[trace.index]);
+        if (trace.active && !trace.charDone) speakTraceChar(trace.chars[trace.index]);
         break;
       case "trace-clear":
         if (trace.active && !trace.charDone) nextTraceChar();
@@ -900,7 +961,7 @@
       case "home":
         typing.active = false;
         trace.active = false;
-        speechSynthesis.cancel();
+        stopAudio();
         renderStars();
         show("screen-home");
         break;
