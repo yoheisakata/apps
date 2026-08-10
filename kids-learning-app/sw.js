@@ -1,5 +1,5 @@
 // シンプルなオフラインキャッシュ
-var CACHE_NAME = "manabi-v4";
+var CACHE_NAME = "manabi-v6";
 var ASSETS = [
   ".",
   "index.html",

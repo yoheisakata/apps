@@ -169,8 +169,8 @@
 
   // ---- 状態 ----
   var state = {
-    mode: null,          // "math" | "hiragana"
-    pool: null,          // ひらがな出題対象
+    mode: null,          // "math" | "trace" | "kuku" | "typing"
+    pool: null,          // なぞりがきの出題対象
     mathLevel: 0,        // たしざんレベル (0〜4)
     questionIndex: 0,
     correctFirstTry: 0,
@@ -259,11 +259,7 @@
     state.answeredWrong = false;
     document.getElementById("feedback").textContent = "";
     renderProgress();
-    if (state.mode === "math") {
-      makeMathQuestion();
-    } else {
-      makeHiraganaQuestion();
-    }
+    makeMathQuestion();
   }
 
   function renderProgress() {
@@ -314,8 +310,6 @@
     qa.appendChild(visual);
     qa.appendChild(formula);
 
-    document.getElementById("listen-btn").hidden = true;
-
     // 3択: 正解 + 近い数2つ
     var choices = [answer];
     while (choices.length < 3) {
@@ -324,29 +318,6 @@
     }
     renderChoices(shuffle(choices), answer);
     speak(a + " たす " + b + " は なにかな?");
-  }
-
-  // ---- ひらがな ----
-  function makeHiraganaQuestion() {
-    var pool = state.pool || ALL_CHARS;
-    var answer = pick(pool);
-    state.current = { answer: answer };
-
-    var qa = document.getElementById("question-area");
-    qa.innerHTML = "";
-    var prompt = document.createElement("div");
-    prompt.className = "hiragana-prompt";
-    prompt.textContent = "きこえた もじ を えらんでね";
-    qa.appendChild(prompt);
-
-    var listenBtn = document.getElementById("listen-btn");
-    listenBtn.hidden = false;
-    listenBtn.onclick = function () { speak(answer); };
-
-    // 4択: 正解 + まぎらわしい文字
-    var distractors = shuffle(ALL_CHARS.filter(function (c) { return c !== answer; })).slice(0, 3);
-    renderChoices(shuffle([answer].concat(distractors)), answer);
-    speak("「" + answer + "」は どれかな?");
   }
 
   // ---- 選択肢 ----
@@ -589,9 +560,218 @@
       var btn = document.createElement("button");
       btn.className = "row-btn";
       btn.textContent = row.label;
-      btn.onclick = function () { startSession("hiragana", row.chars); };
+      btn.onclick = function () { startTrace(row.chars); };
       grid.appendChild(btn);
     });
+  }
+
+  // ---- なぞりがき ----
+  var TRACE_SIZE = 320;        // 論理キャンバスサイズ
+  var TRACE_FONT = "240px 'Hiragino Maru Gothic ProN', 'BIZ UDGothic', 'Yu Gothic', sans-serif";
+  var TRACE_BRUSH = 20;        // なぞり判定の半径
+  var TRACE_LINE_WIDTH = 26;   // なぞり線の太さ
+  var TRACE_SAMPLE_STEP = 6;   // お手本の標本間隔(px)
+  var TRACE_DONE_RATIO = 0.85; // この割合なぞれたら合格
+
+  var trace = {
+    active: false,
+    chars: [],
+    index: 0,
+    doneCount: 0,
+    points: [],       // お手本グリフの標本点 [{x, y, hit}]
+    hitCount: 0,
+    charDone: false,
+    drawing: false,
+    lastX: 0,
+    lastY: 0,
+    canvas: null,
+    ctx: null
+  };
+
+  function setupTraceCanvas() {
+    if (trace.canvas) return;
+    var canvas = document.getElementById("trace-canvas");
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = TRACE_SIZE * dpr;
+    canvas.height = TRACE_SIZE * dpr;
+    trace.canvas = canvas;
+    trace.ctx = canvas.getContext("2d");
+    trace.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    canvas.addEventListener("pointerdown", function (e) {
+      if (!trace.active || trace.charDone) return;
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      trace.drawing = true;
+      var p = tracePos(e);
+      trace.lastX = p.x;
+      trace.lastY = p.y;
+      traceStroke(p.x, p.y, p.x, p.y);
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!trace.drawing || trace.charDone) return;
+      e.preventDefault();
+      var p = tracePos(e);
+      traceStroke(trace.lastX, trace.lastY, p.x, p.y);
+      trace.lastX = p.x;
+      trace.lastY = p.y;
+    });
+    function stop() { trace.drawing = false; }
+    canvas.addEventListener("pointerup", stop);
+    canvas.addEventListener("pointercancel", stop);
+  }
+
+  function tracePos(e) {
+    var rect = trace.canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (TRACE_SIZE / rect.width),
+      y: (e.clientY - rect.top) * (TRACE_SIZE / rect.height)
+    };
+  }
+
+  function drawTraceGlyph(ctx, ch, color) {
+    ctx.fillStyle = color;
+    ctx.font = TRACE_FONT;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(ch, TRACE_SIZE / 2, TRACE_SIZE / 2 + 12);
+  }
+
+  function drawTraceBase(ch) {
+    var ctx = trace.ctx;
+    ctx.clearRect(0, 0, TRACE_SIZE, TRACE_SIZE);
+    // ガイドの十字点線
+    ctx.save();
+    ctx.strokeStyle = "#e8e0d0";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.moveTo(TRACE_SIZE / 2, 0);
+    ctx.lineTo(TRACE_SIZE / 2, TRACE_SIZE);
+    ctx.moveTo(0, TRACE_SIZE / 2);
+    ctx.lineTo(TRACE_SIZE, TRACE_SIZE / 2);
+    ctx.stroke();
+    ctx.restore();
+    drawTraceGlyph(ctx, ch, "#d9d9d9");
+  }
+
+  // お手本グリフを別キャンバスに描き、なぞり判定用の標本点を取る
+  function sampleTraceGlyph(ch) {
+    var off = document.createElement("canvas");
+    off.width = TRACE_SIZE;
+    off.height = TRACE_SIZE;
+    var ctx = off.getContext("2d");
+    drawTraceGlyph(ctx, ch, "#000");
+    var data = ctx.getImageData(0, 0, TRACE_SIZE, TRACE_SIZE).data;
+    var points = [];
+    for (var y = 0; y < TRACE_SIZE; y += TRACE_SAMPLE_STEP) {
+      for (var x = 0; x < TRACE_SIZE; x += TRACE_SAMPLE_STEP) {
+        if (data[(y * TRACE_SIZE + x) * 4 + 3] > 128) {
+          points.push({ x: x, y: y, hit: false });
+        }
+      }
+    }
+    return points;
+  }
+
+  function traceStroke(x0, y0, x1, y1) {
+    var ctx = trace.ctx;
+    ctx.strokeStyle = "#ff9f1c";
+    ctx.lineWidth = TRACE_LINE_WIDTH;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+
+    // 線分に沿って標本点をカバー判定
+    var dx = x1 - x0;
+    var dy = y1 - y0;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    var steps = Math.max(1, Math.ceil(len / (TRACE_BRUSH / 2)));
+    for (var s = 0; s <= steps; s++) {
+      var px = x0 + (dx * s) / steps;
+      var py = y0 + (dy * s) / steps;
+      trace.points.forEach(function (pt) {
+        if (pt.hit) return;
+        var ddx = pt.x - px;
+        var ddy = pt.y - py;
+        if (ddx * ddx + ddy * ddy <= TRACE_BRUSH * TRACE_BRUSH) {
+          pt.hit = true;
+          trace.hitCount++;
+        }
+      });
+    }
+
+    if (trace.points.length && trace.hitCount / trace.points.length >= TRACE_DONE_RATIO) {
+      completeTraceChar();
+    }
+  }
+
+  function renderTraceProgress() {
+    var dots = "";
+    for (var i = 0; i < trace.chars.length; i++) {
+      dots += i < trace.index ? "●" : "○";
+    }
+    document.getElementById("trace-progress").textContent = dots;
+  }
+
+  function nextTraceChar() {
+    trace.charDone = false;
+    trace.drawing = false;
+    trace.hitCount = 0;
+    document.getElementById("trace-feedback").textContent = "";
+    var ch = trace.chars[trace.index];
+    trace.points = sampleTraceGlyph(ch);
+    drawTraceBase(ch);
+    renderTraceProgress();
+    speak("「" + ch + "」を なぞってね");
+  }
+
+  function completeTraceChar() {
+    trace.charDone = true;
+    trace.drawing = false;
+    trace.doneCount++;
+    trace.index++;
+    soundCorrect();
+    // なぞった文字を緑でくっきり見せる
+    drawTraceGlyph(trace.ctx, trace.chars[trace.index - 1], "rgba(42, 157, 143, 0.75)");
+    var praise = pick(PRAISE);
+    document.getElementById("trace-feedback").textContent = "⭕ " + praise;
+    speak(praise);
+    setTimeout(function () {
+      if (!trace.active) return;
+      if (trace.index >= trace.chars.length) {
+        state.correctFirstTry = trace.doneCount;
+        finishSession();
+      } else {
+        nextTraceChar();
+      }
+    }, 1400);
+  }
+
+  function traceSkip() {
+    if (trace.charDone) return; // 自動で つぎへ 進む待ち
+    trace.index++;
+    if (trace.index >= trace.chars.length) {
+      state.correctFirstTry = trace.doneCount;
+      finishSession();
+    } else {
+      nextTraceChar();
+    }
+  }
+
+  function startTrace(pool) {
+    trace.active = true;
+    trace.chars = pool ? pool.slice() : shuffle(ALL_CHARS).slice(0, QUESTIONS_PER_SESSION);
+    trace.index = 0;
+    trace.doneCount = 0;
+    state.mode = "trace"; // 「もういちど」用
+    state.pool = pool || null;
+    setupTraceCanvas();
+    show("screen-trace");
+    nextTraceChar();
   }
 
   // ---- くく（かけざん） ----
@@ -688,6 +868,15 @@
         buildRowScreen();
         show("screen-rows");
         break;
+      case "trace-speak":
+        if (trace.active && !trace.charDone) speak(trace.chars[trace.index]);
+        break;
+      case "trace-clear":
+        if (trace.active && !trace.charDone) nextTraceChar();
+        break;
+      case "trace-skip":
+        traceSkip();
+        break;
       case "typing":
         show("screen-typing-levels");
         break;
@@ -702,12 +891,15 @@
           startTyping(typing.level);
         } else if (state.mode === "kuku") {
           startKukuDan(kuku.dan);
+        } else if (state.mode === "trace") {
+          startTrace(state.pool);
         } else {
           startSession(state.mode, state.pool);
         }
         break;
       case "home":
         typing.active = false;
+        trace.active = false;
         speechSynthesis.cancel();
         renderStars();
         show("screen-home");

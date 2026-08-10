@@ -99,12 +99,26 @@
     <div class="row-grid" id="row-grid"></div>
   </div>
 
+  <!-- なぞりがき画面 -->
+  <div id="screen-trace" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <div class="progress" id="trace-progress"></div>
+    <div class="trace-card">
+      <canvas id="trace-canvas" width="320" height="320"></canvas>
+      <div class="trace-buttons">
+        <button class="nav-btn" data-action="trace-speak">🔊 きく</button>
+        <button class="nav-btn" data-action="trace-clear">🧽 やりなおす</button>
+        <button class="nav-btn" data-action="trace-skip">つぎへ →</button>
+      </div>
+    </div>
+    <div class="feedback" id="trace-feedback"></div>
+  </div>
+
   <!-- クイズ画面 -->
   <div id="screen-quiz" class="screen">
     <button class="back-btn" data-action="home">← もどる</button>
     <div class="progress" id="progress"></div>
     <div class="question-area" id="question-area"></div>
-    <button class="listen-btn" id="listen-btn" hidden>🔊 もういちど きく</button>
     <div class="choices" id="choices"></div>
     <div class="feedback" id="feedback"></div>
   </div>
