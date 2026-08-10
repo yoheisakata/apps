@@ -620,22 +620,29 @@
   }
 
   // ---- なぞりがき ----
-  var TRACE_SIZE = 320;        // 論理キャンバスサイズ
-  var TRACE_FONT = "240px 'Hiragino Maru Gothic ProN', 'BIZ UDGothic', 'Yu Gothic', sans-serif";
-  var TRACE_BRUSH = 20;        // なぞり判定の半径
-  var TRACE_LINE_WIDTH = 26;   // なぞり線の太さ
-  var TRACE_SAMPLE_STEP = 6;   // お手本の標本間隔(px)
-  var TRACE_DONE_RATIO = 0.85; // この割合なぞれたら合格
+  // お手本と判定は hiragana-strokes.js の HIRAGANA_STROKES
+  // (KanjiVG 由来の筆順つきストローク座標、点間隔約6px) を使う。
+  // 1画ずつ「正しい始点から、線に沿って、終点まで」なぞれたときだけ
+  // その画が完成し、全画そろって初めて正解になる。
+  var TRACE_SIZE = 320;         // 論理キャンバスサイズ
+  var TRACE_GUIDE_WIDTH = 22;   // お手本の線の太さ
+  var TRACE_INK_WIDTH = 26;     // なぞり線の太さ
+  var TRACE_START_TOL = 40;     // 書きはじめが始点からずれてよい距離
+  var TRACE_CORRIDOR = 36;      // 線から外れてよい距離
+  var TRACE_LOOKAHEAD = 7;      // 進行判定の先読み点数 (約42px)
+  var TRACE_END_RATIO = 0.9;    // 画の9割まで到達したら1画完成
 
   var trace = {
     active: false,
     chars: [],
     index: 0,
     doneCount: 0,
-    points: [],       // お手本グリフの標本点 [{x, y, hit}]
-    hitCount: 0,
+    strokes: [],      // いまの文字のストローク配列 [[[x,y],...],...]
+    strokeIdx: 0,     // いま書く画 (0はじまり)
+    progress: 0,      // いまの画のどこまで到達したか (点インデックス)
     charDone: false,
     drawing: false,
+    lastHintAt: 0,
     lastX: 0,
     lastY: 0,
     canvas: null,
@@ -655,24 +662,51 @@
     canvas.addEventListener("pointerdown", function (e) {
       if (!trace.active || trace.charDone) return;
       e.preventDefault();
+      var p = tracePos(e);
+      var s = trace.strokes[trace.strokeIdx];
+      if (dist(p.x, p.y, s[0][0], s[0][1]) > TRACE_START_TOL) {
+        // 始点以外から書きはじめた (順番ちがい・逆向きも含む)
+        traceHint();
+        return;
+      }
       canvas.setPointerCapture(e.pointerId);
       trace.drawing = true;
-      var p = tracePos(e);
+      trace.progress = 0;
       trace.lastX = p.x;
       trace.lastY = p.y;
-      traceStroke(p.x, p.y, p.x, p.y);
+      drawInk(p.x, p.y, p.x, p.y);
     });
     canvas.addEventListener("pointermove", function (e) {
       if (!trace.drawing || trace.charDone) return;
       e.preventDefault();
       var p = tracePos(e);
-      traceStroke(trace.lastX, trace.lastY, p.x, p.y);
+      drawInk(trace.lastX, trace.lastY, p.x, p.y);
       trace.lastX = p.x;
       trace.lastY = p.y;
+      followStroke(p.x, p.y);
     });
-    function stop() { trace.drawing = false; }
+    function stop() {
+      if (!trace.drawing) return;
+      // 画のとちゅうで指をはなした: この画をやりなおし (ペナルティなし)
+      trace.drawing = false;
+      trace.progress = 0;
+      redrawTrace();
+    }
     canvas.addEventListener("pointerup", stop);
     canvas.addEventListener("pointercancel", stop);
+  }
+
+  function dist(x0, y0, x1, y1) {
+    var dx = x1 - x0;
+    var dy = y1 - y0;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function traceHint() {
+    var now = Date.now();
+    if (now - trace.lastHintAt < 2000) return;
+    trace.lastHintAt = now;
+    playAudio("audio/common/hint.mp3", "ここから かいてね");
   }
 
   function tracePos(e) {
@@ -683,15 +717,20 @@
     };
   }
 
-  function drawTraceGlyph(ctx, ch, color) {
-    ctx.fillStyle = color;
-    ctx.font = TRACE_FONT;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(ch, TRACE_SIZE / 2, TRACE_SIZE / 2 + 12);
+  function drawStrokePath(pts, color, width) {
+    var ctx = trace.ctx;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
   }
 
-  function drawTraceBase(ch) {
+  // お手本 + 進行状態を描き直す (なぞり中のインクは消える)
+  function redrawTrace() {
     var ctx = trace.ctx;
     ctx.clearRect(0, 0, TRACE_SIZE, TRACE_SIZE);
     // ガイドの十字点線
@@ -706,60 +745,100 @@
     ctx.lineTo(TRACE_SIZE, TRACE_SIZE / 2);
     ctx.stroke();
     ctx.restore();
-    drawTraceGlyph(ctx, ch, "#d9d9d9");
-  }
 
-  // お手本グリフを別キャンバスに描き、なぞり判定用の標本点を取る
-  function sampleTraceGlyph(ch) {
-    var off = document.createElement("canvas");
-    off.width = TRACE_SIZE;
-    off.height = TRACE_SIZE;
-    var ctx = off.getContext("2d");
-    drawTraceGlyph(ctx, ch, "#000");
-    var data = ctx.getImageData(0, 0, TRACE_SIZE, TRACE_SIZE).data;
-    var points = [];
-    for (var y = 0; y < TRACE_SIZE; y += TRACE_SAMPLE_STEP) {
-      for (var x = 0; x < TRACE_SIZE; x += TRACE_SAMPLE_STEP) {
-        if (data[(y * TRACE_SIZE + x) * 4 + 3] > 128) {
-          points.push({ x: x, y: y, hit: false });
-        }
-      }
+    // 画: 書きおわり=緑 / これから=うすいグレー
+    trace.strokes.forEach(function (s, i) {
+      var done = i < trace.strokeIdx;
+      drawStrokePath(s, done ? "#2a9d8f" : (i === trace.strokeIdx ? "#c9c9c9" : "#e2e2e2"), TRACE_GUIDE_WIDTH);
+    });
+
+    // 画数の番号バッジ (書きはじめのそば)
+    trace.strokes.forEach(function (s, i) {
+      var p0 = s[0];
+      var p1 = s[Math.min(3, s.length - 1)];
+      var dx = p0[0] - p1[0];
+      var dy = p0[1] - p1[1];
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var bx = Math.min(Math.max(p0[0] + (dx / len) * 20, 12), TRACE_SIZE - 12);
+      var by = Math.min(Math.max(p0[1] + (dy / len) * 20, 12), TRACE_SIZE - 12);
+      ctx.fillStyle = i < trace.strokeIdx ? "#2a9d8f" : (i === trace.strokeIdx ? "#ff9f1c" : "#cccccc");
+      ctx.beginPath();
+      ctx.arc(bx, by, 11, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), bx, by + 0.5);
+    });
+
+    // いま書く画の始点マーカー
+    if (!trace.charDone && trace.strokeIdx < trace.strokes.length) {
+      var start = trace.strokes[trace.strokeIdx][0];
+      ctx.fillStyle = "#ff9f1c";
+      ctx.beginPath();
+      ctx.arc(start[0], start[1], 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 159, 28, 0.4)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(start[0], start[1], 14, 0, Math.PI * 2);
+      ctx.stroke();
     }
-    return points;
   }
 
-  function traceStroke(x0, y0, x1, y1) {
+  function drawInk(x0, y0, x1, y1) {
     var ctx = trace.ctx;
     ctx.strokeStyle = "#ff9f1c";
-    ctx.lineWidth = TRACE_LINE_WIDTH;
+    ctx.lineWidth = TRACE_INK_WIDTH;
     ctx.lineCap = "round";
-    ctx.lineJoin = "round";
     ctx.beginPath();
     ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
     ctx.stroke();
+  }
 
-    // 線分に沿って標本点をカバー判定
-    var dx = x1 - x0;
-    var dy = y1 - y0;
-    var len = Math.sqrt(dx * dx + dy * dy);
-    var steps = Math.max(1, Math.ceil(len / (TRACE_BRUSH / 2)));
-    for (var s = 0; s <= steps; s++) {
-      var px = x0 + (dx * s) / steps;
-      var py = y0 + (dy * s) / steps;
-      trace.points.forEach(function (pt) {
-        if (pt.hit) return;
-        var ddx = pt.x - px;
-        var ddy = pt.y - py;
-        if (ddx * ddx + ddy * ddy <= TRACE_BRUSH * TRACE_BRUSH) {
-          pt.hit = true;
-          trace.hitCount++;
-        }
-      });
+  // なぞり位置がいまの画に沿っているか判定し、進行/脱線/完成を処理する
+  function followStroke(x, y) {
+    var s = trace.strokes[trace.strokeIdx];
+    var last = s.length - 1;
+
+    // 先読み範囲で進めるところまで進む
+    var maxAhead = Math.min(trace.progress + TRACE_LOOKAHEAD, last);
+    for (var j = maxAhead; j > trace.progress; j--) {
+      if (dist(x, y, s[j][0], s[j][1]) <= TRACE_CORRIDOR) {
+        trace.progress = j;
+        break;
+      }
     }
 
-    if (trace.points.length && trace.hitCount / trace.points.length >= TRACE_DONE_RATIO) {
-      completeTraceChar();
+    // 画の9割まで来たら1画完成
+    if (trace.progress >= Math.floor(last * TRACE_END_RATIO)) {
+      trace.drawing = false;
+      trace.progress = 0;
+      trace.strokeIdx++;
+      if (trace.strokeIdx >= trace.strokes.length) {
+        completeTraceChar();
+      } else {
+        beep([660, 880]); // 1画できた合図
+        redrawTrace();
+      }
+      return;
+    }
+
+    // 線から離れすぎたらこの画をやりなおし
+    var near = Infinity;
+    var from = Math.max(0, trace.progress - 3);
+    var to = Math.min(trace.progress + TRACE_LOOKAHEAD, last);
+    for (var k = from; k <= to; k++) {
+      var d = dist(x, y, s[k][0], s[k][1]);
+      if (d < near) near = d;
+    }
+    if (near > TRACE_CORRIDOR) {
+      trace.drawing = false;
+      trace.progress = 0;
+      soundWrong();
+      redrawTrace();
     }
   }
 
@@ -774,11 +853,12 @@
   function nextTraceChar() {
     trace.charDone = false;
     trace.drawing = false;
-    trace.hitCount = 0;
+    trace.strokeIdx = 0;
+    trace.progress = 0;
     document.getElementById("trace-feedback").textContent = "";
     var ch = trace.chars[trace.index];
-    trace.points = sampleTraceGlyph(ch);
-    drawTraceBase(ch);
+    trace.strokes = HIRAGANA_STROKES[ch];
+    redrawTrace();
     renderTraceProgress();
     speakTraceChar(ch);
   }
@@ -793,8 +873,7 @@
     trace.doneCount++;
     trace.index++;
     soundCorrect();
-    // なぞった文字を緑でくっきり見せる
-    drawTraceGlyph(trace.ctx, trace.chars[trace.index - 1], "rgba(42, 157, 143, 0.75)");
+    redrawTrace(); // 全画そろった文字を緑で見せる
     document.getElementById("trace-feedback").textContent = "⭕ " + playPraise();
     setTimeout(function () {
       if (!trace.active) return;
@@ -933,7 +1012,12 @@
         if (trace.active && !trace.charDone) speakTraceChar(trace.chars[trace.index]);
         break;
       case "trace-clear":
-        if (trace.active && !trace.charDone) nextTraceChar();
+        if (trace.active && !trace.charDone) {
+          trace.drawing = false;
+          trace.strokeIdx = 0;
+          trace.progress = 0;
+          redrawTrace();
+        }
         break;
       case "trace-skip":
         traceSkip();
