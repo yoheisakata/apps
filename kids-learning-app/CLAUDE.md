@@ -8,9 +8,13 @@
   読み上げ）・ひらがな（行選択の canvas なぞりがき練習）・タイピング
   （ローマ字入力練習）。くく・たしざんのレベル/だんデータは旧 `sansu/`
   アプリから移植したもの。
-- なぞりがきは、お手本グリフをオフスクリーン canvas に描いて `getImageData` で
-  標本点を取り、Pointer Events のストロークで一定割合（`TRACE_DONE_RATIO`）
-  カバーしたら自動正解にする方式。画数・書き順は判定しない（6歳向けにゆるく）。
+- なぞりがきは**書き順判定**: `hiragana-strokes.js`（`tools/generate_strokes.py`
+  が KanjiVG の SVG から生成した、画ごとの中心線ポリライン・点間隔約6px）を
+  お手本描画と判定の両方に使う。1画ずつ、始点から `TRACE_START_TOL` 以内で
+  書きはじめ、`TRACE_CORRIDOR` 以内で線に沿って先読み `TRACE_LOOKAHEAD` 点の
+  範囲を進み、画の `TRACE_END_RATIO` まで到達したら1画完成。脱線・途中放し・
+  順番ちがい（始点が合わない）はその画のやりなおし。塗りつぶしでは正解に
+  ならない。KanjiVG は CC BY-SA 3.0 — README のクレジットを消さないこと。
   以前あった「きこえた文字を4択で選ぶクイズ」は `speechSynthesis` の音質が
   端末依存で聞き取れないため削除済み — 再追加しないこと。
 - ゲーム要素（⭐スター・効果音・`localStorage` 保存）がある点が `sansu/` との

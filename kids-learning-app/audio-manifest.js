@@ -52,6 +52,7 @@ var AUDIO_FILES = [
   "audio/common/praise4.mp3",
   "audio/common/wrong.mp3",
   "audio/common/goodjob.mp3",
+  "audio/common/hint.mp3",
   "audio/kuku/1x1.mp3",
   "audio/kuku/1x2.mp3",
   "audio/kuku/1x3.mp3",
