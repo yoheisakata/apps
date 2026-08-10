@@ -169,8 +169,8 @@
 
   // ---- 状態 ----
   var state = {
-    mode: null,          // "math" | "hiragana"
-    pool: null,          // ひらがな出題対象
+    mode: null,          // "math" | "trace" | "kuku" | "typing"
+    pool: null,          // なぞりがきの出題対象
     mathLevel: 0,        // たしざんレベル (0〜4)
     questionIndex: 0,
     correctFirstTry: 0,
@@ -259,11 +259,7 @@
     state.answeredWrong = false;
     document.getElementById("feedback").textContent = "";
     renderProgress();
-    if (state.mode === "math") {
-      makeMathQuestion();
-    } else {
-      makeHiraganaQuestion();
-    }
+    makeMathQuestion();
   }
 
   function renderProgress() {
@@ -314,8 +310,6 @@
     qa.appendChild(visual);
     qa.appendChild(formula);
 
-    document.getElementById("listen-btn").hidden = true;
-
     // 3択: 正解 + 近い数2つ
     var choices = [answer];
     while (choices.length < 3) {
@@ -324,29 +318,6 @@
     }
     renderChoices(shuffle(choices), answer);
     speak(a + " たす " + b + " は なにかな?");
-  }
-
-  // ---- ひらがな ----
-  function makeHiraganaQuestion() {
-    var pool = state.pool || ALL_CHARS;
-    var answer = pick(pool);
-    state.current = { answer: answer };
-
-    var qa = document.getElementById("question-area");
-    qa.innerHTML = "";
-    var prompt = document.createElement("div");
-    prompt.className = "hiragana-prompt";
-    prompt.textContent = "きこえた もじ を えらんでね";
-    qa.appendChild(prompt);
-
-    var listenBtn = document.getElementById("listen-btn");
-    listenBtn.hidden = false;
-    listenBtn.onclick = function () { speak(answer); };
-
-    // 4択: 正解 + まぎらわしい文字
-    var distractors = shuffle(ALL_CHARS.filter(function (c) { return c !== answer; })).slice(0, 3);
-    renderChoices(shuffle([answer].concat(distractors)), answer);
-    speak("「" + answer + "」は どれかな?");
   }
 
   // ---- 選択肢 ----
@@ -582,17 +553,14 @@
   });
 
   // ---- ひらがな行えらび ----
-  function buildRowScreen(hiraganaMode) {
+  function buildRowScreen() {
     var grid = document.getElementById("row-grid");
     grid.innerHTML = "";
     HIRAGANA_ROWS.forEach(function (row) {
       var btn = document.createElement("button");
       btn.className = "row-btn";
       btn.textContent = row.label;
-      btn.onclick = function () {
-        if (hiraganaMode === "trace") startTrace(row.chars);
-        else startSession("hiragana", row.chars);
-      };
+      btn.onclick = function () { startTrace(row.chars); };
       grid.appendChild(btn);
     });
   }
@@ -897,14 +865,7 @@
         speak(KUKU[kuku.dan][kuku.idx].yomi);
         break;
       case "hiragana":
-        show("screen-hiragana-menu");
-        break;
-      case "hiragana-quiz":
-        buildRowScreen("quiz");
-        show("screen-rows");
-        break;
-      case "hiragana-trace":
-        buildRowScreen("trace");
+        buildRowScreen();
         show("screen-rows");
         break;
       case "trace-speak":
