@@ -92,11 +92,42 @@
     <div class="feedback" id="typing-feedback"></div>
   </div>
 
+  <!-- ひらがな あそびかたえらび画面 -->
+  <div id="screen-hiragana-menu" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <h2 class="screen-title">どっちを やる?</h2>
+    <div class="menu">
+      <button class="big-btn hiragana-btn" data-action="hiragana-quiz">
+        <span class="btn-emoji">👂</span>
+        <span class="btn-label">きいて えらぶ</span>
+      </button>
+      <button class="big-btn trace-btn" data-action="hiragana-trace">
+        <span class="btn-emoji">✍️</span>
+        <span class="btn-label">なぞりがき</span>
+      </button>
+    </div>
+  </div>
+
   <!-- ひらがな 行えらび画面 -->
   <div id="screen-rows" class="screen">
     <button class="back-btn" data-action="home">← もどる</button>
     <h2 class="screen-title">どの ぎょう を れんしゅうする?</h2>
     <div class="row-grid" id="row-grid"></div>
+  </div>
+
+  <!-- なぞりがき画面 -->
+  <div id="screen-trace" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <div class="progress" id="trace-progress"></div>
+    <div class="trace-card">
+      <canvas id="trace-canvas" width="320" height="320"></canvas>
+      <div class="trace-buttons">
+        <button class="nav-btn" data-action="trace-speak">🔊 きく</button>
+        <button class="nav-btn" data-action="trace-clear">🧽 やりなおす</button>
+        <button class="nav-btn" data-action="trace-skip">つぎへ →</button>
+      </div>
+    </div>
+    <div class="feedback" id="trace-feedback"></div>
   </div>
 
   <!-- クイズ画面 -->
