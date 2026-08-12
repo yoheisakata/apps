@@ -44,6 +44,11 @@ struct LibraryView: View {
     @State private var selection = Set<String>()
     @State private var pendingDelete: [ScannedROM] = []
     @State private var showDeleteConfirm = false
+    @State private var selectedCategory: String?
+
+    private var availableCategories: [String] {
+        Set(scanner.roms.map(\.category)).sorted()
+    }
 
     private var filteredROMs: [ScannedROM] {
         var results: [ScannedROM]
@@ -62,6 +67,9 @@ struct LibraryView: View {
                     return $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
                 }
             results = Array(results.prefix(frequentLimit))
+        }
+        if let category = selectedCategory {
+            results = results.filter { $0.category == category }
         }
         if !searchText.isEmpty {
             let q = searchText.lowercased()
@@ -119,6 +127,13 @@ struct LibraryView: View {
                                             emulator.loadROM(url: rom.url)
                                         } else {
                                             toggleSelection(rom)
+                                        }
+                                    }
+                                    .onHover { hovering in
+                                        if hovering {
+                                            NSCursor.pointingHand.set()
+                                        } else {
+                                            NSCursor.arrow.set()
                                         }
                                     }
                                     .contextMenu {
@@ -287,6 +302,21 @@ struct LibraryView: View {
                         }
                     }
                     Spacer()
+                }
+            }
+
+            if availableCategories.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        FilterChip(label: "すべて", isSelected: selectedCategory == nil) {
+                            selectedCategory = nil
+                        }
+                        ForEach(availableCategories, id: \.self) { category in
+                            FilterChip(label: category, isSelected: selectedCategory == category) {
+                                selectedCategory = selectedCategory == category ? nil : category
+                            }
+                        }
+                    }
                 }
             }
 

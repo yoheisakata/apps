@@ -29,6 +29,8 @@ H.265 (HEVC) 再エンコード & mp4統一スクリプト
 オプション:
   --dry-run          実際には処理せず対象ファイルを確認するだけ
   --report [FILE]    変換が必要なファイルのサマリーをレポート出力（変換はしない）
+  --skip-if-larger   H.265エンコード後のサイズが元より大きい場合、そのH.265は破棄し、
+                      元のコーデックのまま .mp4 コンテナ変換のみ行う（既に.mp4なら何もしない）
 """
 
 import sys
@@ -159,17 +161,19 @@ def finalize(src, tmp_dst, dry_run=False):
     """変換成功後: オリジナル削除 → 最終ファイル名にリネーム"""
     if dry_run:
         return True
+    orig_mb = src.stat().st_size / 1024 / 1024
     final = src.with_suffix('.mp4')
     src.unlink()
     if tmp_dst != final:
         if final.exists():
             # 衝突時は _h265 のままにする
             size_mb = tmp_dst.stat().st_size / 1024 / 1024
-            print(f'  完了 (名前衝突のため {tmp_dst.name} として保存, {size_mb:.1f} MB)')
+            print(f'  完了 (名前衝突のため {tmp_dst.name} として保存, {orig_mb:.1f} MB → {size_mb:.1f} MB)')
             return True
         tmp_dst.rename(final)
     size_mb = final.stat().st_size / 1024 / 1024
-    print(f'  完了 ({size_mb:.1f} MB)')
+    diff_pct = (size_mb / orig_mb - 1) * 100 if orig_mb > 0 else 0
+    print(f'  完了 ({orig_mb:.1f} MB → {size_mb:.1f} MB, {diff_pct:+.0f}%)')
     return True
 
 def get_file_size_mb(path):
@@ -293,7 +297,8 @@ def report_only(folder, report_file=None, min_size_mb=0):
         print(f'レポートを保存しました: {report_file}')
 
 
-def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0, remux_only=False):
+def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
+                    remux_only=False, skip_if_larger=False):
     folder = Path(folder)
     if not folder.exists() or not folder.is_dir():
         print(f'エラー: フォルダが見つかりません: {folder}')
@@ -305,6 +310,8 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0, 
         print(f'コンテナ変換のみ（エンコードなし）')
     else:
         print(f'品質(CRF): {crf}, 速度: {preset}')
+    if skip_if_larger:
+        print(f'サイズが大きくなる場合はH.265を破棄しコンテナ変換のみ行う')
     if min_size_mb > 0:
         print(f'サイズフィルター: {min_size_mb} MB 以上のみ変換')
     print()
@@ -320,6 +327,7 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0, 
     skipped_h265 = 0   # 既にH.265かつ.mp4
     remuxed = 0        # H.265だが.mov → .mp4コンテナ変換
     encoded = 0        # H.265以外 → H.265エンコード
+    kept_original = 0  # H.265の方が大きかったためコンテナ変換のみ/変更なし
     failed = 0
     skipped_err = 0
 
@@ -377,16 +385,38 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0, 
             # H.265に再エンコード
             print(f' → H.265に再エンコード')
             success = encode_to_h265(src, tmp_dst, crf=crf, preset=preset, dry_run=dry_run)
-            if success:
-                finalize(src, tmp_dst, dry_run=dry_run)
-                encoded += 1
-            else:
+            if not success:
                 failed += 1
+                continue
+
+            if skip_if_larger and not dry_run:
+                orig_mb = get_file_size_mb(src)
+                new_mb = get_file_size_mb(tmp_dst)
+                if new_mb >= orig_mb:
+                    print(f'  H.265の方が大きい ({new_mb:.1f} MB >= {orig_mb:.1f} MB) → H.265を破棄')
+                    tmp_dst.unlink()
+                    if already_mp4:
+                        print('  既に.mp4のため変更なし')
+                    else:
+                        print('  コンテナのみ.mp4に変換（元コーデックのまま）')
+                        remux_dst = src.with_name(src.stem + '_mp4.mp4')
+                        if remux_to_mp4(src, remux_dst, dry_run=dry_run):
+                            finalize(src, remux_dst, dry_run=dry_run)
+                        else:
+                            failed += 1
+                            continue
+                    kept_original += 1
+                    continue
+
+            finalize(src, tmp_dst, dry_run=dry_run)
+            encoded += 1
 
     print(f'\n=== 結果 ===')
     print(f'  スキップ (H.265+mp4済み): {skipped_h265}件')
     print(f'  コンテナ変換のみ (.mov→.mp4): {remuxed}件')
     print(f'  H.265エンコード:          {encoded}件')
+    if skip_if_larger:
+        print(f'  H.265の方が大きく元コーデック維持: {kept_original}件')
     print(f'  失敗:                     {failed}件')
     print(f'  エラースキップ:           {skipped_err}件')
 
@@ -399,6 +429,10 @@ def main():
   H.265以外       → H.265に再エンコード + .mp4に変換
   H.265だが.mov   → コンテナのみ.mp4に変換（再エンコードなし・高速・劣化なし）
   H.265かつ.mp4   → スキップ
+
+--skip-if-larger 指定時、H.265エンコード後のサイズが元より大きければ
+そのH.265は破棄し、元のコーデックのまま.mp4コンテナ変換のみ行う
+（既に.mp4なら変更なし）。
         """
     )
     parser.add_argument('folder', help='対象フォルダのパス')
@@ -411,6 +445,9 @@ def main():
                         help='指定サイズ(MB)以上のファイルのみ変換（デフォルト: 制限なし）')
     parser.add_argument('--remux-only', action='store_true',
                         help='H.265だが.mp4でないファイルのコンテナ変換のみ行う（エンコードはしない）')
+    parser.add_argument('--skip-if-larger', action='store_true',
+                        help='H.265エンコード後のサイズが元より大きい場合、H.265を破棄し'
+                             '元コーデックのまま.mp4コンテナ変換のみ行う（既に.mp4なら変更なし）')
     parser.add_argument('--crf', type=int, default=20,
                         help='品質設定 (18=高品質〜28=標準、デフォルト: 20)')
     parser.add_argument('--preset', default='slow',
@@ -425,7 +462,7 @@ def main():
     else:
         process_folder(args.folder, crf=args.crf, preset=args.preset,
                        dry_run=args.dry_run, min_size_mb=args.min_size,
-                       remux_only=args.remux_only)
+                       remux_only=args.remux_only, skip_if_larger=args.skip_if_larger)
 
 if __name__ == '__main__':
     main()

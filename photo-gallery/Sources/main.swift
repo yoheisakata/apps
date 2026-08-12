@@ -30,16 +30,35 @@ private let maxCellSize: CGFloat = 320
 private let defaultCellSize: CGFloat = 160
 
 enum SortOrder: Int {
-    case dateDesc = 0   // 新しい順(既定)
-    case dateAsc = 1    // 古い順
-    case name = 2       // 名前順
+    case dateDesc = 0    // 新しい順(既定)
+    case dateAsc = 1     // 古い順
+    case name = 2        // 名前順
+    case sizeDesc = 3    // 大きい順
+    case sizeAsc = 4     // 小さい順
+    case qualityDesc = 5 // 画質が良い順
+    case qualityAsc = 6  // 画質が悪い順(ブレ・ピンボケの抽出用)
+
+    var showsFileSize: Bool { self == .sizeDesc || self == .sizeAsc }
+    var showsQuality: Bool { self == .qualityDesc || self == .qualityAsc }
 }
+
+/// メニューとツールバーの並び替えボタン(ポップオーバー)の両方が参照する共通の並び順一覧。
+let sortMenuEntries: [(title: String, order: SortOrder)] = [
+    ("新しい順", .dateDesc),
+    ("古い順", .dateAsc),
+    ("名前順", .name),
+    ("サイズが大きい順", .sizeDesc),
+    ("サイズが小さい順", .sizeAsc),
+    ("画質が良い順", .qualityDesc),
+    ("画質が悪い順(ブレの抽出)", .qualityAsc),
+]
 
 // MARK: - Model
 
 struct PhotoItem: Equatable {
     let url: URL
     let mtime: Date
+    let fileSize: Int64
     static func == (a: PhotoItem, b: PhotoItem) -> Bool { a.url == b.url }
 }
 
@@ -83,7 +102,7 @@ final class PhotoStore {
         isScanning = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var items: [PhotoItem] = []
-            let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey]
+            let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey, .fileSizeKey]
             if let e = FileManager.default.enumerator(
                 at: root, includingPropertiesForKeys: Array(keys),
                 options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
@@ -92,7 +111,8 @@ final class PhotoStore {
                     guard let rv = try? u.resourceValues(forKeys: keys), rv.isRegularFile == true
                     else { continue }
                     items.append(PhotoItem(url: u.standardizedFileURL,
-                                           mtime: rv.contentModificationDate ?? .distantPast))
+                                           mtime: rv.contentModificationDate ?? .distantPast,
+                                           fileSize: Int64(rv.fileSize ?? 0)))
                 }
             }
             DispatchQueue.main.async {
@@ -115,9 +135,11 @@ final class PhotoStore {
     /// ディスクから再取得する(フォルダ構成は変わらないので再スキャンは不要)。
     func refreshMtime(at path: String) {
         guard let idx = photos.firstIndex(where: { $0.url.path == path }) else { return }
-        guard let rv = try? photos[idx].url.resourceValues(forKeys: [.contentModificationDateKey])
+        guard let rv = try? photos[idx].url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
         else { return }
-        photos[idx] = PhotoItem(url: photos[idx].url, mtime: rv.contentModificationDate ?? photos[idx].mtime)
+        photos[idx] = PhotoItem(url: photos[idx].url,
+                                mtime: rv.contentModificationDate ?? photos[idx].mtime,
+                                fileSize: Int64(rv.fileSize ?? Int(photos[idx].fileSize)))
     }
 
     /// サイドバーでチェックされたフォルダ群の写真の和集合。パスは常にルート配下の
@@ -139,6 +161,12 @@ final class PhotoStore {
             list.sort { $0.mtime > $1.mtime }
         case .dateAsc:
             list.sort { $0.mtime < $1.mtime }
+        case .sizeDesc:
+            list.sort { $0.fileSize > $1.fileSize }
+        case .sizeAsc:
+            list.sort { $0.fileSize < $1.fileSize }
+        case .qualityDesc, .qualityAsc:
+            break   // 画質スコアは非同期解析が要るので MainWindowController 側で解析後に並び替える
         }
         return list
     }
@@ -427,6 +455,7 @@ final class PhotoCell: NSCollectionViewItem {
     static let reuseID = NSUserInterfaceItemIdentifier("PhotoCell")
 
     private let fill = FillImageView(gravity: .resizeAspectFill)
+    private let sizeLabel = NSTextField(labelWithString: "")
     private var currentPath: String?
 
     override func loadView() {
@@ -437,12 +466,29 @@ final class PhotoCell: NSCollectionViewItem {
         fill.frame = v.bounds
         fill.autoresizingMask = [.width, .height]
         v.addSubview(fill)
+
+        sizeLabel.textColor = .white
+        sizeLabel.font = .systemFont(ofSize: 11)
+        sizeLabel.wantsLayer = true
+        sizeLabel.layer?.backgroundColor = NSColor(white: 0, alpha: 0.55).cgColor
+        sizeLabel.layer?.cornerRadius = 7
+        sizeLabel.isHidden = true
+        sizeLabel.translatesAutoresizingMaskIntoConstraints = false
+        v.addSubview(sizeLabel)
+        NSLayoutConstraint.activate([
+            sizeLabel.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -5),
+            sizeLabel.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -5),
+        ])
         view = v
     }
 
-    func configure(with photo: PhotoItem) {
+    func configure(with photo: PhotoItem, badgeText: String?) {
         currentPath = photo.url.path
         view.toolTip = photo.url.lastPathComponent
+        sizeLabel.isHidden = (badgeText == nil)
+        if let badgeText {
+            sizeLabel.stringValue = "  \(badgeText)  "
+        }
         if let img = ThumbnailLoader.shared.cached(photo.url) {
             fill.image = img
             return
@@ -459,6 +505,7 @@ final class PhotoCell: NSCollectionViewItem {
         currentPath = nil
         fill.image = nil
         view.toolTip = nil
+        sizeLabel.isHidden = true
     }
 
     override var isSelected: Bool { didSet { updateBorder() } }
@@ -620,6 +667,45 @@ final class GridCollectionView: NSCollectionView {
     }
 }
 
+/// グリッド全体(空状態のメッセージ表示も含む)を覆うコンテナ用のドロップ受け皿。
+/// `NSCollectionView`は0件のときレイアウトの content size がほぼゼロになりフレームが
+/// 収縮するため、`GridCollectionView`自身へのドラッグ登録だけでは「フォルダが空/未選択の
+/// 状態でウインドウにドロップしても反応しない」問題が起きる(ドラッグの着地判定は
+/// hit-test で最も深い登録済みビューを探すため、収縮したコレクションビューの外側に
+/// カーソルがあると見つからない)。グリッドの外枠である`root`ビュー自体もここで
+/// ドロップ登録することで、空状態でも常にウインドウ全体がドロップを受け付ける。
+final class FolderDropView: NSView {
+    var onDropFolder: ((URL) -> Void)?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        droppedFolderURL(sender) != nil ? .copy : []
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let url = droppedFolderURL(sender) else { return false }
+        onDropFolder?(url)
+        return true
+    }
+
+    private func droppedFolderURL(_ info: NSDraggingInfo) -> URL? {
+        let urls = info.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        guard let u = urls?.first else { return nil }
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: u.path, isDirectory: &isDir),
+              isDir.boolValue else { return nil }
+        return u
+    }
+}
+
 // MARK: - Grid view controller
 
 final class GridViewController: NSViewController, NSCollectionViewDataSource, NSCollectionViewDelegate {
@@ -645,9 +731,23 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
         }
     }
 
+    enum ThumbnailBadge { case none, fileSize, quality }
+
+    var thumbnailBadge: ThumbnailBadge = .none {
+        didSet {
+            guard thumbnailBadge != oldValue else { return }
+            collectionView.reloadData()
+        }
+    }
+
+    /// `.quality` バッジ表示時にスコアを取得するクロージャ(`MainWindowController`が
+    /// `QualityCache.result(for:)` を渡す)。未解析なら nil。
+    var qualityScoreProvider: ((PhotoItem) -> Double?)?
+
     override func loadView() {
-        let root = NSView()
+        let root = FolderDropView()
         root.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
+        root.onDropFolder = { [weak self] url in self?.collectionView.onDropFolder?(url) }
 
         layout.itemSize = NSSize(width: cellSize, height: cellSize)
         layout.minimumInteritemSpacing = 8
@@ -720,7 +820,15 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
     func collectionView(_ cv: NSCollectionView,
                         itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
         let cell = cv.makeItem(withIdentifier: PhotoCell.reuseID, for: indexPath) as! PhotoCell
-        cell.configure(with: items[indexPath.item])
+        let photo = items[indexPath.item]
+        let badgeText: String?
+        switch thumbnailBadge {
+        case .none: badgeText = nil
+        case .fileSize: badgeText = formatBytes(photo.fileSize)
+        case .quality:
+            badgeText = qualityScoreProvider?(photo).map { String(format: "%.0f", $0) } ?? "…"
+        }
+        cell.configure(with: photo, badgeText: badgeText)
         return cell
     }
 
@@ -796,7 +904,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             return
         }
         checkedPaths.formIntersection(allPaths(in: root))
-        if checkedPaths.isEmpty { checkedPaths = [root.url.path] }
+        if checkedPaths.isEmpty { checkedPaths = allPaths(in: root) }
         outline.reloadData()
         outline.expandItem(root)
     }
@@ -805,6 +913,26 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         var s: Set<String> = [node.url.path]
         for c in node.children { s.formUnion(allPaths(in: c)) }
         return s
+    }
+
+    /// このノード自身、またはその祖先のいずれかがチェック済みか(グリッド側のフィルタ
+    /// `PhotoStore.photos(checkedPaths:order:)` は「チェック済みパスのいずれかが祖先なら
+    /// 含める」という判定なので、それと同じ意味の判定をここでも使う)。
+    private func isEffectivelyChecked(_ node: FolderNode) -> Bool {
+        var n: FolderNode? = node
+        while let cur = n {
+            if checkedPaths.contains(cur.url.path) { return true }
+            n = cur.parent
+        }
+        return false
+    }
+
+    /// このノード配下でチェック済み(=実際にグリッドへ表示される)写真の合計枚数。
+    /// 祖先がチェック済みならこのノードの totalCount をまるごと使い、そうでなければ
+    /// 子ノードのうちチェック済みのものだけを再帰的に合算する。
+    private func checkedCount(in node: FolderNode) -> Int {
+        if isEffectivelyChecked(node) { return node.totalCount }
+        return node.children.reduce(0) { $0 + checkedCount(in: $1) }
     }
 
     // MARK: data source
@@ -832,20 +960,25 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         cell.checkbox.node = node
         cell.checkbox.state = checkedPaths.contains(node.url.path) ? .on : .off
         cell.textField?.stringValue =
-            (isRoot ? "すべての写真" : node.name) + " (\(node.totalCount))"
+            (isRoot ? "すべての写真" : node.name) + " (\(checkedCount(in: node)))"
         cell.imageView?.image = NSImage(
             systemSymbolName: isRoot ? "photo.on.rectangle" : "folder",
             accessibilityDescription: nil)
         return cell
     }
 
+    /// チェック/解除は配下のサブフォルダ全部に連動する(Finderのタグ選択などと同じ、
+    /// 親を触ると子もまとめて追従するチェックボックスツリーの一般的な挙動)。
+    /// 連動先のチェックボックスも見た目を更新する必要があるため reloadData する。
     @objc private func checkboxToggled(_ sender: SidebarCheckbox) {
         guard let node = sender.node else { return }
+        let affected = allPaths(in: node)
         if sender.state == .on {
-            checkedPaths.insert(node.url.path)
+            checkedPaths.formUnion(affected)
         } else {
-            checkedPaths.remove(node.url.path)
+            checkedPaths.subtract(affected)
         }
+        outline.reloadData()
         onCheckedChanged?()
     }
 
@@ -1101,18 +1234,36 @@ enum DuplicateScanner {
             var results = [AnalyzedPhoto?](repeating: nil, count: total)
             let lock = NSLock()
             var done = 0
+            // dHash計算はkCGImageSourceCreateThumbnailFromImageAlwaysでフル解像度デコードを
+            // 強制するため、1枚あたり(特にRAW/HEIC)数十〜数百MBを消費しうる。
+            // DispatchQueue.concurrentPerformは同時実行数を制御しないため、ファイルI/Oで
+            // スレッドがブロックするとGCDがワーカースレッドをコア数以上に増やし、
+            // フルデコードが大量に同時進行してメモリを枯渇させることがあった
+            // (写真1万枚規模で発生を確認)。ThumbnailLoaderのキューと同じ上限(4)で
+            // 同時デコード数を頭打ちにする。
+            let concurrencyLimit = 4
+            let semaphore = DispatchSemaphore(value: concurrencyLimit)
+            let group = DispatchGroup()
             results.withUnsafeMutableBufferPointer { buf in
-                DispatchQueue.concurrentPerform(iterations: total) { i in
-                    if cancelFlag.isCancelled { return }
-                    buf[i] = analyzeOne(photos[i])
-                    lock.lock()
-                    done += 1
-                    let d = done
-                    lock.unlock()
-                    if d == total || d % 25 == 0 {
-                        DispatchQueue.main.async { progress(d, total) }
+                let bufPtr = buf
+                for i in 0..<total {
+                    if cancelFlag.isCancelled { break }
+                    semaphore.wait()
+                    group.enter()
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        defer { semaphore.signal(); group.leave() }
+                        if cancelFlag.isCancelled { return }
+                        bufPtr[i] = analyzeOne(photos[i])
+                        lock.lock()
+                        done += 1
+                        let d = done
+                        lock.unlock()
+                        if d == total || d % 25 == 0 {
+                            DispatchQueue.main.async { progress(d, total) }
+                        }
                     }
                 }
+                group.wait()
             }
             let analyzed = cancelFlag.isCancelled ? [] : results.compactMap { $0 }
             DispatchQueue.main.async { completion(analyzed) }
@@ -1341,13 +1492,50 @@ final class DuplicateItemCard: NSView {
     }
 }
 
+/// `GroupSectionView`のカード列(横スクロール領域の中身)を手動フレーム計算で並べる
+/// コンテナ。以前は`NSStackView`を使っていたが、誤クラスタリング等で1グループに
+/// 数百〜数千枚の候補が集まると、`NSStackView`が隣接カード間に管理する暗黙の間隔制約が
+/// カード数に応じて増え、グループを破棄・再構築するたび(重複を検出しなおす・チェックを
+/// 外す・削除後の再構築など)にAutoLayoutの制約エンジンが詰まって実機でアプリが
+/// ハングするバグの主因になっていた(カードは全て固定サイズ・単純な横一列なので、
+/// AutoLayoutを使わずフレームを直接計算するだけで表示上の違いはない)。
+final class CardsRowView: NSView {
+    private let cardWidth: CGFloat = 150
+    private let rowHeight: CGFloat = 190
+    private let spacing: CGFloat = 10
+    private let inset: CGFloat = 4
+    private var nextX: CGFloat = 4
+
+    override init(frame: NSRect) {
+        super.init(frame: NSRect(x: 0, y: 0, width: inset, height: rowHeight))
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// カードを既存の右端に追い足す(`DuplicateItemCard`自身は`translatesAutoresizing
+    /// MaskIntoConstraints = false`のままでよい — サイズは自身の内部制約で決まり、
+    /// 位置〈frame.origin〉はこの親からの制約を一切張らないので、ここで直接設定した
+    /// 値がAutoLayoutに上書きされることはない)。
+    func addCard(_ card: DuplicateItemCard) {
+        card.frame.origin = NSPoint(x: nextX, y: inset)
+        addSubview(card)
+        nextX += cardWidth + spacing
+        frame.size = NSSize(width: nextX - spacing + inset, height: rowHeight)
+    }
+}
+
 /// 1 つの重複グループ: 有効/無効チェックボックス + 見出し(完全一致/類似バッジつき) + 横スクロールのカード列。
 final class GroupSectionView: NSView {
-    let cardsStack = NSStackView()
+    let cardsStack = CardsRowView()
     private let checkbox: NSButton
+    private let hScroll = NSScrollView()
     /// グループを削除対象から除外/含めるを切り替えたときに呼ばれる(organizerの
     /// DupPhotosViewModel.setGroupEnabledと同じ役割)。
     var onToggleEnabled: ((Bool) -> Void)?
+    /// このグループの見出し(縦位置)がウインドウの可視矩形に入っているかどうか
+    /// (DuplicatesWindowControllerのupdateVisibleThumbnailsが呼ぶsetThumbnailsLoadedで更新)。
+    /// メンバーが数百〜数千枚に誤クラスタリングされた巨大グループでも、縦方向だけでなく
+    /// このグループ自身の横スクロールの可視範囲外のカードは読み込まない/解放するための状態。
+    private var verticallyVisible = false
 
     init(number: Int, isExact: Bool, count: Int, wastedBytes: Int64, enabled: Bool, capWarning: String?) {
         checkbox = NSButton(checkboxWithTitle: "グループ \(number)", target: nil, action: nil)
@@ -1395,19 +1583,21 @@ final class GroupSectionView: NSView {
         }
         addSubview(headerStack)
 
-        cardsStack.orientation = .horizontal
-        cardsStack.spacing = 10
-        cardsStack.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
-        cardsStack.translatesAutoresizingMaskIntoConstraints = false
         cardsStack.alphaValue = enabled ? 1 : 0.4
 
-        let hScroll = NSScrollView()
         hScroll.hasHorizontalScroller = true
         hScroll.hasVerticalScroller = false
         hScroll.drawsBackground = false
         hScroll.documentView = cardsStack
         hScroll.translatesAutoresizingMaskIntoConstraints = false
         addSubview(hScroll)
+
+        // 巨大グループ(誤クラスタリング等で数百〜数千枚)でも、横スクロールで実際に
+        // 見えている分だけサムネイルを保持するため、横方向のbounds変化も監視する。
+        hScroll.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(horizontalVisibleRectDidChange),
+            name: NSView.boundsDidChangeNotification, object: hScroll.contentView)
 
         NSLayoutConstraint.activate([
             headerStack.topAnchor.constraint(equalTo: topAnchor),
@@ -1420,24 +1610,45 @@ final class GroupSectionView: NSView {
             hScroll.trailingAnchor.constraint(equalTo: trailingAnchor),
             hScroll.bottomAnchor.constraint(equalTo: bottomAnchor),
             hScroll.heightAnchor.constraint(equalToConstant: 190),
-            cardsStack.topAnchor.constraint(equalTo: hScroll.contentView.topAnchor),
-            cardsStack.bottomAnchor.constraint(equalTo: hScroll.contentView.bottomAnchor),
-            cardsStack.leadingAnchor.constraint(equalTo: hScroll.contentView.leadingAnchor),
-            cardsStack.heightAnchor.constraint(equalToConstant: 190),
         ])
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     @objc private func checkboxTapped() {
         onToggleEnabled?(checkbox.state == .on)
     }
 
-    /// このグループのカードすべてに対して、サムネイルの読み込み/解放をまとめて指示する
-    /// (DuplicatesWindowControllerがスクロール可視範囲に応じて呼ぶ)。
+    /// このグループの見出し(縦位置)がウインドウの可視矩形に入った/外れたときに呼ぶ
+    /// (DuplicatesWindowControllerがスクロール可視範囲に応じて呼ぶ)。外れたら
+    /// 全カードのサムネイルを解放し、入ったら横スクロールの可視範囲分だけ読み込む
+    /// (グループ自体は数百〜数千枚に誤クラスタリングされることがあるため、ここで
+    /// 全カード分を一度に読み込むと横スクロールで見えていない分まで確保してしまう)。
     func setThumbnailsLoaded(_ loaded: Bool) {
-        for case let card as DuplicateItemCard in cardsStack.arrangedSubviews {
-            if loaded {
+        verticallyVisible = loaded
+        if loaded {
+            updateHorizontalVisibility()
+        } else {
+            for case let card as DuplicateItemCard in cardsStack.subviews {
+                card.unloadThumbnail()
+            }
+        }
+    }
+
+    @objc private func horizontalVisibleRectDidChange() {
+        updateHorizontalVisibility()
+    }
+
+    private func updateHorizontalVisibility() {
+        guard verticallyVisible else { return }
+        let buffer: CGFloat = 320   // 概ねカード2枚分。横スクロール時のちらつきを避けるため
+        let visible = hScroll.documentVisibleRect.insetBy(dx: -buffer, dy: 0)
+        for case let card as DuplicateItemCard in cardsStack.subviews {
+            if card.frame.intersects(visible) {
                 card.loadThumbnailIfNeeded()
             } else {
                 card.unloadThumbnail()
@@ -1455,6 +1666,9 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
 
     private var analyzed: [AnalyzedPhoto] = []
     private var groups: [DuplicateGroupData] = []
+    /// `stack.arrangedSubviews`中の各`GroupSectionView`をグループidで引けるようにしたもの
+    /// (`setGroupEnabled`が1グループだけを差し替える際、全件を線形探索せずに済むように)。
+    private var sectionViews: [UUID: GroupSectionView] = [:]
     /// 削除対象として扱う(=チェックの入った)グループのid。外したグループは自動選択の対象外になり、
     /// 個々の写真も手動選択できない(誤検出グループを丸ごと除外できるようにするため。organizerの
     /// DupPhotosViewModel.enabledGroupsと同じ役割)。
@@ -1776,7 +1990,13 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
             enabledGroupIDs.remove(group.id)
             for c in group.candidates { c.markedForTrash = false }
         }
-        rebuildGroupViews()
+        // このグループだけを差し替える(rebuildGroupViews()で全グループを作り直すと、
+        // 誤クラスタリング等で候補が数千件規模のライブラリではチェック1つのトグルのたびに
+        // 全グループ分のAutoLayout制約が破棄・再構築され、実機でアプリがハングする
+        // 原因になっていた)。
+        if let index = groups.firstIndex(where: { $0.id == group.id }) {
+            updateSection(for: group, at: index)
+        }
         updateStatus()
     }
 
@@ -1816,40 +2036,62 @@ final class DuplicatesWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: 表示
 
+    /// 1グループ分の見出し + 横スクロールのカード列を組み立てる(`rebuildGroupViews`と
+    /// `updateSection`の両方から使う共通処理)。
+    private func makeSection(index: Int, group: DuplicateGroupData) -> GroupSectionView {
+        let enabled = enabledGroupIDs.contains(group.id)
+        let overflow = group.candidates.count - 1 - maxDeletePerGroup
+        let capWarning: String? = overflow > 0
+            ? "このグループは\(group.candidates.count - 1)枚が削除候補ですが、1グループあたりの上限(\(maxDeletePerGroup)枚)のため一部しか自動選択されていません。残りを削除するには手動で選択してください(上限までのみ)。"
+            : nil
+        let section = GroupSectionView(
+            number: index + 1, isExact: group.isExact,
+            count: group.candidates.count, wastedBytes: group.wastedBytes,
+            enabled: enabled, capWarning: capWarning)
+        section.onToggleEnabled = { [weak self] newValue in
+            self?.setGroupEnabled(group, enabled: newValue)
+        }
+        for cand in group.candidates {
+            let card = DuplicateItemCard(candidate: cand)
+            card.onToggle = { [weak self] in self?.updateStatus() }
+            card.canMarkForTrash = { [weak self] in
+                guard let self, self.enabledGroupIDs.contains(group.id) else { return false }
+                let current = group.candidates.filter { $0.markedForTrash }.count
+                if current >= self.maxDeletePerGroup {
+                    self.statusLabel.stringValue = "1グループあたり削除対象にできるのは最大\(self.maxDeletePerGroup)枚までです"
+                    return false
+                }
+                return true
+            }
+            section.cardsStack.addCard(card)
+        }
+        return section
+    }
+
     private func rebuildGroupViews() {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        sectionViews.removeAll()
         for (i, group) in groups.enumerated() {
-            let enabled = enabledGroupIDs.contains(group.id)
-            let overflow = group.candidates.count - 1 - maxDeletePerGroup
-            let capWarning: String? = overflow > 0
-                ? "このグループは\(group.candidates.count - 1)枚が削除候補ですが、1グループあたりの上限(\(maxDeletePerGroup)枚)のため一部しか自動選択されていません。残りを削除するには手動で選択してください(上限までのみ)。"
-                : nil
-            let section = GroupSectionView(
-                number: i + 1, isExact: group.isExact,
-                count: group.candidates.count, wastedBytes: group.wastedBytes,
-                enabled: enabled, capWarning: capWarning)
-            section.onToggleEnabled = { [weak self] newValue in
-                self?.setGroupEnabled(group, enabled: newValue)
-            }
-            for cand in group.candidates {
-                let card = DuplicateItemCard(candidate: cand)
-                card.onToggle = { [weak self] in self?.updateStatus() }
-                card.canMarkForTrash = { [weak self] in
-                    guard let self, self.enabledGroupIDs.contains(group.id) else { return false }
-                    let current = group.candidates.filter { $0.markedForTrash }.count
-                    if current >= self.maxDeletePerGroup {
-                        self.statusLabel.stringValue = "1グループあたり削除対象にできるのは最大\(self.maxDeletePerGroup)枚までです"
-                        return false
-                    }
-                    return true
-                }
-                section.cardsStack.addArrangedSubview(card)
-            }
+            let section = makeSection(index: i, group: group)
             stack.addArrangedSubview(section)
             section.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -32).isActive = true
+            sectionViews[group.id] = section
         }
         // レイアウト確定後(次のランループ)でないとsection.frameがまだ古い/ゼロのままなので、
         // 可視判定を1ティック遅らせる。
+        DispatchQueue.main.async { [weak self] in self?.updateVisibleThumbnails() }
+    }
+
+    /// `setGroupEnabled`専用: 1グループの見出し/カード列だけを作り直して同じ位置に差し替える
+    /// (他のグループのビューには一切触れないので、候補数千件規模のライブラリでもO(そのグループの
+    /// 件数)で済む)。
+    private func updateSection(for group: DuplicateGroupData, at index: Int) {
+        guard let old = sectionViews[group.id] else { rebuildGroupViews(); return }
+        old.removeFromSuperview()
+        let new = makeSection(index: index, group: group)
+        stack.insertArrangedSubview(new, at: min(index, stack.arrangedSubviews.count))
+        new.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -32).isActive = true
+        sectionViews[group.id] = new
         DispatchQueue.main.async { [weak self] in self?.updateVisibleThumbnails() }
     }
 
@@ -1956,10 +2198,15 @@ enum PersonFilter: Int {
     case all = 0, hasPerson, noPerson
 }
 
+enum IllustrationFilter: Int {
+    case all = 0, illustrationOnly, photoOnly
+}
+
 struct PhotoFilter {
     var dateRange: DateRangeFilter = .all
     var personFilter: PersonFilter = .all
-    var isActive: Bool { dateRange != .all || personFilter != .all }
+    var illustrationFilter: IllustrationFilter = .all
+    var isActive: Bool { dateRange != .all || personFilter != .all || illustrationFilter != .all }
 }
 
 /// Vision の顔検出結果を (パス, mtime) キーでキャッシュする。ファイルが変われば
@@ -2032,8 +2279,12 @@ final class FaceCache {
         "\(item.url.path)|\(item.mtime.timeIntervalSince1970)"
     }
 
-    /// 速度優先でダウンサンプルした画像に対して Vision の顔検出をかける
+    /// 速度優先でダウンサンプルした画像に対して Vision の人物検出をかける
     /// (EXIF の向きを反映してから縮小するので、回転していても正しく検出できる)。
+    /// 顔検出(VNDetectFaceRectanglesRequest)だけだと後ろ向き・横向きなど顔が写っていない
+    /// 人物を見逃して「人物なし」に誤分類してしまうため、人体検出
+    /// (VNDetectHumanRectanglesRequest。顔が見えなくても上半身/全身のシルエットで検出できる)
+    /// も併用し、どちらかで検出できれば「人物あり」とする。
     private static func detectFace(url: URL) -> Bool {
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
         let opts: [CFString: Any] = [
@@ -2043,10 +2294,293 @@ final class FaceCache {
             kCGImageSourceThumbnailMaxPixelSize: 800,
         ]
         guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return false }
-        let request = VNDetectFaceRectanglesRequest()
+        let faceRequest = VNDetectFaceRectanglesRequest()
+        let humanRequest = VNDetectHumanRectanglesRequest()
+        let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+        try? handler.perform([faceRequest, humanRequest])
+        let hasFace = !(faceRequest.results?.isEmpty ?? true)
+        let hasHuman = !(humanRequest.results?.isEmpty ?? true)
+        return hasFace || hasHuman
+    }
+}
+
+/// イラスト判定結果を (パス, mtime) キーでキャッシュする(`FaceCache`と同じパターン。
+/// セッション内メモリのみ、ディスク永続化はしない)。判定は2段階:
+/// ① EXIFにカメラのMake/Model/レンズ情報が一切無ければ「非写真」候補とする(実際のカメラ
+/// 写真はここでほぼ弾かれるので、大半のファイルは高価なVision分類を通らずに済む)。
+/// ② 候補だけ Vision の汎用画像分類(`VNClassifyImageRequest`)にかけ、上位の分類ラベルに
+/// イラスト/漫画/絵らしいものが含まれていれば「イラスト」と判定する。Visionにはこの
+/// 用途専用の分類器は無い(README参照)ため、①のEXIFヒューリスティックと組み合わせることで
+/// 実写真の誤検出(②単体のブレ)を抑えている。
+final class IllustrationCache {
+    private var results: [String: Bool] = [:]
+    private let lock = NSLock()
+    private var cancelFlag = CancelFlag()
+
+    func result(for item: PhotoItem) -> Bool? {
+        lock.lock(); defer { lock.unlock() }
+        return results[key(for: item)]
+    }
+
+    /// まだ未判定の写真だけを判定し、キャッシュに書き込む(`FaceCache.analyze`と同じ
+    /// OperationQueueベースの並列化・キャンセル方式。理由もFaceCacheと同様: Visionの
+    /// 内部直列化とGCDワーカースレッド枯渇を避けるため)。
+    func analyze(_ items: [PhotoItem],
+                progress: @escaping (Int, Int) -> Void,
+                completion: @escaping () -> Void) {
+        let total = items.count
+        guard total > 0 else { completion(); return }
+        cancelFlag.cancel()
+        let flag = CancelFlag()
+        cancelFlag = flag
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let queue = OperationQueue()
+            queue.maxConcurrentOperationCount = max(1, ProcessInfo.processInfo.activeProcessorCount / 2)
+            queue.qualityOfService = .userInitiated
+
+            let lock = NSLock()
+            var done = 0
+            for item in items {
+                queue.addOperation {
+                    if flag.isCancelled { return }
+                    let isIllust = Self.classify(url: item.url)
+                    self.store(isIllust, for: item)
+                    lock.lock()
+                    done += 1
+                    let d = done
+                    lock.unlock()
+                    if !flag.isCancelled, d == total || d % 10 == 0 {
+                        DispatchQueue.main.async { progress(d, total) }
+                    }
+                }
+            }
+            queue.waitUntilAllOperationsAreFinished()
+            if !flag.isCancelled {
+                DispatchQueue.main.async { completion() }
+            }
+        }
+    }
+
+    /// フィルター変更やアプリ終了時に、実行中/待機中の判定を打ち切る。
+    func cancelCurrent() {
+        cancelFlag.cancel()
+    }
+
+    private func store(_ isIllust: Bool, for item: PhotoItem) {
+        lock.lock(); results[key(for: item)] = isIllust; lock.unlock()
+    }
+
+    private func key(for item: PhotoItem) -> String {
+        "\(item.url.path)|\(item.mtime.timeIntervalSince1970)"
+    }
+
+    private static func classify(url: URL) -> Bool {
+        guard !hasCameraMetadata(url: url) else { return false }
+        return classifiedAsIllustration(url: url)
+    }
+
+    /// TIFF(Make/Model)・EXIF(LensModel)のいずれかにカメラ由来の値が入っていれば
+    /// 実カメラで撮影された写真とみなす。スクリーンショットやダウンロード画像・
+    /// 生成画像はこれらが空になることが多く、イラスト判定の一次フィルターとして使える。
+    private static func hasCameraMetadata(url: URL) -> Bool {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
+        else { return false }
+        let tiff = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any]
+        let exif = props[kCGImagePropertyExifDictionary] as? [CFString: Any]
+        let make = tiff?[kCGImagePropertyTIFFMake] as? String
+        let model = tiff?[kCGImagePropertyTIFFModel] as? String
+        let lens = exif?[kCGImagePropertyExifLensModel] as? String
+        return !(make ?? "").isEmpty || !(model ?? "").isEmpty || !(lens ?? "").isEmpty
+    }
+
+    private static let illustrationKeywords = [
+        "illustration", "cartoon", "anime", "comic", "drawing", "sketch",
+        "clip art", "clipart", "painting", "digital art", "artwork", "graphic",
+        "line art", "animated", "vector",
+    ]
+
+    /// 縮小画像を Vision の汎用画像分類にかけ、上位の分類ラベルにイラスト系キーワードが
+    /// 含まれるか調べる(専用分類器ではないため確信度がある程度高いものだけを見る)。
+    private static func classifiedAsIllustration(url: URL) -> Bool {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return false }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: 800,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return false }
+        let request = VNClassifyImageRequest()
         let handler = VNImageRequestHandler(cgImage: cg, options: [:])
         try? handler.perform([request])
-        return !(request.results?.isEmpty ?? true)
+        guard let results = request.results else { return false }
+        for obs in results.prefix(15) where obs.confidence > 0.3 {
+            let id = obs.identifier.lowercased()
+            if illustrationKeywords.contains(where: { id.contains($0) }) {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+/// 画質(ブレ・ピンボケ)のスコアを (パス, mtime) キーでキャッシュする
+/// (`FaceCache`/`IllustrationCache`と同じキャッシュ方式)。スコアは「Laplacian分散」
+/// という無参照ブレ指標: グレースケール化した画像に離散ラプラシアン(隣接4画素との差)を
+/// かけ、その応答の分散を取る。ピントが合ったくっきりした輪郭が多いほど分散が大きくなり、
+/// ブレた画像は輪郭がなだらかになって分散が小さくなる。絶対的な閾値は無く、同じライブラリ内
+/// での相対比較(並び替え)専用 — ツールバー/メニューの「画質が良い順」「画質が悪い順」から
+/// 使う。ブレ検出には縮小前の埋め込みサムネイルではなくフルデコードが必要
+/// (`kCGImageSourceCreateThumbnailFromImageAlways`)なため、`DuplicateScanner`のdHash計算と
+/// 同じ理由(RAW/HEICで1枚あたり数十〜数百MB)で同時実行数をセマフォで4に制限する。
+final class QualityCache {
+    private var results: [String: Double] = [:]
+    private let lock = NSLock()
+    private var cancelFlag = CancelFlag()
+
+    func result(for item: PhotoItem) -> Double? {
+        lock.lock(); defer { lock.unlock() }
+        return results[key(for: item)]
+    }
+
+    func analyze(_ items: [PhotoItem],
+                progress: @escaping (Int, Int) -> Void,
+                completion: @escaping () -> Void) {
+        let total = items.count
+        guard total > 0 else { completion(); return }
+        cancelFlag.cancel()
+        let flag = CancelFlag()
+        cancelFlag = flag
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let semaphore = DispatchSemaphore(value: 4)
+            let group = DispatchGroup()
+            let lock = NSLock()
+            var done = 0
+            for item in items {
+                if flag.isCancelled { break }
+                semaphore.wait()
+                group.enter()
+                DispatchQueue.global(qos: .userInitiated).async {
+                    defer { semaphore.signal(); group.leave() }
+                    if flag.isCancelled { return }
+                    let score = Self.sharpnessScore(url: item.url) ?? 0
+                    self.store(score, for: item)
+                    lock.lock()
+                    done += 1
+                    let d = done
+                    lock.unlock()
+                    if !flag.isCancelled, d == total || d % 10 == 0 {
+                        DispatchQueue.main.async { progress(d, total) }
+                    }
+                }
+            }
+            group.wait()
+            if !flag.isCancelled {
+                DispatchQueue.main.async { completion() }
+            }
+        }
+    }
+
+    /// フィルター/並び替え変更やアプリ終了時に、実行中/待機中の解析を打ち切る。
+    func cancelCurrent() {
+        cancelFlag.cancel()
+    }
+
+    private func store(_ score: Double, for item: PhotoItem) {
+        lock.lock(); results[key(for: item)] = score; lock.unlock()
+    }
+
+    private func key(for item: PhotoItem) -> String {
+        "\(item.url.path)|\(item.mtime.timeIntervalSince1970)"
+    }
+
+    /// 長辺500pxへフルデコード縮小 → グレースケール化 → 離散ラプラシアンの分散。
+    private static func sharpnessScore(url: URL) -> Double? {
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 500,
+        ]
+        guard let thumb = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+        let w = thumb.width, h = thumb.height
+        guard w >= 3, h >= 3 else { return nil }
+        var pixels = [UInt8](repeating: 0, count: w * h)
+        guard let ctx = CGContext(data: &pixels, width: w, height: h,
+                                  bitsPerComponent: 8, bytesPerRow: w,
+                                  space: CGColorSpaceCreateDeviceGray(),
+                                  bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
+        ctx.interpolationQuality = .none
+        ctx.draw(thumb, in: CGRect(x: 0, y: 0, width: w, height: h))
+
+        var sum = 0.0, sumSq = 0.0
+        var count = 0
+        pixels.withUnsafeBufferPointer { buf in
+            for y in 1..<(h - 1) {
+                let row = y * w, rowUp = row - w, rowDown = row + w
+                for x in 1..<(w - 1) {
+                    let center = Int(buf[row + x])
+                    let lap = Int(buf[rowUp + x]) + Int(buf[rowDown + x])
+                             + Int(buf[row + x - 1]) + Int(buf[row + x + 1]) - 4 * center
+                    let v = Double(lap)
+                    sum += v
+                    sumSq += v * v
+                    count += 1
+                }
+            }
+        }
+        guard count > 0 else { return nil }
+        let mean = sum / Double(count)
+        return max(0, sumSq / Double(count) - mean * mean)
+    }
+}
+
+/// ツールバーの「並び替え」ボタンから開くポップオーバーの中身。`sortMenuEntries` を
+/// ラジオボタン(`NSStackView`の直接の子として並べることで、AppKit標準の
+/// 「同じ親を持つradioボタンは自動的に排他選択になる」挙動をそのまま使い、
+/// 自前でのグループ管理をしていない)の縦並びとして表示する。
+final class SortPopoverViewController: NSViewController {
+    var onSelect: ((SortOrder) -> Void)?
+    private var buttons: [NSButton] = []
+
+    func setSelected(_ order: SortOrder) {
+        for b in buttons { b.state = (SortOrder(rawValue: b.tag) == order) ? .on : .off }
+    }
+
+    override func loadView() {
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 220, height: 10))
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        for (title, order) in sortMenuEntries {
+            let b = NSButton(radioButtonWithTitle: title, target: self, action: #selector(radioClicked(_:)))
+            b.tag = order.rawValue
+            stack.addArrangedSubview(b)
+            buttons.append(b)
+        }
+
+        root.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 14),
+            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -14),
+            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -14),
+        ])
+        root.widthAnchor.constraint(greaterThanOrEqualToConstant: 240).isActive = true
+
+        view = root
+    }
+
+    @objc private func radioClicked(_ sender: NSButton) {
+        guard let order = SortOrder(rawValue: sender.tag) else { return }
+        onSelect?(order)
     }
 }
 
@@ -2061,10 +2595,11 @@ final class FilterPopoverViewController: NSViewController {
     private let toPicker = NSDatePicker()
     private let customStack = NSStackView()
     private let personControl = NSSegmentedControl()
+    private let illustrationControl = NSSegmentedControl()
     private let statusLabel = NSTextField(labelWithString: "")
 
     override func loadView() {
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 210))
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 280))
 
         let dateLabel = NSTextField(labelWithString: "日付")
         dateLabel.font = .boldSystemFont(ofSize: 11)
@@ -2114,6 +2649,19 @@ final class FilterPopoverViewController: NSViewController {
         personControl.target = self
         personControl.action = #selector(personControlChanged)
 
+        let illustLabel = NSTextField(labelWithString: "種類")
+        illustLabel.font = .boldSystemFont(ofSize: 11)
+
+        illustrationControl.segmentStyle = .automatic
+        illustrationControl.segmentCount = 3
+        for (i, l) in ["すべて", "イラストのみ", "写真のみ"].enumerated() {
+            illustrationControl.setLabel(l, forSegment: i)
+            illustrationControl.setWidth(72, forSegment: i)
+        }
+        illustrationControl.selectedSegment = 0
+        illustrationControl.target = self
+        illustrationControl.action = #selector(illustrationControlChanged)
+
         statusLabel.font = .systemFont(ofSize: 10)
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.lineBreakMode = .byTruncatingTail
@@ -2121,7 +2669,8 @@ final class FilterPopoverViewController: NSViewController {
         let resetButton = NSButton(title: "フィルターを解除", target: self, action: #selector(resetTapped))
         resetButton.bezelStyle = .rounded
 
-        for v in [dateLabel, dateControl, customStack, personLabel, personControl, statusLabel, resetButton] {
+        for v in [dateLabel, dateControl, customStack, personLabel, personControl,
+                  illustLabel, illustrationControl, statusLabel, resetButton] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -2137,7 +2686,11 @@ final class FilterPopoverViewController: NSViewController {
             personLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
             personControl.topAnchor.constraint(equalTo: personLabel.bottomAnchor, constant: 6),
             personControl.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
-            statusLabel.topAnchor.constraint(equalTo: personControl.bottomAnchor, constant: 10),
+            illustLabel.topAnchor.constraint(equalTo: personControl.bottomAnchor, constant: 12),
+            illustLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            illustrationControl.topAnchor.constraint(equalTo: illustLabel.bottomAnchor, constant: 6),
+            illustrationControl.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            statusLabel.topAnchor.constraint(equalTo: illustrationControl.bottomAnchor, constant: 10),
             statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
             statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -14),
             resetButton.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 8),
@@ -2175,10 +2728,16 @@ final class FilterPopoverViewController: NSViewController {
         onChange?(filter)
     }
 
+    @objc private func illustrationControlChanged() {
+        filter.illustrationFilter = IllustrationFilter(rawValue: illustrationControl.selectedSegment) ?? .all
+        onChange?(filter)
+    }
+
     @objc private func resetTapped() {
         filter = PhotoFilter()
         dateControl.selectedSegment = 0
         personControl.selectedSegment = 0
+        illustrationControl.selectedSegment = 0
         customStack.isHidden = true
         statusLabel.stringValue = ""
         onChange?(filter)
@@ -2198,22 +2757,32 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private var duplicatesWC: DuplicatesWindowController?
 
     private var sortOrder: SortOrder = .dateDesc {
-        didSet { UserDefaults.standard.set(sortOrder.rawValue, forKey: defaultsSortKey) }
+        didSet {
+            UserDefaults.standard.set(sortOrder.rawValue, forKey: defaultsSortKey)
+            gridVC.thumbnailBadge = sortOrder.showsFileSize ? .fileSize : (sortOrder.showsQuality ? .quality : .none)
+        }
     }
 
     private var currentFilter = PhotoFilter()
     private var currentBaseCount = 0
     private var filterGeneration = 0
     private let faceCache = FaceCache()
+    private let illustrationCache = IllustrationCache()
+    private let qualityCache = QualityCache()
     private var filterPopover: NSPopover?
 
-    /// アプリ終了時に呼ばれ、実行中の顔検出をすぐ打ち切って終了処理をブロックしないようにする。
+    /// アプリ終了時に呼ばれ、実行中の顔検出・イラスト判定・画質解析をすぐ打ち切って終了処理をブロックしないようにする。
     func cancelBackgroundWork() {
         faceCache.cancelCurrent()
+        illustrationCache.cancelCurrent()
+        qualityCache.cancelCurrent()
     }
     private var filterPopoverVC: FilterPopoverViewController?
+    private var sortPopover: NSPopover?
+    private var sortPopoverVC: SortPopoverViewController?
 
     private static let thumbSliderItemID = NSToolbarItem.Identifier("thumbSize")
+    private static let sortItemID = NSToolbarItem.Identifier("sort")
     private static let filterItemID = NSToolbarItem.Identifier("filter")
 
     convenience init() {
@@ -2233,6 +2802,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         if savedCell >= Double(minCellSize), savedCell <= Double(maxCellSize) {
             gridVC.cellSize = CGFloat(savedCell)
         }
+        gridVC.qualityScoreProvider = { [weak self] item in self?.qualityCache.result(for: item) }
 
         setupSplitView()
         setupToolbar()
@@ -2310,21 +2880,27 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         applyFilter(to: store.photos(checkedPaths: sidebarVC.checkedPaths, order: sortOrder))
     }
 
-    /// 日付範囲フィルターは同期的に適用し、人物フィルターが有効な場合だけ
-    /// (未解析の写真がある場合のみ)Vision の顔検出をバックグラウンドで走らせてから反映する。
+    /// 日付範囲フィルターは同期的に適用し、その後 人物→イラスト種類 の順で
+    /// (それぞれ有効な場合だけ・未解析の写真がある場合だけ)Vision解析をバックグラウンドで
+    /// 順番に走らせてから反映する。2つの解析を直列に繋いでいるのは、同時に大量のVision
+    /// リクエストを投げるとFaceCache/IllustrationCache双方が内部でスレッドを食い合って
+    /// 進捗表示が競合するのを避けるため。
     private func applyFilter(to base: [PhotoItem]) {
         filterGeneration += 1
         let gen = filterGeneration
         let dateFiltered = currentFilter.dateRange.apply(to: base)
+        applyPersonFilter(to: dateFiltered, gen: gen, baseCount: base.count)
+    }
 
+    private func applyPersonFilter(to items: [PhotoItem], gen: Int, baseCount: Int) {
         guard currentFilter.personFilter != .all else {
-            finalizeGrid(dateFiltered, baseCount: base.count)
+            applyIllustrationFilter(to: items, gen: gen, baseCount: baseCount)
             return
         }
 
-        let missing = dateFiltered.filter { faceCache.result(for: $0) == nil }
+        let missing = items.filter { faceCache.result(for: $0) == nil }
         guard !missing.isEmpty else {
-            finalizeGrid(personFiltered(dateFiltered), baseCount: base.count)
+            applyIllustrationFilter(to: personFiltered(items), gen: gen, baseCount: baseCount)
             return
         }
 
@@ -2334,8 +2910,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             self.filterPopoverVC?.setStatus("顔を検出中… \(done) / \(total)")
         }, completion: { [weak self] in
             guard let self = self, self.filterGeneration == gen else { return }
-            self.filterPopoverVC?.setStatus("")
-            self.finalizeGrid(self.personFiltered(dateFiltered), baseCount: base.count)
+            self.applyIllustrationFilter(to: self.personFiltered(items), gen: gen, baseCount: baseCount)
         })
     }
 
@@ -2347,6 +2922,77 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             case .hasPerson: return has
             case .noPerson: return !has
             }
+        }
+    }
+
+    private func applyIllustrationFilter(to items: [PhotoItem], gen: Int, baseCount: Int) {
+        guard currentFilter.illustrationFilter != .all else {
+            filterPopoverVC?.setStatus("")
+            applyQualitySort(to: items, gen: gen, baseCount: baseCount)
+            return
+        }
+
+        let missing = items.filter { illustrationCache.result(for: $0) == nil }
+        guard !missing.isEmpty else {
+            filterPopoverVC?.setStatus("")
+            applyQualitySort(to: illustrationFiltered(items), gen: gen, baseCount: baseCount)
+            return
+        }
+
+        filterPopoverVC?.setStatus("種類を判定中… 0 / \(missing.count)")
+        illustrationCache.analyze(missing, progress: { [weak self] done, total in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.filterPopoverVC?.setStatus("種類を判定中… \(done) / \(total)")
+        }, completion: { [weak self] in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.filterPopoverVC?.setStatus("")
+            self.applyQualitySort(to: self.illustrationFiltered(items), gen: gen, baseCount: baseCount)
+        })
+    }
+
+    private func illustrationFiltered(_ items: [PhotoItem]) -> [PhotoItem] {
+        items.filter { item in
+            let isIllust = illustrationCache.result(for: item) ?? false
+            switch currentFilter.illustrationFilter {
+            case .all: return true
+            case .illustrationOnly: return isIllust
+            case .photoOnly: return !isIllust
+            }
+        }
+    }
+
+    /// 画質順ソートが選ばれているときだけ、まだ未解析の写真を`QualityCache`でバックグラウンド
+    /// 解析してから並び替える(重い処理なので他のソート順では一切走らない)。進捗は
+    /// フィルターポップオーバーではなくウインドウのサブタイトルに一時的に出す
+    /// (ソートメニューはポップオーバーを開かずに使えるため)。
+    private func applyQualitySort(to items: [PhotoItem], gen: Int, baseCount: Int) {
+        guard sortOrder.showsQuality else {
+            finalizeGrid(items, baseCount: baseCount)
+            return
+        }
+
+        let missing = items.filter { qualityCache.result(for: $0) == nil }
+        guard !missing.isEmpty else {
+            finalizeGrid(sortedByQuality(items), baseCount: baseCount)
+            return
+        }
+
+        window?.subtitle = "画質を解析中… 0 / \(missing.count)"
+        qualityCache.analyze(missing, progress: { [weak self] done, total in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.window?.subtitle = "画質を解析中… \(done) / \(total)"
+        }, completion: { [weak self] in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.finalizeGrid(self.sortedByQuality(items), baseCount: baseCount)
+        })
+    }
+
+    private func sortedByQuality(_ items: [PhotoItem]) -> [PhotoItem] {
+        let ascending = sortOrder == .qualityAsc
+        return items.sorted { a, b in
+            let sa = qualityCache.result(for: a) ?? 0
+            let sb = qualityCache.result(for: b) ?? 0
+            return ascending ? sa < sb : sa > sb
         }
     }
 
@@ -2603,7 +3249,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     // MARK: toolbar
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, Self.filterItemID, .flexibleSpace, Self.thumbSliderItemID]
+        [.toggleSidebar, Self.sortItemID, Self.filterItemID, .flexibleSpace, Self.thumbSliderItemID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -2638,7 +3284,43 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             item.view = button
             return item
         }
+        if itemIdentifier == Self.sortItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "並び替え"
+            item.paletteLabel = "並び替え"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "arrow.up.arrow.down.circle",
+                               accessibilityDescription: "並び替え") ?? NSImage(),
+                target: self, action: #selector(toggleSortPopover(_:)))
+            button.bezelStyle = .texturedRounded
+            item.view = button
+            return item
+        }
         return nil
+    }
+
+    @objc private func toggleSortPopover(_ sender: NSButton) {
+        if let pop = sortPopover, pop.isShown {
+            pop.performClose(nil)
+            return
+        }
+        let vc = sortPopoverVC ?? {
+            let vc = SortPopoverViewController()
+            vc.onSelect = { [weak self] order in
+                guard let self = self else { return }
+                self.sortOrder = order
+                self.reloadGrid()
+                self.sortPopover?.performClose(nil)
+            }
+            sortPopoverVC = vc
+            return vc
+        }()
+        vc.setSelected(sortOrder)
+        let pop = NSPopover()
+        pop.contentViewController = vc
+        pop.behavior = .transient
+        pop.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+        sortPopover = pop
     }
 
     @objc private func toggleFilterPopover(_ sender: NSButton) {
@@ -2757,9 +3439,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let viewMenu = NSMenu(title: "表示")
         let sortItem = NSMenuItem(title: "並び替え", action: nil, keyEquivalent: "")
         let sortMenu = NSMenu(title: "並び替え")
-        for (title, order) in [("新しい順", SortOrder.dateDesc),
-                               ("古い順", SortOrder.dateAsc),
-                               ("名前順", SortOrder.name)] {
+        for (title, order) in sortMenuEntries {
             let mi = NSMenuItem(title: title,
                                 action: #selector(MainWindowController.changeSort(_:)),
                                 keyEquivalent: "")

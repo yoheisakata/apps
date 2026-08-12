@@ -21,10 +21,15 @@ final class YtDlpManager: ObservableObject {
     var toolsReady: Bool { ytdlpPath != nil && ffmpegPath != nil }
 
     private var process: Process?
+    /// プレイリストダウンロード中の "(3/23) " のような接頭辞。単発動画では空文字のまま。
+    private var playlistItemLabel = ""
 
     /// 選択された種別を順番にダウンロードする。
     /// - Parameter videoHeight: Video の最大解像度(px)。nil は最高画質。
-    func start(url: String, kinds: [DownloadKind], videoHeight: Int?, outputDir: URL) {
+    /// - Parameter isPlaylist: true ならプレイリスト全体を `保存先/ダウンロード名/` にまとめて落とす。
+    /// - Parameter customName: 空でなければ、自動取得したタイトルの代わりにこの名前を使う
+    ///   (プレイリストならフォルダ名、単発動画ならファイル名に反映される)。
+    func start(url: String, kinds: [DownloadKind], videoHeight: Int?, outputDir: URL, isPlaylist: Bool = false, customName: String = "") {
         guard !isRunning, let ytdlp = ytdlpPath else { return }
         let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -40,7 +45,8 @@ final class YtDlpManager: ObservableObject {
             guard let self else { return }
             for kind in kinds {
                 let ok = await self.runOne(ytdlp: ytdlp, url: trimmed, kind: kind,
-                                           videoHeight: videoHeight, outputDir: outputDir)
+                                           videoHeight: videoHeight, outputDir: outputDir, isPlaylist: isPlaylist,
+                                           customName: customName)
                 if !ok { break }
             }
             await MainActor.run {
@@ -58,11 +64,48 @@ final class YtDlpManager: ObservableObject {
         process?.terminate()
     }
 
+    /// リンクを貼り付けた直後に呼ぶ軽量メタデータ取得(ダウンロードはしない)。
+    /// プレイリストならプレイリストのタイトル、単発動画なら動画のタイトルを1個だけ取得して返す。
+    /// 取得失敗(無効なURL・削除済み動画・ネットワークエラー等)は nil を返すだけで、
+    /// 呼び出し側(名前欄)はユーザーが手入力すれば問題なく続行できる。
+    func fetchTitle(url: String, isPlaylist: Bool) async -> String? {
+        guard let ytdlp = ytdlpPath else { return nil }
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        return await Task.detached(priority: .userInitiated) {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: ytdlp)
+            // プレイリストは`--playlist-end 1`で1件目の列挙だけに留め、全項目を舐めずに
+            // プレイリスト自体のタイトルだけを高速に取得する(実測1秒前後)。
+            proc.arguments = isPlaylist
+                ? ["--flat-playlist", "--no-warnings", "--playlist-end", "1", "--print", "%(playlist_title)s", trimmed]
+                : ["--no-warnings", "--skip-download", "--print", "%(title)s", trimmed]
+
+            let outPipe = Pipe()
+            proc.standardOutput = outPipe
+            proc.standardError = Pipe()
+            do {
+                try proc.run()
+            } catch {
+                return nil
+            }
+            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+            proc.waitUntilExit()
+            guard proc.terminationStatus == 0,
+                  let text = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                  !text.isEmpty, text != "NA" else { return nil }
+            return text
+        }.value
+    }
+
     // MARK: - 1ジョブ実行
 
     private func runOne(ytdlp: String, url: String, kind: DownloadKind,
-                        videoHeight: Int?, outputDir: URL) async -> Bool {
+                        videoHeight: Int?, outputDir: URL, isPlaylist: Bool, customName: String) async -> Bool {
         let videoLabel = videoHeight.map { "\($0)p" } ?? "最高画質"
+        playlistItemLabel = ""
         await MainActor.run {
             self.statusLine = kind == .audio ? "音声をダウンロード中…" : "動画をダウンロード中…"
             self.appendLog("\n=== \(kind == .audio ? "AUDIO (mp3 / 最高音質)" : "VIDEO (\(videoLabel) / mp4)") ===\n")
@@ -70,7 +113,8 @@ final class YtDlpManager: ObservableObject {
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: ytdlp)
-        proc.arguments = buildArguments(url: url, kind: kind, videoHeight: videoHeight, outputDir: outputDir)
+        proc.arguments = buildArguments(url: url, kind: kind, videoHeight: videoHeight, outputDir: outputDir,
+                                        isPlaylist: isPlaylist, customName: customName)
 
         let outPipe = Pipe()
         proc.standardOutput = outPipe
@@ -107,12 +151,24 @@ final class YtDlpManager: ObservableObject {
     }
 
     /// yt-dlp の引数を組み立てる。
-    private func buildArguments(url: String, kind: DownloadKind, videoHeight: Int?, outputDir: URL) -> [String] {
+    private func buildArguments(url: String, kind: DownloadKind, videoHeight: Int?, outputDir: URL,
+                                isPlaylist: Bool, customName: String) -> [String] {
+        // customNameが指定されていれば、自動取得タイトルの代わりにそれを使う
+        // (プレイリストはフォルダ名、単発動画はファイル名に反映)。`-o`テンプレートへの
+        // リテラル埋め込みは`--restrict-filenames`の対象外(あれはyt-dlp側の`%()s`展開にしか
+        // 効かない)なので、`sanitizePathComponent`で`/`等を自前で潰しておく。
+        let sanitizedName = sanitizePathComponent(customName)
+        let nameField = sanitizedName.isEmpty ? "%(title)s" : sanitizedName
+        // プレイリストモードでは `保存先/プレイリスト名/タイトル [id].拡張子` にまとめる ―
+        // そのままフォルダ単位で mytube の「フォルダを選択」に渡せる形にするため。
+        let outputTemplate = isPlaylist
+            ? outputDir.appendingPathComponent("\(sanitizedName.isEmpty ? "%(playlist_title)s" : sanitizedName)/%(title)s [%(id)s].%(ext)s").path
+            : outputDir.appendingPathComponent("\(nameField) [%(id)s].%(ext)s").path
         var args: [String] = [
             "--newline",                 // 進捗を行単位で flush
-            "--no-playlist",             // 単一動画のみ
+            isPlaylist ? "--yes-playlist" : "--no-playlist",
             "--restrict-filenames",      // 安全なファイル名
-            "-o", outputDir.appendingPathComponent("%(title)s [%(id)s].%(ext)s").path,
+            "-o", outputTemplate,
         ]
         if let ffmpeg = ffmpegPath {
             args += ["--ffmpeg-location", ffmpeg]
@@ -144,15 +200,28 @@ final class YtDlpManager: ObservableObject {
         return args
     }
 
+    /// ユーザーが入力したダウンロード名を、`-o`テンプレートの1階層として安全に埋め込める
+    /// 形に整形する。パス区切りを含んでいると意図しない階層作成/移動が起きうるため置換し、
+    /// `.`/`..`だけの入力は空扱いにしてテンプレートのデフォルト値側にフォールバックさせる。
+    private func sanitizePathComponent(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != ".", trimmed != ".." else { return "" }
+        return trimmed.replacingOccurrences(of: "/", with: "-")
+    }
+
     // MARK: - 出力処理
 
     private func handleOutput(_ text: String) {
         appendLog(text)
-        // 進捗パーセントを拾う: 例 "[download]  42.1% of 10.00MiB at ..."
         for line in text.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
+            // プレイリスト内の何本目かを拾う: 例 "[download] Downloading item 3 of 23"
+            if let item = Self.parsePlaylistItem(String(line)) {
+                playlistItemLabel = "(\(item.index)/\(item.count)) "
+            }
+            // 進捗パーセントを拾う: 例 "[download]  42.1% of 10.00MiB at ..."
             if let pct = Self.parsePercent(String(line)) {
                 progress = pct / 100
-                statusLine = String(line).trimmingCharacters(in: .whitespaces)
+                statusLine = playlistItemLabel + String(line).trimmingCharacters(in: .whitespaces)
             }
         }
     }
@@ -162,6 +231,18 @@ final class YtDlpManager: ObservableObject {
         if log.count > 40_000 {
             log = String(log.suffix(30_000))
         }
+    }
+
+    /// "[download] Downloading item 3 of 23" から (3, 23) を拾う。
+    private static func parsePlaylistItem(_ line: String) -> (index: Int, count: Int)? {
+        guard line.contains("Downloading item") else { return nil }
+        let tokens = line.split(separator: " ")
+        guard let itemIdx = tokens.firstIndex(of: "item"),
+              itemIdx + 3 < tokens.count,
+              tokens[itemIdx + 2] == "of",
+              let index = Int(tokens[itemIdx + 1]),
+              let count = Int(tokens[itemIdx + 3]) else { return nil }
+        return (index, count)
     }
 
     private static func parsePercent(_ line: String) -> Double? {

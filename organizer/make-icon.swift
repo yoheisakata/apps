@@ -1,11 +1,14 @@
 #!/usr/bin/env swift
-// 緑グラデーション背景（downloaderと共通）に白い🗂️（インデックスディバイダー、整理整頓のイメージ）の
-// シルエットを描いたアプリアイコンを生成する。
+// 薄い青グラデーション背景（downloader/photo-gallery/mytubeと共通）に白いSF Symbol
+// "tray.2.fill"（重なるトレイ、仕分け・整理のイメージ）のシルエットを描いたアプリアイコンを生成する。
+// 旧版は絵文字🗂️をテキスト描画して白抜きしていたため輪郭がギザギザでシルエットが
+// 判別しづらかった。他の兄弟アプリ（photo-galleryの"photo"等）と同じSF Symbolベースの
+// 描画に変更し、エッジをシャープにした。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let blueTop = NSColor(srgbRed: 0.17, green: 0.72, blue: 0.45, alpha: 1)    // #2BB673（downloaderと共通）
-let blueBottom = NSColor(srgbRed: 0.11, green: 0.48, blue: 0.30, alpha: 1) // #1B7A4D（downloaderと共通）
+let blueTop = NSColor(srgbRed: 0.365, green: 0.663, blue: 0.878, alpha: 1) // #5DA9E0（downloader/photo-galleryと共通）
+let blueBottom = NSColor(srgbRed: 0.106, green: 0.369, blue: 0.620, alpha: 1) // #1B5E9E（downloader/photo-galleryと共通）
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -27,19 +30,20 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let gradient = NSGradient(colors: [blueTop, blueBottom])!
     gradient.draw(in: path, angle: -90)
 
-    // 中央に白いインデックスディバイダー(🗂️)のシルエット
-    let text = "🗂️"
-    let fontSize = s * 0.5
-    let font = NSFont.systemFont(ofSize: fontSize)
-    let attrs: [NSAttributedString.Key: Any] = [.font: font]
-    let str = NSAttributedString(string: text, attributes: attrs)
-    let textSize = str.size()
-    let origin = NSPoint(x: (s - textSize.width) / 2, y: (s - textSize.height) / 2 - s * 0.01)
+    // 中央に白いSF Symbol "tray.2.fill"(重なるトレイ)のシルエット
+    let glyphSize = s * 0.44
+    let config = NSImage.SymbolConfiguration(pointSize: glyphSize, weight: .regular)
+    guard let symbol = NSImage(systemSymbolName: "tray.2.fill", accessibilityDescription: nil)?
+        .withSymbolConfiguration(config) else {
+        fatalError("SF Symbol 'tray.2.fill' not found")
+    }
+    let symbolSize = symbol.size
+    let origin = NSPoint(x: (s - symbolSize.width) / 2, y: (s - symbolSize.height) / 2)
 
     let cg = ctx.cgContext
     cg.saveGState()
     cg.beginTransparencyLayer(auxiliaryInfo: nil)
-    str.draw(at: origin)
+    symbol.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
     cg.setBlendMode(.sourceIn)
     cg.setFillColor(NSColor.white.cgColor)
     cg.fill(CGRect(x: 0, y: 0, width: s, height: s))

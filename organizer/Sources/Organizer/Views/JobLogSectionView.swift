@@ -14,6 +14,23 @@ struct JobLogSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            if isRunningThisKind, let overall = jobRunner.overallProgress {
+                HStack {
+                    Text("全体の進捗")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ProgressView(value: overall)
+                    Text("\(Int(overall * 100))%")
+                        .font(.callout.monospacedDigit())
+                        .frame(width: 40, alignment: .trailing)
+                }
+                if !jobRunner.overallDetail.isEmpty {
+                    Text(jobRunner.overallDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(isRunningThisKind ? jobRunner.title : "実行ログ")

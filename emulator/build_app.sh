@@ -35,6 +35,11 @@ if [[ -f AppIcon.icns ]]; then
     cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 fi
 
+# TitleMap のフォールバック用にコピーを同梱する(通常はリポジトリの json を直接読む)。
+if [[ -f title-map.json ]]; then
+    cp title-map.json "${APP_BUNDLE}/Contents/Resources/"
+fi
+
 echo "==> アドホック署名"
 codesign --force --deep --sign - "${APP_BUNDLE}"
 

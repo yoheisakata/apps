@@ -1,7 +1,7 @@
 # CLAUDE.md — downloader
 
 YouTube ダウンローダー(`yt-dlp`/`ffmpeg` をラップ)と torrent ダウンローダー(`aria2c` を JSON-RPC 経由で
-ラップ)を1つの常駐アプリに統合したもの(SwiftUI + AppKit + SPM)。旧 `youtube-dl-mac` と
+ラップ)を1つのアプリに統合したもの(SwiftUI + AppKit + SPM)。旧 `youtube-dl-mac` と
 `torrent-dl-mac` を吸収した — **別アプリとして復活させない**。使い方は `README.md` を参照。
 
 ## ビルド / デプロイ
@@ -18,17 +18,24 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
 
 - **どちらのエンジンも既存 CLI をラップするだけ**で、YouTube のダウンロードや BitTorrent プロトコル自体は
   実装しない。yt-dlp/ffmpeg/aria2c はいずれも Homebrew 前提・非同梱。
-- **常駐(メニューバー)アプリ**: `Info.plist` の `LSUIElement=true` で Dock アイコンなし。
-  SwiftUI の `App`/`WindowGroup` は使わず、`App.swift` の `@main enum` から
-  `NSApplication` を直接 `run()` している(最後のウィンドウを閉じると自動終了する挙動を避けるため —
-  torrent のダウンロード継続に必須。YouTube 側もこの仕組みに相乗りしているだけで支障はない)。
+- **通常の Dock アイコン付きアプリ**(2026-08-05〜、以前は `LSUIElement=true` の
+  メニューバー常駐アプリだった): `build_app.sh` の Info.plist から `LSUIElement` を外し、
+  `AppDelegate.applicationDidFinishLaunching` で `NSApp.setActivationPolicy(.regular)` を
+  明示している(Info.plist だけでなくコード側でも `.accessory` を指定していたため、両方
+  直す必要があった)。ただし SwiftUI の `App`/`WindowGroup` は使わず、`App.swift` の
+  `@main enum` から `NSApplication` を直接 `run()` する構成は維持している ―
+  macOS の `WindowGroup` アプリのデフォルト挙動である「最後のウィンドウを閉じるとアプリも
+  終了する」を避けるため(torrent のダウンロード継続に必須。YouTube 側もこの仕組みに
+  相乗りしているだけで支障はない)。ウィンドウを閉じてもプロセスは終了せず、
+  Dock アイコン右クリックまたはメニューバー拡張アイコンの「終了」(Cmd+Qと同義)でのみ終了する。
+  Dock アイコンクリックでウィンドウを呼び戻せるよう `applicationShouldHandleReopen` も実装した。
   ウィンドウ管理・ステータスバーアイテムは `AppDelegate.swift` が一括して持ち、
   `aria2Engine`(`Aria2Engine`)と `ytDlpManager`(`YtDlpManager`)の両方を保持して
   `ContentView()` に `.environmentObject` で注入する。
 - **UI はトップレベル `ContentView.swift` の `TabView`** で「YouTube」「Torrent」を切り替えるだけの薄い構造。
   各タブの実体は `YouTubeView.swift` / `TorrentView.swift`。
 - **`YtDlpManager`**(`YtDlpManager.swift`, 旧 `DownloadManager`): yt-dlp を `Process` として起動し、
-  `--newline` の進捗行をパースする。
+  `--newline` の進捗行をパースする。プレイリスト対応は下記参照。
 - **`Aria2Engine`**(`Aria2Engine.swift`): aria2c を `Process` として起動し、
   `http://127.0.0.1:<random port>/jsonrpc` に `URLSession` で JSON-RPC を投げる。
   ポート番号・`--rpc-secret` はプロセス起動ごとにランダム生成。
@@ -36,6 +43,39 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
 - **`ToolLocator`**(`ToolLocator.swift`): yt-dlp/ffmpeg/aria2c すべての探索をこの1本で共有する。
   Homebrew の既知パス(`/opt/homebrew/bin`, `/usr/local/bin`)とログインシェルの両方を見る
   (Finder 起動だと PATH が引き継がれないため)。
+
+### YouTube プレイリストのダウンロード
+
+`YouTubeView` のトグル(`isPlaylist`、URLに`list=`を含むと自動でON)が`YtDlpManager.start`まで
+素通しされ、`buildArguments`が`--no-playlist`/`--yes-playlist`と`-o`の出力テンプレートを切り替える。
+プレイリストモードでは`-o`が`%(playlist_title)s/%(title)s [%(id)s].%(ext)s`になり、
+`保存先/プレイリスト名/`のサブフォルダにまとまる ― mytube の「フォルダを選択」にそのまま渡せる形に
+するため意図的にこうしている(mytube 自体はダウンロード機能を持たない設計方針
+— `mytube/CLAUDE.md`参照 — なので、YouTube プレイリストの取り込みはここで完結させる)。
+`handleOutput`は yt-dlp が出す`Downloading item 3 of 23`行を`parsePlaylistItem`で拾い、
+`statusLine`の先頭に`(3/23) `を付与してプレイリスト全体の進み具合を見せる(ファイル単位の
+パーセント表示`parsePercent`とは別物、両方を組み合わせて表示している)。
+Audio・Video両方チェックした状態でプレイリストを落とすと、プレイリスト全体を2回
+(audio抽出用・video結合用)処理する ― 単発動画のときの既存挙動と同じ。
+
+### ダウンロード名の自動取得 / 上書き
+
+`YouTubeView`はURL入力を500msデバウンス(`scheduleTitleFetch`、前回分は`Task.cancel()`)した後
+`YtDlpManager.fetchTitle(url:isPlaylist:)`を呼び、ダウンロード自体は行わずタイトルだけ軽量取得して
+「ダウンロード名」欄に反映する。プレイリストのときは`--flat-playlist --playlist-end 1 --print
+"%(playlist_title)s"`で1件目の列挙だけに留めてプレイリストタイトルを取得(実測1秒前後、
+全件列挙する`--dump-single-json`より高速)、単発動画は`--skip-download --print "%(title)s"`。
+取得失敗(無効なURL・削除済み動画等)はnilを返すだけで、名前欄は手入力のまま使い続けられる
+(呼び出し側でエラー表示はしない)。
+
+「ダウンロード名」欄が空でなければ、`buildArguments`が`-o`テンプレートの`%(title)s`
+(プレイリストなら`%(playlist_title)s`)の代わりにその文字列をそのまま埋め込む。この埋め込みは
+`--restrict-filenames`の対象外(あれはyt-dlp側の`%()s`展開にしか効かない)なので、
+`sanitizePathComponent`で`/`を置換し`.`/`..`だけの入力は空扱いにしてから使う
+― ユーザー入力をパスの1階層としてそのまま使うため、意図しない階層作成/移動を防ぐガード。
+`YouTubeView`側にも`customNameWarning`(同じ「/」「.」「..」の判定基準)があり、置き換えが
+発生することをダウンロード前に注意文で知らせる ― 自動取得したタイトルに「/」が含まれることは
+実際にある(曲名の「A/B」等)ため、黙って変わるより気付けるようにした。
 
 ### Torrent 側の設定反映が2系統ある点に注意
 
@@ -112,6 +152,9 @@ GUI を起動できない制約下では「magnet リンクのクリックがア
 - yt-dlp/ffmpeg/aria2c は同梱しない。各タブは対応する `toolsReady == false` のときバナー表示 + 操作無効化を維持する。
 - RPC のシークレットトークンは各パラメータの先頭に `"token:<secret>"` を付与する形式(aria2 の認証仕様)。
   この形式を崩すと全 RPC 呼び出しが `Unauthorized` になる。
-- `LSUIElement` を外すと Dock アイコンが出てしまい「ウィンドウを閉じても常駐」という要件が崩れるので、
-  `build_app.sh` の Info.plist 生成部分は変更時に注意する。
+- 「ウィンドウを閉じても終了しない」という要件は `LSUIElement`(2026-08-05に廃止)ではなく、
+  `AppDelegate.applicationShouldTerminateAfterLastWindowClosed`が`false`を返すことと、
+  `App.swift`が`NSApplication.shared.run()`を直接呼ぶ構成(SwiftUIの`WindowGroup`を使わない)
+  の2つで成立している。この2つのどちらかを崩すと、ウィンドウを閉じただけでTorrentダウンロードが
+  中断する事故につながるので変更時は注意する。
 - yt-dlp の引数(フォーマット文字列・ファイル名テンプレート)を変える場合は README の表も更新する。

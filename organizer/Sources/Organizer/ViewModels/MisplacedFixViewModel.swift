@@ -41,8 +41,8 @@ final class MisplacedFixViewModel: ObservableObject {
     /// selectedYears/selectedMonthsとは独立)。
     @Published var candidateYears: Set<String> = []
     /// dHashのハミング距離のしきい値。既定は最も厳しい`.exact`(距離0)。誤マッチ=誤った年フォルダへの
-    /// 移動+ファイル名への日付捏造という、重複写真パインの誤検出(ゴミ箱行き、復元可能)より
-    /// 取り返しがつきにくい失敗モードのため、緩めるのはユーザーが確認のみ/Dry runで様子を見てから。
+    /// 移動+ファイル名への日付捏造は、ゴミ箱行き(復元可能)より取り返しがつきにくい失敗モードのため、
+    /// 緩めるのはユーザーが確認のみ/Dry runで様子を見てから。
     @Published var similarityMatchLevel: MatchLevel {
         didSet { UserDefaults.standard.set(similarityMatchLevel.rawValue, forKey: "misplacedFix.similarityMatchLevel") }
     }

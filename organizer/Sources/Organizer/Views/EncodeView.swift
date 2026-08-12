@@ -43,6 +43,41 @@ struct EncodeView: View {
 
                 Toggle("Dry run（実際には変換しない）", isOn: $model.dryRun)
 
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Button("スキャン（残り件数を確認）") {
+                            model.scan()
+                        }
+                        .disabled(model.isScanning || jobRunner.isRunning || !model.folderExists)
+
+                        if model.isScanning {
+                            ProgressView().controlSize(.small)
+                            Text(model.scanProgressText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("中止") { model.cancelScan() }
+                        }
+                    }
+
+                    if let result = model.scanResult {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("動画ファイル: \(result.total)件")
+                            Text("エンコードが必要: \(result.toEncode)件（合計 \(ByteFmt.string(Int64(result.toEncodeSizeMB * 1024 * 1024)))）")
+                                .bold()
+                            Text("コンテナ変換のみ: \(result.toRemux)件 / 変換済み: \(result.alreadyDone)件"
+                                + (result.errorCount > 0 ? " / エラー: \(result.errorCount)件" : ""))
+                            if !result.errorSamples.isEmpty {
+                                ForEach(result.errorSamples, id: \.self) { line in
+                                    Text("  ・\(line)")
+                                        .font(.caption)
+                                }
+                            }
+                        }
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+
                 Button(model.dryRun ? "確認だけ実行" : "エンコードを実行") {
                     model.run()
                 }

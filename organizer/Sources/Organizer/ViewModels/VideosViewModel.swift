@@ -7,7 +7,7 @@ final class VideosViewModel: ObservableObject {
     @Published var destPath: String
     @Published var dryRun = false
     @Published var skipEncode = false
-    @Published var crf: Double = 20
+    @Published var crf: Double = 23
     @Published var preset: String = "slow"
 
     static let videoExtensions: Set<String> = ["mov", "mp4", "m4v", "mkv", "avi", "mts", "m2ts"]
@@ -80,7 +80,7 @@ final class VideosViewModel: ObservableObject {
                 setProgress: { handle.setProgress($0) },
                 setDetail: { handle.setDetail($0) },
                 afterMove: doEncode ? { movedFile in
-                    let (outcome, sizeMB) = await H265Encoder.processFile(
+                    let (outcome, sizeMB, detail) = await H265Encoder.processFile(
                         movedFile,
                         label: movedFile.lastPathComponent,
                         crf: crfValue, preset: presetValue, remuxOnly: false,
@@ -90,7 +90,7 @@ final class VideosViewModel: ObservableObject {
                         setDetail: { handle.setDetail($0) },
                         onCancel: { handle.onCancel($0) }
                     )
-                    encodeResult.add(outcome, sizeMB: sizeMB)
+                    encodeResult.add(outcome, sizeMB: sizeMB, detail: detail)
                 } : nil,
                 checkCancel: { try Task.checkCancellation() }
             )
@@ -105,6 +105,12 @@ final class VideosViewModel: ObservableObject {
                 handle.appendLog("  エラースキップ: \(encodeResult.errorSkipped)件")
                 if encodeResult.encoded > 0 {
                     handle.appendLog("  エンコード対象の合計サイズ(元サイズ): \(ByteFmt.string(Int64(encodeResult.encodedSizeMB * 1024 * 1024)))")
+                }
+                if !encodeResult.errorDetails.isEmpty {
+                    handle.appendLog("  失敗/エラーの詳細:")
+                    for line in encodeResult.errorDetails {
+                        handle.appendLog("    - \(line)")
+                    }
                 }
             }
         }

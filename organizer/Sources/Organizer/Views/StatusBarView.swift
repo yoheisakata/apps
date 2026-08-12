@@ -28,6 +28,11 @@ struct StatusBarView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    if !jobRunner.overallDetail.isEmpty {
+                        Text("全体: \(jobRunner.overallDetail)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Spacer()

@@ -1,7 +1,6 @@
 import Foundation
 
-/// パスの半分圧縮つきUnion-Find。`DupPhotosViewModel`(重複写真のdHashクラスタリング)と
-/// `VideoDupFinder`(動画重複のフレームハッシュクラスタリング)の両方で使う共通実装。
+/// パスの半分圧縮つきUnion-Find。`VideoDupFinder`(動画重複のフレームハッシュクラスタリング)で使う。
 struct UnionFind {
     private var parent: [Int]
     init(_ n: Int) { parent = Array(0..<n) }

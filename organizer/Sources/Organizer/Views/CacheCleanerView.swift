@@ -32,7 +32,7 @@ struct CacheCleanerView: View {
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("キャッシュ・不要ファイルの掃除")
+                Text("クリーン")
                     .font(.headline)
                 if vm.hasScanned {
                     Text("合計 \(ByteFmt.string(vm.totalSize)) / 選択中 \(ByteFmt.string(vm.selectedSize))")

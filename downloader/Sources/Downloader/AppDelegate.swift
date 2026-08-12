@@ -2,9 +2,12 @@ import AppKit
 import SwiftUI
 import CoreServices
 
-/// LSUIElement アプリ(Dock アイコンなし)として、メニューバーに常駐する。
-/// ウィンドウを閉じてもプロセス(と aria2c 子プロセス、yt-dlp のダウンロード)は終了せず、
-/// メニューバーの「終了」を選んだ時だけ本当に終了する。
+/// 通常の Dock アイコン付きアプリ(`.regular`)として動作する。ただし
+/// `NSApplication.shared.run()` を直接呼ぶ構成(SwiftUI の App/WindowGroup を使わない ―
+/// `App.swift` 参照)のままなので、macOS の WindowGroup アプリのデフォルト挙動である
+/// 「最後のウィンドウを閉じるとアプリも終了する」は適用されない。ウィンドウを閉じても
+/// プロセス(と aria2c 子プロセス、yt-dlp のダウンロード)は終了せず、Dock アイコン右クリック
+/// またはメニューバー拡張アイコンの「終了」を選んだ時(=Cmd+Qと同義)だけ本当に終了する。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let aria2Engine = Aria2Engine()
@@ -25,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         Settings.registerDefaults()
         setupMainMenu()
         aria2Engine.start()
@@ -71,6 +74,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    /// Dock アイコンをクリックしたとき(ウィンドウを閉じた後など)にウィンドウを呼び戻す。
+    /// 通常の Dock アプリならではの期待挙動 ― `.accessory` の頃は Dock アイコンが無く不要だった。
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showWindow()
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {

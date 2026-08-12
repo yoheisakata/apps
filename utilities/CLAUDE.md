@@ -13,3 +13,4 @@
 - 想定ディレクトリ構造は `<root>/<YYYY>/<MM>/<MMDD>/YYYY_MMDD_HHMMSS.<ext>`
   （`verify-photos.sh` がこの規約の番人）。
 - 動画処理は ffmpeg / ffprobe 前提。長時間処理は `caffeinate -i` 併用が慣例。
+- `conan_rename_episodes.py` / `conan_rename_movies.py` は写真/動画バックアップパイプラインとは無関係（名探偵コナンのTV/劇場版ファイル用）。ja.wikipedia.org の MediaWiki API を叩くため要ネットワーク。抽出ロジック（rowspan省略セルの判定、ruby/リンクのクリーニングなど）を変えたら `--dry-run` で必ず確認する。

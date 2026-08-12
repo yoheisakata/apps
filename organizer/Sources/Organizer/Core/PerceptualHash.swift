@@ -2,8 +2,8 @@ import Foundation
 import ImageIO
 import CoreGraphics
 
-/// dHash のハミング距離のしきい値。DupPhotosViewModel(重複写真パイン)と
-/// SimilarityIndex(誤配置修正の類似写真フォールバック)の両方で使う共通のしきい値定義。
+/// dHash のハミング距離のしきい値。SimilarityIndex(誤配置修正の類似写真フォールバック)と
+/// VideoDupViewModel(動画重複)の両方で使う共通のしきい値定義。
 enum MatchLevel: Int, CaseIterable, Identifiable {
     case exact = 0, strict, normal, loose
     var id: Int { rawValue }
@@ -15,9 +15,7 @@ enum MatchLevel: Int, CaseIterable, Identifiable {
         case .loose: return "ゆるい"
         }
     }
-    /// dHash のハミング距離のしきい値（重複写真パインでの exact はバイト単位比較に特殊扱いされるため
-    /// この値は使われない。SimilarityIndex では常にdHash距離で比較するため、exact=0はそのまま
-    /// 「見た目が完全一致(距離0)」の意味になる）
+    /// dHash のハミング距離のしきい値(exact=0は「見た目が完全一致(距離0)」の意味になる)
     var threshold: Int {
         switch self {
         case .exact: return 0
@@ -28,8 +26,8 @@ enum MatchLevel: Int, CaseIterable, Identifiable {
     }
 }
 
-/// 知覚ハッシュ(dHash)。DupPhotosViewModel(重複写真検出)とSimilarityIndex
-/// (誤配置修正の類似写真フォールバック)の両方から使う共通ロジック。
+/// 知覚ハッシュ(dHash)。SimilarityIndex(誤配置修正の類似写真フォールバック)とVideoDupFinder
+/// (動画重複のフレームハッシュ)の両方から使う共通ロジック。
 enum PerceptualHash {
     /// 9x8 グレースケールに縮小し、隣接ピクセルの明暗で 64bit の知覚ハッシュを作る
     static func dHash(source: CGImageSource) -> UInt64? {

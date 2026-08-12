@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SidebarItem: String, CaseIterable, Identifiable {
-    case rename, photos, videos, encode, misplacedFix, sync, shortClips, cacheClean, appUninstall, dupPhotos, videoDup, videoMaker, preflight
+    case rename, photos, videos, encode, misplacedFix, dateEstimate, sync, oneDriveSync, shortClips, cacheClean, storageAnalysis, appUninstall, videoDup, videoMaker, preflight
 
     var id: String { rawValue }
 
@@ -12,11 +12,13 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .videos: return "動画整理"
         case .encode: return "エンコード"
         case .misplacedFix: return "誤配置修正"
+        case .dateEstimate: return "日付推定"
         case .sync: return "同期"
+        case .oneDriveSync: return "OneDrive同期"
         case .shortClips: return "短い動画検索"
-        case .cacheClean: return "キャッシュ掃除"
+        case .cacheClean: return "クリーン"
+        case .storageAnalysis: return "ストレージ分析"
         case .appUninstall: return "アプリ削除"
-        case .dupPhotos: return "重複写真"
         case .videoDup: return "動画重複"
         case .videoMaker: return "まとめ動画"
         case .preflight: return "依存チェック"
@@ -30,11 +32,13 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .videos: return "film"
         case .encode: return "arrow.triangle.2.circlepath"
         case .misplacedFix: return "wrench.and.screwdriver"
+        case .dateEstimate: return "clock.badge.questionmark"
         case .sync: return "externaldrive.fill.badge.checkmark"
+        case .oneDriveSync: return "cloud.fill"
         case .shortClips: return "timer"
         case .cacheClean: return "sparkles"
+        case .storageAnalysis: return "chart.bar.xaxis"
         case .appUninstall: return "trash"
-        case .dupPhotos: return "photo.on.rectangle.angled"
         case .videoDup: return "film.stack"
         case .videoMaker: return "movieclapper"
         case .preflight: return "stethoscope"
@@ -43,9 +47,9 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 }
 
 private let sidebarGroups: [(title: String, items: [SidebarItem])] = [
-    ("画像系", [.photos, .misplacedFix, .dupPhotos]),
+    ("画像系", [.photos, .misplacedFix, .dateEstimate]),
     ("動画系", [.videos, .encode, .shortClips, .videoDup, .videoMaker]),
-    ("その他", [.rename, .sync, .cacheClean, .appUninstall, .preflight]),
+    ("その他", [.rename, .sync, .oneDriveSync, .cacheClean, .storageAnalysis, .appUninstall, .preflight]),
 ]
 
 struct ContentView: View {
@@ -89,11 +93,13 @@ struct ContentView: View {
                 case .videos: VideosView()
                 case .encode: EncodeView()
                 case .misplacedFix: MisplacedFixView()
+                case .dateEstimate: DateEstimateView()
                 case .sync: SyncView()
+                case .oneDriveSync: OneDriveSyncView()
                 case .shortClips: ShortClipsView()
                 case .cacheClean: CacheCleanerView()
+                case .storageAnalysis: StorageAnalysisView()
                 case .appUninstall: AppUninstallerView()
-                case .dupPhotos: DupPhotosView()
                 case .videoDup: VideoDupView()
                 case .videoMaker: VideoMakerView()
                 case .preflight: PreflightView()

@@ -54,11 +54,17 @@ final class ProcessRunner {
         } catch {
             throw ProcessRunnerError.launchFailed(error.localizedDescription)
         }
+        // 子プロセスに複製された後、親側が持つ書き込み端の複製は不要になる。SyncExec.runと
+        // 同じ理由(閉じないとファイルディスクリプタが積み上がる)でここでも明示的に閉じる。
+        try? stdoutPipe.fileHandleForWriting.close()
+        try? stderrPipe.fileHandleForWriting.close()
 
         return await withCheckedContinuation { continuation in
             process.terminationHandler = { p in
                 stdoutPipe.fileHandleForReading.readabilityHandler = nil
                 stderrPipe.fileHandleForReading.readabilityHandler = nil
+                try? stdoutPipe.fileHandleForReading.close()
+                try? stderrPipe.fileHandleForReading.close()
                 continuation.resume(returning: p.terminationStatus)
             }
         }

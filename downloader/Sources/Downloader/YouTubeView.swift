@@ -17,6 +17,10 @@ struct YouTubeView: View {
     @State private var wantAudio = true
     @State private var wantVideo = true
     @State private var videoHeight: Int? = 1080
+    @State private var isPlaylist = false
+    @State private var customName = ""
+    @State private var isFetchingTitle = false
+    @State private var titleFetchTask: Task<Void, Never>?
     @State private var outputDir = FileManager.default
         .urls(for: .downloadsDirectory, in: .userDomainMask).first
         ?? URL(fileURLWithPath: NSHomeDirectory())
@@ -25,6 +29,21 @@ struct YouTubeView: View {
         manager.toolsReady && !manager.isRunning
             && !url.trimmingCharacters(in: .whitespaces).isEmpty
             && (wantAudio || wantVideo)
+    }
+
+    /// 「ダウンロード名」が実際のファイル名として使えない内容のときに出す注意文。
+    /// `YtDlpManager.sanitizePathComponent`が黙って置き換える内容と同じ基準で判定する
+    /// (自動取得したタイトルに「/」が入っていることは実際にある ― 例:曲名の「A/B」等)。
+    private var customNameWarning: String? {
+        let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed == "." || trimmed == ".." {
+            return "この名前は使えないため、自動生成された名前で保存されます"
+        }
+        if trimmed.contains("/") {
+            return "「/」はファイル名に使えないため、「-」に置き換えて保存されます"
+        }
+        return nil
     }
 
     var body: some View {
@@ -38,6 +57,35 @@ struct YouTubeView: View {
                 Text("YouTube のリンク").font(.subheadline).foregroundStyle(.secondary)
                 TextField("https://www.youtube.com/watch?v=…", text: $url)
                     .textFieldStyle(.roundedBorder)
+                    .onChange(of: url) { newValue in
+                        // list= を含むURLを貼り付けたら自動でON(手動で上書き可能)。
+                        isPlaylist = newValue.contains("list=")
+                        scheduleTitleFetch()
+                    }
+                Toggle(isOn: $isPlaylist) {
+                    VStack(alignment: .leading) {
+                        Text("プレイリスト全体をダウンロード")
+                        Text("保存先/ダウンロード名/ にまとめて保存されます")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: isPlaylist) { _ in scheduleTitleFetch() }
+                .disabled(!url.contains("list="))
+
+                HStack(spacing: 6) {
+                    Text("ダウンロード名").font(.subheadline).foregroundStyle(.secondary)
+                    if isFetchingTitle {
+                        ProgressView().controlSize(.small)
+                    }
+                }
+                TextField("(貼り付けると自動取得、編集可)", text: $customName)
+                    .textFieldStyle(.roundedBorder)
+                Text(isPlaylist ? "保存先の直下にこの名前のフォルダが作られます" : "ファイル名として使われます(拡張子は自動)")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let customNameWarning {
+                    Label(customNameWarning, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.orange)
+                }
             }
 
             // 形式の選択
@@ -147,7 +195,31 @@ struct YouTubeView: View {
         var kinds: [DownloadKind] = []
         if wantVideo { kinds.append(.video) }
         if wantAudio { kinds.append(.audio) }
-        manager.start(url: url, kinds: kinds, videoHeight: videoHeight, outputDir: outputDir)
+        manager.start(url: url, kinds: kinds, videoHeight: videoHeight, outputDir: outputDir,
+                      isPlaylist: isPlaylist, customName: customName)
+    }
+
+    /// リンクを貼り付けた/プレイリストON・OFFを切り替えた少し後にタイトルを自動取得し、
+    /// 「ダウンロード名」欄に反映する。連続入力中に何度も yt-dlp を起動しないよう
+    /// 前回分をキャンセルしてから待ってから叩く(デバウンス)。取得に失敗しても
+    /// 名前欄は手入力のまま使えるので、エラー表示はしない。
+    private func scheduleTitleFetch() {
+        titleFetchTask?.cancel()
+        let targetURL = url
+        let targetIsPlaylist = isPlaylist
+        guard !targetURL.trimmingCharacters(in: .whitespaces).isEmpty else {
+            isFetchingTitle = false
+            return
+        }
+        titleFetchTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            isFetchingTitle = true
+            let title = await manager.fetchTitle(url: targetURL, isPlaylist: targetIsPlaylist)
+            guard !Task.isCancelled else { return }
+            isFetchingTitle = false
+            if let title { customName = title }
+        }
     }
 
     private func chooseFolder() {

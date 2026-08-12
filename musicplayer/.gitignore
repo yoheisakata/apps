@@ -1,0 +1,4 @@
+.build/
+dist/
+AppIcon.icns
+AppIcon.iconset/

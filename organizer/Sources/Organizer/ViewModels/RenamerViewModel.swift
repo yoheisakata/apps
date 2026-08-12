@@ -10,6 +10,7 @@ final class RenamerViewModel: ObservableObject {
     @Published var presets: [Preset] = []
     @Published var statusMessage = ""
     @Published var errorMessage: String?
+    @Published var includeSubfolderFiles = false
 
     private var metaCache: [URL: FileMetadata] = [:]
 
@@ -42,8 +43,18 @@ final class RenamerViewModel: ObservableObject {
 
     func addURLs(_ urls: [URL]) {
         let fm = FileManager.default
+        var expanded: [URL] = []
         for url in urls {
             let std = url.standardizedFileURL
+            var isDir: ObjCBool = false
+            guard fm.fileExists(atPath: std.path, isDirectory: &isDir) else { continue }
+            if isDir.boolValue && includeSubfolderFiles {
+                expanded.append(contentsOf: filesRecursively(under: std))
+            } else {
+                expanded.append(std)
+            }
+        }
+        for std in expanded {
             guard !items.contains(where: { $0.url == std }) else { continue }
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: std.path, isDirectory: &isDir) else { continue }
@@ -53,6 +64,22 @@ final class RenamerViewModel: ObservableObject {
                                   modDate: values?.contentModificationDate ?? Date(),
                                   createDate: values?.creationDate ?? Date()))
         }
+    }
+
+    /// フォルダ配下のファイルのみを再帰的に列挙する（サブフォルダ自体は対象に含めない）
+    private func filesRecursively(under folder: URL) -> [URL] {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(at: folder,
+                                             includingPropertiesForKeys: [.isDirectoryKey],
+                                             options: [.skipsHiddenFiles]) else { return [] }
+        var result: [URL] = []
+        for case let fileURL as URL in enumerator {
+            let isDir = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+            if !isDir {
+                result.append(fileURL.standardizedFileURL)
+            }
+        }
+        return result
     }
 
     func openPanel() {

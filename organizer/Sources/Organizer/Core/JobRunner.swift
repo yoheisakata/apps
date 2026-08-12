@@ -3,7 +3,7 @@ import Foundation
 /// 実行ボタンを持つ各ペインに対応するジョブの種別。ログは種別ごとに保持し、
 /// 各ペインの実行ログセクションは自分の種別のログだけを表示する。
 enum JobKind: String {
-    case photos, videos, encode, sync, shortClips, misplacedFix, videoMaker
+    case photos, videos, encode, sync, shortClips, misplacedFix, videoMaker, dateEstimate, oneDriveSync
 }
 
 /// ログ1行分。`id`は間引き(`removeFirst`)後もずれない通し番号にすることで、
@@ -24,12 +24,20 @@ final class JobRunner: ObservableObject {
         let setProgress: (Double?) -> Void
         let setDetail: (String) -> Void
         let onCancel: (@escaping () -> Void) -> Void
+        /// `progress`は「今処理中の1件」の進捗(ffmpegの`-progress`等でファイルが変わるたびに
+        /// リセットされる)用。ジョブ全体を通した進捗(処理済み件数/対象件数)を別に出したい
+        /// ジョブ(エンコード等)はこちらを使う。使わないジョブはnilのままでよく、
+        /// UI側もnilなら表示しない。
+        let setOverallProgress: (Double?) -> Void
+        let setOverallDetail: (String) -> Void
     }
 
     @Published private(set) var isRunning = false
     @Published private(set) var title = ""
     @Published private(set) var detail = ""
     @Published private(set) var progress: Double?
+    @Published private(set) var overallProgress: Double?
+    @Published private(set) var overallDetail = ""
     @Published private(set) var currentKind: JobKind?
     @Published private(set) var logsByKind: [JobKind: [LogLine]] = [:]
 
@@ -51,6 +59,8 @@ final class JobRunner: ObservableObject {
         self.title = title
         detail = ""
         progress = nil
+        overallProgress = nil
+        overallDetail = ""
         logsByKind[kind] = []
         nextLogID[kind] = 0
         cancelHandler = nil
@@ -72,6 +82,12 @@ final class JobRunner: ObservableObject {
                 },
                 onCancel: { handler in
                     Task { @MainActor in self.cancelHandler = handler }
+                },
+                setOverallProgress: { pct in
+                    Task { @MainActor in self.overallProgress = pct }
+                },
+                setOverallDetail: { text in
+                    Task { @MainActor in self.overallDetail = text }
                 }
             )
             do {
@@ -107,6 +123,8 @@ final class JobRunner: ObservableObject {
         title = ""
         detail = ""
         progress = nil
+        overallProgress = nil
+        overallDetail = ""
         if let activity {
             ProcessInfo.processInfo.endActivity(activity)
         }

@@ -1,15 +1,15 @@
 #!/usr/bin/env swift
-// 薄い青グラデーション背景に、白いサイコロ(5の目)を描いたアプリアイコンを生成する。
+// 白背景に、濃い赤(任天堂レッド)のサイコロ(5の目)を描いたアプリアイコンを生成する。
 //   実行: swift make-icon.swift   →  Resources/AppIcon.png (2048x2048) を出力
 // build.sh の build_icns() がこのマスター PNG から iconset/icns を都度生成するので、
 // ここでは iconset/icns は作らない。
 import AppKit
 
-let blueTop = NSColor(srgbRed: 0.56, green: 0.78, blue: 0.95, alpha: 1)    // #8FC7F2
-let blueBottom = NSColor(srgbRed: 0.31, green: 0.56, blue: 0.78, alpha: 1) // #4F8FC7
+let bgWhite = NSColor.white
+let nintendoRed = NSColor(srgbRed: 0.902, green: 0.0, blue: 0.071, alpha: 1) // #E60012
 
-let white = NSColor.white
-let pipBlue = NSColor(srgbRed: 0.31, green: 0.56, blue: 0.78, alpha: 1)   // 目の色(背景の青と揃える)
+let die = nintendoRed
+let pipWhite = bgWhite   // 目の色(背景の白と揃える。赤いサイコロに白い目を「打ち抜く」)
 let dieShadow = NSColor(white: 0, alpha: 0.18)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {

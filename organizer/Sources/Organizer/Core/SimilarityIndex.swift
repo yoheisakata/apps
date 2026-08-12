@@ -37,8 +37,8 @@ struct SimilarityIndex {
     /// roots配下を再帰列挙し、MediaDateResolver.fromSips(url)が非nilを返すファイル
     /// (=本物のTIFF/EXIF撮影日を持つファイル。フォルダ名/ファイル名/mtimeなどの推定は信用しない)
     /// だけを候補として集める。sipsをファイルごとに同期呼び出しするため候補数が多いと遅く、
-    /// DupPhotosViewModel.scan()と同じ「[T?](repeating:nil) + concurrentPerform + 各iterationが
-    /// 自分のindexだけに書く」パターンで並列化する(共有配列へのappendは並行安全ではないため)。
+    /// 「[T?](repeating:nil) + concurrentPerform + 各iterationが自分のindexだけに書く」パターンで
+    /// 並列化する(共有配列へのappendは並行安全ではないため)。
     static func build(
         roots: [URL],
         extensions: Set<String>,

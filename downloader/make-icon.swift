@@ -1,10 +1,10 @@
 #!/usr/bin/env swift
-// 緑グラデーション背景に下矢印(ダウンロード)アイコンを描いた macOS アプリアイコンを生成する。
+// 薄い青グラデーション背景に下矢印(ダウンロード)アイコンを描いた macOS アプリアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let greenTop = NSColor(srgbRed: 0.17, green: 0.72, blue: 0.45, alpha: 1)    // #2BB673
-let greenBottom = NSColor(srgbRed: 0.11, green: 0.48, blue: 0.30, alpha: 1) // #1B7A4D
+let greenTop = NSColor(srgbRed: 0.365, green: 0.663, blue: 0.878, alpha: 1) // #5DA9E0
+let greenBottom = NSColor(srgbRed: 0.106, green: 0.369, blue: 0.620, alpha: 1) // #1B5E9E
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(

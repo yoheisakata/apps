@@ -148,12 +148,8 @@ enum PhotoVerifier {
                         if fixCapReached() { scanStoppedEarly = true; break monthLoop }
                         continue
                     }
-                    let expectedDir = base
-                        .appendingPathComponent(resolved.date.formatted("yyyy"))
-                        .appendingPathComponent(resolved.date.formatted("MM"))
-                        .appendingPathComponent(resolved.date.formatted("MMdd"))
-                    let newName = "\(resolved.date.formatted("yyyy_MMdd_HHmmss")).\(item.pathExtension.lowercased())"
-                    result.issues.append(VerifyIssue(kind: "MM直下ファイル", file: item, expected: expectedDir.appendingPathComponent(newName), dateSource: resolved.source, matchedFrom: matchedFrom))
+                    let expected = standardDest(base: base, date: resolved.date, ext: item.pathExtension.lowercased())
+                    result.issues.append(VerifyIssue(kind: "MM直下ファイル", file: item, expected: expected, dateSource: resolved.source, matchedFrom: matchedFrom))
                     if fixCapReached() { scanStoppedEarly = true; break monthLoop }
                     continue
                 }
@@ -190,13 +186,10 @@ enum PhotoVerifier {
                         continue
                     }
 
-                    let year = resolved.date.formatted("yyyy")
-                    let month = resolved.date.formatted("MM")
-                    let mmdd = resolved.date.formatted("MMdd")
-                    let ts = resolved.date.formatted("yyyy_MMdd_HHmmss")
                     let ext = file.pathExtension.lowercased()
-                    let newName = "\(ts).\(ext)"
-                    let expectedDir = base.appendingPathComponent(year).appendingPathComponent(month).appendingPathComponent(mmdd)
+                    let expectedDest = standardDest(base: base, date: resolved.date, ext: ext)
+                    let expectedDir = expectedDest.deletingLastPathComponent()
+                    let newName = expectedDest.lastPathComponent
 
                     let nameOK = file.lastPathComponent.range(of: expectedNamePattern, options: .regularExpression) != nil
                     let folderOK = file.deletingLastPathComponent().standardizedFileURL == expectedDir.standardizedFileURL
@@ -295,6 +288,16 @@ enum PhotoVerifier {
         base.appendingPathComponent("Unknown").appendingPathComponent(file.lastPathComponent)
     }
 
+    /// 撮影日から正規の移動先パスを組み立てる: <base>/yyyy/MM/MMdd/yyyy_MMdd_HHmmss.<ext>。
+    /// 日付推定ペイン(DateEstimateViewModel)からも、確定した推定日付の移動先を求めるのに使う
+    /// (ここでの命名規則が2箇所以上に分散して食い違わないようにするための共有ヘルパー)。
+    static func standardDest(base: URL, date: Date, ext: String) -> URL {
+        base.appendingPathComponent(date.formatted("yyyy"))
+            .appendingPathComponent(date.formatted("MM"))
+            .appendingPathComponent(date.formatted("MMdd"))
+            .appendingPathComponent("\(date.formatted("yyyy_MMdd_HHmmss")).\(ext)")
+    }
+
     /// 類似写真フォールバックで日付を借用した場合に、借用元をログへ表示する行。
     private static func matchedFromLine(_ issue: VerifyIssue, base: URL) -> String? {
         guard let matchedFrom = issue.matchedFrom else { return nil }
@@ -337,7 +340,7 @@ enum PhotoVerifier {
     /// 以前は各操作を`try?`で握りつぶしていたため、OneDriveのプレースホルダー(未ダウンロード)ファイル等で
     /// 移動が実際には失敗していてもログ上は「FIX」と表示され続けるバグがあった。エラーは呼び出し側に
     /// 伝播させ、実際に成功した場合だけ`fixed`をカウントする。
-    private static func safeMove(from src: URL, to dst: URL, fm: FileManager) throws -> (URL, Bool) {
+    static func safeMove(from src: URL, to dst: URL, fm: FileManager) throws -> (URL, Bool) {
         if fm.fileExists(atPath: dst.path) {
             let same = (try? FileHasher.md5(of: src)) == (try? FileHasher.md5(of: dst))
             if same {

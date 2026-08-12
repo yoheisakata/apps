@@ -40,140 +40,15 @@ struct VideoMakerView: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("タイトル")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        TextField("例: March, 2024（空欄でタイトルなし）", text: $model.titleText)
-                            .textFieldStyle(.roundedBorder)
-                        if !model.titleText.isEmpty {
-                            Button("クリア") { model.titleText = "" }
-                        }
-                    }
-                    if !model.titleText.isEmpty {
-                        Text("冒頭に黒画面タイトルカード（3秒）＋映像中は左上に表示")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                TitleAndMusicSection(model: model)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("BGM ファイル（設定するとデフォルトとして記憶されます）")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        Text(model.musicPath.isEmpty ? "（なし）" : model.musicPath)
-                            .foregroundStyle(model.musicPath.isEmpty ? .secondary : .primary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
-                        if !model.musicPath.isEmpty {
-                            Button("クリア") { model.clearMusic() }
-                        }
-                        Button("選択…") { model.pickMusic() }
-                    }
-                }
+                Divider()
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("詳細設定")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                ClipSettingsSection(model: model)
 
-                    Picker("", selection: $model.durationMode) {
-                        Text("1動画の抜粋秒数を指定").tag(DurationMode.clip)
-                        Text("全体の尺を指定").tag(DurationMode.total)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 360)
+                Divider()
 
-                    HStack(spacing: 20) {
-                        if model.durationMode == .clip {
-                            HStack {
-                                Text("1動画あたり")
-                                TextField("", value: $model.clipSec, format: .number)
-                                    .frame(width: 56)
-                                    .textFieldStyle(.roundedBorder)
-                                Text("秒")
-                            }
-                            if !model.videos.isEmpty {
-                                Text("→ 全体の尺：約 \(model.totalDisplay)")
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else {
-                            HStack {
-                                Text("全体の尺")
-                                TextField("", value: $model.totalSec, format: .number)
-                                    .frame(width: 64)
-                                    .textFieldStyle(.roundedBorder)
-                                Text("秒")
-                            }
-                            if !model.videos.isEmpty {
-                                Text("→ 1動画あたり：約 \(model.clipDisplay)")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-
-                    Divider()
-
-                    Toggle("ランダムモード", isOn: $model.randomMode)
-                        .onChange(of: model.randomMode) { _, _ in model.applyFileLimits() }
-
-                    HStack {
-                        Toggle("上限ファイル数", isOn: $model.useMaxFileCount)
-                            .onChange(of: model.useMaxFileCount) { _, _ in model.applyFileLimits() }
-                        if model.useMaxFileCount {
-                            TextField("", value: $model.maxFileCount, format: .number)
-                                .frame(width: 56)
-                                .textFieldStyle(.roundedBorder)
-                                .onSubmit { model.applyFileLimits() }
-                            Text("本")
-                        }
-                    }
-
-                    Divider()
-
-                    HStack {
-                        Text("画質")
-                        Picker("", selection: $model.qualityPreset) {
-                            Text("高画質（ファイル大）").tag(18)
-                            Text("標準").tag(23)
-                            Text("小さいファイル").tag(28)
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 280)
-                    }
-
-                    HStack {
-                        Text("冒頭スキップ")
-                        TextField("", value: $model.offsetSec, format: .number)
-                            .frame(width: 56)
-                            .textFieldStyle(.roundedBorder)
-                        Text("秒")
-                    }
-
-                    HStack {
-                        Text("トランジション")
-                        Slider(value: $model.transitionSec, in: 0...2, step: 0.1)
-                            .frame(width: 160)
-                        Text(model.transitionSec == 0 ? "なし" : String(format: "%.1f秒", model.transitionSec))
-                            .monospacedDigit()
-                            .frame(width: 50, alignment: .trailing)
-                    }
-
-                    HStack {
-                        Text("BGM 音量")
-                        Slider(value: $model.bgmVolume, in: 0...1)
-                            .frame(width: 200)
-                    }
-
-                    HStack {
-                        Text("元音声 音量")
-                        Slider(value: $model.origVolume, in: 0...1)
-                            .frame(width: 200)
-                    }
-                }
+                VolumeSettingsSection(model: model)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("出力ファイル")
@@ -189,7 +64,20 @@ struct VideoMakerView: View {
                     }
                 }
 
+                if !model.videos.isEmpty {
+                    Text("予想合計時間: 約 \(model.estimatedTotalDisplay)（タイトルカード・末尾の黒みを含む）")
+                        .font(.callout)
+                }
+
                 HStack(spacing: 16) {
+                    Button {
+                        model.autoGenerate()
+                    } label: {
+                        Label("自動作成", systemImage: "wand.and.stars")
+                    }
+                    .disabled(!model.canAutoGenerate || jobRunner.isRunning)
+                    .help("BGMの長さに合わせて、2〜3秒のクリップをフォルダ全体からバランスよく自動選択して作成します")
+
                     Button {
                         model.generate()
                     } label: {
@@ -227,6 +115,178 @@ struct VideoMakerView: View {
                 model.startGenerate()
             }
             Button("キャンセル", role: .cancel) {}
+        }
+    }
+}
+
+/// 「タイトル・BGM」セクション: 動画に付加するコンテンツ(タイトルカード・BGM)の設定。
+/// 常に表示したままにするため(タブ切り替えで隠さない)、他のセクションと並べて表示する。
+private struct TitleAndMusicSection: View {
+    @ObservedObject var model: VideoMakerViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("タイトル・BGM")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("タイトル")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    TextField("例: March, 2024（空欄でタイトルなし）", text: $model.titleText)
+                        .textFieldStyle(.roundedBorder)
+                    if !model.titleText.isEmpty {
+                        Button("クリア") { model.titleText = "" }
+                    }
+                }
+                if !model.titleText.isEmpty {
+                    Text("冒頭に黒画面タイトルカード（3秒）＋映像中は左上に表示")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("BGM ファイル（設定するとデフォルトとして記憶されます）")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Text(model.musicPath.isEmpty ? "（なし）" : model.musicPath)
+                        .foregroundStyle(model.musicPath.isEmpty ? .secondary : .primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    if let durationDisplay = model.musicDurationDisplay {
+                        Text("(\(durationDisplay))")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !model.musicPath.isEmpty {
+                        Button("クリア") { model.clearMusic() }
+                    }
+                    Button("選択…") { model.pickMusic() }
+                }
+            }
+        }
+    }
+}
+
+/// 「クリップ設定」セクション: 各クリップの抽出・結合・書き出しに関する設定。
+private struct ClipSettingsSection: View {
+    @ObservedObject var model: VideoMakerViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("クリップ設定")
+                .font(.headline)
+
+            LabeledIntField(label: "1動画あたり", value: $model.clipSec, suffix: "秒")
+
+            LabeledIntField(label: "上限ファイル数", value: $model.maxFileCount, suffix: "本")
+                .onChange(of: model.maxFileCount) { _, _ in model.applyFileLimits() }
+                .disabled(model.totalScannedCount <= 1)
+
+            HStack {
+                Text("ファイル再生の順序")
+                Picker("", selection: $model.playOrder) {
+                    ForEach(PlayOrder.allCases, id: \.self) { order in
+                        Text(order.title).tag(order)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 200)
+            }
+            .onChange(of: model.playOrder) { _, _ in model.applyFileLimits() }
+            .disabled(model.videos.count <= 1)
+
+            LabeledIntField(label: "冒頭スキップ", value: $model.offsetSec, suffix: "秒")
+
+            LabeledDoubleField(label: "トランジション", value: $model.transitionSec, suffix: "秒")
+                .disabled(model.videos.count <= 1)
+
+            VStack(alignment: .leading, spacing: 2) {
+                LabeledIntField(label: "画質 (CRF)", value: $model.qualityPreset)
+                Text("18=高画質・大きい 〜 28=標準・小さい")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// 「音量」セクション: BGM・元音声の音量バランス。
+private struct VolumeSettingsSection: View {
+    @ObservedObject var model: VideoMakerViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("音量")
+                .font(.headline)
+
+            LabeledDoubleSlider(label: "BGM 音量", value: $model.bgmVolume, range: 0...1)
+                .disabled(model.musicPath.isEmpty)
+
+            LabeledDoubleSlider(label: "元音声 音量", value: $model.origVolume, range: 0...1)
+        }
+    }
+}
+
+/// 整数値をテキストフィールドで調整する行(スライダーは見づらいため持たない — 音量系のみスライダーを残す)。
+private struct LabeledIntField: View {
+    let label: String
+    @Binding var value: Int
+    var suffix: String = ""
+
+    var body: some View {
+        HStack {
+            Text(label)
+            TextField("", value: $value, format: .number)
+                .frame(width: 56)
+                .textFieldStyle(.roundedBorder)
+            if !suffix.isEmpty {
+                Text(suffix)
+            }
+        }
+    }
+}
+
+/// 小数値をテキストフィールドで調整する行(スライダーは見づらいため持たない — 音量系のみスライダーを残す)。
+private struct LabeledDoubleField: View {
+    let label: String
+    @Binding var value: Double
+    var suffix: String = ""
+
+    var body: some View {
+        HStack {
+            Text(label)
+            TextField("", value: $value, format: .number.precision(.fractionLength(1...2)))
+                .frame(width: 56)
+                .textFieldStyle(.roundedBorder)
+            if !suffix.isEmpty {
+                Text(suffix)
+            }
+        }
+    }
+}
+
+/// 音量系専用: スライダーとテキストフィールドの両方で調整できる行。
+private struct LabeledDoubleSlider: View {
+    let label: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    var suffix: String = ""
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Slider(value: $value, in: range)
+                .frame(width: 160)
+            TextField("", value: $value, format: .number.precision(.fractionLength(1...2)))
+                .frame(width: 56)
+                .textFieldStyle(.roundedBorder)
+            if !suffix.isEmpty {
+                Text(suffix)
+            }
         }
     }
 }

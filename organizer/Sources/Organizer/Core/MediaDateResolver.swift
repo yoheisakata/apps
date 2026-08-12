@@ -24,6 +24,14 @@ enum MediaDateResolver {
         return cal
     }
 
+    /// iOSの"YYYYMMDD_HHmmssSSS_iOS"形式のファイル名は、埋め込まれた時刻がローカル時刻ではなく
+    /// UTCであるため、他のファイル名パターン(ローカル時刻扱い)とは別にUTCカレンダーで解釈する。
+    private static var utcCalendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        return cal
+    }
+
     static func resolve(for url: URL, primarySources: [(URL) -> ResolvedDate?]) -> ResolvedDate {
         for source in primarySources {
             if let result = source(url) { return result }
@@ -66,6 +74,13 @@ enum MediaDateResolver {
     static func fromFileName(_ name: String) -> ResolvedDate? {
         let stem = (name as NSString).deletingPathExtension
 
+        // iOS形式(例: 20210120_205244217_iOS)は埋め込み時刻がUTCなので、UTCカレンダーで解釈する
+        // (下のパターンと同じ数字部分にもマッチしてしまうため、_iOS判定はこれより先に行う)。
+        if let g = stem.firstMatchGroups(#"^(20\d{2})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\d{3}_iOS$"#), g.count == 6 {
+            if let date = makeDate(year: Int(g[0]), month: Int(g[1]), day: Int(g[2]), hour: Int(g[3]), minute: Int(g[4]), second: Int(g[5]), calendar: utcCalendar) {
+                return ResolvedDate(date: date, source: "ファイル名(iOS/UTC)")
+            }
+        }
         if let g = stem.firstMatchGroups(#"(20\d{2})_(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})"#), g.count == 6 {
             if let date = makeDate(year: Int(g[0]), month: Int(g[1]), day: Int(g[2]), hour: Int(g[3]), minute: Int(g[4]), second: Int(g[5])) {
                 return ResolvedDate(date: date, source: "ファイル名")
@@ -155,12 +170,12 @@ enum MediaDateResolver {
 
     // MARK: - Helpers
 
-    private static func makeDate(year: Int?, month: Int?, day: Int?, hour: Int? = 0, minute: Int? = 0, second: Int? = 0) -> Date? {
+    private static func makeDate(year: Int?, month: Int?, day: Int?, hour: Int? = 0, minute: Int? = 0, second: Int? = 0, calendar: Calendar = localCalendar) -> Date? {
         guard let year, let month, let day else { return nil }
         var comp = DateComponents()
         comp.year = year; comp.month = month; comp.day = day
         comp.hour = hour ?? 0; comp.minute = minute ?? 0; comp.second = second ?? 0
-        return localCalendar.date(from: comp)
+        return calendar.date(from: comp)
     }
 
 }

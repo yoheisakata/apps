@@ -22,9 +22,11 @@
 
 | スクリプト | 役割 |
 |---|---|
-| `encode_h265.py` | H.265 (HEVC) への再エンコード + mp4 統一。`caffeinate -i` 併用でスリープ防止しながら長時間実行する想定 |
+| `encode_h265.py` | H.265 (HEVC) への再エンコード + mp4 統一。`caffeinate -i` 併用でスリープ防止しながら長時間実行する想定。`--skip-if-larger` でH.265化してサイズが増える場合は元コーデックのままmp4コンテナ変換のみに留める |
 | `find_short_videos.py` | フォルダ内の短い動画を洗い出してレポート / M3U プレイリストを出力（`--max-seconds` で閾値指定） |
 | `create_memory_video.py` | 月フォルダ内の動画から「いちばん動きのある部分」を抜き出し、BGM を重ねて1本のサマリー動画を生成（CLI） |
+| `conan_rename_episodes.py` | 名探偵コナンのTVエピソードファイル（`名探偵コナン_XXXX.mp4`）に、Wikipediaのエピソード一覧からサブタイトルを取得して付与・リネーム（ネットワーク接続が必要） |
+| `conan_rename_movies.py` | 名探偵コナンの劇場版ファイル（`Detective Conan_Movie_NN_YYYY.mp4`）に、Wikipediaの映画作品一覧から邦題を取得して付与・リネーム（ネットワーク接続が必要） |
 
 ## 使い方
 

@@ -39,6 +39,10 @@ enum CacheScanner {
              "Library/Developer/Xcode/iOS DeviceSupport"),
             ("Xcode アーカイブ", "~/Library/Developer/Xcode/Archives", "archivebox",
              "Library/Developer/Xcode/Archives"),
+            ("iOSデバイスのバックアップ", "~/Library/Application Support/MobileSync/Backup", "iphone.gen3",
+             "Library/Application Support/MobileSync/Backup"),
+            ("Xcodeシミュレータ", "~/Library/Developer/CoreSimulator/Devices", "apps.iphone",
+             "Library/Developer/CoreSimulator/Devices"),
         ]
 
         var categories: [CacheCategory] = []
@@ -54,6 +58,7 @@ enum CacheScanner {
                 ))
             }
         }
+
         return categories
     }
 }

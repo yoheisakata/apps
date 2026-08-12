@@ -207,7 +207,7 @@ struct VideoDupGroupSection: View {
     private var isEnabled: Bool { vm.enabledGroups.contains(group.id) }
     private var keeperID: UUID? { group.keeper?.id }
 
-    /// 重複写真パインと同じく、当たり判定を広く取ったカスタムチェックボックス。
+    /// 当たり判定を広く取ったカスタムチェックボックス。
     private var groupCheckbox: some View {
         HStack(spacing: 6) {
             Image(systemName: isEnabled ? "checkmark.square.fill" : "square")

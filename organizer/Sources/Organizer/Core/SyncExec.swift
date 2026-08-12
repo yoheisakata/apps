@@ -37,9 +37,15 @@ enum SyncExec {
         process.terminationHandler = { _ in semaphore.signal() }
 
         try process.run()
+        // 子プロセスに複製された後、親側が持つ書き込み端の複製は不要になる。ここで閉じずに
+        // 放置すると、この関数を数千回呼ぶ処理(エンコード対象フォルダの一括ffprobeスキャン等)で
+        // ファイルディスクリプタが線形に積み上がり、OSの上限に達した時点で以降すべての呼び出しが
+        // 「出力が読めない」で失敗し続ける不具合になる(実際にファイル1500件超のフォルダで発生した)。
+        try? pipe.fileHandleForWriting.close()
 
         let timedOut = semaphore.wait(timeout: .now() + timeout) == .timedOut
         pipe.fileHandleForReading.readabilityHandler = nil
+        try? pipe.fileHandleForReading.close()
 
         if timedOut {
             process.terminationHandler = nil

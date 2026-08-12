@@ -21,6 +21,7 @@ touch "${DEST}"
     -f "${DEST}" >/dev/null 2>&1 || true
 
 echo "✅ インストール完了: ${DEST}"
-echo "   メニューバーに常駐します(Dock アイコンはありません)。Launchpad や Spotlight からも起動できます。"
+echo "   Dock アイコンとメニューバーアイコンの両方から起動・操作できます。ウィンドウを閉じても"
+echo "   ダウンロードは中断されず、終了するまで動き続けます。"
 echo "   旧 YouTube-downloader.app / Torrent-downloader.app が /Applications に残っている場合は、"
 echo "   magnet: リンクの登録が競合しないよう手動で削除してください。"

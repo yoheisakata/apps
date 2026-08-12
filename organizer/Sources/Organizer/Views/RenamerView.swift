@@ -314,6 +314,10 @@ private struct FilesPane: View {
                 }
                 .fixedSize()
                 .disabled(vm.items.isEmpty)
+                Toggle("フォルダは配下のファイルを再帰的に追加", isOn: $vm.includeSubfolderFiles)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
+                    .help("ONの場合、フォルダを追加するとフォルダ自体ではなく配下の全ファイル（サブフォルダ含む）を追加します")
                 Spacer()
                 Text("\(vm.items.count) 件")
                     .foregroundColor(.secondary)

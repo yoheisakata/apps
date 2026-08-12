@@ -1,12 +1,12 @@
 #!/usr/bin/env swift
-// 緑グラデーション背景(downloader/organizerと共通)に白い写真フレーム(SF Symbol "photo")の
+// 薄い青グラデーション背景(downloader/organizerと共通)に白い写真フレーム(SF Symbol "photo")の
 // シルエットを描いたマスターアイコンを生成する。build.sh が Resources/AppIcon.png から
 // iconset/icns をビルド時に都度生成するので、ここでは 1024x1024 の master PNG のみを出力する。
 //   実行: swift make-icon.swift   →  Resources/AppIcon.png を出力
 import AppKit
 
-let greenTop = NSColor(srgbRed: 0.17, green: 0.72, blue: 0.45, alpha: 1)    // #2BB673 (downloaderと共通)
-let greenBottom = NSColor(srgbRed: 0.11, green: 0.48, blue: 0.30, alpha: 1) // #1B7A4D (downloaderと共通)
+let greenTop = NSColor(srgbRed: 0.365, green: 0.663, blue: 0.878, alpha: 1) // #5DA9E0 (downloader/organizerと共通)
+let greenBottom = NSColor(srgbRed: 0.106, green: 0.369, blue: 0.620, alpha: 1) // #1B5E9E (downloader/organizerと共通)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(

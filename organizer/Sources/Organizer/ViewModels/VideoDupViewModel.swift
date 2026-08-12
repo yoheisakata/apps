@@ -5,9 +5,8 @@ import AVFoundation
 /// 「動画重複」ペイン用。拡張子を除いたファイル名が同じ動画、またはファイル名が違っても
 /// 長さ(秒)が一致する動画同士を集め、開始5秒以内の数フレームのdHashで実際に同じ内容かを
 /// 確認してグループ化する(`VideoDupFinder`)。
-/// キープ判定は固定ルール(H.265優先、同条件ならサイズ最大)で、`DupPhotosViewModel`と
-/// 同様にグループ単位のチェックボックスで対象/対象外を切り替えられる。`JobRunner`は使わない
-/// (重複写真パインと同様、自前のisWorking/progressで進捗を出す)。
+/// キープ判定は固定ルール(H.265優先、同条件ならサイズ最大)で、グループ単位のチェックボックスで
+/// 対象/対象外を切り替えられる。`JobRunner`は使わない(自前のisWorking/progressで進捗を出す)。
 final class VideoDupViewModel: ObservableObject {
     @Published var folders: [URL] = []
     /// 同名候補ごとの解析済みリスト(フレームハッシュを含む、まだクラスタリング前)。
@@ -16,7 +15,7 @@ final class VideoDupViewModel: ObservableObject {
     @Published private(set) var candidateGroups: [[VideoCandidate]] = []
     @Published var groups: [VideoDupGroup] = []
     @Published var selection: Set<UUID> = []
-    /// 削除対象として扱う(=チェックの入った)グループのid。DupPhotosViewModelと同じ意味。
+    /// 削除対象として扱う(=チェックの入った)グループのid。
     @Published var enabledGroups: Set<UUID> = []
     @Published var isWorking = false
     @Published var progress: Double = 0
@@ -196,7 +195,7 @@ final class VideoDupViewModel: ObservableObject {
         selection = sel
     }
 
-    /// グループ単位の「このグループの重複を削除するか」チェックボックス用(DupPhotosViewModelと同じ)。
+    /// グループ単位の「このグループの重複を削除するか」チェックボックス用。
     func setGroupEnabled(_ group: VideoDupGroup, enabled: Bool) {
         if enabled {
             enabledGroups.insert(group.id)
@@ -277,8 +276,8 @@ final class VideoDupViewModel: ObservableObject {
     }
 }
 
-/// 動画サムネイル読み込み(重複写真の`ThumbLoader`と同じNSCacheパターン)。写真と違い
-/// ImageIOでは読めないため、AVFoundationの`AVAssetImageGenerator`で開始1秒地点のフレームを
+/// 動画サムネイル読み込み(NSCacheでキャッシュするパターン)。動画はImageIOでは読めないため、
+/// AVFoundationの`AVAssetImageGenerator`で開始1秒地点のフレームを
 /// 取り出す(ffmpegの別プロセス起動より軽い。`VideoDupFinder.analyze`の`extractFrameHash`は
 /// クラスタリング判定用の別経路で、こちらはUI表示専用)。
 enum VideoThumbLoader {
@@ -310,8 +309,8 @@ enum VideoThumbLoader {
     }
 }
 
-/// concurrentPerform 用のスレッドセーフなカウンタ(DupPhotosViewModel内のものと同一実装。
-/// トップレベルprivateはファイル単位のスコープなので衝突しない)。
+/// concurrentPerform 用のスレッドセーフなカウンタ(トップレベルprivateはファイル単位の
+/// スコープなので、他ファイルの同名クラスと衝突しない)。
 private final class Counter {
     private var value = 0
     private let lock = NSLock()

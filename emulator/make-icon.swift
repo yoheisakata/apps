@@ -1,10 +1,10 @@
 #!/usr/bin/env swift
-// 薄い青グラデーション背景にゲームコントローラーを描いたアイコンを生成する。
+// 白背景に濃い赤(任天堂レッド)のシルエットでゲームコントローラーを描いたアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let blueTop = NSColor(srgbRed: 0.56, green: 0.78, blue: 0.95, alpha: 1)    // #8FC7F2
-let blueBottom = NSColor(srgbRed: 0.31, green: 0.56, blue: 0.78, alpha: 1) // #4F8FC7
+let bgWhite = NSColor.white
+let nintendoRed = NSColor(srgbRed: 0.902, green: 0.0, blue: 0.071, alpha: 1) // #E60012
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -23,12 +23,12 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    let gradient = NSGradient(colors: [blueTop, blueBottom])!
-    gradient.draw(in: path, angle: -90)
+    bgWhite.setFill()
+    path.fill()
 
-    // Draw game controller in white
+    // Draw game controller as a dark red silhouette
     let g = ctx.cgContext
-    let whiteAlpha = NSColor.white.withAlphaComponent(0.85).cgColor
+    let silhouette = nintendoRed.cgColor
 
     let cx = s * 0.5
     let cy = s * 0.48
@@ -39,7 +39,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let bodyRect = CGRect(x: cx - bodyW / 2, y: cy - bodyH / 2, width: bodyW, height: bodyH)
     let bodyRadius = bodyH * 0.4
     let bodyPath = CGPath(roundedRect: bodyRect, cornerWidth: bodyRadius, cornerHeight: bodyRadius, transform: nil)
-    g.setFillColor(whiteAlpha)
+    g.setFillColor(silhouette)
     g.addPath(bodyPath)
     g.fillPath()
 
@@ -48,7 +48,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let gripH = s * 0.18
     let leftGripRect = CGRect(x: cx - bodyW / 2 - gripW * 0.15, y: cy - bodyH / 2 - gripH * 0.5, width: gripW, height: gripH)
     let gripPath = CGPath(roundedRect: leftGripRect, cornerWidth: gripW * 0.4, cornerHeight: gripW * 0.4, transform: nil)
-    g.setFillColor(whiteAlpha)
+    g.setFillColor(silhouette)
     g.addPath(gripPath)
     g.fillPath()
 
@@ -63,7 +63,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let dpadCy = cy + s * 0.01
     let dpadArm = s * 0.035
     let dpadLen = s * 0.05
-    g.setFillColor(NSColor(srgbRed: 0.24, green: 0.44, blue: 0.62, alpha: 1).cgColor)
+    g.setFillColor(bgWhite.cgColor)
     // Horizontal
     g.fill(CGRect(x: dpadCx - dpadLen, y: dpadCy - dpadArm / 2, width: dpadLen * 2, height: dpadArm))
     // Vertical
@@ -74,7 +74,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let btnCy = cy + s * 0.01
     let btnR = s * 0.025
     let btnSpacing = s * 0.045
-    g.setFillColor(NSColor(srgbRed: 0.24, green: 0.44, blue: 0.62, alpha: 1).cgColor)
+    g.setFillColor(bgWhite.cgColor)
     // Top (X)
     g.fillEllipse(in: CGRect(x: btnCx - btnR, y: btnCy + btnSpacing - btnR, width: btnR * 2, height: btnR * 2))
     // Bottom (B)
@@ -88,7 +88,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let smallW = s * 0.035
     let smallH = s * 0.015
     let smallY = cy - s * 0.02
-    g.setFillColor(NSColor(srgbRed: 0.31, green: 0.53, blue: 0.72, alpha: 1).cgColor)
+    g.setFillColor(bgWhite.cgColor)
     g.fill(CGRect(x: cx - smallW - s * 0.01, y: smallY, width: smallW, height: smallH))
     g.fill(CGRect(x: cx + s * 0.01, y: smallY, width: smallW, height: smallH))
 

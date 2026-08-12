@@ -48,7 +48,12 @@ final class InputManager {
                     DispatchQueue.main.async { self?.onStop?() }
                     return nil
                 }
-                // ⌘付きのキーはゲーム入力にせずショートカットとして通す
+                if event.keyCode == 4 || event.keyCode == 46 {
+                    // ⌘H(隠す)/⌘M(しまう) はプレイ中に矢印+ZXAS付近で誤爆しやすく、
+                    // ウィンドウが消えて操作不能になるため無効化する
+                    return nil
+                }
+                // それ以外の⌘付きキーはゲーム入力にせずショートカットとして通す
                 return event
             }
             if let btn = self?.keyMap[event.keyCode] {

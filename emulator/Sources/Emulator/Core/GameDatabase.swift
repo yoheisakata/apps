@@ -42,6 +42,7 @@ struct ScannedROM: Identifiable, Hashable {
     let url: URL
     let displayName: String
     let system: GameSystem
+    let category: String
     let thumbnailCandidates: [String]
 
     init(url: URL) {
@@ -51,6 +52,7 @@ struct ScannedROM: Identifiable, Hashable {
         self.system = GameSystem.detect(extension: ext) ?? .nes
         self.id = "\(system.rawValue)_\(filename)"
         self.displayName = Self.cleanDisplayName(filename)
+        self.category = url.deletingLastPathComponent().lastPathComponent
         self.thumbnailCandidates = Self.thumbnailCandidates(for: filename, system: system)
     }
 
