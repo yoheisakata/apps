@@ -4,7 +4,7 @@
 import AppKit
 
 let bgWhite = NSColor.white
-let nintendoRed = NSColor(srgbRed: 0.902, green: 0.0, blue: 0.071, alpha: 1) // #E60012
+let nintendoRed = NSColor(srgbRed: 0.70, green: 0.0, blue: 0.06, alpha: 1) // 黒みを足した濃い赤
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -31,7 +31,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let silhouette = nintendoRed.cgColor
 
     let cx = s * 0.5
-    let cy = s * 0.48
+    let cy = s * 0.545  // 本体+グリップ全体の重心が正方形の中央に来るよう補正
 
     // Controller body (rounded rectangle)
     let bodyW = s * 0.52

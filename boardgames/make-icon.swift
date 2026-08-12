@@ -6,7 +6,7 @@
 import AppKit
 
 let bgWhite = NSColor.white
-let nintendoRed = NSColor(srgbRed: 0.902, green: 0.0, blue: 0.071, alpha: 1) // #E60012
+let nintendoRed = NSColor(srgbRed: 0.70, green: 0.0, blue: 0.06, alpha: 1) // 黒みを足した濃い赤
 
 let die = nintendoRed
 let pipWhite = bgWhite   // 目の色(背景の白と揃える。赤いサイコロに白い目を「打ち抜く」)
@@ -30,10 +30,10 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let bgPath = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    let gradient = NSGradient(colors: [blueTop, blueBottom])!
-    gradient.draw(in: bgPath, angle: -90)
+    bgWhite.setFill()
+    bgPath.fill()
 
-    // サイコロ(白、5の目)を中央に正面向きで配置
+    // サイコロ(濃い赤、5の目)を中央に正面向きで配置
     let dieSide = s * 0.56
     let dieRadius = dieSide * 0.18
     let dieRect = NSRect(x: -dieSide / 2, y: -dieSide / 2, width: dieSide, height: dieSide)
@@ -49,7 +49,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     diePath.fill()
     g.restoreGState()
 
-    white.setFill()
+    die.setFill()
     diePath.fill()
 
     // 目(5の目): 四隅+中央
@@ -60,7 +60,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
         NSPoint(x: 0, y: 0),
         NSPoint(x: -pipOffset, y: -pipOffset), NSPoint(x: pipOffset, y: -pipOffset),
     ]
-    pipBlue.setFill()
+    pipWhite.setFill()
     for c in pipCenters {
         let pip = NSBezierPath(ovalIn: NSRect(x: c.x - pipR, y: c.y - pipR, width: pipR * 2, height: pipR * 2))
         pip.fill()
