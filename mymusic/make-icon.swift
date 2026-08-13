@@ -1,10 +1,12 @@
 #!/usr/bin/env swift
-// 紫グラデーション背景に音符(八分音符)を描いた macOS アプリアイコンを生成する。
+// 白背景に濃い赤のシルエットで音符(八分音符)を描いた macOS アプリアイコンを生成する。
+// mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒みのある濃い赤)は
+// mygames/mytube/mygallery と共通(自作アプリでファミリー感を揃えている)。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let purpleTop = NSColor(srgbRed: 0.62, green: 0.38, blue: 0.93, alpha: 1)    // #9E61ED
-let purpleBottom = NSColor(srgbRed: 0.35, green: 0.16, blue: 0.66, alpha: 1) // #5929A8
+let bgWhite = NSColor.white
+let silhouetteRed = NSColor(srgbRed: 0.70, green: 0.0, blue: 0.06, alpha: 1) // 黒みを足した濃い赤 (mygames と共通)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -23,19 +25,20 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
-    gradient.draw(in: path, angle: -90)
+    bgWhite.setFill()
+    path.fill()
 
     // 八分音符: 2つの符頭 + 符幹 + 連桁。
-    NSColor.white.setFill()
+    silhouetteRed.setFill()
 
     let headW = s * 0.17
     let headH = s * 0.13
     let stemW = s * 0.035
     let stemH = s * 0.40
 
-    let leftHeadCenter = NSPoint(x: rect.midX - s * 0.10, y: rect.midY - s * 0.10)
-    let rightHeadCenter = NSPoint(x: rect.midX + s * 0.14, y: rect.midY - s * 0.02)
+    // 符幹が上へ伸びる分を見込んで符頭を下寄りに置き、シルエット全体の重心をアイコン中央に合わせる。
+    let leftHeadCenter = NSPoint(x: rect.midX - s * 0.12, y: rect.midY - s * 0.21)
+    let rightHeadCenter = NSPoint(x: rect.midX + s * 0.12, y: rect.midY - s * 0.13)
 
     func drawHead(at center: NSPoint) {
         let headRect = NSRect(x: center.x - headW / 2, y: center.y - headH / 2, width: headW, height: headH)

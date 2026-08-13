@@ -1,12 +1,14 @@
 #!/usr/bin/env swift
-// 薄い青グラデーション背景(downloader/organizerと共通)に白い写真フレーム(SF Symbol "photo")の
-// シルエットを描いたマスターアイコンを生成する。build.sh が Resources/AppIcon.png から
-// iconset/icns をビルド時に都度生成するので、ここでは 1024x1024 の master PNG のみを出力する。
+// 白背景に濃い赤の写真フレーム(SF Symbol "photo")のシルエットを描いたマスターアイコンを
+// 生成する。mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒みのある濃い赤)は
+// mygames/mytube/mymusic と共通(自作アプリでファミリー感を揃えている)。build.sh が
+// Resources/AppIcon.png から iconset/icns をビルド時に都度生成するので、
+// ここでは 1024x1024 の master PNG のみを出力する。
 //   実行: swift make-icon.swift   →  Resources/AppIcon.png を出力
 import AppKit
 
-let greenTop = NSColor(srgbRed: 0.365, green: 0.663, blue: 0.878, alpha: 1) // #5DA9E0 (downloader/organizerと共通)
-let greenBottom = NSColor(srgbRed: 0.106, green: 0.369, blue: 0.620, alpha: 1) // #1B5E9E (downloader/organizerと共通)
+let bgWhite = NSColor.white
+let silhouetteRed = NSColor(srgbRed: 0.70, green: 0.0, blue: 0.06, alpha: 1) // 黒みを足した濃い赤 (mygames と共通)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -25,10 +27,10 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    let gradient = NSGradient(colors: [greenTop, greenBottom])!
-    gradient.draw(in: path, angle: -90)
+    bgWhite.setFill()
+    path.fill()
 
-    // 中央に白い写真(山と太陽の入った額縁)アイコン(SF Symbol "photo")のシルエット
+    // 中央に赤い写真(山と太陽の入った額縁)アイコン(SF Symbol "photo")のシルエット
     let glyphSize = s * 0.46
     let config = NSImage.SymbolConfiguration(pointSize: glyphSize, weight: .regular)
     guard let symbol = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)?
@@ -43,7 +45,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     cg.beginTransparencyLayer(auxiliaryInfo: nil)
     symbol.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
     cg.setBlendMode(.sourceIn)
-    cg.setFillColor(NSColor.white.cgColor)
+    cg.setFillColor(silhouetteRed.cgColor)
     cg.fill(CGRect(x: 0, y: 0, width: s, height: s))
     cg.endTransparencyLayer()
     cg.restoreGState()
