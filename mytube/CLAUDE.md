@@ -12,14 +12,14 @@ OneDrive共有リンク(2026-08-04〜)・YouTubeプレイリスト(2026-08-05〜
 ```bash
 swift build         # コンパイル確認のみ(GUI 起動・目視確認は禁止 — ルート CLAUDE.md 参照)
 ./build_app.sh       # MyTube.app を生成
-./install.sh         # ビルド → /Applications へインストール
+./install.sh         # ビルド → /Applications/MyApplications へインストール
 ```
 
 `MyTube.app` `.build/` `AppIcon.icns` `AppIcon.iconset/` は .gitignore 済み・スクリプトから
 再生成される成果物。コミットしない。
 
 - **バージョンは `Sources/MyTube/Main.swift` の `appVersion` が唯一の定義**
-  (organizer と同じ方式)。`build_app.sh` が Info.plist に反映する。
+  (myorganizer と同じ方式)。`build_app.sh` が Info.plist に反映する。
 - **`Package.swift` の `linkerSettings: [.linkedFramework("AVKit")]` を外さないこと。**
   `AVKit.VideoPlayer`(`PlayerPaneView.swift`)は、AVKit.framework がバイナリに明示的にリンクされて
   いない状態で Xcode デバッガ無し(Finder からのダブルクリック、`open MyTube.app` 等)に
@@ -31,9 +31,9 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   Xcode プロジェクトなら「Link Binary With Libraries」に AVKit.framework を追加するのが
   定番の回避策だが、SPM の `executableTarget` には相当する GUI 設定が無いため、
   `linkerSettings` で同じことを明示的に行っている。
-- **通常の SwiftUI `App`/`WindowGroup` 構成**(downloader/musicplayer と違いメニューバー常駐ではない)。
+- **通常の SwiftUI `App`/`WindowGroup` 構成**(downloader/mymusic と違いメニューバー常駐ではない)。
   動画再生を裏で継続する必要がないため、ウィンドウを閉じればアプリごと終了してよい
-  (organizer と同じ構成)。
+  (myorganizer と同じ構成)。
 - **非サンドボックス**: `Package.swift` に entitlements は無く、`Settings.openLocalFolders` は
   素の絶対パス文字列の配列を UserDefaults に保存するだけで済む(security-scoped bookmark は不要)。
   デスクトップ/書類/ダウンロード等 TCC 保護下のフォルダを指定された場合のみ、
@@ -354,14 +354,14 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   `ThumbnailStore.durationCache` 側が破棄されてもフィルター結果の動画が消えないようにするため。
   `AVAssetImageGenerator.image(at:)` の async API(macOS 13+)を使い、生成の同時実行数は
   `Core/ConcurrencyLimiter.swift`(actor ベースの async セマフォ)で4に制限している
-  (organizer の `VideoDupFinder`/`H265Encoder` が `DispatchSemaphore` で ffmpeg/ffprobe の
+  (myorganizer の `VideoDupFinder`/`H265Encoder` が `DispatchSemaphore` で ffmpeg/ffprobe の
   同時実行数を絞っているのと同じ理由 — 制限なしだとグリッド表示時に大量の動画が
   一斉にデコードされてメモリを圧迫する)。同一動画への同時呼び出しは `inFlight` 辞書で
   1つの `Task` にまとめ、重複生成を避ける。デコードに失敗した動画(非対応コーデック等)は
   `image: nil` を返すだけでクラッシュしない — `VideoCardView`/`VideoTableView` は
   プレースホルダー(`film` シンボル)を表示し、それでも再生自体は試みられる(AVPlayer 側の
   対応コーデック判定はサムネイル生成とは独立)。
-- **`Core/PlayerEngine.swift`** — `AVPlayer` の薄いラッパー。musicplayer の
+- **`Core/PlayerEngine.swift`** — `AVPlayer` の薄いラッパー。mymusic の
   `PlayerEngine.swift` と同じ設計方針(再生キューの中身は一切知らず、1本の再生と
   `onFinished` コールバックだけを持つ)。`load(url:)` は同じ URL が既に再生中なら
   何もしない(`PlayerPaneView` の `onChange(of: video)` が同一動画で再入した場合の
@@ -742,7 +742,7 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   - **OneDrive**: 再生自体はダウンロード完了を待たず即座に始まる ―
     `@content.downloadUrl`への直接ストリーミングは変わらず、ダウンロードは並行して走るだけ。
     `URLSession.shared.downloadTask`(バックグラウンドセッションではない ― アプリを閉じれば
-    中断される。`downloader`/`musicplayer`のような常駐設計ではなくウィンドウを閉じれば
+    中断される。`downloader`/`mymusic`のような常駐設計ではなくウィンドウを閉じれば
     アプリごと終了する`mytube`の性質上、これで十分と判断)で、完了時に一時ファイルを
     `FileManager.moveItem`で保存先へ移動する。**ダウンロードは自動では始まらない**
     (2026-08-05、「OneDriveの場合はローカルに保存はトグルにする。デフォルトでは
@@ -981,7 +981,7 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
 ## 変更時の注意
 
 - サムネイル/動画一覧のスキャンは非破壊(読み取り専用)。移動・リネームを行う機能は
-  持たない(それが必要なら organizer の該当ペインを使う)。**削除まわりは2026-08-04時点で
+  持たない(それが必要なら myorganizer の該当ペインを使う)。**削除まわりは2026-08-04時点で
   以下の非対称な設計**(当初はローカル動画本体もアプリ内から直接ゴミ箱に移動できたが、
   「ワンクリックで実ファイルが消えるのはリスクが高い」というユーザー判断で廃止した):
   - **ローカル動画本体は直接削除できない**。`Views/VideoCardView.swift`の右クリック

@@ -2,7 +2,7 @@ import Foundation
 
 /// サイドバーのフォルダツリー(`Views/SidebarView.swift`の`FolderTreeRow`)1ノード分。
 /// `LocalSource`/`RemoteSource`ごとに`FolderTree.build`でルートノードを1本作り、
-/// `VideoItem.folderPath`を辿ってサブフォルダを再帰的に組み立てる(`photo-gallery`の
+/// `VideoItem.folderPath`を辿ってサブフォルダを再帰的に組み立てる(`mygallery`の
 /// `PhotoStore.rebuildTree()`と同じ考え方)。
 final class FolderTreeNode: Identifiable {
     let id: String

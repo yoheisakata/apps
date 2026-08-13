@@ -12,7 +12,7 @@ enum Settings {
     private static let maxCacheBytesKey = "mytube.maxCacheBytes"
 
     /// 現在開いているローカルフォルダのパス一覧(複数可)。非サンドボックスアプリのため
-    /// 素のパス文字列で十分(security-scoped bookmark は不要 — organizer 等の他アプリと同じ方針)。
+    /// 素のパス文字列で十分(security-scoped bookmark は不要 — myorganizer 等の他アプリと同じ方針)。
     /// `ContentView`が開く/閉じるたびに全件書き戻す(単純な配列なのでdiffは取らない)。
     static var openLocalFolders: [String] {
         get { UserDefaults.standard.stringArray(forKey: openLocalFoldersKey) ?? [] }

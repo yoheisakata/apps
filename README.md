@@ -23,31 +23,55 @@
 タロットカードによる占いアプリ。カードの意味を学べる **タロットクイズ**（`tarot/quiz.html`）付き。
 
 ### 🐘 PostgreSQL まなびカード — `pgquiz/`
-PostgreSQL 17以降を対象にした、クイズ／フラッシュカード形式の学習アプリ。全56問・8カテゴリ（基本概念・インデックス・クエリ最適化・JSON/JSONB・パーティション/レプリケーション・バキューム/運用・高度なSQL・17の新機能）。
+PostgreSQL 17以降を対象にした、クイズ／フラッシュカード形式の学習アプリ。全104問・13カテゴリ（基本概念・データ型・インデックス・クエリ最適化・JSON/JSONB・パーティション/レプリケーション・バキューム/運用・セキュリティ/権限・内部構造・高度なSQL・運用チートシート・17の新機能・18の新機能）。
 
 ### ⚽ ワールドカップ 2026 — `world-cup-2026/`
 FIFA ワールドカップ 2026 のダッシュボード。日本代表ページ・決勝トーナメント表・全試合日程・順位表・チーム詳細・得点王・参加国/開催都市マップ（Leaflet）の8タブ構成。
-試合データは **無料ソースのみ**（Wikipedia + openfootball）で取得し、FIFA公式ランキングだけ **Cloudflare Worker**（`world-cup-2026/worker/`）を CORS プロキシとして経由します。有料 API は使いません。
+大会は 2026-07-19 に終了（決勝: スペイン 1-0 アルゼンチン）したため、現在は**完全な静的アーカイブ**です。全104試合の結果は `data/*.json` に取り込み済みで、外部からのライブ取得は行いません。
 
 ---
 
 ## 🖥️ macOS ネイティブアプリ（GitHub Pages 対象外）
 
-SwiftUI / Swift Package Manager 製のローカル専用ツール群。ビルドして `/Applications` にインストールして使う、Webランチャーには載らないアプリです。
+SwiftUI / Swift Package Manager 製のローカル専用ツール群。ビルドして `/Applications/MyApplications/` にインストールして使う、Webランチャーには載らないアプリです。
 
-### 🗂️ Organizer — `organizer/`
+### 🗂️ MyOrganizer — `myorganizer/`
 写真・動画のバックアップ整理（日付フォルダへの振り分け、H.265再エンコード、rsync同期）、
-ファイル一括リネーム、キャッシュ掃除・不要アプリ削除、重複写真・重複動画の検出、
+ファイル一括リネーム、キャッシュ掃除・不要アプリ削除、重複動画の検出、
 子ども動画のまとめ動画作成などをまとめたメディア管理アプリ。旧`cleanmac`／`renamer`／
 `omoide`アプリを統合済み。
+
+### 🖼️ MyGallery — `mygallery/`
+Photos.app 風のローカルフォルダ・フォトギャラリー（Swift + AppKit の単一ソース、依存なし）。
+ライブラリへの取り込みをせず、指定したフォルダ配下を再帰スキャンして閲覧・整理する。
+サムネイルグリッド／フルサイズビューア／重複検出（SHA-256〜dHash の4段階）／
+人物・種類・日付でのフィルター（Vision、オンデバイス）に対応。
+
+### 🎵 MyMusic — `mymusic/`
+YouTube・Suno・MusicCreator.ai・MusicGPT などの曲リンクをプレイリストに貼り付けて連続再生する
+メニューバー常駐のミニ・ミュージックプレーヤー。ウィンドウを閉じても再生は続く。
+
+### 📺 MyTube — `mytube/`
+フォルダ内の動画を YouTube 風の見た目で見る動画プレイヤー。ローカルフォルダ・OneDrive共有リンク・
+YouTubeプレイリストを同時に開いて1つのライブラリとして扱い、サムネイルグリッドから連続再生できる。
+
+### 🎮 MyGames — `mygames/`
+NES（ファミコン）／SNES（スーパーファミコン）のエミュレータ。libretro API 準拠のコア（.dylib）を
+実行時に読み込んで動作する。ライブラリ／ROM／コントローラー／ボードゲームの4タブ構成で、
+将棋・チェス・オセロ・囲碁・五目並べ・麻雀・ダイヤモンドゲーム（AI対戦あり）の旧`boardgames`アプリを
+「ボードゲーム」タブとして統合済み。
+
+### 🔑 MyPass — `mypass/`
+マスターパスワード1つでログイン情報をまとめて暗号化・管理するパスワード管理アプリ。
+保存されるのは暗号化された1つの Blob のみ（詳細は `mypass/README.md`）。
 
 ### 💰 NetWorth — `networth/`
 SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッカー（macOS 26+）。メイン／週／月／投資／固定収支／レシートの6タブ構成で、純資産の推移・支出アラート・保有銘柄（Yahoo Finance の現在株価で時価補正）・固定収支表（Markdown）・Schedule C 向けレシート管理（Vision OCR + オンデバイス LLM）まで1つのアプリにまとめている。`--fetch` オプションで launchd による毎朝の自動記録に対応。
 
 ### ⬇️ Downloader — `downloader/`
-`yt-dlp` / `ffmpeg` を内部で呼び出す YouTube ダウンロードと、`aria2c` を使ったトレント
-ダウンロードをメニューバー常駐アプリでまとめて扱う。旧`youtube-dl-mac`／`torrent-dl-mac`
-アプリを統合済み。
+`yt-dlp` / `ffmpeg` を内部で呼び出して YouTube の動画・音声（単発／プレイリスト）を
+ダウンロードするアプリ。旧`youtube-dl-mac`を統合したもの。
+トレント機能（旧`torrent-dl-mac`由来の「Torrent」タブ）は 2026-08-12 に削除した。
 
 ### 📲 Kindle Fire → Mac 転送ツール — `kindle-transfer/`
 `adb` を使って Kindle Fire の SD カード・内部ストレージの中身を Mac にまるごとコピーする対話型 Terminalスクリプト。
@@ -63,20 +87,20 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 |--------|------|
 | ちきゅう／新幹線／タロット／PostgreSQLまなびカード | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | まなびアプリ | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
-| ワールドカップ 2026 | バニラ JS（ES module）+ JSON データ + Cloudflare Worker（API プロキシ） |
-| Organizer／NetWorth／Downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
+| ワールドカップ 2026 | バニラ JS（ES module）+ 静的 JSON データ |
+| MyOrganizer／MyMusic／MyTube／MyGames／MyPass／NetWorth／Downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
+| MyGallery | Swift + AppKit（単一ソースファイル、ローカルビルド、ad-hoc署名） |
 | kindle-transfer | Bash + adb |
 | utilities | Python 3 / Bash スクリプト |
 
-ほとんどの**Webアプリ**はビルド不要で、HTML ファイルをブラウザで開くだけで動きます。**macOSネイティブアプリ**はローカルでビルドし、`/Applications` にインストールして使います（詳細は各フォルダの README）。
+ほとんどの**Webアプリ**はビルド不要で、HTML ファイルをブラウザで開くだけで動きます。**macOSネイティブアプリ**はローカルでビルドし、`/Applications/MyApplications/` にインストールして使います（詳細は各フォルダの README）。
 
 ---
 
 ## デプロイ
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
-- ワールドカップ 2026 の Cloudflare Worker のみ、`world-cup-2026/worker/` から Wrangler で個別にデプロイします。
-- macOSネイティブアプリ（organizer / networth / downloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh` でローカルビルドし、`/Applications` にインストールして使います。
+- macOSネイティブアプリ（myorganizer / mygallery / mymusic / mytube / mygames / mypass / networth / downloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
 
 ## アプリの追加・削除
 

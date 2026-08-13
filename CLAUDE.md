@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repo has two distinct kinds of projects:
 
 1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, a single flat icon grid (no category sections).
-2. **Native macOS/iOS tools** (`networth/`, `organizer/`, `downloader/`, `musicplayer/`, `mytube/`, `emulator/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
+2. **Native macOS/iOS tools** (`networth/`, `myorganizer/`, `mygallery/`, `downloader/`, `mymusic/`, `mytube/`, `mygames/`, `mypass/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
 
@@ -28,14 +28,16 @@ Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` ク
 
 ### Native macOS/iOS tools (not deployed to GitHub Pages)
 
-- **networth/**, **organizer/**, **downloader/**, **musicplayer/**, **mytube/**, **emulator/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
-  - All apps: build script (bundle in place) + `./install.sh` (build + copy to `/Applications`).
+- **networth/**, **myorganizer/**, **downloader/**, **mymusic/**, **mytube/**, **mygames/**, **mypass/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`); **mygallery/** is the odd one out (plain Swift + AppKit, a single `Sources/main.swift` compiled with `swiftc` — no `Package.swift`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
+  - All SPM apps: build script (bundle in place) + `./install.sh` (build + copy to `/Applications/MyApplications/`).
   - networth: `./build_app.sh` or `./install.sh`. `build_app.sh` reads `appVersion` from `Sources/NetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
-  - organizer: `./build_app.sh` or `./install.sh`.
+  - myorganizer: `./build_app.sh` or `./install.sh`.
   - downloader: `./build_app.sh` or `./install.sh`.
-  - musicplayer: `./build_app.sh` or `./install.sh`.
+  - mymusic: `./build_app.sh` or `./install.sh`.
   - mytube: `./build_app.sh` or `./install.sh`.
-  - emulator: `./build_app.sh` or `./install.sh`. See `emulator/CLAUDE.md`.
+  - mygames: `./build_app.sh` or `./install.sh`. See `mygames/CLAUDE.md`.
+  - mypass: `./build_app.sh` or `./install.sh`.
+  - mygallery: **no `install.sh`** — `./build.sh` (= `./build.sh install`) builds and copies to `/Applications/MyApplications/`; `./build.sh app` only builds the bundle in `build/`.
 - **networth/** specifics (v0.4.x, requires **macOS 26** via `Package.swift` — FoundationModels): tabs are メイン / 週 / 月 / 投資 / 固定収支 / レシート.
   - `--fetch` CLI mode for headless data collection; `com.yoheisakata.networth-fetch.plist` LaunchAgent runs it every morning (see [[networth-tracker]] memory for operational details).
   - 投資 tab overlays live quotes from Yahoo Finance's public chart API (`Quotes.swift`, no API key) on SimpleFIN's once-a-day holding values.
@@ -43,36 +45,30 @@ Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` ク
   - レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). `ExpenseCategory` cases map to Schedule C Part II lines (8–27a) and their rawValues are persisted — never rename them.
 - **kindle-transfer/** — Single Bash script (`kindle-transfer.sh`), no build. Uses `adb` to pull files from a Kindle Fire's SD card/internal storage over USB.
 - **utilities/** — Standalone Python 3 / Bash scripts (not a packaged app) for a personal photo/video pipeline: backup organization (`backup-photos.sh`, `backup-videos.sh`, `sync-backups.sh`, `verify-photos.sh`), H.265 re-encoding (`encode_h265.py`), short-clip detection (`find_short_videos.py`). Run individually from the CLI; no shared entry point.
-- **organizer/** — GUI front-end covering all of `utilities/`'s functionality (写真整理/動画整理/エンコード/誤配置修正/同期/短い動画検索 in a sidebar) plus a dependency-check pane. Deliberately **reimplements** the scripts' logic natively in Swift rather than shelling out to `utilities/` — the two do not stay in sync automatically; see `organizer/CLAUDE.md`. External tools (`ffmpeg`/`ffprobe`/`rsync`/`sips`/`mdls`) are still invoked as subprocesses, not bundled. Also absorbed the former standalone `renamer/` app as its「リネーム」pane (rule-based batch renaming), the former standalone `cleanmac/` app as its「キャッシュ掃除」/「アプリ削除」panes (trash-only cache/app cleanup — the same `cleanmac/`-derived「重複写真」pane was later removed, see `organizer/CLAUDE.md`), and the former standalone `omoide/` app as its「まとめ動画」pane (clips a kids'-video folder into one movie with title cards + BGM via ffmpeg — see `organizer/CLAUDE.md`) — do not re-add `renamer/`, `cleanmac/`, or `omoide/` as separate apps.
-- **downloader/** — Regular Dock-icon app (also keeps a menu-bar status item; closing the window doesn't quit the app — `NSApp.setActivationPolicy(.regular)` + `applicationShouldTerminateAfterLastWindowClosed == false`, no `LSUIElement`, no SwiftUI `WindowGroup`, since 2026-08-05) merging the former standalone `youtube-dl-mac` and `torrent-dl-mac` into one `TabView` ("YouTube" / "Torrent") — do not re-add either as a separate app. YouTube tab wraps `yt-dlp`/`ffmpeg` (single videos and — since 2026-08-05 — full playlists, downloaded into a per-playlist subfolder; a "ダウンロード名" field auto-fetches the title on paste and lets the user override it); Torrent tab wraps `aria2c` via its JSON-RPC interface rather than implementing BitTorrent itself (all three Homebrew, not bundled) — same "thin GUI over an existing CLI" approach throughout. Torrent defaults favor downloading over uploading (low upload-speed cap, seed-ratio/seed-time of 0 = stop seeding right after completion); speed limits apply live via `aria2.changeGlobalOption`, while seed-ratio/seed-time/download-dir are startup-only options requiring an engine restart. Registers the `magnet:` URL scheme so clicking a magnet link in a browser launches the app and starts the download (see `downloader/CLAUDE.md` for the Apple Event handling and metadata-GID pitfalls this uncovered).
-- **musicplayer/** — Menu-bar-resident (`LSUIElement=true`, no Dock icon; closing the window doesn't quit or stop playback) mini music player: paste song links (YouTube, Suno, MusicCreator.ai, MusicGPT, or direct `.mp3` links) into a playlist — singly or bulk-imported one-per-line via a sheet that logs failures to `import-errors.log` — and play them back-to-back, with an optional shuffle mode. Same `AppDelegate`-owns-the-engines / `NSApplication.shared.run()` structure as downloader. YouTube links are extracted to a local mp3 cache via `yt-dlp`/`ffmpeg` (same "thin GUI over CLI" approach as downloader); the AI-song-sharing sites (Suno/MusicCreator.ai/MusicGPT) each embed a direct, publicly-fetchable mp3 URL in their server-rendered HTML (JSON blob or `og:audio` meta tag) — no headless browser or JS execution needed, just an `URLSession` HTML fetch + regex per site (see `musicplayer/CLAUDE.md` for the exact extraction patterns, a backslash-escaping gotcha in the Suno/MusicGPT JSON, and how to re-derive them if a site's markup changes).
-- **mytube/** — Regular windowed app (standard SwiftUI `App`/`WindowGroup`, not menu-bar-resident like downloader/musicplayer — playback doesn't need to continue after the window closes). A local, read-only video player with a YouTube-like look: pick a folder, it's recursively scanned for video files, top-level subfolders become sidebar "channels," and a thumbnail grid (auto-generated + disk-cached frame per video, `~/Library/Caches/MyTube/thumbnails/`) serves as the home feed. Clicking a video opens a watch page (`AVKit.VideoPlayer`) with an "up next" list that autoplays sequentially. Remembers the last-picked folder (plain `UserDefaults` path string — no security-scoped bookmark needed since the app isn't sandboxed). See `mytube/CLAUDE.md` for the async thumbnail-cache design and a `WatchView` autoplay-closure-staleness pitfall.
-- **emulator/** (RetroGames) — NES/SNES emulator frontend using the libretro API (loads `.dylib` cores at runtime via `dlopen`). Tabs: ライブラリ / ROM / コントローラー / ボードゲーム. Also absorbed the former standalone `boardgames` app (将棋・チェス・オセロ・囲碁・五目並べ・麻雀・ダイヤモンドゲームの7種、AI対戦あり) as its「ボードゲーム」タブ — do not re-add `boardgames` as a separate app. See `emulator/CLAUDE.md`.
+- **myorganizer/** — GUI front-end covering all of `utilities/`'s functionality (写真整理/動画整理/エンコード/誤配置修正/同期/短い動画検索 in a sidebar) plus a dependency-check pane. Deliberately **reimplements** the scripts' logic natively in Swift rather than shelling out to `utilities/` — the two do not stay in sync automatically; see `myorganizer/CLAUDE.md`. External tools (`ffmpeg`/`ffprobe`/`rsync`/`sips`/`mdls`) are still invoked as subprocesses, not bundled. Also absorbed the former standalone `renamer/` app as its「リネーム」pane (rule-based batch renaming), the former standalone `cleanmac/` app as its「キャッシュ掃除」/「アプリ削除」panes (trash-only cache/app cleanup — the same `cleanmac/`-derived「重複写真」pane was later removed, see `myorganizer/CLAUDE.md`), and the former standalone `omoide/` app as its「まとめ動画」pane (clips a kids'-video folder into one movie with title cards + BGM via ffmpeg — see `myorganizer/CLAUDE.md`) — do not re-add `renamer/`, `cleanmac/`, or `omoide/` as separate apps.
+- **downloader/** — Regular Dock-icon app (also keeps a menu-bar status item; closing the window doesn't quit the app — `NSApp.setActivationPolicy(.regular)` + `applicationShouldTerminateAfterLastWindowClosed == false`, no `LSUIElement`, no SwiftUI `WindowGroup`, since 2026-08-05). A thin GUI over `yt-dlp`/`ffmpeg` (Homebrew, not bundled): single videos and — since 2026-08-05 — full playlists, downloaded into a per-playlist subfolder; a "ダウンロード名" field auto-fetches the title on paste and lets the user override it. Absorbed the former standalone `youtube-dl-mac` — do not re-add it as a separate app. **The torrent half was removed on 2026-08-12**: the app used to have a second "Torrent" tab wrapping `aria2c` over JSON-RPC (absorbed from `torrent-dl-mac`), plus a `magnet:` URL-scheme handler. All of it — `Aria2Engine`/`TorrentView`/`AddTorrentView`/`SettingsView`/`Models` and the `CFBundleURLTypes` entry — is gone; **do not reintroduce torrent support or `torrent-dl-mac`** without asking. The old implementation is in git history.
+- **mymusic/** (MyMusic — renamed from `musicplayer`/MusicPlayer on 2026-08-12, together with its bundle ID `com.yohei.mymusic` and its data dir `~/Library/Application Support/MyMusic/`; do not re-add `musicplayer/`) — Menu-bar-resident (`LSUIElement=true`, no Dock icon; closing the window doesn't quit or stop playback) mini music player: paste song links (YouTube, Suno, MusicCreator.ai, MusicGPT, or direct `.mp3` links) into a playlist — singly or bulk-imported one-per-line via a sheet that logs failures to `import-errors.log` — and play them back-to-back, with an optional shuffle mode. Same `AppDelegate`-owns-the-engines / `NSApplication.shared.run()` structure as downloader. YouTube links are extracted to a local mp3 cache via `yt-dlp`/`ffmpeg` (same "thin GUI over CLI" approach as downloader); the AI-song-sharing sites (Suno/MusicCreator.ai/MusicGPT) each embed a direct, publicly-fetchable mp3 URL in their server-rendered HTML (JSON blob or `og:audio` meta tag) — no headless browser or JS execution needed, just an `URLSession` HTML fetch + regex per site (see `mymusic/CLAUDE.md` for the exact extraction patterns, a backslash-escaping gotcha in the Suno/MusicGPT JSON, and how to re-derive them if a site's markup changes).
+- **mytube/** — Regular windowed app (standard SwiftUI `App`/`WindowGroup`, not menu-bar-resident like downloader/mymusic — playback doesn't need to continue after the window closes). A video player with a YouTube-like look: **multiple** local folders can be open at once (each recursively scanned, its folder tree shown in the sidebar), and since 2026-08-04/05 two remote sources join the same library — OneDrive 共有リンク and YouTube playlists — both cached locally by `Core/DownloadStore.swift` (different download paths and post-cache handling for each; see `mytube/CLAUDE.md`). The sidebar groups them as ローカル / OneDrive / YouTube. A thumbnail grid (auto-generated + disk-cached frame per video, `~/Library/Caches/MyTube/thumbnails/`) is the home feed; `ContentView` swaps `HomeVideosView` for `PlayerPaneView` (`AVKit.VideoPlayer`) on `selectedVideo`, with an "up next" list that autoplays sequentially. Open folders persist as plain `UserDefaults` path strings (`Settings.openLocalFolders` — no security-scoped bookmark needed since the app isn't sandboxed). `Package.swift` must keep `linkerSettings: [.linkedFramework("AVKit")]` — without it the installed `.app` aborts at launch. See `mytube/CLAUDE.md` for the async thumbnail-cache design and the autoplay-closure-staleness pitfall.
+- **mygames/** (MyGames — renamed from `emulator`/RetroGames on 2026-08-12, together with its bundle ID `com.yoheisakata.mygames` and its data dir `~/Library/Application Support/MyGames/`) — NES/SNES emulator frontend using the libretro API (loads `.dylib` cores at runtime via `dlopen`). Tabs: ライブラリ / ROM / コントローラー / ボードゲーム. Also absorbed the former standalone `boardgames` app (将棋・チェス・オセロ・囲碁・五目並べ・麻雀・ダイヤモンドゲームの7種、AI対戦あり) as its「ボードゲーム」タブ — do not re-add `boardgames` as a separate app. See `mygames/CLAUDE.md`.
+- **mygallery/** (MyGallery — renamed from `photo-gallery`; bundle ID `com.yosakata.mygallery`) — Photos.app-like browser for a local folder tree, **not** an SPM package: a single `Sources/main.swift` (Swift + AppKit, no WKWebView, no dependencies, no runtime networking) compiled directly by `build.sh`, which also writes the Info.plist inline and reads the version from the `VERSION` file. Nothing is imported into a library — the chosen root folder is scanned in place. Features: thumbnail grid + full-size viewer, sort orders including a Vision-based blur/quality score, filters (date range / 人物あり・なし / イラスト・写真, all on-device Vision), 重複検出 (⇧⌘D) with four match levels from exact SHA-256 to dHash fuzzy matching, and rotation that re-writes the original file. Deletions go to the Trash (⌘⌫, no confirmation, restorable). The dup-detection logic was ported from myorganizer's old「重複写真」pane, which has since been removed from myorganizer — mygallery is now the only place it lives.
+- **mypass/** (MyPass — renamed from `passman`/PassMan on 2026-08-12, together with its bundle ID `com.yoheisakata.mypass` and its data dir `~/Library/Application Support/MyPass/`) — SwiftUI password manager. Everything is stored as one encrypted blob (`vault.dat`); the master password derives a KEK via PBKDF2-HMAC-SHA256 (600k iterations, CommonCrypto — `CryptoStore.swift` explains why Argon2id was not used despite `DESIGN.md`), which unwraps a DEK used for AES-256-GCM. Touch ID unlock stores the DEK in the Keychain (`BiometricStore.swift`). **The `.passmanbackup` extension and its `PMBACKUP` magic keep the old name on purpose** — they are file contents, so renaming them would break every previously exported backup (`VaultFile.swift`); `*.passmanbackup` is gitignored since backups are personal data.
 
 ## Build / Dev Commands
 
 Web apps need no build — open the HTML file in a browser. There are no tests anywhere in this repo.
 
-### world-cup-2026 Cloudflare Worker
-
-```bash
-cd world-cup-2026/worker
-npx wrangler dev      # Run the proxy locally
-npx wrangler deploy   # Deploy to Cloudflare
-```
-
-The Worker needs no API key or secrets (it only proxies the free FIFA rankings endpoint).
-
-### SwiftUI/SPM native apps (networth, organizer, downloader)
+### SwiftUI/SPM native apps (networth, myorganizer, downloader, mymusic, mytube, mygames, mypass)
 
 ```bash
 cd <app>
 swift build         # compile check (verification method — see below)
 # Build the .app bundle:
-./build_app.sh      # networth, organizer, downloader
-# Install/update in /Applications:
-./install.sh        # all apps (build + copy to /Applications)
+./build_app.sh      # every SPM app
+# Install/update in /Applications/MyApplications:
+./install.sh        # every SPM app (build + copy to /Applications/MyApplications)
 ```
+
+mygallery is not an SPM package — use `./build.sh` there (see the mygallery entry above); `swift build` does not apply to it.
 
 **GUI アプリを起動しないこと**: `swift run`・`open <App>.app`・`.build/debug/<App>` の直接実行など、ウィンドウが開く形での目視確認は禁止(permissions の deny ルールでもブロック済み)。検証は `swift build` のコンパイル確認まで。アプリの起動・目視確認はユーザー自身が行う。例外: `NetWorth --fetch` のようなヘッドレス CLI モードは実行してよい。
 
@@ -81,12 +77,14 @@ swift build         # compile check (verification method — see below)
 ### Web apps
 - Dark gradient themes and CSS custom properties for colors; several apps (pgquiz) use the Nunito font (Google Fonts).
 - Mobile-first: `viewport` meta with `user-scalable=no`, touch-optimized interactions.
-- State persistence via `localStorage` where it matters: world-cup-2026 caches live data + theme; kids-learning-app persists a star count (`manabi-stars`).
+- State persistence via `localStorage` where it matters: world-cup-2026 stores the theme (`wc2026-theme`); kids-learning-app persists a star count (`manabi-stars`).
 - Icons are emoji or inline SVG data URIs — no external image assets.
-- world-cup-2026 has three version knobs to bump on release: `?v=N` cache-busters on JS/CSS imports, `APP_VERSION` in `main.js` (shown in the header), and `LIVE_CACHE_KEY` (bump only when the cached live-data shape changes; add the old key to the cleanup list).
+- world-cup-2026 has two version knobs to bump on release: `?v=N` cache-busters on JS/CSS imports and `APP_VERSION` in `main.js` (shown in the header). The old `LIVE_CACHE_KEY` knob is gone with the live-fetch pipeline; `main.js` only keeps a one-time cleanup that purges the leftover live-era `localStorage` keys.
 
 ### Native macOS apps
-- Deletions always go to the Trash (`FileManager.trashItem`), never a hard delete — see organizer's キャッシュ掃除/アプリ削除 panes.
+- **App names use the `My〜` prefix** (MyOrganizer / MyGallery / MyMusic / MyTube / MyGames / MyPass — NetWorth and Downloader keep their names). When renaming one, change all of: directory name, SPM target + `Sources/<Target>/`, product/executable name, `.app` display name, bundle ID, `~/Library/Application Support/<name>/` data dir (mv the existing one to carry data over), build/install scripts, README + CLAUDE.md, and the old `/Applications` copy (trash it). See the [[app-rename-my-prefix]] memory for the full checklist.
+- Installs go to **`/Applications/MyApplications/`**, not `/Applications` directly (自作アプリをまとめるため).
+- Deletions always go to the Trash (`FileManager.trashItem`), never a hard delete — see myorganizer's キャッシュ掃除/アプリ削除 panes.
 - Secrets/credentials go in Keychain, never committed to the repo — see networth's SimpleFIN token handling.
 - Each app ad-hoc signs on local build; there's no shared signing identity or notarization.
 
@@ -95,8 +93,8 @@ swift build         # compile check (verification method — see below)
 
 ## Deployment
 
-- **Web apps**: GitHub Pages from the `main` branch. No CI/CD — pushing to `main` deploys automatically. The world-cup-2026 Worker is the only piece deployed separately, via Wrangler.
-- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications` via `./install.sh`. Re-run the install step after pulling changes to update the installed copy.
+- **Web apps**: GitHub Pages from the `main` branch. No CI/CD — pushing to `main` deploys automatically. Nothing is deployed anywhere else (the world-cup-2026 Cloudflare Worker was removed along with the live-fetch pipeline).
+- **Native macOS apps**: never deployed via GitHub Pages. Each is built and installed locally to `/Applications/MyApplications/` via `./install.sh`(mygallery のみ `./build.sh`。自作アプリはこのサブフォルダにまとめている). Re-run the install step after pulling changes to update the installed copy.
 
 ## Updating the Launcher
 

@@ -16,5 +16,9 @@ portfolio/
 AppIcon.icns
 AppIcon.iconset/
 
-# passman: 暗号化バックアップ(個人データ)をリポジトリに含めない
+# Python (utilities/ のスクリプト実行で生成される)
+__pycache__/
+*.pyc
+
+# mypass: 暗号化バックアップ(個人データ)をリポジトリに含めない
 *.passmanbackup

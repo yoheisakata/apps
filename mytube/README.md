@@ -144,7 +144,7 @@ yt-dlpから自動取得して使います(OneDriveと違い名前欄はあり�
 ```bash
 swift build         # コンパイル確認
 ./build_app.sh       # MyTube.app を生成
-./install.sh         # ビルド → /Applications へインストール
+./install.sh         # ビルド → /Applications/MyApplications へインストール
 ```
 
 ## 権限について
