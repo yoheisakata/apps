@@ -8,7 +8,13 @@ struct ImportResult {
 
 @MainActor
 final class PlaylistStore: ObservableObject {
-    @Published var tracks: [Track] = []
+    /// 曲が変わるたびにサイドバー用の一覧を組み直す(`oneDriveSources` を計算プロパティに
+    /// すると、再生位置の更新などで `ContentView.body` が再評価されるたび(0.5秒ごと)に
+    /// 全曲を舐めることになるため)。
+    @Published var tracks: [Track] = [] {
+        didSet { rebuildOneDriveSources() }
+    }
+    @Published private(set) var oneDriveSources: [OneDriveLibrarySource] = []
     @Published var resolvingCount = 0
     @Published var lastError: String?
     /// 成功時の案内(OneDrive フォルダから何曲追加したか等)。エラーとは別の色で出す。
@@ -96,10 +102,44 @@ final class PlaylistStore: ObservableObject {
         let skipped: Int
 
         var summary: String {
+            if added == 0 {
+                return "OneDrive「\(name)」に新しい曲はありませんでした(\(skipped) 曲を確認)"
+            }
             var text = "OneDrive「\(name)」から \(added) 曲を追加しました"
             if skipped > 0 { text += "(既にある \(skipped) 曲はスキップ)" }
             return text
         }
+    }
+
+    /// サイドバーに出す OneDrive 共有リンクの一覧を組み直す(曲そのものから導出する ―
+    /// 別ファイルにソース一覧を持たせると `playlist.json` との二重管理になるため)。
+    private func rebuildOneDriveSources() {
+        var order: [String] = []
+        var names: [String: String] = [:]
+        var counts: [String: Int] = [:]
+        for track in tracks {
+            guard let ref = track.oneDrive else { continue }
+            if counts[ref.shareURL] == nil {
+                order.append(ref.shareURL)
+                counts[ref.shareURL] = 0
+            }
+            counts[ref.shareURL, default: 0] += 1
+            if names[ref.shareURL] == nil, let name = ref.sourceName {
+                names[ref.shareURL] = name
+            }
+        }
+        oneDriveSources = order.map {
+            OneDriveLibrarySource(shareURL: $0, name: names[$0] ?? "OneDrive", trackCount: counts[$0] ?? 0)
+        }
+    }
+
+    /// 共有リンク1本ぶんの曲をまとめて削除する(OneDrive 上のファイルには触れない)。
+    func removeOneDriveSource(_ shareURL: String) {
+        let before = tracks.count
+        tracks.removeAll { $0.oneDrive?.shareURL == shareURL }
+        guard tracks.count != before else { return }
+        save()
+        lastNotice = "OneDrive の曲 \(before - tracks.count) 件をライブラリから削除しました"
     }
 
     /// 共有リンクをスキャンして未追加の曲だけ `tracks` に足す。同じリンクを貼り直せば、
@@ -112,25 +152,40 @@ final class PlaylistStore: ObservableObject {
                 self?.lastNotice = "OneDrive をスキャン中… \(found) 曲"
             }
         }
-        var seen = Set(tracks.map(\.dedupeKey))
+        // 曲ごとに `tracks` を触ると @Published の通知と `rebuildOneDriveSources()` が
+        // 曲数ぶん走ってしまうため、ローカルの配列に反映してから最後に1回だけ代入する。
+        var updated = tracks
+        var indexByKey: [String: Int] = [:]
+        for (index, track) in updated.enumerated() { indexByKey[track.dedupeKey] = index }
         var added = 0
         var skipped = 0
         for item in scanned.items {
+            let ref = OneDriveRef(
+                shareURL: shareURL, driveId: item.driveId, itemId: item.itemId, sourceName: scanned.sourceName
+            )
             let track = Track(
                 sourceURL: shareURL,
-                title: item.displayTitle,
+                title: (item.name as NSString).deletingPathExtension,
                 site: .oneDrive,
                 audioURL: item.downloadURL,
-                oneDrive: OneDriveRef(shareURL: shareURL, driveId: item.driveId, itemId: item.itemId)
+                oneDrive: ref,
+                folderPath: item.folderPath
             )
-            guard seen.insert(track.dedupeKey).inserted else {
+            if let existing = indexByKey[track.dedupeKey] {
+                // 既にある曲は増やさないが、フォルダ階層・共有フォルダ名は最新のものに直す
+                // (フォルダツリー導入前に追加した曲を再スキャンで移行させるため)。
+                updated[existing].oneDrive = ref
+                updated[existing].folderPath = track.folderPath
+                updated[existing].title = track.title
                 skipped += 1
                 continue
             }
-            tracks.append(track)
+            indexByKey[track.dedupeKey] = updated.count
+            updated.append(track)
             added += 1
         }
-        if added > 0 { save() }
+        tracks = updated
+        save()
         return OneDriveAddResult(name: scanned.sourceName, added: added, skipped: skipped)
     }
 
@@ -235,8 +290,11 @@ final class PlaylistStore: ObservableObject {
         }
     }
 
-    func remove(at offsets: IndexSet) {
-        tracks.remove(atOffsets: offsets)
+    /// 曲リストは絞り込み表示されうるので、行番号ではなく `Track` そのもので消す。
+    func remove(tracks removed: [Track]) {
+        let ids = Set(removed.map(\.id))
+        guard !ids.isEmpty else { return }
+        tracks.removeAll { ids.contains($0.id) }
         save()
     }
 

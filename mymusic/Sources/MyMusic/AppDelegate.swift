@@ -1,25 +1,33 @@
 import AppKit
 import SwiftUI
 
-/// LSUIElement アプリ(Dock アイコンなし)として、メニューバーに常駐する。
-/// ウィンドウを閉じても再生(と PlaylistStore/PlayerEngine)は終了せず、
-/// メニューバーの「終了」を選んだ時だけ本当に終了する(downloader/Sources/Downloader/AppDelegate.swift と同じ構成)。
+/// Dock アイコンを持つ通常のアプリ(`.regular`)。mytube と同じく**メニューバーには常駐しない**
+/// (2026-08-12、「mytube のようにメニューバーに置かなくていい」という要望への対応。
+/// それ以前は `LSUIElement` + ステータスアイテムでメニューバーに常駐していた)。
+/// ただし mytube と違い、**ウィンドウを閉じてもアプリは終了しない**(再生を止めないため) ―
+/// `applicationShouldTerminateAfterLastWindowClosed` は `false` のままで、Dock アイコンを
+/// クリックすると `applicationShouldHandleReopen` でウィンドウを開き直す。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let store = PlaylistStore()
     let player = PlayerEngine()
-    private var statusItem: NSStatusItem?
     private var window: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         setupMainMenu()
-        setupStatusItem()
         showWindow()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    /// ウィンドウを閉じた後に Dock アイコンをクリックしたときの復帰口
+    /// (メニューバーの「ウィンドウを開く」が無くなったため、ここが主な入口になる)。
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows { showWindow() }
+        return true
     }
 
     /// `NSApplication.shared.run()` を直接呼ぶ構成では mainMenu が自動生成されないため、
@@ -29,6 +37,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
+        let showItem = appMenu.addItem(withTitle: "ウィンドウを開く", action: #selector(showWindowAction), keyEquivalent: "0")
+        showItem.target = self
+        appMenu.addItem(.separator())
         let quitItem = appMenu.addItem(withTitle: "MyMusic を終了", action: #selector(quitAction), keyEquivalent: "q")
         quitItem.target = self
         appMenuItem.submenu = appMenu
@@ -44,21 +55,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainMenu.addItem(editMenuItem)
 
         NSApp.mainMenu = mainMenu
-    }
-
-    private func setupStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "MyMusic")
-
-        let menu = NSMenu()
-        menu.addItem(withTitle: "ウィンドウを開く", action: #selector(showWindowAction), keyEquivalent: "")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "終了", action: #selector(quitAction), keyEquivalent: "q")
-        for menuItem in menu.items {
-            menuItem.target = self
-        }
-        item.menu = menu
-        statusItem = item
     }
 
     @objc private func showWindowAction() {
@@ -83,7 +79,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let newWindow = NSWindow(contentViewController: hosting)
         newWindow.title = "MyMusic"
         newWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        newWindow.setContentSize(NSSize(width: 380, height: 640))
+        // サイドバー(220pt)+ 曲リストの横長レイアウトに合わせた既定サイズ。
+        newWindow.setContentSize(NSSize(width: 940, height: 620))
+        newWindow.contentMinSize = NSSize(width: 720, height: 420)
         newWindow.center()
         newWindow.delegate = self
         newWindow.makeKeyAndOrderFront(nil)

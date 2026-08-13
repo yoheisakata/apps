@@ -3,7 +3,10 @@ import AVFoundation
 @MainActor
 final class PlayerEngine: ObservableObject {
     @Published var isPlaying = false
-    @Published var currentIndex: Int?
+    /// 再生中の曲。**プレイリスト内の位置(index)ではなく曲そのものを持つ** ―
+    /// サイドバーでフォルダを選び替えるとキューの中身も並びも変わるため、index では
+    /// 「今どれを鳴らしているか」を安定して表せない(次の曲の決定は `ContentView` の責務)。
+    @Published var currentTrack: Track?
     @Published var currentTime: Double = 0
     @Published var duration: Double = 0
 
@@ -27,7 +30,7 @@ final class PlayerEngine: ObservableObject {
         }
     }
 
-    func load(track: Track, index: Int, autoplay: Bool = true) {
+    func load(track: Track, autoplay: Bool = true) {
         guard let url = URL(string: track.audioURL) else { return }
         if let observer = itemEndObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -39,7 +42,7 @@ final class PlayerEngine: ObservableObject {
             Task { @MainActor in self?.onTrackFinished?() }
         }
         player.replaceCurrentItem(with: item)
-        currentIndex = index
+        currentTrack = track
         currentTime = 0
         duration = 0
         if autoplay {
@@ -72,7 +75,7 @@ final class PlayerEngine: ObservableObject {
         player.pause()
         player.replaceCurrentItem(with: nil)
         isPlaying = false
-        currentIndex = nil
+        currentTrack = nil
         currentTime = 0
         duration = 0
     }

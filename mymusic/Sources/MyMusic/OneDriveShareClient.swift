@@ -34,13 +34,6 @@ enum OneDriveShareClient {
         /// (ルート直下なら `[]`)。表示タイトルの前置きに使う。
         let folderPath: [String]
         let downloadURL: String
-
-        /// プレイリストに出す表示名。サブフォルダにある曲は「フォルダ/曲名」の形にして、
-        /// 同名ファイルやアーティスト別フォルダを見分けられるようにする。
-        var displayTitle: String {
-            let base = (name as NSString).deletingPathExtension
-            return folderPath.isEmpty ? base : (folderPath.joined(separator: "/") + "/" + base)
-        }
     }
 
     /// AVPlayer で再生できる音声ファイルの拡張子(`LinkResolver` の直リンク判定より広め ―
@@ -97,6 +90,51 @@ enum OneDriveShareClient {
         }
     }
 
+    // MARK: - ジャケット(サムネイル)
+
+    /// OneDrive が生成するサムネイルのサイズ。実測 small=96 / medium=176 / large=800 px 四方。
+    enum ThumbnailSize: String {
+        case small, medium, large
+    }
+
+    /// 曲のジャケット画像 URL を取得する。**曲ファイルに埋め込まれたアートワークを
+    /// OneDrive 側(SharePoint のメディア変換サービス)が画像に起こしてくれる**ので、
+    /// こちらで mp3/m4a を数百 KB 落として ID3 の `APIC`/MP4 の `covr` を解析する必要はない。
+    /// 返る URL は `Authorization` 無しでそのまま取得できる(検証済み)。
+    /// **アートワークが埋め込まれていないファイルでもこの API は URL を返すが、その URL の
+    /// 取得が 404 になる**(実測)ので、呼び出し側は画像の取得失敗を「ジャケット無し」として
+    /// 扱うこと(`ArtworkStore`)。
+    static func thumbnailURL(
+        shareURL: String, driveId: String, itemId: String, size: ThumbnailSize
+    ) async throws -> String? {
+        let session = try await Session.shared.entry(for: shareURL)
+        var request = URLRequest(
+            url: URL(string: "\(apiBase)/drives/\(driveId)/items/\(itemId)/thumbnails")!
+        )
+        request.httpMethod = "GET"
+        applyCommonHeaders(&request, token: session.token)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try checkOK(response, data: data)
+        let sets = try decode(ThumbnailSetsResponse.self, from: data)
+        guard let set = sets.value.first else { return nil }
+        switch size {
+        case .small: return set.small?.url
+        case .medium: return set.medium?.url
+        case .large: return set.large?.url
+        }
+    }
+
+    private struct ThumbnailSetsResponse: Decodable {
+        struct ThumbnailSet: Decodable {
+            struct Thumbnail: Decodable { let url: String }
+            let small: Thumbnail?
+            let medium: Thumbnail?
+            let large: Thumbnail?
+        }
+        let value: [ThumbnailSet]
+    }
+
     private static func downloadURL(shareURL: String, driveId: String, itemId: String) async throws -> String {
         let session = try await Session.shared.entry(for: shareURL)
         let item = try await fetchItem(driveId: driveId, itemId: itemId, token: session.token)
@@ -145,6 +183,7 @@ enum OneDriveShareClient {
 
     private static let appId = "00000000-0000-0000-0000-0000481710a4"
     private static let origin = "https://onedrive.live.com"
+    private static let apiBase = "https://my.microsoftpersonalcontent.com/_api/v2.0"
 
     private struct TokenResponse: Decodable { let token: String }
 
@@ -179,7 +218,7 @@ enum OneDriveShareClient {
     private static func resolveShare(shareURL: String, token: String) async throws -> ResolvedRoot {
         guard let encoded = encodeShareURL(shareURL) else { throw OneDriveShareError.invalidShareURL }
         var components = URLComponents(
-            string: "https://my.microsoftpersonalcontent.com/_api/v2.0/shares/\(encoded)/driveitem"
+            string: "\(apiBase)/shares/\(encoded)/driveitem"
         )!
         components.queryItems = [URLQueryItem(name: "$select", value: "id,name,parentReference,folder")]
 
@@ -344,7 +383,7 @@ enum OneDriveShareClient {
 
     private static func fetchItem(driveId: String, itemId: String, token: String) async throws -> DriveItemChild {
         var components = URLComponents(
-            string: "https://my.microsoftpersonalcontent.com/_api/v2.0/drives/\(driveId)/items/\(itemId)"
+            string: "\(apiBase)/drives/\(driveId)/items/\(itemId)"
         )!
         components.queryItems = [URLQueryItem(name: "select", value: "*")]
         var request = URLRequest(url: components.url!)
@@ -357,7 +396,7 @@ enum OneDriveShareClient {
     }
 
     private static func childrenURL(driveId: String, itemId: String) -> String {
-        "https://my.microsoftpersonalcontent.com/_api/v2.0/drives/\(driveId)/items/\(itemId)/children?%24top=200&select=*"
+        "\(apiBase)/drives/\(driveId)/items/\(itemId)/children?%24top=200&select=*"
     }
 
     // MARK: - 共通処理
