@@ -13,6 +13,7 @@ macOS native emulator frontend using the libretro API. Loads NES/SNES emulation 
 - **InputManager** — NSEvent keyboard monitors + GameController framework. Esc / ⌘W → stop (handled in the keyDown monitor, not menu shortcuts). Gamepad button bindings come from `ControllerConfig.shared.mapping` (re-read at each game start); dpad + left thumbstick are fixed to movement
 - **ControllerConfig** — controller connect/disconnect tracking + physical→virtual button mapping persisted in UserDefaults (`controllerMapping`); "press to assign" capture via profile-level `valueChangedHandler` (doesn't conflict with InputManager's per-button handlers). UI is the コントローラー tab (`ControllerSettingsView`)
 - **Rendering** — CGImage from frame buffer displayed via CALayer (no Metal shaders)
+- **BoardGames tab** — absorbed the former standalone `boardgames` app (将棋・チェス・オセロ・囲碁・五目並べ・麻雀・ダイヤモンドゲームの7種、SwiftUIネイティブ、AI対戦あり) as the「ボードゲーム」tab; do not re-add `boardgames` as a separate app. `Sources/Emulator/BoardGames/` is a straight file-move from the old `boardgames/Sources/` — its own module structure (7 independent `*Engine.swift`/`*Game.swift`/`*Views.swift` sets + shared `Shared.swift`) is unchanged, only `main.swift`'s `@main App`/`WindowGroup` wrapper was stripped and its `RootView` renamed to `BoardGamesRootView` (rendered from `ContentView`'s `.boardgames` tab case). The `Router` + 7 `GameState` `@StateObject`s live in `RetroGamesApp` (`Main.swift`) and reach `BoardGamesRootView` via `environmentObject` propagation, same pattern as `emulator`. Saves are per-game JSON slots at `~/Library/Application Support/BoardGames/<game>/slotN.json` (unrelated to the `RetroGames/` save directories below, no bundle-ID dependency so pre-merge saves carry over unchanged).
 
 ## Build
 
@@ -31,6 +32,7 @@ swift run                   # launch
 - `Sources/Emulator/Core/` — LibretroCore, InputManager, EmulatorViewModel
 - `Sources/Emulator/Views/` — SwiftUI views
 - `Sources/Emulator/Audio/` — Audio engine
+- `Sources/Emulator/BoardGames/` — 「ボードゲーム」タブ(旧 boardgames アプリ、7種の対戦ゲーム)
 
 ## Runtime Directories
 

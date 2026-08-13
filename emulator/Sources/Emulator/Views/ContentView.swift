@@ -1,6 +1,20 @@
 import SwiftUI
 
-enum AppTab: String, CaseIterable {
+/// トップメニュー(1段目): Nintendo(エミュレータ関連) / ボードゲーム
+enum TopTab: String, CaseIterable {
+    case nintendo = "Nintendo"
+    case boardgames = "ボードゲーム"
+
+    var iconName: String {
+        switch self {
+        case .nintendo: return "gamecontroller.fill"
+        case .boardgames: return "checkerboard.rectangle"
+        }
+    }
+}
+
+/// Nintendo 選択時に2段目に出るサブメニュー
+enum NintendoTab: String, CaseIterable {
     case library = "ライブラリ"
     case romBrowser = "ROM"
     case controller = "コントローラー"
@@ -16,7 +30,8 @@ enum AppTab: String, CaseIterable {
 
 struct ContentView: View {
     @EnvironmentObject var emulator: EmulatorViewModel
-    @State private var selectedTab: AppTab = .library
+    @State private var selectedTop: TopTab = .nintendo
+    @State private var selectedNintendoTab: NintendoTab = .library
 
     var body: some View {
         Group {
@@ -34,15 +49,24 @@ struct ContentView: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    tabBar
+                    topTabBar
+                    if selectedTop == .nintendo {
+                        Divider()
+                        nintendoSubTabBar
+                    }
                     Divider()
-                    switch selectedTab {
-                    case .library:
-                        LibraryView(scanner: emulator.scanner)
-                    case .romBrowser:
-                        ROMBrowserView()
-                    case .controller:
-                        ControllerSettingsView()
+                    switch selectedTop {
+                    case .nintendo:
+                        switch selectedNintendoTab {
+                        case .library:
+                            LibraryView(scanner: emulator.scanner)
+                        case .romBrowser:
+                            ROMBrowserView()
+                        case .controller:
+                            ControllerSettingsView()
+                        }
+                    case .boardgames:
+                        BoardGamesRootView()
                     }
                 }
             }
@@ -50,10 +74,10 @@ struct ContentView: View {
         .frame(minWidth: 640, minHeight: 520)
     }
 
-    private var tabBar: some View {
+    private var topTabBar: some View {
         HStack(spacing: 0) {
-            ForEach(AppTab.allCases, id: \.self) { tab in
-                Button(action: { selectedTab = tab }) {
+            ForEach(TopTab.allCases, id: \.self) { tab in
+                Button(action: { selectedTop = tab }) {
                     HStack(spacing: 4) {
                         Image(systemName: tab.iconName)
                             .font(.caption)
@@ -62,8 +86,8 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(selectedTab == tab ? Color.accentColor.opacity(0.15) : Color.clear)
-                    .foregroundStyle(selectedTab == tab ? Color.accentColor : .secondary)
+                    .background(selectedTop == tab ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .foregroundStyle(selectedTop == tab ? Color.accentColor : .secondary)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
@@ -72,6 +96,31 @@ struct ContentView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+
+    /// Nintendo タブ選択時のみ2段目に出るサブメニュー(見た目はやや控えめ)
+    private var nintendoSubTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(NintendoTab.allCases, id: \.self) { tab in
+                Button(action: { selectedNintendoTab = tab }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: tab.iconName)
+                            .font(.caption2)
+                        Text(tab.rawValue)
+                            .font(.caption.weight(.medium))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(selectedNintendoTab == tab ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .foregroundStyle(selectedNintendoTab == tab ? Color.accentColor : .secondary)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
     }
 
     private var pauseOverlay: some View {

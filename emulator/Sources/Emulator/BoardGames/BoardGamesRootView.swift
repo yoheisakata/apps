@@ -1,45 +1,12 @@
-// main.swift — ボードゲーム: 将棋・チェス・オセロで遊びながら学べる macOS アプリ
-//
-// メニューからゲームを選び、いつでもメニューに戻れる。
-// 各ゲーム 3 スロットの途中保存に対応。
+// BoardGamesRootView.swift — 将棋・チェス・オセロ等のボードゲーム集(旧 boardgames アプリ)。
+// RetroGames の「ボードゲーム」タブから表示される。
 
 import SwiftUI
 import AppKit
 
-@main
-struct BoardGamesApp: App {
-    @StateObject private var router = Router()
-    @StateObject private var shogi = ShogiGameState()
-    @StateObject private var chess = ChessGameState()
-    @StateObject private var othello = OthelloGameState()
-    @StateObject private var go = GoGameState()
-    @StateObject private var diamond = DiamondGameState()
-    @StateObject private var gomoku = GomokuGameState()
-    @StateObject private var mahjong = MahjongGameState()
-
-    var body: some Scene {
-        WindowGroup("ボードゲーム") {
-            RootView()
-                .environmentObject(router)
-                .environmentObject(shogi)
-                .environmentObject(chess)
-                .environmentObject(othello)
-                .environmentObject(go)
-                .environmentObject(diamond)
-                .environmentObject(gomoku)
-                .environmentObject(mahjong)
-                .onAppear {
-                    NSApp.setActivationPolicy(.regular)
-                    NSApp.activate(ignoringOtherApps: true)
-                }
-        }
-        .windowResizability(.contentSize)
-    }
-}
-
 // MARK: - 画面切り替え
 
-struct RootView: View {
+struct BoardGamesRootView: View {
     @EnvironmentObject var router: Router
 
     var body: some View {

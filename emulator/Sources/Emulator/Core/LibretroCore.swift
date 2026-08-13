@@ -176,7 +176,10 @@ final class LibretroCore: ObservableObject {
         }
     }
 
-    func stop() {
+    /// - Parameter completion: emulationQueue 上の後片付け(retro_unload_game)が完了してから
+    ///   メインスレッドで呼ばれる。アプリ終了時、実行中の retro_run とプロセス終了処理が
+    ///   競合してクラッシュするのを防ぐために使う(applicationShouldTerminate から呼ぶ)。
+    func stop(completion: (() -> Void)? = nil) {
         runTimer?.cancel()
         runTimer = nil
         audioEngine?.stop()
@@ -189,6 +192,7 @@ final class LibretroCore: ObservableObject {
                 self?.isRunning = false
                 self?.isPaused = false
                 self?.currentFrame = nil
+                completion?()
             }
         }
     }
@@ -452,5 +456,17 @@ private func inputPollCallback() {
 
 private func inputStateCallback(_ port: UInt32, _ device: UInt32, _ index: UInt32, _ id: UInt32) -> Int16 {
     guard let core = LibretroCore.current, let input = core.inputManager, port == 0 else { return 0 }
+    // RETRO_ENVIRONMENT_GET_INPUT_BITMASKS を true と返しているため、コアはボタン個別
+    // 問い合わせの代わりにこの一括ビットマスク問い合わせ(id=256)を使うことがある。
+    // 未対応のままだと A/B/X/Y/L/R 等がまとめて反応しなくなる。
+    if id == RETRO_DEVICE_ID_JOYPAD_MASK {
+        var mask: UInt16 = 0
+        for button in UInt32(0)...15 where input.isPressed(button: button) {
+            mask |= (1 << button)
+        }
+        return Int16(bitPattern: mask)
+    }
     return input.isPressed(button: id) ? 1 : 0
 }
+
+private let RETRO_DEVICE_ID_JOYPAD_MASK: UInt32 = 256
