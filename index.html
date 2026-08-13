@@ -46,6 +46,20 @@ body::before {
 }
 .header p { color: #555; font-size: 0.82rem; }
 
+/* 更新日（タップで最新を取り直す） */
+.header .updated {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: #6a6a78; font-size: 0.78rem; font-weight: 700;
+  padding: 6px 14px; border-radius: 100px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.035);
+  font-family: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s cubic-bezier(.34,1.56,.64,1);
+}
+.header .updated:active { transform: scale(0.93); }
+.header .updated .reload-icon { font-size: 0.95em; opacity: 0.7; }
+
 /* App container */
 .section {
   position: relative; z-index: 1;
@@ -123,7 +137,8 @@ body::before {
 
 <div class="header">
   <h1>🎮 My Apps</h1>
-  <p>あそびたいアプリをえらんでね</p>
+  <!-- 更新日: 何かを更新するたびに必ずこの日付を今日の日付にする -->
+  <button class="updated" id="updated">更新日 2026-08-13 <span class="reload-icon">↻</span></button>
 </div>
 
 <!-- Apps -->
@@ -168,6 +183,26 @@ body::before {
   </div>
 </div>
 
+<script>
+// ホーム画面に登録した web アプリには「引っぱって更新」がないため、
+// 更新日をタップしたらキャッシュを避けて最新を取り直せるようにしている。
+(function () {
+  var stamp = new URLSearchParams(location.search).get('t');
+
+  // 強制更新で開いたときは、各アプリへのリンクにも同じ印を付けて回す
+  // （通常時は付けない。付けると PWA のオフラインキャッシュを外してしまうため）
+  if (stamp) {
+    document.querySelectorAll('a.app').forEach(function (a) {
+      a.href += (a.href.indexOf('?') < 0 ? '?' : '&') + 't=' + encodeURIComponent(stamp);
+    });
+  }
+
+  document.getElementById('updated').addEventListener('click', function () {
+    this.textContent = 'さいしんを かくにんちゅう…';
+    location.replace(location.pathname + '?t=' + Date.now());
+  });
+})();
+</script>
 
 </body>
 </html>

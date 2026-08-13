@@ -1,5 +1,5 @@
 // シンプルなオフラインキャッシュ
-var CACHE_NAME = "manabi-v8";
+var CACHE_NAME = "manabi-v9";
 importScripts("audio-manifest.js"); // AUDIO_FILES (tools/generate_audio.py が生成)
 var ASSETS = [
   ".",

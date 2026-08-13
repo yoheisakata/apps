@@ -27,6 +27,8 @@ header {
 }
 header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowrap; }
 #header-sub { font-size: 0.68rem; color: #4a6080; }
+/* バージョン表示（更新のたびに上げる） */
+.app-version { font-size: 0.55rem; color: #33465e; letter-spacing: 0.06em; margin-top: 2px; }
 
 #home-link {
   display: flex; align-items: center; justify-content: center;
@@ -300,6 +302,7 @@ header h1 { font-size: 1.1rem; font-weight: 900; color: #fff; white-space: nowra
   <div>
     <h1>🚄 しんかんせんマップ</h1>
     <p id="header-sub">にほんには、たくさんのしんかんせんがある！</p>
+    <div class="app-version">v1.0.0</div>
   </div>
   <button id="back-btn" onclick="resetToAll()">◀ もどる</button>
 </header>

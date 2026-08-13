@@ -69,5 +69,9 @@ cd awsquiz && node -e "global.window={};require('./questions.js');const Q=window
   `questions.js` が返り続けるため。キャッシュ対象を変えたら `CACHE_NAME` を上げる。
 - `.next-btn` は `.action-row`（flex）の中で `flex:1` にしているので、
   その外に単独で置くと縦に伸びる。模擬試験の設定画面では CSS で打ち消している。
+- **このアプリ（`index.html` / `questions.js`）を変更したら、ホーム画面の
+  `.app-version`（footnote の下）のバージョンを必ず上げること**。問題を足しただけ
+  でもパッチを上げる。iPhone のホーム画面から開いたときに更新が届いたか確認する
+  唯一の手段。
 - 変更後は `index.html` をブラウザで開いて確認する。特にクイズ画面は狭い画面幅で、
   長文シナリオと複数選択（必要数を選ぶまで解答ボタンが無効）の挙動を見ること。

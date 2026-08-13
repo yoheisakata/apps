@@ -45,6 +45,14 @@ body {
   align-items: center;
 }
 
+/* バージョン表示（更新のたびに上げる） */
+.app-version {
+  margin-top: 20px;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: rgba(80, 60, 30, 0.4);
+}
+
 .big-btn {
   width: 100%;
   max-width: 420px;
