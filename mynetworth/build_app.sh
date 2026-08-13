@@ -1,12 +1,12 @@
 #!/bin/bash
-# NetWorth を .app バンドルとしてビルドする。
-#   ./build_app.sh          → release ビルドして NetWorth.app を生成
-#   open NetWorth.app       → 起動
+# MyNetWorth を .app バンドルとしてビルドする。
+#   ./build_app.sh          → release ビルドして MyNetWorth.app を生成
+#   open MyNetWorth.app       → 起動
 set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG=release
-APP_NAME=NetWorth
+APP_NAME=MyNetWorth
 APP_BUNDLE="${APP_NAME}.app"
 
 # アイコンがなければ生成する。
@@ -31,7 +31,7 @@ cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
 
 # バージョンは Main.swift の appVersion が唯一の定義。Info.plist に反映する。
-VERSION=$(sed -n 's/^let appVersion = "\(.*\)"$/\1/p' Sources/NetWorth/Main.swift)
+VERSION=$(sed -n 's/^let appVersion = "\(.*\)"$/\1/p' Sources/MyNetWorth/Main.swift)
 if [[ -n "${VERSION}" ]]; then
     plutil -replace CFBundleShortVersionString -string "${VERSION}" \
         "${APP_BUNDLE}/Contents/Info.plist"

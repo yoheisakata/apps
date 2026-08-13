@@ -760,7 +760,7 @@ swift run                        # 開発ビルド(ウィンドウ起動)
   区切って縦に並べている。いずれも`@ObservedObject var model: VideoMakerViewModel`を
   親の`@StateObject`から受け取るだけの薄いラッパー(状態は`VideoMakerViewModel`に
   一元化されたまま)。一度`TabView`でタブ切り替え式にした(当時の downloader の YouTube/Torrent タブ、
-  networthのメイン/週/月/…タブと同じパターンを踏襲)ことがあったが、「設定が常に見える
+  mynetworthのメイン/週/月/…タブと同じパターンを踏襲)ことがあったが、「設定が常に見える
   ようにしたい」という要望でこの常時表示の縦並びに戻した — 新しく設定を追加するときは
   タブに隠さず、意味の近いセクションに`Divider()`区切りで追加する方針。
 

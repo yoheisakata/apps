@@ -1,4 +1,4 @@
-# NetWorth — 資産トラッカー(macOS ネイティブ)
+# MyNetWorth — 資産トラッカー(macOS ネイティブ)
 
 Bank of America・Fidelity など全口座の残高を SimpleFIN 経由で取得し、
 純資産の推移・支出・保有銘柄・固定収支・レシート(Schedule C)まで
@@ -13,7 +13,7 @@ FoundationModels がオンデバイス LLM を使うため)。
 | 週 | 週単位の収支・内訳・日毎の支出明細 |
 | 月 | 月単位の収支・内訳・日毎の支出明細 |
 | 投資 | 株・投資の推移と保有銘柄一覧(口座ごとにグループ化・小計付き)。Yahoo Finance の現在株価で時価・損益を 株数×現在値 に補正 |
-| 固定収支 | `networth/2026_Sakata_支出表.md` を軽量 Markdown パーサーで表示。md を編集して「再読込」すれば反映 |
+| 固定収支 | `mynetworth/2026_Sakata_支出表.md` を軽量 Markdown パーサーで表示。md を編集して「再読込」すれば反映 |
 | レシート | Schedule C(個人事業主)向けレシート管理。下記参照 |
 
 ### レシートタブ (Schedule C 経費整理)
@@ -31,7 +31,7 @@ FoundationModels がオンデバイス LLM を使うため)。
 ## データの置き場所
 
 - SimpleFIN のアクセスURL(読み取り専用) → **Keychain**
-- 残高・取引の履歴 → `~/Library/Application Support/NetWorth/history.json`
+- 残高・取引の履歴 → `~/Library/Application Support/MyNetWorth/history.json`
 - レシート → `~/Library/Application Support/Receipts/`
 
 リポジトリには秘密情報も金融データも入らない。
@@ -39,13 +39,13 @@ FoundationModels がオンデバイス LLM を使うため)。
 ## ビルドと初回セットアップ
 
 ```bash
-cd networth
+cd mynetworth
 ./build_app.sh                       # release ビルド + ad-hoc 署名
 ./install.sh                        # ビルド → /Applications/MyApplications へインストール
-open /Applications/MyApplications/NetWorth.app
+open /Applications/MyApplications/MyNetWorth.app
 ```
 
-バージョンは `Sources/NetWorth/Main.swift` の `appVersion` が唯一の定義で、
+バージョンは `Sources/MyNetWorth/Main.swift` の `appVersion` が唯一の定義で、
 `build_app.sh` が Info.plist に反映する。リリース時はここだけ上げる。
 
 1. https://bridge.simplefin.org でアカウント作成(年 $15)、Bank of America / Fidelity を接続
@@ -59,11 +59,11 @@ SimpleFIN 契約前でも「デモデータで試す」で UI を確認できる
 アプリを開いた時に毎回最新を取得するが、開かない日も記録したい場合:
 
 ```bash
-cp com.yoheisakata.networth-fetch.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.yoheisakata.networth-fetch.plist
+cp com.yoheisakata.mynetworth-fetch.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.yoheisakata.mynetworth-fetch.plist
 ```
 
-毎朝 7:00 に `NetWorth --fetch` を実行する(ログ: `/tmp/networth-fetch.log`)。
+毎朝 7:00 に `MyNetWorth --fetch` を実行する(ログ: `/tmp/mynetworth-fetch.log`)。
 
 ## 注意
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// networth と同じ紫グラデーション背景に鍵穴シルエットを描いたアイコンを生成する。
+// mynetworth と同じ紫グラデーション背景に鍵穴シルエットを描いたアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 

@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.yoheisakata.networth-fetch</string>
+  <string>com.yoheisakata.mynetworth-fetch</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Applications/MyApplications/NetWorth.app/Contents/MacOS/NetWorth</string>
+    <string>/Applications/MyApplications/MyNetWorth.app/Contents/MacOS/MyNetWorth</string>
     <string>--fetch</string>
   </array>
   <key>StartCalendarInterval</key>
@@ -15,8 +15,8 @@
     <key>Minute</key><integer>0</integer>
   </dict>
   <key>StandardOutPath</key>
-  <string>/tmp/networth-fetch.log</string>
+  <string>/tmp/mynetworth-fetch.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/networth-fetch.log</string>
+  <string>/tmp/mynetworth-fetch.log</string>
 </dict>
 </plist>

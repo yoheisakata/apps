@@ -26,7 +26,7 @@ struct Holding: Codable, Identifiable, Hashable {
     var costBasis: Double
 }
 
-// 蓄積データ本体。~/Library/Application Support/NetWorth/history.json に保存する。
+// 蓄積データ本体。~/Library/Application Support/MyNetWorth/history.json に保存する。
 struct History: Codable {
     var accounts: [AccountInfo] = []
     var balances: [String: [String: Double]] = [:]  // 口座ID -> 日付 -> 残高
@@ -101,7 +101,7 @@ struct History: Codable {
 enum HistoryFile {
     static var directory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("NetWorth", isDirectory: true)
+            .appendingPathComponent("MyNetWorth", isDirectory: true)
     }
     static var url: URL { directory.appendingPathComponent("history.json") }
 

@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 @preconcurrency import Vision
 
 // レシート管理(Schedule C 経費整理)のデータ層。
-// 元は receipts-mac/ の単体アプリだったものを NetWorth のタブとして統合した。
+// 元は receipts-mac/ の単体アプリだったものを MyNetWorth のタブとして統合した。
 // データは従来どおり ~/Library/Application Support/Receipts/ に保存する。
 
 // Schedule C(個人事業主)の経費カテゴリー。Form 1040 Schedule C Part II の

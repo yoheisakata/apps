@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repo has two distinct kinds of projects:
 
 1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, a single flat icon grid (no category sections).
-2. **Native macOS/iOS tools** (`networth/`, `myorganizer/`, `mygallery/`, `downloader/`, `mymusic/`, `mytube/`, `mygames/`, `mypass/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
+2. **Native macOS/iOS tools** (`mynetworth/`, `myorganizer/`, `mygallery/`, `downloader/`, `mymusic/`, `mytube/`, `mygames/`, `mypass/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
 
@@ -24,13 +24,13 @@ Most are **single self-contained HTML files** (inline CSS + JS) in their own dir
 
 Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` クイズ), `shinkansen`, `pgquiz` (PostgreSQL 17以降向けのクイズ/フラッシュカード学習アプリ、104問・13カテゴリ).
 
-> `learn-postgresql/` (pglite/WASM SQL lab) and `receipt/` (Claude API + Firebase レシート web app; the user's Firebase account was deleted — receipt management now lives in networth's レシート tab) were removed from the repo; do not re-add references to them unless the folders come back.
+> `learn-postgresql/` (pglite/WASM SQL lab) and `receipt/` (Claude API + Firebase レシート web app; the user's Firebase account was deleted — receipt management now lives in mynetworth's レシート tab) were removed from the repo; do not re-add references to them unless the folders come back.
 
 ### Native macOS/iOS tools (not deployed to GitHub Pages)
 
-- **networth/**, **myorganizer/**, **downloader/**, **mymusic/**, **mytube/**, **mygames/**, **mypass/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`); **mygallery/** is the odd one out (plain Swift + AppKit, a single `Sources/main.swift` compiled with `swiftc` — no `Package.swift`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
+- **mynetworth/**, **myorganizer/**, **downloader/**, **mymusic/**, **mytube/**, **mygames/**, **mypass/** — SwiftUI apps built with **Swift Package Manager** (`Package.swift`, `Sources/`); **mygallery/** is the odd one out (plain Swift + AppKit, a single `Sources/main.swift` compiled with `swiftc` — no `Package.swift`). Shared conventions: `make-icon.swift` generates `AppIcon.icns`/`AppIcon.iconset/`, a build script produces a local ad-hoc-signed `.app` bundle. No App Store distribution, no CI. Install/update scripts differ per app:
   - All SPM apps: build script (bundle in place) + `./install.sh` (build + copy to `/Applications/MyApplications/`).
-  - networth: `./build_app.sh` or `./install.sh`. `build_app.sh` reads `appVersion` from `Sources/NetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
+  - mynetworth: `./build_app.sh` or `./install.sh`. `build_app.sh` reads `appVersion` from `Sources/MyNetWorth/Main.swift` (single source of truth) into Info.plist, and bundles `2026_Sakata_支出表.md` as the 固定収支 tab's fallback.
   - myorganizer: `./build_app.sh` or `./install.sh`.
   - downloader: `./build_app.sh` or `./install.sh`.
   - mymusic: `./build_app.sh` or `./install.sh`.
@@ -38,10 +38,11 @@ Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` ク
   - mygames: `./build_app.sh` or `./install.sh`. See `mygames/CLAUDE.md`.
   - mypass: `./build_app.sh` or `./install.sh`.
   - mygallery: **no `install.sh`** — `./build.sh` (= `./build.sh install`) builds and copies to `/Applications/MyApplications/`; `./build.sh app` only builds the bundle in `build/`.
-- **networth/** specifics (v0.4.x, requires **macOS 26** via `Package.swift` — FoundationModels): tabs are メイン / 週 / 月 / 投資 / 固定収支 / レシート.
-  - `--fetch` CLI mode for headless data collection; `com.yoheisakata.networth-fetch.plist` LaunchAgent runs it every morning (see [[networth-tracker]] memory for operational details).
+- **mynetworth/** (MyNetWorth — renamed from `networth`/NetWorth on 2026-08-12, together with its bundle ID `com.yoheisakata.mynetworth` and its data dir `~/Library/Application Support/MyNetWorth/`; the LaunchAgent became `com.yoheisakata.mynetworth-fetch`) specifics (v0.4.x, requires **macOS 26** via `Package.swift` — FoundationModels): tabs are メイン / 週 / 月 / 投資 / 固定収支 / レシート.
+  - **The Keychain service string stays `com.yoheisakata.networth`** (`Keychain.swift`) — it is the lookup key of the already-stored SimpleFIN access URL, so renaming it would lose the token (same reasoning as MyPass's `PMBACKUP` magic).
+  - `--fetch` CLI mode for headless data collection; `com.yoheisakata.mynetworth-fetch.plist` LaunchAgent runs it every morning (see [[networth-tracker]] memory for operational details).
   - 投資 tab overlays live quotes from Yahoo Finance's public chart API (`Quotes.swift`, no API key) on SimpleFIN's once-a-day holding values.
-  - 固定収支 tab (`FixedBudget.swift`) renders `networth/2026_Sakata_支出表.md` with a minimal Markdown parser — it reads the repo file at `~/github/apps/networth/` directly (edit + 再読込 to update), falling back to the copy bundled at build time.
+  - 固定収支 tab (`FixedBudget.swift`) renders `mynetworth/2026_Sakata_支出表.md` with a minimal Markdown parser — it reads the repo file at `~/github/apps/mynetworth/` directly (edit + 再読込 to update), falling back to the copy bundled at build time.
   - レシート tab (`Receipts.swift` + `ReceiptsTab.swift`) — Schedule C 向けレシート管理: Vision OCR + FoundationModels (on-device LLM) extraction; data lives in `~/Library/Application Support/Receipts/`. FoundationModels prompts must be in English (the model rejects prompts not matching the Apple Intelligence language setting). `ExpenseCategory` cases map to Schedule C Part II lines (8–27a) and their rawValues are persisted — never rename them.
 - **kindle-transfer/** — Single Bash script (`kindle-transfer.sh`), no build. Uses `adb` to pull files from a Kindle Fire's SD card/internal storage over USB.
 - **utilities/** — Standalone Python 3 / Bash scripts (not a packaged app) for a personal photo/video pipeline: backup organization (`backup-photos.sh`, `backup-videos.sh`, `sync-backups.sh`, `verify-photos.sh`), H.265 re-encoding (`encode_h265.py`), short-clip detection (`find_short_videos.py`). Run individually from the CLI; no shared entry point.
@@ -57,7 +58,7 @@ Static single-file apps: `earth`, `tarot` (`index.html` 占い + `quiz.html` ク
 
 Web apps need no build — open the HTML file in a browser. There are no tests anywhere in this repo.
 
-### SwiftUI/SPM native apps (networth, myorganizer, downloader, mymusic, mytube, mygames, mypass)
+### SwiftUI/SPM native apps (mynetworth, myorganizer, downloader, mymusic, mytube, mygames, mypass)
 
 ```bash
 cd <app>
@@ -70,7 +71,7 @@ swift build         # compile check (verification method — see below)
 
 mygallery is not an SPM package — use `./build.sh` there (see the mygallery entry above); `swift build` does not apply to it.
 
-**GUI アプリを起動しないこと**: `swift run`・`open <App>.app`・`.build/debug/<App>` の直接実行など、ウィンドウが開く形での目視確認は禁止(permissions の deny ルールでもブロック済み)。検証は `swift build` のコンパイル確認まで。アプリの起動・目視確認はユーザー自身が行う。例外: `NetWorth --fetch` のようなヘッドレス CLI モードは実行してよい。
+**GUI アプリを起動しないこと**: `swift run`・`open <App>.app`・`.build/debug/<App>` の直接実行など、ウィンドウが開く形での目視確認は禁止(permissions の deny ルールでもブロック済み)。検証は `swift build` のコンパイル確認まで。アプリの起動・目視確認はユーザー自身が行う。例外: `MyNetWorth --fetch` のようなヘッドレス CLI モードは実行してよい。
 
 ## Conventions
 
@@ -82,10 +83,10 @@ mygallery is not an SPM package — use `./build.sh` there (see the mygallery en
 - world-cup-2026 has two version knobs to bump on release: `?v=N` cache-busters on JS/CSS imports and `APP_VERSION` in `main.js` (shown in the header). The old `LIVE_CACHE_KEY` knob is gone with the live-fetch pipeline; `main.js` only keeps a one-time cleanup that purges the leftover live-era `localStorage` keys.
 
 ### Native macOS apps
-- **App names use the `My〜` prefix** (MyOrganizer / MyGallery / MyMusic / MyTube / MyGames / MyPass — NetWorth and Downloader keep their names). When renaming one, change all of: directory name, SPM target + `Sources/<Target>/`, product/executable name, `.app` display name, bundle ID, `~/Library/Application Support/<name>/` data dir (mv the existing one to carry data over), build/install scripts, README + CLAUDE.md, and the old `/Applications` copy (trash it). See the [[app-rename-my-prefix]] memory for the full checklist.
+- **App names use the `My〜` prefix** (MyOrganizer / MyGallery / MyMusic / MyTube / MyGames / MyPass / MyNetWorth — Downloader keeps its name). When renaming one, change all of: directory name, SPM target + `Sources/<Target>/`, product/executable name, `.app` display name, bundle ID, `~/Library/Application Support/<name>/` data dir (mv the existing one to carry data over), build/install scripts, README + CLAUDE.md, and the old `/Applications` copy (trash it). See the [[app-rename-my-prefix]] memory for the full checklist.
 - Installs go to **`/Applications/MyApplications/`**, not `/Applications` directly (自作アプリをまとめるため).
 - Deletions always go to the Trash (`FileManager.trashItem`), never a hard delete — see myorganizer's キャッシュ掃除/アプリ削除 panes.
-- Secrets/credentials go in Keychain, never committed to the repo — see networth's SimpleFIN token handling.
+- Secrets/credentials go in Keychain, never committed to the repo — see mynetworth's SimpleFIN token handling.
 - Each app ad-hoc signs on local build; there's no shared signing identity or notarization.
 
 ### Repo-wide

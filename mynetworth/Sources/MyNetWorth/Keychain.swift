@@ -3,6 +3,8 @@ import Security
 
 // SimpleFIN のアクセスURL(読み取り専用の認証情報)を macOS Keychain に保存する。
 enum Keychain {
+    // MyNetWorth へ改名(2026-08-12)後もサービス名は旧 ID のまま。これは保存済み
+    // Keychain 項目の検索キーで、変えると登録済みのアクセスURLが見つからなくなる。
     private static let service = "com.yoheisakata.networth"
     private static let account = "simplefin-access-url"
 

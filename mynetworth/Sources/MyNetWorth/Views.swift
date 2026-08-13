@@ -26,7 +26,7 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 700, minHeight: 600)
-        .navigationTitle("NetWorth")
+        .navigationTitle("MyNetWorth")
         .toolbar {
             ToolbarItemGroup {
                 if store.isFetching {
@@ -1347,7 +1347,7 @@ struct SetupSheet: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("SimpleFIN の設定").font(.title3.bold())
                 Spacer()
-                Text("NetWorth v\(appVersion)")
+                Text("MyNetWorth v\(appVersion)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

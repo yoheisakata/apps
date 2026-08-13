@@ -4,7 +4,7 @@ import SwiftUI
 // (build_app.sh がこの値を Info.plist にも反映する)。
 let appVersion = "0.4.9"
 
-// エントリポイント。`NetWorth --fetch` は UI を出さずに取得だけして終了する
+// エントリポイント。`MyNetWorth --fetch` は UI を出さずに取得だけして終了する
 // (launchd から毎朝実行するためのモード)。
 @main
 struct Main {
@@ -12,7 +12,7 @@ struct Main {
         if CommandLine.arguments.contains("--fetch") {
             headlessFetch()
         } else {
-            NetWorthApp.main()
+            MyNetWorthApp.main()
         }
     }
 
@@ -40,7 +40,7 @@ struct Main {
     }
 }
 
-struct NetWorthApp: App {
+struct MyNetWorthApp: App {
     @StateObject private var store = FinanceStore()
 
     var body: some Scene {

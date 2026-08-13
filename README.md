@@ -65,7 +65,7 @@ NES（ファミコン）／SNES（スーパーファミコン）のエミュレ�
 マスターパスワード1つでログイン情報をまとめて暗号化・管理するパスワード管理アプリ。
 保存されるのは暗号化された1つの Blob のみ（詳細は `mypass/README.md`）。
 
-### 💰 NetWorth — `networth/`
+### 💰 MyNetWorth — `mynetworth/`
 SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッカー（macOS 26+）。メイン／週／月／投資／固定収支／レシートの6タブ構成で、純資産の推移・支出アラート・保有銘柄（Yahoo Finance の現在株価で時価補正）・固定収支表（Markdown）・Schedule C 向けレシート管理（Vision OCR + オンデバイス LLM）まで1つのアプリにまとめている。`--fetch` オプションで launchd による毎朝の自動記録に対応。
 
 ### ⬇️ Downloader — `downloader/`
@@ -88,7 +88,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 | ちきゅう／新幹線／タロット／PostgreSQLまなびカード | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | まなびアプリ | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ 静的 JSON データ |
-| MyOrganizer／MyMusic／MyTube／MyGames／MyPass／NetWorth／Downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
+| MyOrganizer／MyMusic／MyTube／MyGames／MyPass／MyNetWorth／Downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
 | MyGallery | Swift + AppKit（単一ソースファイル、ローカルビルド、ad-hoc署名） |
 | kindle-transfer | Bash + adb |
 | utilities | Python 3 / Bash スクリプト |
@@ -100,7 +100,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 ## デプロイ
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
-- macOSネイティブアプリ（myorganizer / mygallery / mymusic / mytube / mygames / mypass / networth / downloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
+- macOSネイティブアプリ（myorganizer / mygallery / mymusic / mytube / mygames / mypass / mynetworth / downloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
 
 ## アプリの追加・削除
 

@@ -72,7 +72,7 @@ final class FinanceStore: ObservableObject {
         isConfigured = true
         await refresh()
         if let err = lastError {
-            throw NSError(domain: "NetWorth", code: 1,
+            throw NSError(domain: "MyNetWorth", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: err])
         }
     }

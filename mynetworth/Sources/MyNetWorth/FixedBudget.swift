@@ -1,14 +1,14 @@
 import AppKit
 import SwiftUI
 
-// 固定収支タブ。networth/2026_Sakata_支出表.md を軽量パースして表示する。
+// 固定収支タブ。mynetworth/2026_Sakata_支出表.md を軽量パースして表示する。
 // 対応する記法は 見出し / 表 / 引用 / 区切り線 / 太字 だけ(このファイルで使う分)。
 // リポジトリのファイルを直接読むので、md を編集して「再読込」を押せば反映される。
 // リポジトリが見つからない場合はビルド時に同梱したコピーを表示する。
 enum FixedBudgetFile {
     static let fileName = "2026_Sakata_支出表"
     static let sourceURL = URL(fileURLWithPath:
-        NSString(string: "~/github/apps/networth/\(fileName).md").expandingTildeInPath)
+        NSString(string: "~/github/apps/mynetworth/\(fileName).md").expandingTildeInPath)
 
     struct Doc {
         var title: String
