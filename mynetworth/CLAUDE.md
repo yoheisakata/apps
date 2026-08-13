@@ -46,4 +46,5 @@ swift build                          # コンパイル確認のみ(GUI 起動・
   notice が上書き合戦になるので戻さない。
 - CSV 出力は Excel 対応のため BOM 付き UTF-8。
 - 金融データ・トークンをリポジトリやログに残さない(Keychain / Application Support のみ)。
-- 動作確認は `swift build` + `swift run`。テストは無い。
+- 動作確認は `swift build`(コンパイル確認)まで。テストは無い。`swift run` などの GUI 起動は
+  禁止で、アプリの目視確認はユーザー自身が行う(ルート CLAUDE.md 参照)。

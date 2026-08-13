@@ -7,6 +7,8 @@ struct ContentView: View {
     @State private var showingImport = false
     @AppStorage("isShuffled") private var isShuffled = false
     @State private var shuffleHistory: [Int] = []
+    /// OneDrive の URL 取り直し中に別の曲が選ばれた場合、古い取得結果で再生を上書きしないための ID。
+    @State private var playRequestID = UUID()
 
     private var currentTrack: Track? {
         guard let idx = player.currentIndex, store.tracks.indices.contains(idx) else { return nil }
@@ -30,6 +32,22 @@ struct ContentView: View {
                     Spacer()
                     Button {
                         store.lastError = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let notice = store.lastNotice {
+                HStack {
+                    Text(notice)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    Spacer()
+                    Button {
+                        store.lastNotice = nil
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                     }
@@ -83,7 +101,21 @@ struct ContentView: View {
         if recordHistory, isShuffled, let current = player.currentIndex, current != index {
             shuffleHistory.append(current)
         }
-        player.load(track: store.tracks[index], index: index)
+        let track = store.tracks[index]
+        guard track.oneDrive != nil else {
+            player.load(track: track, index: index)
+            return
+        }
+        // OneDrive の署名付き URL は保存したものが失効しているため、再生直前に取り直す。
+        // 取得中に別の曲が選ばれた場合(playRequestID が変わる)は古い結果を捨てる。
+        let requestID = UUID()
+        playRequestID = requestID
+        Task {
+            let refreshed = await store.refreshedTrack(track)
+            guard playRequestID == requestID else { return }
+            guard let currentIndex = store.tracks.firstIndex(where: { $0.id == track.id }) else { return }
+            player.load(track: refreshed, index: currentIndex)
+        }
     }
 
     private func playNext() {
@@ -129,7 +161,7 @@ private struct AddLinkField: View {
 
     var body: some View {
         HStack {
-            TextField("YouTube / Suno / MusicCreator / MusicGPT の URL を貼り付け", text: $urlText)
+            TextField("YouTube / Suno / MusicCreator / MusicGPT / OneDrive 共有リンクを貼り付け", text: $urlText)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(onAdd)
             Button(action: onAdd) {

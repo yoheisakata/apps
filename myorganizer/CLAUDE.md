@@ -9,7 +9,7 @@
 ## ビルド / デプロイ
 
 ```bash
-swift run                        # 開発ビルド(ウィンドウ起動)
+swift build                      # コンパイル確認のみ(GUI 起動・目視確認は禁止 — ルート CLAUDE.md 参照)
 ./build_app.sh                   # release ビルド → MyOrganizer.app
 ./install.sh                     # ビルド → /Applications/MyApplications へインストール
 ```

@@ -13,7 +13,7 @@ import LocalAuthentication
 /// ログインキーチェーン(この端末のみ・非同期)に保存し、取り出しの前に
 /// LocalAuthentication で Touch ID を必須にすることでアプリ側でゲートしている。
 /// つまり生体認証はアプリレベルの保護であり、Secure Enclave による暗号的束縛ではない。
-/// networth の SimpleFIN トークン保存と同じ水準。強固な保護経路はマスターパスワードと
+/// mynetworth の SimpleFIN トークン保存と同じ水準。強固な保護経路はマスターパスワードと
 /// リカバリーキーが担う。
 enum BiometricStore {
     private static let service = "com.yoheisakata.mypass"

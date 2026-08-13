@@ -6,6 +6,7 @@ enum SiteKind: String, Codable, CaseIterable {
     case suno
     case musicCreator
     case musicGpt
+    case oneDrive // OneDrive 共有フォルダ内の音声ファイル
     case direct   // .mp3 などへの直リンク
     case other    // og:audio が拾えた汎用サイト
 
@@ -15,6 +16,7 @@ enum SiteKind: String, Codable, CaseIterable {
         case .suno: return "Suno"
         case .musicCreator: return "MusicCreator"
         case .musicGpt: return "MusicGPT"
+        case .oneDrive: return "OneDrive"
         case .direct: return "直リンク"
         case .other: return "Web"
         }
@@ -24,10 +26,20 @@ enum SiteKind: String, Codable, CaseIterable {
         switch self {
         case .youtube: return "play.rectangle.fill"
         case .suno, .musicCreator, .musicGpt: return "waveform"
+        case .oneDrive: return "cloud.fill"
         case .direct: return "link"
         case .other: return "globe"
         }
     }
+}
+
+/// OneDrive 共有フォルダ内の1ファイルを指す情報。`audioURL`(tempauth 署名付き)は1時間程度で
+/// 失効し `playlist.json` に保存したものは次回起動時にはたいてい使えないため、再生直前に
+/// この3点から取り直す(`OneDriveShareClient.freshDownloadURL`)。
+struct OneDriveRef: Codable, Equatable {
+    var shareURL: String
+    var driveId: String
+    var itemId: String
 }
 
 /// プレイリストの1曲。
@@ -40,13 +52,27 @@ struct Track: Identifiable, Codable, Equatable {
     var site: SiteKind
     var artworkURL: String?
     var audioURL: String
+    /// OneDrive 共有フォルダ由来の曲だけ非 nil(既存の `playlist.json` にはこのキーが無いが、
+    /// Optional なので追加後も従来のデータをそのままデコードできる)。
+    var oneDrive: OneDriveRef?
 
-    init(id: UUID = UUID(), sourceURL: String, title: String, site: SiteKind, artworkURL: String? = nil, audioURL: String) {
+    /// プレイリスト内での同一曲判定に使うキー。OneDrive は `audioURL` が再取得のたびに
+    /// 変わるため、代わりに安定した driveId/itemId を使う。
+    var dedupeKey: String {
+        guard let ref = oneDrive else { return audioURL }
+        return "onedrive:\(ref.driveId)/\(ref.itemId)"
+    }
+
+    init(
+        id: UUID = UUID(), sourceURL: String, title: String, site: SiteKind,
+        artworkURL: String? = nil, audioURL: String, oneDrive: OneDriveRef? = nil
+    ) {
         self.id = id
         self.sourceURL = sourceURL
         self.title = title
         self.site = site
         self.artworkURL = artworkURL
         self.audioURL = audioURL
+        self.oneDrive = oneDrive
     }
 }

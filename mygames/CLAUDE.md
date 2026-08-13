@@ -18,8 +18,7 @@ macOS native emulator frontend using the libretro API. Loads NES/SNES emulation 
 ## Build
 
 ```bash
-swift build                 # dev build
-swift run                   # launch
+swift build                 # コンパイル確認のみ(GUI 起動・目視確認は禁止 — ルート CLAUDE.md 参照)
 ./build_app.sh              # .app bundle
 ./install.sh                # build + install to /Applications/MyApplications
 ```
