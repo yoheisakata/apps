@@ -1,6 +1,7 @@
-# Downloader
+# MyDownloader
 
 YouTube の動画・音声をダウンロードする macOS アプリ(旧 `youtube-dl-mac`)。
+2026-08-12 に Downloader から **MyDownloader** へ改名した(他の自作アプリと同じ `My〜` 名に統一)。
 
 > 以前は magnet / .torrent をダウンロードする「Torrent」タブ(`aria2c` ラッパー、旧 `torrent-dl-mac`)も
 > 持っていたが、2026-08-12 に torrent 機能は削除した。`aria2` はこのアプリの動作には不要になっている。
@@ -47,9 +48,9 @@ cd downloader
 ./install.sh
 ```
 
-`/Applications/MyApplications/Downloader.app` に上書きインストールされる。
+`/Applications/MyApplications/MyDownloader.app` に上書きインストールされる。
 
-torrent 機能を使っていた頃のデータ(`~/Library/Application Support/Downloader/session.aria2`、
+torrent 機能を使っていた頃のデータ(旧 `~/Library/Application Support/Downloader/` の `session.aria2`、
 `app.log`)は残っていても害はないが、不要なら削除してよい。`magnet:` リンクのハンドラ登録も
 アプリからは無くなっている ― ブラウザがまだこのアプリを候補に出す場合は、Launch Services の
 キャッシュが更新されるまで(または再ログインまで)残ることがある。

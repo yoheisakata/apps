@@ -57,7 +57,11 @@ enum OneDriveShareClient {
 
     /// 共有 URL(フォルダまたはファイル単体)を再帰的にスキャンし、音声ファイルだけを返す。
     /// `sourceName` は共有元フォルダ/ファイルの名前(UI のメッセージ表示用)。
-    static func scanAudio(shareURL: String) async throws -> (sourceName: String, items: [AudioItem]) {
+    /// `onProgress` は見つかった曲数を随時通知する(曲数の多いフォルダはスキャンに数十秒
+    /// かかるため、呼び出し側で進捗を出せるようにしている。任意のスレッドから呼ばれる)。
+    static func scanAudio(
+        shareURL: String, onProgress: (@Sendable (Int) -> Void)? = nil
+    ) async throws -> (sourceName: String, items: [AudioItem]) {
         let session = try await Session.shared.entry(for: shareURL)
 
         if !session.isFolder {
@@ -68,12 +72,18 @@ enum OneDriveShareClient {
             return (session.name, [audio])
         }
 
-        var results: [AudioItem] = []
-        try await walk(
+        let progress = ScanProgress(onProgress: onProgress)
+        let items = try await walk(
             driveId: session.driveId, itemId: session.itemId, folderPath: [],
-            token: session.token, into: &results
+            token: session.token, limiter: Limiter(limit: 4), progress: progress
         )
-        return (session.name, results)
+        // サブフォルダを並行して辿るため完了順は不定 ― プレイリストに入る順序が毎回変わらない
+        // よう、フォルダパス→ファイル名の辞書順に整える(Finder で見た並びに近くなる)。
+        return (session.name, items.sorted { lhs, rhs in
+            let lhsKey = (lhs.folderPath + [lhs.name]).joined(separator: "/")
+            let rhsKey = (rhs.folderPath + [rhs.name]).joined(separator: "/")
+            return lhsKey.localizedStandardCompare(rhsKey) == .orderedAscending
+        })
     }
 
     /// 保存済みトラックの署名付き URL を取り直す。トークンが失効していた場合は1度だけ
@@ -233,30 +243,102 @@ enum OneDriveShareClient {
         )
     }
 
+    /// 同時に投げる children リクエストの本数を絞るための async セマフォ。
+    /// **待ち合わせるのはページ取得(HTTP)だけで、再帰呼び出し自体はスロットを保持しない** ―
+    /// 親が子の完了を待つ間もスロットを握っていると、階層が深いフォルダでスロットを
+    /// 使い切った瞬間に自己デッドロックする。
+    private actor Limiter {
+        private let limit: Int
+        private var active = 0
+        private var waiters: [CheckedContinuation<Void, Never>] = []
+
+        init(limit: Int) { self.limit = limit }
+
+        func acquire() async {
+            if active < limit {
+                active += 1
+                return
+            }
+            await withCheckedContinuation { waiters.append($0) }
+        }
+
+        func release() {
+            if waiters.isEmpty {
+                active -= 1
+            } else {
+                waiters.removeFirst().resume()
+            }
+        }
+    }
+
+    /// 並行するサブフォルダのスキャンを跨いで、見つかった曲数を数えて通知する。
+    private actor ScanProgress {
+        private let onProgress: (@Sendable (Int) -> Void)?
+        private var found = 0
+
+        init(onProgress: (@Sendable (Int) -> Void)?) { self.onProgress = onProgress }
+
+        func add(_ count: Int) {
+            guard count > 0 else { return }
+            found += count
+            onProgress?(found)
+        }
+    }
+
     private static func walk(
-        driveId: String, itemId: String, folderPath: [String], token: String, into results: inout [AudioItem]
-    ) async throws {
+        driveId: String, itemId: String, folderPath: [String],
+        token: String, limiter: Limiter, progress: ScanProgress
+    ) async throws -> [AudioItem] {
+        var results: [AudioItem] = []
+        var subfolders: [(id: String, name: String)] = []
+
         var nextURLString: String? = childrenURL(driveId: driveId, itemId: itemId)
         while let current = nextURLString {
             var request = URLRequest(url: URL(string: current)!)
             request.httpMethod = "GET"
             applyCommonHeaders(&request, token: token)
 
-            let (data, response) = try await URLSession.shared.data(for: request)
+            await limiter.acquire()
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await URLSession.shared.data(for: request)
+                await limiter.release()
+            } catch {
+                await limiter.release()
+                throw error
+            }
             try checkOK(response, data: data)
             let page = try decode(ChildrenResponse.self, from: data)
 
             for child in page.value {
                 if child.folder != nil {
-                    try await walk(
-                        driveId: driveId, itemId: child.id, folderPath: folderPath + [child.name],
-                        token: token, into: &results
-                    )
+                    subfolders.append((child.id, child.name))
                 } else if let audio = makeAudioItem(child, driveId: driveId, folderPath: folderPath) {
                     results.append(audio)
                 }
             }
             nextURLString = page.nextLink
+        }
+        await progress.add(results.count)
+
+        guard !subfolders.isEmpty else { return results }
+        // サブフォルダは並行して辿る(実際の HTTP 本数は `limiter` が抑える)。
+        // 曲数の多い共有フォルダを逐次に辿ると分単位で待たされるため。
+        return try await withThrowingTaskGroup(of: [AudioItem].self) { group in
+            for folder in subfolders {
+                group.addTask {
+                    try await walk(
+                        driveId: driveId, itemId: folder.id, folderPath: folderPath + [folder.name],
+                        token: token, limiter: limiter, progress: progress
+                    )
+                }
+            }
+            var merged = results
+            for try await childResults in group {
+                merged += childResults
+            }
+            return merged
         }
     }
 

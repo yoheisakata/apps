@@ -1,12 +1,12 @@
 #!/bin/bash
-# Downloader を Finder からダブルクリックで起動できる .app バンドルに固める。
-#   使い方: ./build_app.sh   →  dist/Downloader.app が生成される
+# MyDownloader を Finder からダブルクリックで起動できる .app バンドルに固める。
+#   使い方: ./build_app.sh   →  dist/MyDownloader.app が生成される
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="Downloader"
-EXEC_NAME="Downloader"
-BUNDLE_ID="com.yohei.downloader"
+APP_NAME="MyDownloader"
+EXEC_NAME="MyDownloader"
+BUNDLE_ID="com.yohei.mydownloader"
 APP_DIR="dist/${APP_NAME}.app"
 
 echo "▶ アイコンを生成中…"

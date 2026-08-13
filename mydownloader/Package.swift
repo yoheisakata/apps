@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "Downloader",
+    name: "MyDownloader",
     platforms: [
         .macOS(.v13)
     ],
     targets: [
         .executableTarget(
-            name: "Downloader",
-            path: "Sources/Downloader"
+            name: "MyDownloader",
+            path: "Sources/MyDownloader"
         )
     ]
 )

@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Downloader を終了", action: #selector(quitAction), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "MyDownloader を終了", action: #selector(quitAction), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 
@@ -89,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .environmentObject(ytDlpManager)
         let hosting = NSHostingController(rootView: rootView)
         let newWindow = NSWindow(contentViewController: hosting)
-        newWindow.title = "Downloader"
+        newWindow.title = "MyDownloader"
         newWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         newWindow.setContentSize(NSSize(width: 640, height: 560))
         newWindow.center()

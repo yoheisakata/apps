@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="Downloader"
+APP_NAME="MyDownloader"
 SRC="dist/${APP_NAME}.app"
 INSTALL_DIR="/Applications/MyApplications"
 DEST="${INSTALL_DIR}/${APP_NAME}.app"

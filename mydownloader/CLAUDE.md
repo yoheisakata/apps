@@ -1,7 +1,13 @@
-# CLAUDE.md — downloader
+# CLAUDE.md — mydownloader
 
 YouTube ダウンローダー(`yt-dlp`/`ffmpeg` をラップ)の macOS アプリ(SwiftUI + AppKit + SPM)。
 旧 `youtube-dl-mac` を吸収したもの — **別アプリとして復活させない**。使い方は `README.md` を参照。
+
+2026-08-12 に `downloader`/Downloader から **MyDownloader** へ改名した(ディレクトリ `downloader/` →
+`mydownloader/`、SPM ターゲット/実行ファイル `Downloader` → `MyDownloader`、`Sources/Downloader/` →
+`Sources/MyDownloader/`、バンドル ID `com.yohei.downloader` → `com.yohei.mydownloader`)。
+Application Support のデータディレクトリは持たない(旧 `~/Library/Application Support/Downloader/` は
+torrent 機能のログ・セッション置き場だったので、機能ごと削除した際にゴミ箱へ移動済み)。
 
 **2026-08-12 に torrent 機能(`aria2c` を JSON-RPC でラップした「Torrent」タブ、旧 `torrent-dl-mac`)を
 削除した**。`Aria2Engine.swift` / `TorrentView.swift` / `AddTorrentView.swift` / `SettingsView.swift` /
@@ -15,7 +21,7 @@ git 履歴に残っている。
 
 ```bash
 swift build         # コンパイル確認のみ(GUI 起動・目視確認は禁止 — ルート CLAUDE.md 参照)
-./build_app.sh       # dist/Downloader.app を生成
+./build_app.sh       # dist/MyDownloader.app を生成
 ./install.sh         # ビルド → /Applications/MyApplications へ上書きインストール
 ```
 
@@ -78,7 +84,7 @@ Audio・Video両方チェックした状態でプレイリストを落とすと�
 発生することをダウンロード前に注意文で知らせる ― 自動取得したタイトルに「/」が含まれることは
 実際にある(曲名の「A/B」等)ため、黙って変わるより気付けるようにした。
 
-## ソース構成 (`Sources/Downloader/`)
+## ソース構成 (`Sources/MyDownloader/`)
 
 - `App.swift` — エントリ(`NSApplication.shared.run()`)
 - `AppDelegate.swift` — ステータスバーアイテム、ウィンドウのライフサイクル管理

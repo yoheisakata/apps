@@ -68,7 +68,7 @@ NES（ファミコン）／SNES（スーパーファミコン）のエミュレ�
 ### 💰 MyNetWorth — `mynetworth/`
 SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッカー（macOS 26+）。メイン／週／月／投資／固定収支／レシートの6タブ構成で、純資産の推移・支出アラート・保有銘柄（Yahoo Finance の現在株価で時価補正）・固定収支表（Markdown）・Schedule C 向けレシート管理（Vision OCR + オンデバイス LLM）まで1つのアプリにまとめている。`--fetch` オプションで launchd による毎朝の自動記録に対応。
 
-### ⬇️ Downloader — `downloader/`
+### ⬇️ MyDownloader — `mydownloader/`
 `yt-dlp` / `ffmpeg` を内部で呼び出して YouTube の動画・音声（単発／プレイリスト）を
 ダウンロードするアプリ。旧`youtube-dl-mac`を統合したもの。
 トレント機能（旧`torrent-dl-mac`由来の「Torrent」タブ）は 2026-08-12 に削除した。
@@ -88,7 +88,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 | ちきゅう／新幹線／タロット／PostgreSQLまなびカード | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | まなびアプリ | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ 静的 JSON データ |
-| MyOrganizer／MyMusic／MyTube／MyGames／MyPass／MyNetWorth／Downloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
+| MyOrganizer／MyMusic／MyTube／MyGames／MyPass／MyNetWorth／MyDownloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
 | MyGallery | Swift + AppKit（単一ソースファイル、ローカルビルド、ad-hoc署名） |
 | kindle-transfer | Bash + adb |
 | utilities | Python 3 / Bash スクリプト |
@@ -100,7 +100,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 ## デプロイ
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
-- macOSネイティブアプリ（myorganizer / mygallery / mymusic / mytube / mygames / mypass / mynetworth / downloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
+- macOSネイティブアプリ（myorganizer / mygallery / mymusic / mytube / mygames / mypass / mynetworth / mydownloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
 
 ## アプリの追加・削除
 

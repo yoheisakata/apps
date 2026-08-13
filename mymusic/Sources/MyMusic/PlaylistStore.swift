@@ -74,6 +74,7 @@ final class PlaylistStore: ObservableObject {
     /// まとめてプレイリストに追加する。
     func addOneDriveShare(_ shareURL: String) {
         resolvingCount += 1
+        lastNotice = "OneDrive をスキャン中…"
         Task {
             defer { resolvingCount -= 1 }
             do {
@@ -104,7 +105,13 @@ final class PlaylistStore: ObservableObject {
     /// 共有リンクをスキャンして未追加の曲だけ `tracks` に足す。同じリンクを貼り直せば、
     /// 追加済みの曲はスキップされ、共有フォルダに増えた曲だけが取り込まれる(同期のように使える)。
     private func scanOneDriveShare(_ shareURL: String) async throws -> OneDriveAddResult {
-        let scanned = try await OneDriveShareClient.scanAudio(shareURL: shareURL)
+        // 曲数の多い共有フォルダはスキャンだけで数十秒かかるため、途中経過をバナーに出す
+        // (`onProgress` はスキャン用の別スレッドから呼ばれるので MainActor に戻してから触る)。
+        let scanned = try await OneDriveShareClient.scanAudio(shareURL: shareURL) { found in
+            Task { @MainActor [weak self] in
+                self?.lastNotice = "OneDrive をスキャン中… \(found) 曲"
+            }
+        }
         var seen = Set(tracks.map(\.dedupeKey))
         var added = 0
         var skipped = 0
