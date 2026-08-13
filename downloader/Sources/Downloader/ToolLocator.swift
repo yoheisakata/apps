@@ -1,6 +1,6 @@
 import Foundation
 
-/// Homebrew で導入された aria2c の場所を解決する。
+/// Homebrew で導入された yt-dlp / ffmpeg の場所を解決する。
 /// GUI アプリは Finder から起動すると最小限の PATH しか持たないため、
 /// まず既知の Homebrew パスを直接調べ、見つからなければログインシェルの which に頼る。
 enum ToolLocator {

@@ -1,17 +1,19 @@
 #!/bin/bash
-# 最新版をビルドして /Applications に登録(上書きインストール)する。
+# 最新版をビルドして /Applications/MyApplications に登録(上書きインストール)する。
 #   使い方: ./install.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
 APP_NAME="Downloader"
 SRC="dist/${APP_NAME}.app"
-DEST="/Applications/${APP_NAME}.app"
+INSTALL_DIR="/Applications/MyApplications"
+DEST="${INSTALL_DIR}/${APP_NAME}.app"
 
 # まず最新の .app をビルド。
 ./build_app.sh
 
-echo "▶ /Applications に登録中…"
+echo "▶ /Applications/MyApplications に登録中…"
+mkdir -p "${INSTALL_DIR}"
 rm -rf "${DEST}"
 cp -R "${SRC}" "${DEST}"
 
@@ -23,5 +25,3 @@ touch "${DEST}"
 echo "✅ インストール完了: ${DEST}"
 echo "   Dock アイコンとメニューバーアイコンの両方から起動・操作できます。ウィンドウを閉じても"
 echo "   ダウンロードは中断されず、終了するまで動き続けます。"
-echo "   旧 YouTube-downloader.app / Torrent-downloader.app が /Applications に残っている場合は、"
-echo "   magnet: リンクの登録が競合しないよう手動で削除してください。"

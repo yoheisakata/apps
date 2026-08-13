@@ -52,17 +52,6 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>Magnet Link</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>magnet</string>
-            </array>
-        </dict>
-    </array>
 </dict>
 </plist>
 PLIST
