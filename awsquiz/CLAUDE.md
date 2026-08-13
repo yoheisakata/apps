@@ -11,6 +11,9 @@ pgquiz と違い**単一 HTML ではない**（問題データが大きいため
 - `questions.js` — 出題データ。`window.SAP_QUESTIONS` / `SAP_DOMAINS` /
   `SAP_CATEGORY_EMOJI` / `SAP_FIGURES` をグローバルに置くだけの素の JS
 - `manifest.json` / `sw.js` — PWA（iPhone のホーム画面に追加してオフライン学習するため）
+- `SAP-C02-quiz.md` — ユーザーが自分で書いた練習問題集（30問、`<details>` 形式）。
+  **`questions.js` の `md-NN` はこのファイルから取り込んだもの**。どちらかを直したら
+  もう片方も直す（自動同期はしていない）。
 
 `fetch` を使っていないので `file://` で直接開いても動く。
 
@@ -20,6 +23,8 @@ pgquiz と違い**単一 HTML ではない**（問題データが大きいため
 
 - **`id` は進捗の保存キー**（`localStorage` の `awsquiz-v1` → `q[id]`）。
   いちど入れた問題の id は変えないこと。変えると学習履歴が切れる。
+  接頭辞で出自が分かるようにしてある: `d1-`〜`d4-` は書き下ろし、`md-` は
+  `SAP-C02-quiz.md` からの取り込み。新しい取り込み元が増えたら別の接頭辞を使う。
 - `dom` は `SAP_DOMAINS` の id（1〜4）。`cat` は `SAP_CATEGORY_EMOJI` のキー。
   **新しい技術分野を足すときは `SAP_CATEGORY_EMOJI` にも絵文字を追加する**
   （カテゴリ選択画面と進捗画面の生成に使われる）。
