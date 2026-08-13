@@ -48,8 +48,9 @@ Photos.app 風のローカルフォルダ・フォトギャラリー（Swift + A
 人物・種類・日付でのフィルター（Vision、オンデバイス）に対応。
 
 ### 🎵 MyMusic — `mymusic/`
-YouTube・Suno・MusicCreator.ai・MusicGPT などの曲リンクをプレイリストに貼り付けて連続再生する
-メニューバー常駐のミニ・ミュージックプレーヤー。ウィンドウを閉じても再生は続く。
+iTunes/ミュージック.app 風の3ペイン構成（上部トランスポート＋ライブラリサイドバー＋曲リスト）の
+音楽プレーヤー。YouTube・Suno・MusicCreator.ai・MusicGPT などの曲リンクを貼り付けるほか、
+OneDrive の共有リンクを丸ごと取り込んでフォルダ単位で再生できる。ウィンドウを閉じても再生は続く。
 
 ### 📺 MyTube — `mytube/`
 フォルダ内の動画を YouTube 風の見た目で見る動画プレイヤー。ローカルフォルダ・OneDrive共有リンク・
