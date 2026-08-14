@@ -1,4 +1,4 @@
-# PostgreSQL まなびカード 🐘 — `pgquiz/`
+# PostgreSQL 強化書 🐘 — `pgquiz/`
 
 PostgreSQL 17 以降を対象にした、クイズ／フラッシュカード形式の学習アプリ（Webアプリ）。
 
@@ -27,4 +27,4 @@ PostgreSQL 17 以降を対象にした、クイズ／フラッシュカード形
 ## 動かし方
 
 ビルド不要の単一 HTML ファイル。`index.html` をブラウザで開くだけ。
-GitHub Pages のランチャー（My Apps）には「PostgreSQL まなびカード」として掲載されている。
+GitHub Pages のランチャー（My Apps）には「PostgreSQL 強化書」として掲載されている。

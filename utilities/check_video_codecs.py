@@ -12,6 +12,7 @@ check_video_codecs.py
   python3 check_video_codecs.py <フォルダ> --list h265-not-mp4   # h265 だが mp4 でない
   python3 check_video_codecs.py <フォルダ> --list not-h265       # h265 でない
   python3 check_video_codecs.py <フォルダ> --list all            # 全ファイル
+  python3 check_video_codecs.py <フォルダ> --html ~/Desktop/codecs.html
   python3 check_video_codecs.py <フォルダ> --report ~/Desktop/codecs.txt
   python3 check_video_codecs.py <フォルダ> --csv ~/Desktop/codecs.csv
   python3 check_video_codecs.py <フォルダ> --paths-only          # パスだけ(パイプ用)
@@ -317,7 +318,8 @@ def main() -> int:
     parser.add_argument('--report', help='一覧をテキストファイルにも書き出す')
     parser.add_argument('--csv', help='全ファイルの調査結果を CSV に書き出す')
     parser.add_argument('--html',
-                        help='全ファイルの調査結果を HTML(検索・絞り込み付き)に書き出す')
+                        help='一覧を HTML(検索・絞り込み・ソート付き)に書き出す。'
+                             '表は --list の対象のみ、集計は全ファイル分')
     parser.add_argument('--paths-only', action='store_true',
                         help='集計を出さずフルパスだけを出力する')
     args = parser.parse_args()
@@ -355,6 +357,12 @@ def main() -> int:
 
     targets = [r for r in results if selected(r)]
     lines = [str(r['path']) for r in targets]
+    label = {
+        'not-h265-mp4': '「h265 かつ mp4」になっていないファイル',
+        'h265-not-mp4': 'h265 だが mp4 でないファイル',
+        'not-h265': 'h265 でないファイル',
+        'all': '全ファイル',
+    }[args.which]
 
     if args.paths_only:
         for line in lines:
@@ -378,12 +386,6 @@ def main() -> int:
             print(f'  ffprobe 失敗         : {failed}')
         print()
 
-        label = {
-            'not-h265-mp4': '「h265 かつ mp4」になっていないファイル',
-            'h265-not-mp4': 'h265 だが mp4 でないファイル',
-            'not-h265': 'h265 でないファイル',
-            'all': '全ファイル',
-        }[args.which]
         print(f'=== {label} ({len(targets)} 件) ===')
         for r in targets:
             print(f'{r["path"]}\t[{r["codec"]}]')
@@ -408,7 +410,7 @@ def main() -> int:
 
     if args.html:
         html_path = Path(args.html).expanduser()
-        write_html(html_path, root, results)
+        write_html(html_path, root, results, targets, label)
         print(f'HTML を書き出しました: {html_path}', file=sys.stderr)
 
     return 0
