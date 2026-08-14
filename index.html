@@ -5,14 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
 <title>My Apps 🎮</title>
+<meta name="theme-color" content="#372a1c">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap');
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ダークセピア（真っ暗だと暗すぎるので、茶〜琥珀の暖色にしている） */
 body {
   font-family: 'Nunito', sans-serif;
-  background: #07080f;
-  color: #eee;
+  background: linear-gradient(180deg, #372a1c 0%, #2c2218 55%, #251d15 100%);
+  background-attachment: fixed;
+  color: #f2e6d3;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -26,9 +29,9 @@ body::before {
   content: '';
   position: fixed; inset: 0;
   background:
-    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(168,85,247,0.12) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 40% at 80% 85%, rgba(56,189,248,0.1) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 60% 40%, rgba(251,191,36,0.06) 0%, transparent 70%);
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(214,163,94,0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 85%, rgba(160,110,64,0.14) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 60% 40%, rgba(245,214,160,0.07) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -40,19 +43,19 @@ body::before {
 }
 .header h1 {
   font-size: 1.9rem; font-weight: 900;
-  background: linear-gradient(135deg, #f5c518 0%, #a855f7 100%);
+  background: linear-gradient(135deg, #f7e0b0 0%, #c8934e 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   margin-bottom: 6px;
 }
-.header p { color: #555; font-size: 0.82rem; }
+.header p { color: #8d7a63; font-size: 0.82rem; }
 
-/* 更新日（タップで最新を取り直す） */
+/* 更新日時（タップで最新を取り直す） */
 .header .updated {
   display: inline-flex; align-items: center; gap: 7px;
-  color: #6a6a78; font-size: 0.78rem; font-weight: 700;
+  color: #b39a78; font-size: 0.78rem; font-weight: 700;
   padding: 6px 14px; border-radius: 100px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(226,192,140,0.18);
+  background: rgba(226,192,140,0.06);
   font-family: inherit; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.15s cubic-bezier(.34,1.56,.64,1);
@@ -79,7 +82,7 @@ body::before {
 .app {
   display: flex; flex-direction: column;
   align-items: center; gap: 8px;
-  text-decoration: none; color: #ddd;
+  text-decoration: none; color: #e6d8c2;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
 }
@@ -115,7 +118,7 @@ body::before {
 .app-name {
   font-size: 0.7rem; font-weight: 700;
   text-align: center; line-height: 1.3;
-  color: rgba(255,255,255,0.75);
+  color: rgba(244,231,211,0.8);
   max-width: 76px;
   word-break: keep-all;
 }
@@ -137,8 +140,8 @@ body::before {
 
 <div class="header">
   <h1>🎮 My Apps</h1>
-  <!-- 更新日: 何かを更新するたびに必ずこの日付を今日の日付にする -->
-  <button class="updated" id="updated">更新日 2026-08-13 <span class="reload-icon">↻</span></button>
+  <!-- 更新日時: 何かを更新するたびに必ず現在時刻（秒まで・ローカル時刻）にする -->
+  <button class="updated" id="updated">更新 2026-08-13 16:56:36<span class="reload-icon">↻</span></button>
 </div>
 
 <!-- Apps -->

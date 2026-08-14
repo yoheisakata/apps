@@ -80,10 +80,10 @@ mygallery is not an SPM package — use `./build.sh` there (see the mygallery en
 - **バージョン表示は必ず上げる。** ランチャーから開く各アプリのトップ画面（最初に出る画面）に `v1.0.0` 形式のバージョンを小さく出している。**そのアプリのファイルを変更したら、同じコミットで必ずバージョンを上げること**（軽微な修正 = パッチ、機能追加 = マイナー）。iPhone のホーム画面に登録した状態では「更新が届いたか」を確認する手段がこれしかないため、省略しない。置き場所は各アプリの `.app-version`（earth のみ固定表示の `#app-version`）:
   - `earth/index.html` (右上に固定) / `shinkansen/index.html` (ヘッダー内) / `tarot/index.html` (ヘッダー内) / `tarot/quiz.html` (イントロ画面のスタートボタン下) / `kids-learning-app/index.html` (ホーム画面のメニュー下) / `pgquiz/index.html`・`awsquiz/index.html` (ホーム画面の footnote 下)
   - kids-learning-app は cache-first の SW なので、バージョンを上げるときは `sw.js` の `CACHE_NAME` も一緒に上げる（上げないと iPhone に届かない）。
-  - ルート `index.html`（ランチャー）にはバージョン番号ではなく**更新日**を出す。ヘッダーのサブタイトル（旧「あそびたいアプリをえらんでね」）が `更新日 YYYY-MM-DD` になっているので、**この repo の web アプリを更新したら、どのアプリを直した場合でも同じコミットでこの日付を今日の日付に更新すること**。ランチャー自体の変更に限らない（iPhone のホーム画面に登録されているのはこのページなので、ここが「更新が届いたか」の入口になる）。
-  - この更新日はタップできる（ルート `index.html` 末尾の `<script>`）。押すと `?t=<現在時刻>` を付けて読み込み直し、その状態のときだけ各アプリへのリンクにも同じ `t` を伝播させて、HTTP キャッシュを避けて最新を取りに行く。ホーム画面に登録した web アプリには「引っぱって更新」が無いための代替手段。**通常時にリンクへ `t` を付けてはいけない**（PWA のオフラインキャッシュを外してしまい、kids-learning-app がオフラインで動かなくなる）。
+  - ルート `index.html`（ランチャー）にはバージョン番号ではなく**更新日時**を出す。ヘッダーのサブタイトル（旧「あそびたいアプリをえらんでね」）が `更新 YYYY-MM-DD HH:MM:SS`（秒まで・`date "+%Y-%m-%d %H:%M:%S"` のローカル時刻）になっているので、**この repo の web アプリを更新したら、どのアプリを直した場合でも同じコミットでこの時刻を現在時刻に更新すること**。ランチャー自体の変更に限らない（iPhone のホーム画面に登録されているのはこのページなので、ここが「更新が届いたか」の入口になる）。同じ日に何度も更新するので秒まで入れている — 日付だけに戻さないこと。
+  - この更新日時はタップできる（ルート `index.html` 末尾の `<script>`）。押すと `?t=<現在時刻>` を付けて読み込み直し、その状態のときだけ各アプリへのリンクにも同じ `t` を伝播させて、HTTP キャッシュを避けて最新を取りに行く。ホーム画面に登録した web アプリには「引っぱって更新」が無いための代替手段。**通常時にリンクへ `t` を付けてはいけない**（PWA のオフラインキャッシュを外してしまい、kids-learning-app がオフラインで動かなくなる）。
   - world-cup-2026 は従来どおり `APP_VERSION` を使う。
-- Dark gradient themes and CSS custom properties for colors; several apps (pgquiz) use the Nunito font (Google Fonts).
+- Dark gradient themes and CSS custom properties for colors; several apps (pgquiz) use the Nunito font (Google Fonts). **ルート `index.html`（ランチャー）だけは「ダークセピア」**（茶〜琥珀の暖色グラデ、`#372a1c`→`#251d15` + 暖色の ambient blob、文字は `#f2e6d3` 系、`theme-color` も合わせてある）— 真っ暗な配色は暗すぎるという指摘で 2026-08-13 に変更したので、黒基調に戻さないこと。各アプリ側は従来どおりそれぞれのダークテーマのまま。
 - Mobile-first: `viewport` meta with `user-scalable=no`, touch-optimized interactions.
 - State persistence via `localStorage` where it matters: world-cup-2026 stores the theme (`wc2026-theme`); kids-learning-app persists a star count (`manabi-stars`).
 - Icons are emoji or inline SVG data URIs — no external image assets.
