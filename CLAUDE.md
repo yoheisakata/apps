@@ -109,4 +109,4 @@ mygallery is not an SPM package — use `./build.sh` there (see the mygallery en
 Applies to **web apps only** — native macOS tools are never added to the launcher. When adding/removing a web app, update root `index.html`:
 1. Add an `<a class="app {name}">` entry to the single icon grid (category sections were removed — do not re-add them without asking).
 2. Add a `.app.{name} .icon-wrap` CSS rule with a gradient background and box-shadow.
-3. Set `data-added="YYYY-MM-DD"`（追加した日）on the `<a class="app">`. 末尾の `<script>` がこの日付を見て、**追加から1日だけ** `.new-badge`（NEW）を動的に付ける。バッジを HTML に直書きしないこと（期限切れのものが一瞬表示されてしまう）。
+3. Set `data-added="YYYY-MM-DDTHH:MM:SS"`（追加した日時・ローカル時刻）on the `<a class="app">`. 末尾の `<script>` がこの日時を見て、**追加から24時間だけ** `.new-badge`（NEW）を動的に付ける。バッジを HTML に直書きしないこと（期限切れのものが一瞬表示されてしまう）。時刻を省いて日付だけ書いた場合は 00:00:00 とみなされる。

@@ -142,44 +142,44 @@ body::before {
   <h1>🎮 My Apps</h1>
   <!-- 更新日時: 読み込み時に「各アプリ / 自分自身の最終更新のうち新しい方」で上書きされる。
        ここの文字列は file:// やオフライン用のフォールバック -->
-  <button class="updated" id="updated">更新 2026-08-13 17:36:40<span class="reload-icon">↻</span></button>
+  <button class="updated" id="updated">更新 2026-08-13 18:51:41<span class="reload-icon">↻</span></button>
 </div>
 
 <!-- Apps -->
 <div class="section">
   <div class="grid">
 
-    <a class="app earth" href="earth/" data-added="2026-06-03">
+    <a class="app earth" href="earth/" data-added="2026-06-03T04:47:30">
       <div class="icon-wrap">🌏</div>
       <div class="app-name">ちきゅうを<br>まなぼう</div>
     </a>
 
-    <a class="app shinkansen" href="shinkansen/" data-added="2026-06-19">
+    <a class="app shinkansen" href="shinkansen/" data-added="2026-06-19T18:06:44">
       <div class="icon-wrap">🚄</div>
       <div class="app-name">新幹線<br>マップ</div>
     </a>
 
-    <a class="app tarot" href="tarot/" data-added="2026-06-03">
+    <a class="app tarot" href="tarot/" data-added="2026-06-03T03:16:22">
       <div class="icon-wrap">🔮</div>
       <div class="app-name">タロット<br>占い</div>
     </a>
 
-    <a class="app quiz" href="tarot/quiz.html" data-added="2026-06-03">
+    <a class="app quiz" href="tarot/quiz.html" data-added="2026-06-03T03:25:01">
       <div class="icon-wrap">🃏</div>
       <div class="app-name">タロット<br>クイズ</div>
     </a>
 
-    <a class="app kidslearning" href="kids-learning-app/" data-added="2026-07-24">
+    <a class="app kidslearning" href="kids-learning-app/" data-added="2026-07-24T23:05:09">
       <div class="icon-wrap">🌟</div>
       <div class="app-name">まなび<br>アプリ</div>
     </a>
 
-    <a class="app pgquiz" href="pgquiz/" data-added="2026-07-25">
+    <a class="app pgquiz" href="pgquiz/" data-added="2026-07-25T01:34:52">
       <div class="icon-wrap">🐘</div>
       <div class="app-name">PostgreSQL<br>強化書</div>
     </a>
 
-    <a class="app awsquiz" href="awsquiz/" data-added="2026-08-13">
+    <a class="app awsquiz" href="awsquiz/" data-added="2026-08-13T01:37:44">
       <div class="icon-wrap">☁️</div>
       <div class="app-name">AWS SAP<br>対策</div>
     </a>
@@ -188,13 +188,15 @@ body::before {
 </div>
 
 <script>
-// NEW バッジは data-added（アプリを追加した日）から 1 日だけ出す。
+// NEW バッジは data-added（アプリを追加した日時）から 24 時間だけ出す。
 // バッジは HTML に直書きせず、ここで動的に付ける（期限切れのバッジが一瞬見えるのを防ぐため）。
+// data-added は "YYYY-MM-DDTHH:MM:SS"（ローカル時刻）。日付だけ書いた場合は 00:00:00 とみなす。
 (function () {
   var DAY = 24 * 60 * 60 * 1000;
   var now = Date.now();
   [].forEach.call(document.querySelectorAll('a.app[data-added]'), function (a) {
-    var t = Date.parse(a.getAttribute('data-added') + 'T00:00:00');
+    var v = a.getAttribute('data-added');
+    var t = Date.parse(v.indexOf('T') < 0 ? v + 'T00:00:00' : v);
     if (isNaN(t) || now - t > DAY) return;
     var wrap = a.querySelector('.icon-wrap');
     if (!wrap) return;
