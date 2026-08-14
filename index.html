@@ -140,8 +140,9 @@ body::before {
 
 <div class="header">
   <h1>🎮 My Apps</h1>
-  <!-- 更新日時: 何かを更新するたびに必ず現在時刻（秒まで・ローカル時刻）にする -->
-  <button class="updated" id="updated">更新 2026-08-13 16:56:36<span class="reload-icon">↻</span></button>
+  <!-- 更新日時: 読み込み時に「各アプリ / 自分自身の最終更新のうち新しい方」で上書きされる。
+       ここの文字列は file:// やオフライン用のフォールバック -->
+  <button class="updated" id="updated">更新 2026-08-13 17:24:42<span class="reload-icon">↻</span></button>
 </div>
 
 <!-- Apps -->
@@ -187,22 +188,55 @@ body::before {
 </div>
 
 <script>
-// ホーム画面に登録した web アプリには「引っぱって更新」がないため、
-// 更新日をタップしたらキャッシュを避けて最新を取り直せるようにしている。
 (function () {
+  var btn   = document.getElementById('updated');
+  var label = btn.firstChild;                 // 「更新 YYYY-MM-DD HH:MM:SS」のテキストノード
+  var links = [].slice.call(document.querySelectorAll('a.app'));
+  var urls  = links.map(function (a) { return a.href; });   // 印を付ける前の素の URL
   var stamp = new URLSearchParams(location.search).get('t');
 
   // 強制更新で開いたときは、各アプリへのリンクにも同じ印を付けて回す
   // （通常時は付けない。付けると PWA のオフラインキャッシュを外してしまうため）
   if (stamp) {
-    document.querySelectorAll('a.app').forEach(function (a) {
+    links.forEach(function (a) {
       a.href += (a.href.indexOf('?') < 0 ? '?' : '&') + 't=' + encodeURIComponent(stamp);
     });
   }
 
-  document.getElementById('updated').addEventListener('click', function () {
+  // ホーム画面に登録した web アプリには「引っぱって更新」がないため、
+  // 更新時刻をタップしたらキャッシュを避けて最新を取り直せるようにしている。
+  btn.addEventListener('click', function () {
     this.textContent = 'さいしんを かくにんちゅう…';
     location.replace(location.pathname + '?t=' + Date.now());
+  });
+
+  // 表示する更新時刻 = 各アプリの最終更新 と このページ自身の最終更新 のうち新しい方。
+  // 各アプリは HEAD の Last-Modified で調べる。file:// やオフラインでは取れないので、
+  // その場合は HTML に直書きしてある時刻をそのまま表示する（フォールバック）。
+  function fmt(d) {
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+           ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+
+  if (!window.fetch) return;
+
+  var newest = new Date(document.lastModified);   // index.html 自身
+
+  Promise.all(urls.map(function (u) {
+    return fetch(u, { method: 'HEAD', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.headers.get('Last-Modified') : null; })
+      .catch(function () { return null; });
+  })).then(function (heads) {
+    var got = false;
+    heads.forEach(function (s) {
+      if (!s) return;
+      var d = new Date(s);
+      if (isNaN(d.getTime())) return;
+      got = true;
+      if (d > newest) newest = d;
+    });
+    if (got && !isNaN(newest.getTime())) label.nodeValue = '更新 ' + fmt(newest);
   });
 })();
 </script>

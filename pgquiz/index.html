@@ -56,7 +56,7 @@ body::before{
 
 .app-title{font-size:clamp(1.6rem,6vw,2.2rem); font-weight:900; text-align:center; margin:12px 0 4px;
   background:linear-gradient(135deg,#6cace4,#2ed573); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
-.app-sub{color:var(--sub); font-size:.9rem; text-align:center; margin-bottom:36px;}
+.app-sub{color:var(--sub); font-size:.9rem; text-align:center; margin-bottom:8px;}
 
 /* ---- ホーム: モードえらび ---- */
 .mode-col{display:flex; flex-direction:column; gap:16px; width:100%; max-width:420px;}
@@ -74,8 +74,8 @@ body::before{
 .mode-flash{background:linear-gradient(135deg,#0f5132,#2ed573);}
 
 .footnote{color:var(--sub); font-size:.75rem; margin-top:auto; padding-top:30px; text-align:center;}
-/* バージョン表示（更新のたびに上げる） */
-.app-version{color:var(--sub); opacity:.55; font-size:.65rem; letter-spacing:.06em; text-align:center; padding-top:12px;}
+/* バージョン表示（画面上部・更新のたびに上げる） */
+.app-version{color:var(--sub); opacity:.55; font-size:.65rem; letter-spacing:.06em; text-align:center; margin-bottom:36px;}
 
 /* ---- カテゴリえらび ---- */
 .screen-title{font-size:1.3rem; color:var(--text); margin:8px 0 20px; text-align:center;}
@@ -208,6 +208,7 @@ body::before{
   <a class="home-link" href="../">🏠 アプリ一覧へ</a>
   <div class="app-title">🐘 PostgreSQL まなびカード</div>
   <div class="app-sub">対象バージョン: PostgreSQL 17 以降</div>
+  <div class="app-version">v1.0.1</div>
   <div class="mode-col">
     <button class="mode-btn mode-quiz" data-action="pick-mode-quiz">
       <span class="mode-emoji">📝</span>
@@ -219,7 +220,6 @@ body::before{
     </button>
   </div>
   <div class="footnote">全104問・13カテゴリ / データはこの端末に保存されません</div>
-  <div class="app-version">v1.0.0</div>
 </div>
 
 <!-- カテゴリえらび -->

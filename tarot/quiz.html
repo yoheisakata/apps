@@ -122,15 +122,15 @@ body::before{
   font-size:1.05rem;font-weight:700;padding:14px 48px;
   cursor:pointer;transition:all 0.3s;letter-spacing:0.1em;
 }
-/* バージョン表示（更新のたびに上げる） */
-.app-version{
-  margin-top:18px;font-size:0.62rem;letter-spacing:0.08em;
-  color:var(--text-dim);opacity:0.55;
-}
 .start-btn:hover{
   border-color:var(--gold);
   box-shadow:0 0 30px rgba(212,168,67,0.25);
   transform:translateY(-2px);
+}
+/* バージョン表示（画面上部・更新のたびに上げる） */
+.app-version{
+  margin:-18px 0 24px;font-size:0.62rem;letter-spacing:0.08em;
+  color:var(--text-dim);opacity:0.55;
 }
 
 /* ===== GAME ===== */
@@ -381,6 +381,7 @@ body::before{
       カードを見て、正しい意味を当てよう！<br>
       大アルカナ22枚をマスターせよ
     </div>
+    <div class="app-version">v1.0.1</div>
 
     <div class="intro-rules">
       <h3>✦ あそびかた ✦</h3>
@@ -401,7 +402,6 @@ body::before{
     </div>
 
     <button class="start-btn" id="startBtn">✦ スタート ✦</button>
-    <div class="app-version">v1.0.0</div>
   </div>
 
   <!-- ===== GAME ===== -->

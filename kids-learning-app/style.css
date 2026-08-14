@@ -45,9 +45,9 @@ body {
   align-items: center;
 }
 
-/* バージョン表示（更新のたびに上げる） */
+/* バージョン表示（画面上部・更新のたびに上げる） */
 .app-version {
-  margin-top: 20px;
+  margin: -4px 0 8px;
   font-size: 0.7rem;
   letter-spacing: 0.06em;
   color: rgba(80, 60, 30, 0.4);
