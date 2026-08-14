@@ -1,7 +1,7 @@
 // AWS SAP 対策 — オフラインキャッシュ
 // キャッシュ対象を変えたら CACHE_NAME を必ず上げること（古いキャッシュが残り続けるため）
-var CACHE_NAME = "awsquiz-v1";
-var ASSETS = ["./", "./index.html", "./questions.js", "./manifest.json"];
+var CACHE_NAME = "awsquiz-v2";
+var ASSETS = ["./", "./index.html", "./questions.js", "./glossary.js", "./manifest.json"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(

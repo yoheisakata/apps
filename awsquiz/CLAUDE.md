@@ -10,6 +10,13 @@ pgquiz と違い**単一 HTML ではない**（問題データが大きいため
 - `index.html` — UI とロジック全部（インライン CSS + JS）
 - `questions.js` — 出題データ。`window.SAP_QUESTIONS` / `SAP_DOMAINS` /
   `SAP_CATEGORY_EMOJI` / `SAP_FIGURES` をグローバルに置くだけの素の JS
+- `glossary.js` — 用語集データ。`window.SAP_GLOSSARY` / `SAP_GLOSSARY_CATS` を置く。
+  各項目は `{ t: 用語, c: カテゴリ, d: 説明, k: 検索用キーワード(任意) }`。
+  `k` には見出しと説明に出てこない検索語（和名・カタカナ・略語・旧称）を入れる
+  ——検索はカタカナ/ひらがな・全角半角・中黒/長音を吸収して正規化した文字列で
+  部分一致するので、`k` に「ダイレクトコネクト」を足せばカタカナでも引ける。
+  用語集は暗記対象ではなくクイズ中に引くリファレンス。`questions.js` の解説と
+  矛盾しないように保つこと。
 - `manifest.json` / `sw.js` — PWA（iPhone のホーム画面に追加してオフライン学習するため）
 - `SAP-C02-quiz.md` — ユーザーが自分で書いた練習問題集（30問、`<details>` 形式）。
   **`questions.js` の `md-NN` はこのファイルから取り込んだもの**。どちらかを直したら
@@ -48,6 +55,16 @@ cd awsquiz && node -e "global.window={};require('./questions.js');const Q=window
 ## 内容の正確さ
 
 - **対象は SAP-C02**。試験ガイドは 4ドメイン・75問・180分・合格 750/1000。
+  公式ガイドは HTML/Markdown 版が読める（PDF はテキスト抽出できないので使わない）:
+  `https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-professional-02/solutions-architect-professional-02-domain1.md`
+  （domain1〜4 と `sap-02-in-scope-services.md`）。出題範囲を見直すときはこれと突き合わせる。
+- 試験ガイドには **Emerging Topics**（責任ある AI の統制。Bedrock Guardrails /
+  AgentCore Identity / Step Functions による人的承認）という節があり、
+  「生成AI(新領域)」カテゴリがこれに対応する。AWS はこの領域を現時点では
+  採点対象外の pretest 問題として出題しうると明記しているので、増やしすぎないこと。
+- **他社の練習問題サイト（ExamTopics 等）から問題文を転載しないこと。** 実試験の流出問題は
+  AWS の受験規約に反し、このリポジトリは GitHub Pages で公開されるため著作権上も問題になる。
+  出題範囲の把握に使うのはよいが、問題と解説は必ず書き下ろす。
 - AWS のサービス仕様は変わるので、数値（上限値・SLA・料金体系）を書くときは
   推測で書かない。確信が持てないものは「〜が多い」「〜のことがある」と幅を持たせるか、
   そもそも書かない。すでにある問題も、古くなったら直す。

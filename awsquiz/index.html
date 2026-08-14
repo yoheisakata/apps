@@ -110,6 +110,7 @@ body::before{
 .mode-review{background:linear-gradient(135deg,#7a2230,#ff4757);}
 .mode-exam{background:linear-gradient(135deg,#243b53,#5f7d99);}
 .mode-flash{background:linear-gradient(135deg,#14532d,#2ed573);}
+.mode-gloss{background:linear-gradient(135deg,#0f4c5c,#2ec4b6);}
 .mode-stats{background:linear-gradient(135deg,#3b2d63,#8e7cc3);}
 
 /* ---- カテゴリえらび ---- */
@@ -316,6 +317,44 @@ body::before{
 .flash-shuffle:active{opacity:.7;}
 
 .empty-msg{color:var(--sub); font-size:.9rem; text-align:center; line-height:1.9; margin:40px 0;}
+
+/* ---- 用語集 ---- */
+.gloss-bar{position:sticky; top:0; z-index:5; width:100%; padding:6px 0 10px;
+  background:linear-gradient(180deg,var(--bg1) 72%,rgba(11,21,36,0));}
+.gloss-search{
+  width:100%; background:rgba(0,0,0,.34); border:1px solid var(--card-border); border-radius:14px;
+  color:var(--text); font-family:inherit; font-size:1rem; font-weight:700;
+  padding:13px 15px; min-height:48px; -webkit-appearance:none;
+}
+.gloss-search::placeholder{color:var(--sub); font-weight:700;}
+.gloss-search:focus{outline:none; border-color:var(--accent);}
+.gloss-chips{display:flex; gap:7px; overflow-x:auto; padding:10px 0 2px; -webkit-overflow-scrolling:touch;}
+.gloss-chips::-webkit-scrollbar{display:none;}
+.gloss-chip{
+  flex:0 0 auto; background:rgba(255,255,255,.05); border:1px solid var(--card-border); color:var(--sub);
+  font-family:inherit; font-size:.78rem; font-weight:800; padding:8px 13px; border-radius:100px;
+  cursor:pointer; min-height:38px; white-space:nowrap;
+}
+.gloss-chip.active{background:rgba(255,153,0,.16); border-color:var(--accent); color:var(--accent);}
+.gloss-count{font-size:.72rem; color:var(--sub); font-weight:800; margin:4px 0 10px; align-self:flex-start;}
+.gloss-item{
+  width:100%; background:var(--card2); border:1px solid var(--card-border); border-radius:14px;
+  padding:13px 15px; margin-bottom:9px; user-select:text;
+}
+.gloss-term{font-size:.95rem; font-weight:900; line-height:1.5; color:var(--text);}
+.gloss-chipmini{font-size:.64rem; font-weight:800; color:var(--accent2); background:rgba(77,171,247,.13);
+  padding:3px 9px; border-radius:100px; margin-left:8px; white-space:nowrap; display:inline-block; vertical-align:middle;}
+.gloss-desc{font-size:.85rem; line-height:1.8; color:var(--sub); margin-top:7px;}
+.gloss-desc b{color:var(--accent); font-weight:900;}
+.gloss-hit{background:rgba(255,153,0,.28); border-radius:3px; color:var(--text);}
+
+/* クイズ画面から用語集を開くボタン */
+.gloss-open{
+  flex-shrink:0; background:rgba(255,255,255,.06); border:1px solid var(--card-border); color:var(--sub);
+  font-family:inherit; font-size:.95rem; font-weight:800; padding:0 11px; border-radius:11px;
+  cursor:pointer; min-height:36px; line-height:1;
+}
+.gloss-open:active{opacity:.7;}
 </style>
 </head>
 <body>
@@ -325,7 +364,7 @@ body::before{
   <a class="home-link" href="../">🏠 アプリ一覧へ</a>
   <div class="app-title">☁️ AWS SAP 対策</div>
   <div class="app-sub">AWS Certified Solutions Architect – Professional (SAP-C02)</div>
-  <div class="app-version">v1.0.1</div>
+  <div class="app-version">v1.1.0</div>
 
   <div class="count-card">
     <div class="count-left">
@@ -371,6 +410,10 @@ body::before{
     <button class="mode-btn mode-flash" data-action="pick-mode-flash">
       <span class="mode-emoji">🃏</span>
       <span><span class="mode-label">フラッシュカード</span><span class="mode-desc">サービスの使い分けを暗記・復習</span></span>
+    </button>
+    <button class="mode-btn mode-gloss" data-action="glossary">
+      <span class="mode-emoji">📖</span>
+      <span><span class="mode-label">用語集</span><span class="mode-desc" id="gloss-desc">AWS の用語・サービスをすぐ引く</span></span>
     </button>
     <button class="mode-btn mode-stats" data-action="stats">
       <span class="mode-emoji">📊</span>
@@ -424,6 +467,7 @@ body::before{
   <div class="quiz-header">
     <span class="quiz-cat-label" id="quiz-cat-label"></span>
     <span class="quiz-timer hidden" id="quiz-timer"></span>
+    <button class="gloss-open" data-action="glossary" title="用語集をひらく">📖 用語</button>
     <span class="quiz-prog-text" id="quiz-prog-text"></span>
   </div>
   <div class="prog-dots" id="quiz-dots"></div>
@@ -544,7 +588,21 @@ body::before{
   <div class="footnote">記録はこの端末の localStorage にだけ保存されます（サーバー送信なし）</div>
 </div>
 
+<!-- ================= 用語集 ================= -->
+<div class="screen" id="screen-glossary">
+  <button class="back-btn" data-action="gloss-back">← もどる</button>
+  <div class="gloss-bar">
+    <input class="gloss-search" id="gloss-search" type="search" inputmode="search"
+           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+           placeholder="用語・サービス名で検索（例: SCP, RPO, ダイレクトコネクト）">
+    <div class="gloss-chips" id="gloss-chips"></div>
+  </div>
+  <div class="gloss-count" id="gloss-count"></div>
+  <div id="gloss-list" style="width:100%"></div>
+</div>
+
 <script src="questions.js"></script>
+<script src="glossary.js"></script>
 <script>
 (function () {
   "use strict";
@@ -553,6 +611,8 @@ body::before{
   var FIGURES   = window.SAP_FIGURES || {};
   var DOMAINS   = window.SAP_DOMAINS || [];
   var CATEGORY_EMOJI = window.SAP_CATEGORY_EMOJI || {};
+  var GLOSSARY  = window.SAP_GLOSSARY || [];
+  var GLOSS_CATS = window.SAP_GLOSSARY_CATS || {};
 
   var STORE_KEY = "awsquiz-v1";
   var DEFAULT_EXAM_DATE = "2026-09-18";
@@ -728,6 +788,7 @@ body::before{
     $("btn-review").disabled = weak === 0;
     $("review-desc").textContent = weak ? "まちがえた " + weak + " 問を集中的に" : "いまは復習する問題がありません";
     $("daily-desc").textContent = "苦手・未着手を優先して " + Math.min(QUIZ_LEN, QUESTIONS.length) + "問";
+    $("gloss-desc").textContent = "AWS の用語・サービス " + GLOSSARY.length + " 語を検索（クイズ中も 📖 から引ける）";
 
     var perDay = left > 0 ? Math.ceil((t.total - t.mastered) / left) : 0;
     $("home-footnote").innerHTML = "全" + QUESTIONS.length + "問・" + DOMAINS.length + "ドメイン / " +
@@ -1172,6 +1233,86 @@ body::before{
     $("flash-next-btn").textContent = (flash.idx + 1 >= flash.list.length) ? "さいしょから" : "つぎへ →";
   }
 
+  // ==== 用語集 ====
+  // クイズの途中からでも開けるようにする（セッションは JS 側に残るので画面を戻すだけでよい）
+  var glossReturn = "screen-home";
+  var glossCat = null;      // null = すべて
+  var glossQuery = "";
+
+  function normalize(s) {
+    // 検索を大小文字・全角半角・カタカナ/ひらがなの違いに強くする
+    return String(s).toLowerCase()
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+      .replace(/[ぁ-ゖ]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) + 0x60); })
+      .replace(/[\s・･‐‑‒–—―ー-]/g, "");
+  }
+  function glossHaystack(item) {
+    if (item._h === undefined) item._h = normalize(item.t + " " + item.c + " " + item.d + " " + (item.k || ""));
+    return item._h;
+  }
+  function highlight(text, needle) {
+    if (!needle) return esc(text);
+    // 正規化してから位置を探すと元文字列とずれるので、素直に部分一致だけ強調する
+    var lower = text.toLowerCase(), q = needle.toLowerCase(), out = "", i = 0;
+    if (q.length < 1) return esc(text);
+    for (;;) {
+      var at = lower.indexOf(q, i);
+      if (at < 0) { out += esc(text.slice(i)); break; }
+      out += esc(text.slice(i, at)) + '<span class="gloss-hit">' + esc(text.slice(at, at + q.length)) + "</span>";
+      i = at + q.length;
+    }
+    return out;
+  }
+
+  function buildGlossChips() {
+    var box = $("gloss-chips");
+    box.innerHTML = "";
+    var mk = function (label, cat) {
+      var b = document.createElement("button");
+      b.className = "gloss-chip" + (glossCat === cat ? " active" : "");
+      b.textContent = label;
+      b.onclick = function () { glossCat = cat; buildGlossChips(); renderGlossary(); };
+      box.appendChild(b);
+    };
+    mk("すべて", null);
+    Object.keys(GLOSS_CATS).forEach(function (c) {
+      if (GLOSSARY.some(function (g) { return g.c === c; })) mk(GLOSS_CATS[c] + " " + c, c);
+    });
+  }
+
+  function renderGlossary() {
+    var nq = normalize(glossQuery);
+    var list = GLOSSARY.filter(function (g) {
+      if (glossCat && g.c !== glossCat) return false;
+      return !nq || glossHaystack(g).indexOf(nq) >= 0;
+    });
+
+    $("gloss-count").textContent = glossQuery || glossCat
+      ? list.length + " 件" + (glossQuery ? "（「" + glossQuery + "」で絞り込み）" : "")
+      : "全 " + GLOSSARY.length + " 語";
+
+    var box = $("gloss-list");
+    if (!list.length) {
+      box.innerHTML = '<div class="empty-msg">見つかりませんでした。<br>別の言い方（英語名・略語・カタカナ）でも試してみてください。</div>';
+      return;
+    }
+    box.innerHTML = list.map(function (g) {
+      return '<div class="gloss-item">' +
+        '<div class="gloss-term">' + highlight(g.t, glossQuery) +
+        '<span class="gloss-chipmini">' + (GLOSS_CATS[g.c] || "") + " " + esc(g.c) + "</span></div>" +
+        '<div class="gloss-desc">' + highlight(g.d, glossQuery).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>") + "</div>" +
+        "</div>";
+    }).join("");
+  }
+
+  function openGlossary() {
+    var cur = document.querySelector(".screen.active");
+    if (cur && cur.id !== "screen-glossary") glossReturn = cur.id;
+    buildGlossChips();
+    renderGlossary();
+    show("screen-glossary");
+  }
+
   // ==== 進捗と設定 ====
   function renderStats() {
     var all = tally(QUESTIONS);
@@ -1258,6 +1399,8 @@ body::before{
       case "flash-prev":      if (flash.idx > 0) { flash.idx--; renderFlashCard(); } break;
       case "flash-next":      flash.idx = (flash.idx + 1 >= flash.list.length) ? 0 : flash.idx + 1; renderFlashCard(); break;
       case "flash-shuffle":   flash.list = shuffle(flash.list); flash.idx = 0; renderFlashCard(); break;
+      case "glossary":        openGlossary(); break;
+      case "gloss-back":      show(glossReturn); break;
       case "stats":           renderStats(); show("screen-stats"); break;
       case "reset-data":
         if (confirm("学習データ（正答履歴・模擬試験の記録）をすべて消します。よろしいですか？")) {
@@ -1276,6 +1419,11 @@ body::before{
     document.querySelectorAll("#exam-opts .opt-btn").forEach(function (b) {
       b.classList.toggle("active", b === opt);
     });
+  });
+
+  $("gloss-search").addEventListener("input", function () {
+    glossQuery = this.value.trim();
+    renderGlossary();
   });
 
   $("set-exam-date").addEventListener("change", function () {

@@ -22,14 +22,16 @@
 ### 🔮 タロット占い — `tarot/`
 タロットカードによる占いアプリ。カードの意味を学べる **タロットクイズ**（`tarot/quiz.html`）付き。
 
-### 🐘 PostgreSQL まなびカード — `pgquiz/`
+### 🐘 PostgreSQL 強化書 — `pgquiz/`
 PostgreSQL 17以降を対象にした、クイズ／フラッシュカード形式の学習アプリ。全104問・13カテゴリ（基本概念・データ型・インデックス・クエリ最適化・JSON/JSONB・パーティション/レプリケーション・バキューム/運用・セキュリティ/権限・内部構造・高度なSQL・運用チートシート・17の新機能・18の新機能）。
 
 ### ☁️ AWS SAP 対策 — `awsquiz/`
-AWS Certified Solutions Architect – Professional (SAP-C02) の対策アプリ（PWA）。全172問・4ドメイン・14技術分野。
+AWS Certified Solutions Architect – Professional (SAP-C02) の対策アプリ（PWA）。全202問・4ドメイン・15技術分野。
 - 今日の練習（苦手・未着手を優先）／分野別クイズ／まちがい復習／模擬試験／フラッシュカードの5モード
 - 模擬試験は本番形式 75問・180分（ハーフ40問・95分も可）。出題比率も本番どおりで、1000点換算のスコア目安とドメイン別正答率が出る
+- **用語集**（183語）を搭載。カタカナ・略語・英語名のどれでも検索でき、クイズを解いている途中でも 📖 ボタンから引ける
 - 試験日カウントダウン・1日の目標達成リング・連続学習日数・ドメイン別の到達度を表示（記録は端末の `localStorage` のみ）
+- 出題範囲は公式試験ガイドのタスクステートメントと突き合わせ済み。ガイドに新設された Emerging Topics（生成AI の統制）にも対応
 
 ### ⚽ ワールドカップ 2026 — `world-cup-2026/`
 FIFA ワールドカップ 2026 のダッシュボード。日本代表ページ・決勝トーナメント表・全試合日程・順位表・チーム詳細・得点王・参加国/開催都市マップ（Leaflet）の8タブ構成。
@@ -92,7 +94,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 
 | アプリ | 構成 |
 |--------|------|
-| ちきゅう／新幹線／タロット／PostgreSQLまなびカード | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
+| ちきゅう／新幹線／タロット／PostgreSQL強化書 | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | まなびアプリ | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ 静的 JSON データ |
 | MyOrganizer／MyMusic／MyTube／MyGames／MyPass／MyNetWorth／MyDownloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
