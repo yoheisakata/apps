@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>__GITHUB_MD_CSS__</style>
+<style id="hljs-light">__HLJS_LIGHT_CSS__</style>
+<style id="hljs-dark" media="not all">__HLJS_DARK_CSS__</style>
+<style>
+  :root { color-scheme: light dark; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #ffffff; }
+  .markdown-body {
+    box-sizing: border-box;
+    width: 90%;
+    max-width: none;
+    margin: 0 auto;
+    padding: 32px 40px 64px;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0d1117; }
+  }
+  /* Raw markdown source view (toggle). */
+  .raw-source {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    outline: none;
+    caret-color: #2f81f7;
+    min-height: 100vh;   /* clickable/editable across the whole window */
+  }
+  /* Line-number gutter beside the raw source (View ▸ Show Line Numbers).
+     Each number is absolutely positioned at the measured Y of its logical
+     line, so alignment is exact even when long lines soft-wrap. */
+  .raw-wrap { position: relative; }
+  .raw-wrap .raw-source { min-width: 0; }
+  .raw-gutter {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    -webkit-user-select: none;
+    user-select: none;
+    border-right: 1px solid #d0d7de;
+    color: #8c959f;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  .raw-gutter .ln { position: absolute; right: 10px; white-space: pre; }
+  @media (prefers-color-scheme: dark) {
+    .raw-gutter { border-right-color: #30363d; color: #6e7681; }
+  }
+  html[data-theme="light"] .raw-gutter { border-right-color: #d0d7de; color: #8c959f; }
+  html[data-theme="sepia"] .raw-gutter { border-right-color: #d3c4a8; color: #a08c74; }
+  html[data-theme="dark"]  .raw-gutter { border-right-color: #30363d; color: #6e7681; }
+  html[data-theme="dim"]   .raw-gutter { border-right-color: #444c56; color: #636e7b; }
+  /* Welcome splash: center the description in the window, both axes. */
+  body.welcome { display: flex; min-height: 100vh; }
+  body.welcome .markdown-body {
+    margin: auto;
+    max-width: 560px;
+    padding: 40px;
+    text-align: center;
+  }
+
+  /* Find / Replace bar — a fixed overlay in the top-right corner. */
+  .mdv-find-bar {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 9999;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100vw - 32px);
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    padding: 6px 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    font: 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+  .mdv-find-bar[hidden] { display: none; }
+  .mdv-find-bar input {
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 13px;
+    background: #ffffff;
+    color: #1f2328;
+    outline: none;
+  }
+  .mdv-find-bar input:focus { border-color: #0969da; }
+  #mdv-find-input, #mdv-replace-input { width: 170px; }
+  .mdv-find-bar button {
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1f2328;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .mdv-find-bar button:hover { background: #eef1f4; }
+  .mdv-find-bar input:disabled,
+  .mdv-find-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mdv-find-bar button:disabled:hover { background: #ffffff; }
+  .mdv-find-bar button.active {
+    background: #0969da;
+    color: #ffffff;
+    border-color: #0969da;
+  }
+  .mdv-find-count {
+    color: #57606a;
+    min-width: 44px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  mark.mdv-find { background: #fff3b0; color: inherit; border-radius: 2px; }
+  mark.mdv-find.current { background: #ff9632; color: #1f2328; }
+  .raw-source::selection { background: #ff9632; color: #1f2328; }
+  ::highlight(mdv-find) { background: #fff3b0; color: #1f2328; }
+  ::highlight(mdv-find-current) { background: #ff9632; color: #1f2328; }
+  @media (prefers-color-scheme: dark) {
+    .mdv-find-bar {
+      background: #161b22;
+      border-color: #30363d;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+    .mdv-find-bar input {
+      background: #0d1117;
+      color: #e6edf3;
+      border-color: #30363d;
+    }
+    .mdv-find-bar button {
+      background: #21262d;
+      color: #e6edf3;
+      border-color: #30363d;
+    }
+    .mdv-find-bar button:hover { background: #30363d; }
+    .mdv-find-bar button.active {
+      background: #1f6feb;
+      color: #ffffff;
+      border-color: #1f6feb;
+    }
+    .mdv-find-count { color: #8b949e; }
+    mark.mdv-find { background: #bb8009; color: #ffffff; }
+    mark.mdv-find.current { background: #e3742f; color: #ffffff; }
+    .raw-source::selection { background: #e3742f; color: #ffffff; }
+    ::highlight(mdv-find) { background: #bb8009; color: #ffffff; }
+    ::highlight(mdv-find-current) { background: #e3742f; color: #ffffff; }
+  }
+
+  /* ---------------------------------------------------------------------------
+     Explicit themes (View ▸ Theme). Selecting a theme sets data-theme on <html>;
+     "System" removes it and falls back to the prefers-color-scheme rules above.
+     The vendored github-markdown CSS only switches via media queries, so we
+     redefine the color variables it consumes here to force a theme regardless
+     of the system appearance. "Dim" is a softer mid-contrast dark (GitHub's
+     dark-dimmed palette) — the "in between" option.
+     --------------------------------------------------------------------------- */
+  html[data-theme="light"], html[data-theme="sepia"] { color-scheme: light; }
+  html[data-theme="dark"], html[data-theme="dim"] { color-scheme: dark; }
+  html[data-theme="light"] body { background: #ffffff; }
+  html[data-theme="sepia"] body { background: #f4ecd8; }
+  html[data-theme="dark"]  body { background: #0d1117; }
+  html[data-theme="dim"]   body { background: #22272e; }
+
+  html[data-theme="light"] .markdown-body {
+    color-scheme: light;
+    --color-fg-default:#1F2328; --color-fg-muted:#656d76; --color-fg-subtle:#6e7781;
+    --color-canvas-default:#ffffff; --color-canvas-subtle:#f6f8fa;
+    --color-border-default:#d0d7de; --color-border-muted:hsla(210,18%,87%,1);
+    --color-neutral-muted:rgba(175,184,193,0.2);
+    --color-accent-fg:#0969da; --color-accent-emphasis:#0969da;
+    --color-success-fg:#1a7f37; --color-success-emphasis:#1f883d;
+    --color-attention-fg:#9a6700; --color-attention-emphasis:#9a6700; --color-attention-subtle:#fff8c5;
+    --color-danger-fg:#d1242f; --color-danger-emphasis:#cf222e;
+    --color-done-fg:#8250df; --color-done-emphasis:#8250df;
+  }
+  html[data-theme="dark"] .markdown-body {
+    color-scheme: dark;
+    --color-fg-default:#e6edf3; --color-fg-muted:#848d97; --color-fg-subtle:#6e7681;
+    --color-canvas-default:#0d1117; --color-canvas-subtle:#161b22;
+    --color-border-default:#30363d; --color-border-muted:#21262d;
+    --color-neutral-muted:rgba(110,118,129,0.4);
+    --color-accent-fg:#2f81f7; --color-accent-emphasis:#1f6feb;
+    --color-success-fg:#3fb950; --color-success-emphasis:#238636;
+    --color-attention-fg:#d29922; --color-attention-emphasis:#9e6a03; --color-attention-subtle:rgba(187,128,9,0.15);
+    --color-danger-fg:#f85149; --color-danger-emphasis:#da3633;
+    --color-done-fg:#a371f7; --color-done-emphasis:#8957e5;
+  }
+  html[data-theme="sepia"] .markdown-body {
+    color-scheme: light;
+    --color-fg-default:#5b4636; --color-fg-muted:#7d6b58; --color-fg-subtle:#a08c74;
+    --color-canvas-default:#f4ecd8; --color-canvas-subtle:#ece0c8;
+    --color-border-default:#d3c4a8; --color-border-muted:#e0d4bd;
+    --color-neutral-muted:rgba(120,90,50,0.15);
+    --color-accent-fg:#9a5b2d; --color-accent-emphasis:#8a4f26;
+    --color-success-fg:#4c7a34; --color-success-emphasis:#3f6a2b; --color-success-subtle:rgba(76,122,52,0.15);
+    --color-attention-fg:#9a6700; --color-attention-emphasis:#875a00; --color-attention-subtle:rgba(154,103,0,0.15);
+    --color-danger-fg:#a83232; --color-danger-emphasis:#8f2a2a;
+    --color-done-fg:#7a4fb0; --color-done-emphasis:#684399;
+  }
+  html[data-theme="dim"] .markdown-body {
+    color-scheme: dark;
+    --color-fg-default:#adbac7; --color-fg-muted:#768390; --color-fg-subtle:#636e7b;
+    --color-canvas-default:#22272e; --color-canvas-subtle:#2d333b;
+    --color-border-default:#444c56; --color-border-muted:#373e47;
+    --color-neutral-muted:rgba(99,110,123,0.4);
+    --color-accent-fg:#539bf5; --color-accent-emphasis:#316dca;
+    --color-success-fg:#57ab5a; --color-success-emphasis:#347d39;
+    --color-attention-fg:#c69026; --color-attention-emphasis:#966600; --color-attention-subtle:rgba(174,124,20,0.15);
+    --color-danger-fg:#e5534b; --color-danger-emphasis:#c93c37;
+    --color-done-fg:#b083f0; --color-done-emphasis:#8256d0;
+  }
+
+  /* Find bar + selection colors for the forced themes (override the media query). */
+  html[data-theme="light"] .mdv-find-bar { background:#f6f8fa; border-color:#d0d7de; box-shadow:0 4px 16px rgba(0,0,0,0.15); }
+  html[data-theme="light"] .mdv-find-bar input { background:#ffffff; color:#1f2328; border-color:#d0d7de; }
+  html[data-theme="light"] .mdv-find-bar button { background:#ffffff; color:#1f2328; border-color:#d0d7de; }
+  html[data-theme="light"] .mdv-find-bar button:hover { background:#eef1f4; }
+  html[data-theme="light"] .mdv-find-bar button.active { background:#0969da; color:#ffffff; border-color:#0969da; }
+  html[data-theme="light"] .mdv-find-count { color:#57606a; }
+  html[data-theme="light"] mark.mdv-find { background:#fff3b0; color:inherit; }
+  html[data-theme="light"] mark.mdv-find.current { background:#ff9632; color:#1f2328; }
+  html[data-theme="light"] .raw-source::selection { background:#ff9632; color:#1f2328; }
+  html[data-theme="light"] ::highlight(mdv-find) { background:#fff3b0; color:#1f2328; }
+  html[data-theme="light"] ::highlight(mdv-find-current) { background:#ff9632; color:#1f2328; }
+
+  html[data-theme="sepia"] .mdv-find-bar { background:#ece0c8; border-color:#d3c4a8; box-shadow:0 4px 16px rgba(91,70,54,0.2); }
+  html[data-theme="sepia"] .mdv-find-bar input { background:#faf4e8; color:#5b4636; border-color:#d3c4a8; }
+  html[data-theme="sepia"] .mdv-find-bar button { background:#faf4e8; color:#5b4636; border-color:#d3c4a8; }
+  html[data-theme="sepia"] .mdv-find-bar button:hover { background:#e4d6ba; }
+  html[data-theme="sepia"] .mdv-find-bar button.active { background:#9a5b2d; color:#ffffff; border-color:#9a5b2d; }
+  html[data-theme="sepia"] .mdv-find-count { color:#7d6b58; }
+  html[data-theme="sepia"] mark.mdv-find { background:#f0d9a0; color:#5b4636; }
+  html[data-theme="sepia"] mark.mdv-find.current { background:#e0a866; color:#3a2c20; }
+  html[data-theme="sepia"] .raw-source::selection { background:#e0a866; color:#3a2c20; }
+  html[data-theme="sepia"] ::highlight(mdv-find) { background:#f0d9a0; color:#5b4636; }
+  html[data-theme="sepia"] ::highlight(mdv-find-current) { background:#e0a866; color:#3a2c20; }
+
+  html[data-theme="dark"] .mdv-find-bar, html[data-theme="dim"] .mdv-find-bar { background:#161b22; border-color:#30363d; box-shadow:0 4px 16px rgba(0,0,0,0.5); }
+  html[data-theme="dark"] .mdv-find-bar input, html[data-theme="dim"] .mdv-find-bar input { background:#0d1117; color:#e6edf3; border-color:#30363d; }
+  html[data-theme="dark"] .mdv-find-bar button, html[data-theme="dim"] .mdv-find-bar button { background:#21262d; color:#e6edf3; border-color:#30363d; }
+  html[data-theme="dark"] .mdv-find-bar button:hover, html[data-theme="dim"] .mdv-find-bar button:hover { background:#30363d; }
+  html[data-theme="dark"] .mdv-find-bar button.active, html[data-theme="dim"] .mdv-find-bar button.active { background:#1f6feb; color:#ffffff; border-color:#1f6feb; }
+  html[data-theme="dark"] .mdv-find-count, html[data-theme="dim"] .mdv-find-count { color:#8b949e; }
+  html[data-theme="dark"] mark.mdv-find, html[data-theme="dim"] mark.mdv-find { background:#bb8009; color:#ffffff; }
+  html[data-theme="dark"] mark.mdv-find.current, html[data-theme="dim"] mark.mdv-find.current { background:#e3742f; color:#ffffff; }
+  html[data-theme="dark"] .raw-source::selection, html[data-theme="dim"] .raw-source::selection { background:#e3742f; color:#ffffff; }
+  html[data-theme="dark"] ::highlight(mdv-find), html[data-theme="dim"] ::highlight(mdv-find) { background:#bb8009; color:#ffffff; }
+  html[data-theme="dark"] ::highlight(mdv-find-current), html[data-theme="dim"] ::highlight(mdv-find-current) { background:#e3742f; color:#ffffff; }
+</style>
+</head>
+<body>
+<div id="mdv-find" class="mdv-find-bar" hidden>
+  <input id="mdv-find-input" type="text" placeholder="Find" spellcheck="false" autocomplete="off">
+  <span id="mdv-find-count" class="mdv-find-count">0/0</span>
+  <button id="mdv-find-prev" type="button" title="Previous match (Shift+Return)">&#9650;</button>
+  <button id="mdv-find-next" type="button" title="Next match (Return)">&#9660;</button>
+  <button id="mdv-find-case" type="button" title="Match case">Aa</button>
+  <button id="mdv-find-esc" type="button" title="Interpret escapes in Find/Replace: \t \n \r \uXXXX \xXX (e.g. search \u3000 for a full-width space)">\n</button>
+  <input id="mdv-replace-input" type="text" placeholder="Replace" spellcheck="false" autocomplete="off">
+  <button id="mdv-replace-one" type="button" title="Replace current match">Replace</button>
+  <button id="mdv-replace-all" type="button" title="Replace all matches">All</button>
+  <button id="mdv-find-close" type="button" title="Close (Esc)">&#10005;</button>
+</div>
+<article id="content" class="markdown-body"></article>
+<script>__MARKED_JS__</script>
+<script>__HLJS_JS__</script>
+<script>
+  // Forward uncaught JS errors to Swift stderr (helps diagnose vendored-asset issues).
+  function nativeLog(m) {
+    try { window.webkit.messageHandlers.log.postMessage(String(m)); } catch (e) {}
+  }
+  // Tell Swift the document has unsaved edits (true) or is clean (false).
+  function notifyDirty(d) {
+    try { window.webkit.messageHandlers.dirty.postMessage(!!d); } catch (e) {}
+  }
+  // Swift reads this on ⌘S to get the current (possibly edited) source.
+  window.getMarkdownSource = function () { return currentMarkdown; };
+  window.onerror = function (msg, src, line, col) {
+    nativeLog('JS ERROR: ' + msg + ' @' + line + ':' + col);
+  };
+
+  // Theme handling. The app chooses one of: 'auto' (follow the system),
+  // 'light', 'dim', 'dark'. 'auto' relies on the prefers-color-scheme media
+  // queries; the explicit themes set data-theme on <html> (see the CSS above).
+  // Either way we flip the two hljs <style media> blocks and pick mermaid's
+  // theme to match the effective light/dark appearance.
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  let currentTheme = 'auto';
+  function isDarkEffective() {
+    if (currentTheme === 'dark' || currentTheme === 'dim') return true;
+    if (currentTheme === 'light' || currentTheme === 'sepia') return false;
+    return mq.matches;   // auto → follow the system
+  }
+  function applyTheme() {
+    const dark = isDarkEffective();
+    document.getElementById('hljs-light').media = dark ? 'not all' : 'all';
+    document.getElementById('hljs-dark').media  = dark ? 'all' : 'not all';
+  }
+  // Called from Swift when the user picks a theme (also on window load).
+  window.setTheme = function (t) {
+    currentTheme = (t === 'light' || t === 'dark' || t === 'dim' || t === 'sepia') ? t : 'auto';
+    if (currentTheme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', currentTheme);
+    applyTheme();
+    // Re-render so mermaid diagrams (baked SVG colors) pick up the new theme.
+    // hljs code colors follow the CSS media flip automatically.
+    if (document.body.classList.contains('welcome')) {
+      if (currentMarkdown) window.renderWelcome(currentMarkdown);
+    } else if (currentMarkdown) {
+      window.renderMarkdown(currentMarkdown);
+    }
+  };
+  mq.addEventListener('change', applyTheme);
+  applyTheme();
+
+  // Mermaid is loaded lazily: it's ~2.5MB of JS most documents never use, so
+  // it is no longer inlined into this template. Swift stages mermaid.min.js
+  // next to this shell page; the first render that actually contains a
+  // ```mermaid``` block injects the <script> and waits for it.
+  function mermaidTheme() { return isDarkEffective() ? 'dark' : 'default'; }
+  let mermaidLoading = null;   // Promise<boolean>, created on first use
+  function ensureMermaid() {
+    if (typeof mermaid !== 'undefined') return Promise.resolve(true);
+    if (!mermaidLoading) {
+      mermaidLoading = new Promise(function (resolve) {
+        const s = document.createElement('script');
+        s.src = 'mermaid.min.js';
+        s.onload = function () { resolve(typeof mermaid !== 'undefined'); };
+        s.onerror = function () {
+          nativeLog('mermaid: failed to load mermaid.min.js');
+          resolve(false);
+        };
+        document.head.appendChild(s);
+      });
+    }
+    return mermaidLoading;
+  }
+
+  // Shared helpers for the renderer and the async highlight pass.
+  const MAX_HIGHLIGHT = 50000;  // skip highlighting individual blocks larger than this
+  const escapeHtml = (s) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Custom renderer: ```mermaid``` fences become <pre class="mermaid"> (left for
+  // mermaid to render); every other fence is highlighted by highlight.js.
+  const renderer = new marked.Renderer();
+  renderer.code = function (code, infostring) {
+    // marked v12 may pass a token object; normalize.
+    if (typeof code === 'object' && code !== null) {
+      infostring = code.lang || '';
+      code = code.text || '';
+    }
+    const lang = (infostring || '').trim().split(/\s+/)[0];
+    if (lang === 'mermaid') {
+      // Stash the raw source; mermaid reads textContent during the async pass.
+      return '<pre class="mermaid">' + escapeHtml(code) + '</pre>';
+    }
+    // Render the escaped source immediately for a fast first paint. Blocks with
+    // a known language (and not huge) are tagged with data-hl so the async
+    // highlight pass can colorize them afterward without blocking the render.
+    // Unlabeled fences are left verbatim — we deliberately never call
+    // hljs.highlightAuto(), which tries ~190 grammars per block and would freeze
+    // large documents (thousands of fences) for minutes.
+    const willHighlight = lang && hljs.getLanguage(lang) && code.length <= MAX_HIGHLIGHT;
+    const attr = willHighlight ? ' data-hl="' + lang + '"' : '';
+    return '<pre><code class="hljs"' + attr + '>' + escapeHtml(code) + '</code></pre>';
+  };
+
+  marked.setOptions({ gfm: true, breaks: false, renderer: renderer });
+
+  const el = document.getElementById('content');
+
+  // Highlight tagged code blocks in time-sliced chunks, so a large document
+  // paints immediately and the syntax colors fill in afterward without freezing
+  // the UI. Yields roughly every animation frame.
+  function highlightAsync(done) {
+    const blocks = Array.prototype.slice.call(el.querySelectorAll('code[data-hl]'));
+    let i = 0;
+    const clock = (window.performance && performance.now)
+      ? function () { return performance.now(); }
+      : function () { return Date.now(); };
+    function step() {
+      const start = clock();
+      while (i < blocks.length) {
+        const b = blocks[i++];
+        const lang = b.getAttribute('data-hl');
+        b.removeAttribute('data-hl');
+        try {
+          // textContent is the original (unescaped) source — exactly what hljs wants.
+          b.innerHTML = hljs.highlight(b.textContent, { language: lang }).value;
+        } catch (e) {}
+        if (clock() - start > 16) break;   // yield ~once per frame
+      }
+      if (i < blocks.length) { setTimeout(step, 0); }
+      else if (done) { done(); }
+    }
+    if (blocks.length) { step(); } else if (done) { done(); }
+  }
+
+  // Render mermaid diagrams (also off the critical first-paint path). The
+  // library itself is fetched on first use — see ensureMermaid() above.
+  function runMermaid(done) {
+    const diagrams = el.querySelectorAll('pre.mermaid');
+    if (!diagrams.length) { if (done) done(); return; }
+    ensureMermaid().then(function (ok) {
+      if (!ok) { if (done) done(); return; }
+      try {
+        mermaid.initialize({ startOnLoad: false, theme: mermaidTheme(), securityLevel: 'loose' });
+        mermaid.run({ nodes: diagrams })
+          .then(function () { if (done) done(); })
+          .catch(function (e) {
+            nativeLog('mermaid: ' + (e && e.message ? e.message : e));
+            if (done) done();
+          });
+      } catch (e) {
+        nativeLog('mermaid: ' + (e && e.message ? e.message : e));
+        if (done) done();
+      }
+    });
+  }
+
+  // Rewrite <img> tags that point at local paths (relative to the .md file, or
+  // absolute filesystem paths) so they load through the native mdv-img: handler.
+  // The preview page itself is a file:// document in a temp dir, so plain
+  // relative/file URLs can't reach the markdown file's own directory.
+  function rewriteLocalImages() {
+    const imgs = el.querySelectorAll('img');
+    for (let i = 0; i < imgs.length; i++) {
+      const img = imgs[i];
+      const src = img.getAttribute('src') || '';
+      if (!src) continue;
+      // Leave web / data / blob / protocol-relative / already-rewritten URLs alone.
+      if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.indexOf('//') === 0) continue;
+      img.onerror = (function (orig) {
+        return function () { nativeLog('image load failed: ' + orig); };
+      })(src);
+      img.setAttribute('src', 'mdv-img://local/?p=' + encodeURIComponent(src));
+    }
+  }
+
+  // Track the current markdown + view mode so we can re-render on toggle.
+  let currentMarkdown = '';
+  let rawMode = false;
+  let lineNumbers = false;   // View ▸ Show Line Numbers (raw mode only)
+
+  // ---------------------------------------------------------------------------
+  // Raw-mode line numbers.
+  //
+  // A logical line = newline-delimited source line. Each number is placed at
+  // the measured Y coordinate of its line's first character (via Range rects),
+  // so a soft-wrapped line keeps a single number and alignment never drifts.
+  // Empty lines have nothing to measure; their position is chained from the
+  // previous line's bottom. Rebuilt (debounced) on edits and window resizes.
+  // ---------------------------------------------------------------------------
+  function updateLineNumbers() {
+    const wrap = el.querySelector('.raw-wrap');
+    const gutter = wrap && wrap.querySelector('.raw-gutter');
+    const pre = wrap && wrap.querySelector('pre.raw-source');
+    if (!wrap || !gutter || !pre) return;
+
+    // Collect the pre's text nodes with their cumulative start offsets, so
+    // global offsets can be mapped to (node, localOffset) even if editing
+    // split the content into several text nodes.
+    const nodes = [];
+    let total = 0;
+    const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) { nodes.push({ n: n, start: total }); total += n.nodeValue.length; }
+    const text = nodes.map(function (e) { return e.n.nodeValue; }).join('');
+
+    // Start offset of every logical line.
+    const starts = [0];
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) === 10) starts.push(i + 1);
+    }
+
+    // Reserve the gutter width for the digit count, then let the text reflow
+    // BEFORE measuring (the margin change affects wrapping).
+    const digits = String(starts.length).length;
+    gutter.style.width = 'calc(' + digits + 'ch + 14px)';
+    pre.style.marginLeft = 'calc(' + digits + 'ch + 27px)';   // gutter + border + gap
+
+    const lineHeight = parseFloat(getComputedStyle(pre).lineHeight) || 19.5;
+    const wrapTop = wrap.getBoundingClientRect().top;
+
+    // Map a global offset to a position inside the node list. `j` only moves
+    // forward because offsets are visited in ascending order.
+    let j = 0;
+    function pos(off) {
+      while (j + 1 < nodes.length && nodes[j + 1].start <= off) j++;
+      const e = nodes[j];
+      return { node: e.n, offset: Math.min(off - e.start, e.n.nodeValue.length) };
+    }
+
+    const frag = document.createDocumentFragment();
+    let prevBottom = 0;
+    for (let i = 0; i < starts.length; i++) {
+      const s = starts[i];
+      // End of the line body, excluding the terminating newline (including it
+      // makes WebKit's rect union spill into the next visual row).
+      const e = (i + 1 < starts.length) ? starts[i + 1] - 1 : text.length;
+      let top = prevBottom;
+      let bottom = prevBottom + lineHeight;
+      if (e > s && nodes.length) {
+        try {
+          const r = document.createRange();
+          const ps = pos(s);
+          r.setStart(ps.node, ps.offset);
+          const pe = pos(e);
+          r.setEnd(pe.node, pe.offset);
+          const rects = r.getClientRects();
+          if (rects.length) {
+            // WebKit may prepend a zero-width artifact rect sitting at the END
+            // of the previous visual row; skip zero-width rects for the top.
+            let first = null;
+            for (let k = 0; k < rects.length; k++) {
+              if (rects[k].width > 0.5) { first = rects[k]; break; }
+            }
+            top = (first || rects[0]).top - wrapTop;
+            // Snap the line's height to whole rows: glyph rects are shorter
+            // than the row (font box vs line-height), and a chained empty
+            // line placed at the raw rect bottom would sit slightly high.
+            const rawBottom = r.getBoundingClientRect().bottom - wrapTop;
+            const rows = Math.max(1, Math.round((rawBottom - top) / lineHeight));
+            bottom = top + rows * lineHeight;
+          }
+        } catch (err) {}
+      }
+      prevBottom = bottom;
+      const d = document.createElement('div');
+      d.className = 'ln';
+      d.textContent = String(i + 1);
+      d.style.top = top + 'px';
+      frag.appendChild(d);
+    }
+    gutter.innerHTML = '';
+    gutter.appendChild(frag);
+  }
+
+  let lnTimer = null;
+  function scheduleLineNumbers() {
+    if (!rawMode || !lineNumbers) return;
+    if (lnTimer) clearTimeout(lnTimer);
+    lnTimer = setTimeout(function () { lnTimer = null; updateLineNumbers(); }, 120);
+  }
+  window.addEventListener('resize', scheduleLineNumbers);
+
+  // Called from Swift with the raw markdown string.
+  // Preserves the vertical scroll *ratio* so position survives content length changes.
+  window.renderMarkdown = function (md) {
+    currentMarkdown = md;
+    document.body.classList.remove('welcome');
+    const doc = document.documentElement;
+    const prevMax = Math.max(1, doc.scrollHeight - doc.clientHeight);
+    const ratio = doc.scrollTop / prevMax;
+
+    const restore = () => requestAnimationFrame(() => {
+      const newMax = Math.max(1, doc.scrollHeight - doc.clientHeight);
+      doc.scrollTop = ratio * newMax;
+    });
+
+    if (rawMode) {
+      // Show the source verbatim in an editable monospace block.
+      const pre = document.createElement('pre');
+      pre.className = 'raw-source';
+      pre.setAttribute('contenteditable', 'plaintext-only');
+      pre.setAttribute('spellcheck', 'false');
+      pre.textContent = md;
+      el.innerHTML = '';
+      if (lineNumbers) {
+        const wrap = document.createElement('div');
+        wrap.className = 'raw-wrap';
+        const gutter = document.createElement('div');
+        gutter.className = 'raw-gutter';
+        wrap.appendChild(gutter);
+        wrap.appendChild(pre);
+        el.appendChild(wrap);
+      } else {
+        el.appendChild(pre);
+      }
+      // Edits update the in-memory source and flag the document dirty.
+      pre.addEventListener('input', function () {
+        currentMarkdown = pre.textContent;
+        notifyDirty(true);
+        scheduleLineNumbers();
+      });
+      if (lineNumbers) updateLineNumbers();
+      restore();
+      if (window.__mdvAfterRender) window.__mdvAfterRender();
+      return;
+    }
+
+    el.innerHTML = marked.parse(md);
+
+    // Paint the text immediately, then fill in visuals in priority order:
+    // local images and mermaid diagrams first (they carry meaning), and the
+    // cosmetic syntax highlighting last so it never delays the figures.
+    rewriteLocalImages();
+    restore();
+    if (window.__mdvAfterRender) window.__mdvAfterRender();
+    runMermaid(function () {
+      restore();
+      highlightAsync(function () {
+        restore();
+        if (window.__mdvAfterRender) window.__mdvAfterRender();
+      });
+    });
+  };
+
+  // Toggle between rendered preview and raw markdown source.
+  // Called from Swift; returns the new state so the menu item can show a checkmark.
+  window.setRawMode = function (on) {
+    rawMode = !!on;
+    window.renderMarkdown(currentMarkdown);
+    return rawMode;
+  };
+  window.toggleRawMode = function () { return window.setRawMode(!rawMode); };
+
+  // Toggle the raw-mode line-number gutter. Called from Swift (View menu);
+  // returns the new state so the menu checkmark stays in sync.
+  window.setLineNumbers = function (on) {
+    lineNumbers = !!on;
+    if (rawMode) window.renderMarkdown(currentMarkdown);
+    return lineNumbers;
+  };
+
+  // Welcome splash — same renderer, but centered in the window (body.welcome).
+  window.renderWelcome = function (md) {
+    currentMarkdown = md;   // remembered so a theme switch can re-render it
+    el.innerHTML = marked.parse(md);
+    document.body.classList.add('welcome');
+  };
+
+  // Open links in the system browser instead of navigating the preview.
+  document.addEventListener('click', function (e) {
+    const a = e.target.closest('a');
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#')) return; // allow in-page anchors
+    e.preventDefault();
+    try {
+      window.webkit.messageHandlers.openExternal.postMessage(href);
+    } catch (err) {}
+  });
+
+  // ---------------------------------------------------------------------------
+  // Find / Replace
+  //
+  // Find works in both modes:
+  //   - Rendered mode: matches in the visible text are wrapped in <mark> and
+  //     navigated by scrolling the "current" one into view.
+  //   - Raw mode: matches are located in the source string and shown via the
+  //     document selection inside the editable <pre>.
+  // Replace / Replace All operate on the markdown *source*, so they are only
+  // available in raw (edit) mode. In rendered preview mode the Replace field and
+  // buttons are disabled — switch to raw mode (⌘U) to replace. Replacing marks
+  // the document dirty so ⌘S can save it.
+  // ---------------------------------------------------------------------------
+  (function () {
+    const bar = document.getElementById('mdv-find');
+    const input = document.getElementById('mdv-find-input');
+    const countEl = document.getElementById('mdv-find-count');
+    const replaceInput = document.getElementById('mdv-replace-input');
+    const replaceOneBtn = document.getElementById('mdv-replace-one');
+    const replaceAllBtn = document.getElementById('mdv-replace-all');
+    const caseBtn = document.getElementById('mdv-find-case');
+    const escBtn = document.getElementById('mdv-find-esc');
+
+    let matches = [];   // rendered: <mark> elements; raw: {start,end} offsets
+    let index = -1;
+    let caseSensitive = false;
+    let useEscapes = false;   // interpret \t \n \uXXXX etc. in Find/Replace
+    // CSS Custom Highlight API: highlight raw-mode matches without moving the
+    // caret/focus (the old selection-based approach stole focus from the Find
+    // box, so typing landed in the editable body).
+    const HAS_HL = (typeof Highlight !== 'undefined') && (typeof CSS !== 'undefined') && !!CSS.highlights;
+
+    function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function makeRegExp(q) {
+      try { return new RegExp(escapeRegExp(q), caseSensitive ? 'g' : 'gi'); }
+      catch (e) { return null; }
+    }
+    function isRaw() { return rawMode; }
+
+    // With the "\n" toggle on, interpret common backslash escapes so invisible
+    // characters (tabs, newlines, and full-width spaces via \u3000) can be typed
+    // into the Find/Replace fields. Unknown escapes keep their literal char.
+    function unescapeSeq(s) {
+      return s.replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|[trn0\\])/g, function (_, e) {
+        switch (e[0]) {
+          case 'u': case 'x': return String.fromCharCode(parseInt(e.slice(1), 16));
+          case 't': return '\t';
+          case 'r': return '\r';
+          case 'n': return '\n';
+          case '0': return '\0';
+          case '\\': return '\\';
+          default: return e;
+        }
+      });
+    }
+    function findQuery() { return useEscapes ? unescapeSeq(input.value) : input.value; }
+    function replacement() { return useEscapes ? unescapeSeq(replaceInput.value) : replaceInput.value; }
+
+    // ---- rendered-mode highlighting -----------------------------------------
+    function clearMarks() {
+      const ms = el.querySelectorAll('mark.mdv-find');
+      for (let i = 0; i < ms.length; i++) {
+        const m = ms[i];
+        m.parentNode.replaceChild(document.createTextNode(m.textContent), m);
+      }
+      el.normalize();
+    }
+
+    function buildMarks(q) {
+      clearMarks();
+      matches = [];
+      if (!q) return;
+      const re = makeRegExp(q);
+      if (!re) return;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (n) {
+          if (!n.nodeValue) return NodeFilter.FILTER_REJECT;
+          // Skip SVG (mermaid) text — wrapping it breaks the diagram layout.
+          if (n.parentElement && n.parentElement.closest('svg')) return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      });
+      const nodes = [];
+      let node;
+      while ((node = walker.nextNode())) nodes.push(node);
+      for (let k = 0; k < nodes.length; k++) {
+        const n = nodes[k];
+        const text = n.nodeValue;
+        re.lastIndex = 0;
+        let m, last = 0, hit = false;
+        const parts = [];
+        while ((m = re.exec(text))) {
+          hit = true;
+          if (m.index > last) parts.push(document.createTextNode(text.slice(last, m.index)));
+          const mk = document.createElement('mark');
+          mk.className = 'mdv-find';
+          mk.textContent = m[0];
+          parts.push(mk);
+          matches.push(mk);
+          last = m.index + m[0].length;
+          if (m[0].length === 0) re.lastIndex++;
+        }
+        if (hit) {
+          if (last < text.length) parts.push(document.createTextNode(text.slice(last)));
+          const frag = document.createDocumentFragment();
+          for (let p = 0; p < parts.length; p++) frag.appendChild(parts[p]);
+          n.parentNode.replaceChild(frag, n);
+        }
+      }
+    }
+
+    // ---- raw-mode (source string) -------------------------------------------
+    function rawPre() { return el.querySelector('pre.raw-source'); }
+
+    function computeRawMatches(q) {
+      matches = [];
+      if (!q) return;
+      const re = makeRegExp(q);
+      if (!re) return;
+      const text = currentMarkdown;
+      let m;
+      while ((m = re.exec(text))) {
+        matches.push({ start: m.index, end: m.index + m[0].length });
+        if (m[0].length === 0) re.lastIndex++;
+      }
+    }
+
+    // The raw <pre>'s single text node (offsets map directly onto it).
+    function rawTextNode() {
+      const pre = rawPre();
+      if (!pre) return null;
+      if (!(pre.childNodes.length === 1 && pre.firstChild && pre.firstChild.nodeType === 3)) {
+        pre.textContent = currentMarkdown;
+      }
+      return pre.firstChild || null;
+    }
+
+    function rangeForMatch(tn, mt) {
+      const len = tn.nodeValue.length;
+      const r = document.createRange();
+      r.setStart(tn, Math.min(mt.start, len));
+      r.setEnd(tn, Math.min(mt.end, len));
+      return r;
+    }
+
+    function scrollRangeIntoView(range) {
+      const rect = range.getBoundingClientRect();
+      if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
+        window.scrollTo({ top: rect.top + window.scrollY - window.innerHeight / 2 });
+      }
+    }
+
+    function clearRawHighlights() {
+      if (HAS_HL) { CSS.highlights.delete('mdv-find'); CSS.highlights.delete('mdv-find-current'); }
+    }
+
+    // Show the current raw-mode match. Uses the Highlight API so focus stays in
+    // the Find box; falls back to the text selection (then re-focuses the Find
+    // box) where the API is unavailable.
+    function showRawMatch(i) {
+      const tn = rawTextNode();
+      if (!tn) return;
+      const mt = matches[i];
+
+      if (HAS_HL) {
+        const others = new Highlight();
+        for (let k = 0; k < matches.length; k++) {
+          if (k === i) continue;
+          others.add(rangeForMatch(tn, matches[k]));
+        }
+        CSS.highlights.set('mdv-find', others);
+        if (mt) {
+          const cur = rangeForMatch(tn, mt);
+          CSS.highlights.set('mdv-find-current', new Highlight(cur));
+          scrollRangeIntoView(cur);
+        } else {
+          CSS.highlights.delete('mdv-find-current');
+        }
+        return;
+      }
+
+      // Fallback: select the match, then hand focus back to the Find box so the
+      // next keystroke goes to the search field, not the editable body.
+      if (!mt) return;
+      const range = rangeForMatch(tn, mt);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      scrollRangeIntoView(range);
+      if (!bar.hidden) { try { input.focus(); } catch (e) {} }
+    }
+
+    // ---- shared --------------------------------------------------------------
+    function updateCount() {
+      countEl.textContent = matches.length ? (Math.max(0, index) + 1) + '/' + matches.length : '0/0';
+    }
+
+    function showCurrent() {
+      updateCount();
+      if (!matches.length) { index = -1; if (isRaw()) clearRawHighlights(); return; }
+      if (index < 0) index = 0;
+      if (isRaw()) {
+        showRawMatch(index);
+      } else {
+        const prev = el.querySelectorAll('mark.mdv-find.current');
+        for (let i = 0; i < prev.length; i++) prev[i].classList.remove('current');
+        const mk = matches[index];
+        if (mk) { mk.classList.add('current'); mk.scrollIntoView({ block: 'center' }); }
+      }
+    }
+
+    // Recompute matches for the current query + mode (used on open, edits, renders).
+    function refresh() {
+      updateReplaceEnabled();
+      if (!isRaw()) clearRawHighlights();   // drop stale raw highlights in preview
+      const q = findQuery();
+      if (isRaw()) computeRawMatches(q); else buildMarks(q);
+      if (matches.length) {
+        if (index < 0) index = 0;
+        if (index >= matches.length) index = matches.length - 1;
+      } else {
+        index = -1;
+      }
+      showCurrent();
+    }
+
+    function go(delta) {
+      if (!matches.length) return;
+      index = (index + delta + matches.length) % matches.length;
+      showCurrent();
+    }
+
+    // Replace is only meaningful against the source, which is editable in raw
+    // mode. In rendered preview mode we disable the Replace field + buttons.
+    function updateReplaceEnabled() {
+      const on = isRaw();
+      replaceInput.disabled = !on;
+      replaceOneBtn.disabled = !on;
+      replaceAllBtn.disabled = !on;
+      const hint = on ? '' : ' — switch to raw mode (⌘U)';
+      replaceOneBtn.title = 'Replace current match' + hint;
+      replaceAllBtn.title = 'Replace all matches' + hint;
+      replaceInput.placeholder = on ? 'Replace' : 'Replace (raw only)';
+    }
+
+    function replaceCurrent() {
+      if (!isRaw()) return;   // preview mode: replacing is disabled
+      if (index < 0 || index >= matches.length) { refresh(); return; }
+      const mt = matches[index];
+      const rep = replacement();
+      currentMarkdown = currentMarkdown.slice(0, mt.start) + rep + currentMarkdown.slice(mt.end);
+      const pre = rawPre();
+      if (pre) pre.textContent = currentMarkdown;
+      notifyDirty(true);
+      scheduleLineNumbers();
+      computeRawMatches(findQuery());
+      if (index >= matches.length) index = matches.length - 1;
+      showCurrent();
+    }
+
+    function replaceAll() {
+      if (!isRaw()) return;   // preview mode: replacing is disabled
+      const q = findQuery();
+      if (!q) return;
+      const re = makeRegExp(q);
+      if (!re) return;
+      const rep = replacement();
+      const before = currentMarkdown;
+      // Function replacement keeps the string literal (so `$` etc. aren't
+      // treated as replacement patterns).
+      currentMarkdown = currentMarkdown.replace(re, function () { return rep; });
+      if (currentMarkdown === before) return;
+      const pre = rawPre();
+      if (pre) pre.textContent = currentMarkdown;
+      notifyDirty(true);
+      scheduleLineNumbers();
+      computeRawMatches(findQuery());
+      index = matches.length ? 0 : -1;
+      showCurrent();
+    }
+
+    function open() {
+      const wasHidden = bar.hidden;
+      bar.hidden = false;
+      // Prefill from a short single-line selection for convenience.
+      const selText = (window.getSelection && String(window.getSelection())) || '';
+      if (wasHidden && selText && selText.length < 200 && selText.indexOf('\n') < 0) {
+        input.value = selText;
+      }
+      input.focus();
+      input.select();
+      index = 0;
+      refresh();
+    }
+
+    function close() {
+      bar.hidden = true;
+      if (!isRaw()) clearMarks();
+      clearRawHighlights();
+      try { window.getSelection().removeAllRanges(); } catch (e) {}
+      matches = [];
+      index = -1;
+    }
+
+    // Events.
+    input.addEventListener('input', function () { index = 0; refresh(); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); go(e.shiftKey ? -1 : 1); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+    replaceInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); e.shiftKey ? replaceAll() : replaceCurrent(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+    document.getElementById('mdv-find-next').addEventListener('click', function () { go(1); input.focus(); });
+    document.getElementById('mdv-find-prev').addEventListener('click', function () { go(-1); input.focus(); });
+    replaceOneBtn.addEventListener('click', replaceCurrent);
+    replaceAllBtn.addEventListener('click', replaceAll);
+    document.getElementById('mdv-find-close').addEventListener('click', close);
+    caseBtn.addEventListener('click', function () {
+      caseSensitive = !caseSensitive;
+      caseBtn.classList.toggle('active', caseSensitive);
+      index = 0;
+      refresh();
+      input.focus();
+    });
+    escBtn.addEventListener('click', function () {
+      useEscapes = !useEscapes;
+      escBtn.classList.toggle('active', useEscapes);
+      input.placeholder = useEscapes ? 'Find (\\u3000, \\t…)' : 'Find';
+      index = 0;
+      refresh();
+      input.focus();
+    });
+
+    // Native menu / shortcut entry points.
+    window.mdvFind = {
+      open: open,
+      close: function () { if (!bar.hidden) close(); },
+      toggle: function () { bar.hidden ? open() : close(); },
+      next: function () { go(1); },
+      prev: function () { go(-1); },
+      isOpen: function () { return !bar.hidden; }
+    };
+
+    // Re-highlight after any re-render (theme toggle, live reload, raw toggle).
+    window.__mdvAfterRender = function () { if (!bar.hidden) refresh(); };
+  })();
+</script>
+</body>
+</html>
