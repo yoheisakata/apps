@@ -628,9 +628,10 @@
   var TRACE_GUIDE_WIDTH = 22;   // お手本の線の太さ
   var TRACE_INK_WIDTH = 26;     // なぞり線の太さ
   var TRACE_START_TOL = 40;     // 書きはじめが始点からずれてよい距離
-  var TRACE_CORRIDOR = 36;      // 線から外れてよい距離
-  var TRACE_LOOKAHEAD = 7;      // 進行判定の先読み点数 (約42px)
+  var TRACE_CORRIDOR = 46;      // 線から外れてよい距離
+  var TRACE_LOOKAHEAD = 16;     // 進行判定の先読み点数 (約96px、速いなぞりに追従)
   var TRACE_END_RATIO = 0.9;    // 画の9割まで到達したら1画完成
+  var TRACE_MISS_LIMIT = 5;     // 連続でこの回数だけ線から外れたら画をやりなおし (指ぶれ対策)
 
   var trace = {
     active: false,
@@ -640,6 +641,7 @@
     strokes: [],      // いまの文字のストローク配列 [[[x,y],...],...]
     strokeIdx: 0,     // いま書く画 (0はじまり)
     progress: 0,      // いまの画のどこまで到達したか (点インデックス)
+    missStreak: 0,    // 連続で線から外れた判定の回数
     charDone: false,
     drawing: false,
     lastHintAt: 0,
@@ -672,6 +674,7 @@
       canvas.setPointerCapture(e.pointerId);
       trace.drawing = true;
       trace.progress = 0;
+      trace.missStreak = 0;
       trace.lastX = p.x;
       trace.lastY = p.y;
       drawInk(p.x, p.y, p.x, p.y);
@@ -805,12 +808,15 @@
 
     // 先読み範囲で進めるところまで進む
     var maxAhead = Math.min(trace.progress + TRACE_LOOKAHEAD, last);
+    var advanced = false;
     for (var j = maxAhead; j > trace.progress; j--) {
       if (dist(x, y, s[j][0], s[j][1]) <= TRACE_CORRIDOR) {
         trace.progress = j;
+        advanced = true;
         break;
       }
     }
+    if (advanced) trace.missStreak = 0;
 
     // 画の9割まで来たら1画完成
     if (trace.progress >= Math.floor(last * TRACE_END_RATIO)) {
@@ -835,10 +841,16 @@
       if (d < near) near = d;
     }
     if (near > TRACE_CORRIDOR) {
-      trace.drawing = false;
-      trace.progress = 0;
-      soundWrong();
-      redrawTrace();
+      trace.missStreak++;
+      if (trace.missStreak >= TRACE_MISS_LIMIT) {
+        trace.drawing = false;
+        trace.progress = 0;
+        trace.missStreak = 0;
+        soundWrong();
+        redrawTrace();
+      }
+    } else {
+      trace.missStreak = 0;
     }
   }
 
