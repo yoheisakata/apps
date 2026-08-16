@@ -725,7 +725,7 @@ async function analyzeRock() {
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 1024,
         messages: [{
           role: 'user',
@@ -765,6 +765,10 @@ async function analyzeRock() {
 
     const data = await response.json();
 
+    if (!response.ok) {
+      const errText = JSON.stringify(data);
+      throw new Error(`API ${response.status}: ${data.error?.message || errText}`);
+    }
     if (data.error) {
       throw new Error(data.error.message || 'APIエラー');
     }
