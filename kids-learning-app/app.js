@@ -628,8 +628,9 @@
   var TRACE_GUIDE_WIDTH = 22;   // お手本の線の太さ
   var TRACE_INK_WIDTH = 26;     // なぞり線の太さ
   var TRACE_START_TOL = 40;     // 書きはじめが始点からずれてよい距離
-  var TRACE_CORRIDOR = 46;      // 線から外れてよい距離
-  var TRACE_LOOKAHEAD = 16;     // 進行判定の先読み点数 (約96px、速いなぞりに追従)
+  var TRACE_CORRIDOR = 40;      // 線から外れてよい距離
+  var TRACE_LOOKAHEAD = 10;     // 進行判定の先読み点数 (約60px)
+  var TRACE_STEP = 8;           // pointermove を補間するときの間隔(px) — 「え」等の折り返しで飛び越えないため細かく判定する
   var TRACE_END_RATIO = 0.9;    // 画の9割まで到達したら1画完成
   var TRACE_MISS_LIMIT = 5;     // 連続でこの回数だけ線から外れたら画をやりなおし (指ぶれ対策)
 
@@ -684,9 +685,18 @@
       e.preventDefault();
       var p = tracePos(e);
       drawInk(trace.lastX, trace.lastY, p.x, p.y);
+      // 判定は指の移動を細かく補間してから行う (飛ばし読みで折り返し線を
+      // 飛び越えてしまうのを防ぐ。例: 「え」の下のカーブ)
+      var segLen = dist(trace.lastX, trace.lastY, p.x, p.y);
+      var steps = Math.max(1, Math.round(segLen / TRACE_STEP));
+      var fromX = trace.lastX, fromY = trace.lastY;
       trace.lastX = p.x;
       trace.lastY = p.y;
-      followStroke(p.x, p.y);
+      for (var i = 1; i <= steps; i++) {
+        if (!trace.drawing || trace.charDone) return;
+        var t = i / steps;
+        followStroke(fromX + (p.x - fromX) * t, fromY + (p.y - fromY) * t);
+      }
     });
     function stop() {
       if (!trace.drawing) return;
@@ -806,13 +816,15 @@
     var s = trace.strokes[trace.strokeIdx];
     var last = s.length - 1;
 
-    // 先読み範囲で進めるところまで進む
+    // 先読み範囲で「連続して」線に近い点だけ進む (途中に外れた点があれば
+    // そこで止める。折り返しの先の方が偶然近いからと飛び級しないように)
     var maxAhead = Math.min(trace.progress + TRACE_LOOKAHEAD, last);
     var advanced = false;
-    for (var j = maxAhead; j > trace.progress; j--) {
+    for (var j = trace.progress + 1; j <= maxAhead; j++) {
       if (dist(x, y, s[j][0], s[j][1]) <= TRACE_CORRIDOR) {
         trace.progress = j;
         advanced = true;
+      } else {
         break;
       }
     }
