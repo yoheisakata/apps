@@ -1,7 +1,7 @@
 // いし＆こうぶつ図鑑 — オフラインキャッシュ
 // キャッシュ対象を変えたら CACHE_NAME を必ず上げること（古いキャッシュが残り続けるため）
-var CACHE_NAME = "rock-collections-v1";
-var ASSETS = ["./", "./index.html", "./manifest.json"];
+var CACHE_NAME = "rock-collections-v2";
+var ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(
