@@ -1,1 +1,985 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>💎 いし＆こうぶつ図鑑</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root {
+  --bg: #f0f4e8;
+  --card-bg: #ffffff;
+  --primary: #4a7c3f;
+  --primary-light: #6db35a;
+  --accent: #e8a838;
+  --accent-light: #ffd966;
+  --text: #2d3a2e;
+  --text-light: #5a6b5c;
+  --border: #d4e0c8;
+  --shadow: rgba(74, 124, 63, 0.15);
+  --rarity-common: #7a8b7c;
+  --rarity-uncommon: #4a9e4a;
+  --rarity-rare: #3d7dd4;
+  --rarity-epic: #9b59b6;
+  --rarity-legendary: #e8a838;
+}
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ===== ヘッダー ===== */
+.header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: white;
+  text-align: center;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.header h1 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.header .subtitle {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* ===== ナビゲーション ===== */
+.nav {
+  display: flex;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 60px;
+  z-index: 99;
+}
+
+.nav-btn {
+  flex: 1;
+  padding: 14px 8px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+}
+
+.nav-btn.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: rgba(74, 124, 63, 0.05);
+}
+
+.nav-btn i {
+  display: block;
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+/* ===== セクション ===== */
+.section {
+  display: none;
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.section.active {
+  display: block;
+}
+
+/* ===== カメラセクション ===== */
+.camera-area {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+.camera-preview {
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 4/3;
+  background: #1a1a1a;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 16px auto;
+  position: relative;
+}
+
+.camera-preview video,
+.camera-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-preview .placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888;
+  gap: 8px;
+}
+
+.camera-preview .placeholder i {
+  font-size: 48px;
+}
+
+.btn {
+  padding: 16px 32px;
+  border: none;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: white;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--shadow);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  transform: none;
+  cursor: not-allowed;
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(232, 168, 56, 0.3);
+}
+
+.btn-secondary {
+  background: var(--border);
+  color: var(--text);
+}
+
+.btn-group {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+/* ===== 判定結果 ===== */
+.result-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 20px;
+  box-shadow: 0 4px 16px var(--shadow);
+  display: none;
+}
+
+.result-card.show {
+  display: block;
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
+}
+
+.result-name {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.result-name-en {
+  font-size: 14px;
+  color: var(--text-light);
+  margin-bottom: 12px;
+}
+
+.rarity-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 12px;
+}
+
+.result-desc {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.result-facts {
+  background: rgba(74, 124, 63, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.result-facts h3 {
+  font-size: 14px;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.result-facts ul {
+  list-style: none;
+  font-size: 14px;
+}
+
+.result-facts li {
+  padding: 4px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.result-facts li::before {
+  content: "💎";
+  position: absolute;
+  left: 0;
+}
+
+/* ===== ローディング ===== */
+.loading {
+  display: none;
+  text-align: center;
+  padding: 40px;
+}
+
+.loading.show {
+  display: block;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 16px;
+  color: var(--text-light);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ===== 図鑑セクション ===== */
+.collection-stats {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  text-align: center;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+.collection-stats .count {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.collection-stats .label {
+  font-size: 14px;
+  color: var(--text-light);
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.rock-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--shadow);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.rock-card:hover {
+  transform: translateY(-4px);
+}
+
+.rock-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.rock-card .info {
+  padding: 8px 10px;
+}
+
+.rock-card .info .name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rock-card .info .date {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-light);
+}
+
+.empty-state i {
+  font-size: 64px;
+  opacity: 0.3;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  font-size: 16px;
+}
+
+/* ===== 設定セクション ===== */
+.settings-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+.settings-card h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--primary);
+}
+
+.settings-card input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.settings-card input:focus {
+  border-color: var(--primary);
+}
+
+.settings-card .hint {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-top: 8px;
+}
+
+/* ===== お祝い演出 ===== */
+.celebration {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  display: none;
+}
+
+.celebration.show {
+  display: block;
+}
+
+.confetti {
+  position: absolute;
+  font-size: 24px;
+  animation: fall 2s ease-out forwards;
+}
+
+@keyframes fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* ===== 詳細モーダル ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal {
+  background: var(--card-bg);
+  border-radius: 16px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.modal img {
+  width: 100%;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.modal-close {
+  float: right;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-light);
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💎 いし＆こうぶつ図鑑</h1>
+  <div class="subtitle">いし＆こうぶつを あつめて ずかんを つくろう！</div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" data-tab="camera">
+    <i class="fa-solid fa-camera"></i>
+    とる
+  </button>
+  <button class="nav-btn" data-tab="collection">
+    <i class="fa-solid fa-book"></i>
+    ずかん
+  </button>
+  <button class="nav-btn" data-tab="settings">
+    <i class="fa-solid fa-gear"></i>
+    せってい
+  </button>
+</nav>
+
+<!-- カメラセクション -->
+<section class="section active" id="sec-camera">
+  <div class="camera-area">
+    <p style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">いし・こうぶつを さつえい しよう！</p>
+    <p style="font-size: 14px; color: var(--text-light);">カメラで いしや こうぶつの しゃしんを とってね</p>
+
+    <div class="camera-preview" id="cameraPreview">
+      <div class="placeholder" id="cameraPlaceholder">
+        <i class="fa-solid fa-mountain-sun"></i>
+        <span>ここに しゃしんが うつるよ</span>
+      </div>
+      <video id="videoEl" autoplay playsinline style="display:none;"></video>
+      <img id="capturedImg" style="display:none;">
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btnCapture" onclick="startCamera()">
+        <i class="fa-solid fa-camera"></i> カメラを つける
+      </button>
+    </div>
+    <div class="btn-group" id="captureControls" style="display:none;">
+      <button class="btn btn-accent" onclick="takePhoto()">
+        <i class="fa-solid fa-circle"></i> パシャ！
+      </button>
+    </div>
+    <div class="btn-group" id="analyzeControls" style="display:none;">
+      <button class="btn btn-primary" onclick="analyzeRock()">
+        <i class="fa-solid fa-magnifying-glass"></i> しらべる！
+      </button>
+      <button class="btn btn-secondary" onclick="retake()">
+        <i class="fa-solid fa-rotate-left"></i> とりなおす
+      </button>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">しらべているよ…</div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-name" id="resultName"></div>
+    <div class="result-name-en" id="resultNameEn"></div>
+    <div id="resultRarity"></div>
+    <div class="result-desc" id="resultDesc"></div>
+    <div class="result-facts">
+      <h3>⭐ おもしろ じょうほう</h3>
+      <ul id="resultFacts"></ul>
+    </div>
+    <div class="btn-group" style="margin-top: 20px;">
+      <button class="btn btn-accent" onclick="addToCollection()">
+        <i class="fa-solid fa-plus"></i> ずかんに いれる！
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- 図鑑セクション -->
+<section class="section" id="sec-collection">
+  <div class="collection-stats">
+    <div class="count" id="collectionCount">0</div>
+    <div class="label">しゅるいの いし＆こうぶつを あつめたよ！</div>
+  </div>
+  <div id="collectionContent"></div>
+</section>
+
+<!-- 設定セクション -->
+<section class="section" id="sec-settings">
+  <div class="settings-card">
+    <h3><i class="fa-solid fa-key"></i> API キー</h3>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-... を いれてね">
+    <div class="hint">おとうさん・おかあさんに せっていしてもらおう！<br>Anthropic の API キーが ひつようです。</div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveApiKey()" style="padding: 12px 24px; font-size: 14px;">
+        <i class="fa-solid fa-floppy-disk"></i> ほぞん
+      </button>
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <h3><i class="fa-solid fa-trash-can"></i> データ</h3>
+    <button class="btn btn-secondary" onclick="clearCollection()" style="padding: 12px 24px; font-size: 14px;">
+      ずかんを リセット
+    </button>
+  </div>
+
+  <div class="settings-card">
+    <h3><i class="fa-solid fa-circle-info"></i> つかいかた</h3>
+    <ol style="font-size: 14px; line-height: 2; padding-left: 20px; color: var(--text-light);">
+      <li>「とる」で いし・こうぶつの しゃしんを とる</li>
+      <li>「しらべる」ボタンを おす</li>
+      <li>AIが なまえを おしえてくれるよ</li>
+      <li>「ずかんに いれる」で コレクション！</li>
+    </ol>
+  </div>
+</section>
+
+<!-- お祝い演出 -->
+<div class="celebration" id="celebration"></div>
+
+<!-- 詳細モーダル -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ===== グローバル変数 =====
+let stream = null;
+let currentPhotoData = null;
+let currentResult = null;
+let storageAvailable = true;
+
+// ストレージ確認
+try {
+  localStorage.setItem('__test__', '1');
+  localStorage.removeItem('__test__');
+} catch(e) {
+  storageAvailable = false;
+}
+
+function safeGetItem(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
+function safeSetItem(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
+function safeRemoveItem(key) { try { localStorage.removeItem(key); } catch(e) {} }
+
+// ===== ナビゲーション =====
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sec-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'collection') renderCollection();
+  });
+});
+
+// ===== カメラ =====
+async function startCamera() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('このブラウザではカメラが使えません');
+    }
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 960 } }
+    });
+    const video = document.getElementById('videoEl');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('cameraPlaceholder').style.display = 'none';
+    document.getElementById('btnCapture').style.display = 'none';
+    document.getElementById('captureControls').style.display = 'flex';
+    document.getElementById('analyzeControls').style.display = 'none';
+  } catch (err) {
+    alert('カメラが つかえないよ。カメラの きょかを してね！');
+  }
+}
+
+function takePhoto() {
+  const video = document.getElementById('videoEl');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  currentPhotoData = canvas.toDataURL('image/jpeg', 0.8);
+
+  // 撮影した画像を表示
+  const img = document.getElementById('capturedImg');
+  img.src = currentPhotoData;
+  img.style.display = 'block';
+  video.style.display = 'none';
+
+  // カメラストリーム停止
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+
+  document.getElementById('captureControls').style.display = 'none';
+  document.getElementById('analyzeControls').style.display = 'flex';
+  document.getElementById('resultCard').classList.remove('show');
+}
+
+function retake() {
+  document.getElementById('capturedImg').style.display = 'none';
+  document.getElementById('analyzeControls').style.display = 'none';
+  document.getElementById('resultCard').classList.remove('show');
+  startCamera();
+}
+
+// ===== AI判定 =====
+async function analyzeRock() {
+  const apiKey = safeGetItem('rock_api_key');
+  if (!apiKey) {
+    alert('さきに「せってい」で APIキーを いれてね！');
+    return;
+  }
+
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('analyzeControls').style.display = 'none';
+  document.getElementById('resultCard').classList.remove('show');
+
+  const base64 = currentPhotoData.split(',')[1];
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: 'image/jpeg', data: base64 }
+            },
+            {
+              type: 'text',
+              text: `この画像に写っている鉱物（ミネラル）・宝石・岩石を判定してください。
+鉱物コレクター向けに詳しく判定してください。
+以下のJSON形式で回答してください。他のテキストは不要です。
+6歳の子供向けに、ひらがな多めで説明してください。
+
+{
+  "name": "日本語名（ひらがな表記）",
+  "name_kanji": "漢字表記",
+  "name_en": "English name",
+  "category": "こうぶつ（鉱物）|がんせき（岩石）|ほうせき（宝石）|かせき（化石）",
+  "rarity": "common|uncommon|rare|epic|legendary のどれか",
+  "description": "この鉱物/石の説明（やさしい日本語、3文程度）",
+  "facts": ["おもしろい事実1", "おもしろい事実2", "おもしろい事実3"],
+  "color": "主な色",
+  "hardness": "モース硬度（数字）",
+  "crystal_system": "結晶系（例：六方晶系、等軸晶系など。わからなければ空文字）",
+  "luster": "光沢（ガラス光沢、金属光沢など）",
+  "found_in": "主な産地（日本で見つかる場合は日本の産地も）"
+}
+
+もし鉱物や石でないものが写っている場合は、最も似ている鉱物に見立てて回答してください。`
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error.message || 'APIエラー');
+    }
+
+    const text = data.content[0].text;
+    // JSONを抽出
+    let jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonMatch = [jsonMatch[1]];
+    } else {
+      jsonMatch = text.match(/\{[\s\S]*\}/);
+    }
+    if (!jsonMatch) throw new Error('判定できませんでした');
+
+    currentResult = JSON.parse(jsonMatch[0]);
+    showResult(currentResult);
+
+  } catch (err) {
+    alert('しらべられなかったよ…\n' + err.message);
+    document.getElementById('analyzeControls').style.display = 'flex';
+  } finally {
+    document.getElementById('loading').classList.remove('show');
+  }
+}
+
+function showResult(result) {
+  document.getElementById('resultName').textContent = result.name;
+  const categoryLabel = result.category ? ` [${result.category}]` : '';
+  document.getElementById('resultNameEn').textContent = `${result.name_kanji || ''} / ${result.name_en}${categoryLabel}`;
+
+  const rarityLabels = {
+    common: 'ふつう ★',
+    uncommon: 'ちょっとレア ★★',
+    rare: 'レア ★★★',
+    epic: 'すごいレア ★★★★',
+    legendary: 'でんせつ ★★★★★'
+  };
+  const rarityColors = {
+    common: 'var(--rarity-common)',
+    uncommon: 'var(--rarity-uncommon)',
+    rare: 'var(--rarity-rare)',
+    epic: 'var(--rarity-epic)',
+    legendary: 'var(--rarity-legendary)'
+  };
+
+  const rarityEl = document.getElementById('resultRarity');
+  rarityEl.innerHTML = `<span class="rarity-badge" style="background:${rarityColors[result.rarity] || rarityColors.common}">${rarityLabels[result.rarity] || 'ふつう ★'}</span>`;
+
+  document.getElementById('resultDesc').textContent = result.description;
+
+  const factsEl = document.getElementById('resultFacts');
+  let factsHtml = result.facts.map(f => `<li>${f}</li>`).join('');
+  if (result.crystal_system) factsHtml += `<li>けっしょう：${result.crystal_system}</li>`;
+  if (result.luster) factsHtml += `<li>こうたく：${result.luster}</li>`;
+  if (result.found_in) factsHtml += `<li>さんち：${result.found_in}</li>`;
+  factsEl.innerHTML = factsHtml;
+
+  document.getElementById('resultCard').classList.add('show');
+}
+
+// ===== コレクション =====
+function getCollection() {
+  return JSON.parse(safeGetItem('rock_collection') || '[]');
+}
+
+function saveCollection(collection) {
+  safeSetItem('rock_collection', JSON.stringify(collection));
+}
+
+function addToCollection() {
+  if (!currentResult || !currentPhotoData) return;
+
+  const collection = getCollection();
+  const entry = {
+    id: Date.now(),
+    ...currentResult,
+    photo: currentPhotoData,
+    date: new Date().toLocaleDateString('ja-JP')
+  };
+  collection.unshift(entry);
+  saveCollection(collection);
+
+  // お祝い演出
+  celebrate();
+
+  // リセット
+  currentResult = null;
+  currentPhotoData = null;
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('capturedImg').style.display = 'none';
+  document.getElementById('cameraPlaceholder').style.display = 'flex';
+  document.getElementById('btnCapture').style.display = 'inline-flex';
+  document.getElementById('analyzeControls').style.display = 'none';
+
+  alert('🎉 ずかんに ついかしたよ！すごい！');
+}
+
+function renderCollection() {
+  const collection = getCollection();
+  document.getElementById('collectionCount').textContent = collection.length;
+
+  const container = document.getElementById('collectionContent');
+
+  if (collection.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fa-solid fa-mountain-sun"></i>
+        <p>まだ なにも ないよ<br>「とる」で いし＆こうぶつを あつめよう！</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="collection-grid">
+    ${collection.map(rock => `
+      <div class="rock-card" onclick="showDetail(${rock.id})">
+        <img src="${rock.photo}" alt="${rock.name}">
+        <div class="info">
+          <div class="name">${rock.name}</div>
+          <div class="date">${rock.date}</div>
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function showDetail(id) {
+  const collection = getCollection();
+  const rock = collection.find(r => r.id === id);
+  if (!rock) return;
+
+  const rarityLabels = {
+    common: 'ふつう ★', uncommon: 'ちょっとレア ★★',
+    rare: 'レア ★★★', epic: 'すごいレア ★★★★', legendary: 'でんせつ ★★★★★'
+  };
+
+  document.getElementById('modalContent').innerHTML = `
+    <button class="modal-close" onclick="closeModal(event, true)">&times;</button>
+    <img src="${rock.photo}" alt="${rock.name}">
+    <h2 style="font-size: 24px; color: var(--primary);">${rock.name}</h2>
+    <p style="color: var(--text-light); margin-bottom: 12px;">${rock.name_kanji || ''} / ${rock.name_en}</p>
+    <p style="margin-bottom: 8px;"><strong>レアど：</strong>${rarityLabels[rock.rarity] || 'ふつう'}</p>
+    <p style="margin-bottom: 12px;">${rock.description}</p>
+    <div style="background: rgba(74,124,63,0.05); padding: 12px; border-radius: 10px;">
+      <strong>⭐ おもしろ じょうほう</strong>
+      <ul style="margin-top: 8px; padding-left: 20px;">
+        ${(rock.facts || []).map(f => `<li>${f}</li>`).join('')}
+      </ul>
+    </div>
+    <p style="margin-top: 12px; font-size: 12px; color: var(--text-light);">📅 ${rock.date} に はっけん</p>
+    <div class="btn-group" style="margin-top: 16px;">
+      <button class="btn btn-secondary" onclick="deleteRock(${rock.id})" style="padding: 10px 20px; font-size: 13px;">
+        <i class="fa-solid fa-trash"></i> けす
+      </button>
+    </div>
+  `;
+
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal(event, force) {
+  if (force || event.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('show');
+  }
+}
+
+function deleteRock(id) {
+  if (!confirm('ほんとうに けす？')) return;
+  let collection = getCollection();
+  collection = collection.filter(r => r.id !== id);
+  saveCollection(collection);
+  closeModal(null, true);
+  renderCollection();
+}
+
+// ===== 設定 =====
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) {
+    safeSetItem('rock_api_key', key);
+    alert('✅ ほぞんしたよ！');
+  }
+}
+
+// 起動時にAPIキーを復元
+const savedKey = safeGetItem('rock_api_key');
+if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
+
+// ===== コレクションリセット =====
+function clearCollection() {
+  if (confirm('ほんとうに ぜんぶ けす？')) {
+    safeRemoveItem('rock_collection');
+    renderCollection();
+    alert('リセットしたよ');
+  }
+}
+
+// ===== お祝い演出 =====
+function celebrate() {
+  const el = document.getElementById('celebration');
+  el.classList.add('show');
+  const emojis = ['🪨', '💎', '⭐', '✨', '🎉', '🌟', '🏆'];
+  for (let i = 0; i < 20; i++) {
+    const conf = document.createElement('div');
+    conf.className = 'confetti';
+    conf.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    conf.style.left = Math.random() * 100 + '%';
+    conf.style.animationDelay = Math.random() * 0.5 + 's';
+    el.appendChild(conf);
+  }
+  setTimeout(() => {
+    el.classList.remove('show');
+    el.innerHTML = '';
+  }, 2500);
+}
+</script>
+
+</body>
+</html>
