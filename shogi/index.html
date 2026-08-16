@@ -117,7 +117,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">♟️ 将棋</div>
   <div class="app-sub">駒を選んでタップで指す</div>
-  <div class="app-version">v1.0.0</div>
+  <div class="app-version">v1.0.1</div>
 
   <!-- ホーム画面 -->
   <div id="home">
@@ -178,9 +178,10 @@ body::before{
    駒の定義
    ========================================================= */
 var KANJI = {
-  FU:'歩', KY:'香', KE:'桂', GI:'銀', KI:'金', KA:'角', HI:'飛',
+  FU:'歩', KY:'香', KE:'桂', GI:'銀', KI:'金', KA:'角', HI:'飛', OU:'玉',
   TO:'と', NY:'成香', NK:'成桂', NG:'成銀', UM:'馬', RY:'龍'
 };
+var KANJI_KING_SENTE = '王'; // 先手玉は「王」、後手玉は「玉」で表示(実際の将棋の慣習)
 var PROMOTE_MAP = { FU:'TO', KY:'NY', KE:'NK', GI:'NG', KA:'UM', HI:'RY' };
 var BASE_MAP    = { TO:'FU', NY:'KY', NK:'KE', NG:'GI', UM:'KA', RY:'HI' };
 var PROMOTABLE  = ['FU','KY','KE','GI','KA','HI'];
@@ -549,7 +550,7 @@ function renderBoard(){
       if (p){
         var span = document.createElement('span');
         span.className = 'piece' + (p.owner === 'w' ? ' gote' : '') + (baseType(p.type) !== p.type ? ' promoted' : '');
-        span.textContent = KANJI[p.type];
+        span.textContent = (p.type === 'OU' && p.owner === 'b') ? KANJI_KING_SENTE : KANJI[p.type];
         cell.appendChild(span);
         cell.classList.add('has-piece-cell');
       }
