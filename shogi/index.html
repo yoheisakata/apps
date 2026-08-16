@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♟️</text></svg>">
+<title>将棋</title>
+<meta name="theme-color" content="#1b140c">
+<style>
+:root{
+  --bg1:#1b140c; --bg2:#241b10; --bg3:#140f09;
+  --board:#dcb35c; --board-line:#5a4222;
+  --text:#f2e6d3; --sub:#a5906f;
+  --accent:#e0a63a; --accent2:#c8783a;
+  --sente:#f2e6d3; --gote:#f2e6d3;
+  --sel:#7fd97f; --move:#6cace4;
+}
+*,*::before,*::after{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;
+  background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px 12px 40px;
+  overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 8%, rgba(224,166,58,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 90%, rgba(200,120,58,0.1) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
+.app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
+  background:linear-gradient(135deg,#f7e0b0 0%,#c8934e 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+.app-sub{color:var(--sub); font-size:0.85rem; text-align:center; margin-bottom:4px;}
+.app-version{color:var(--sub); opacity:0.55; font-size:0.65rem; letter-spacing:.06em; text-align:center; margin-bottom:16px;}
+
+/* ---- ホーム画面 ---- */
+#home{width:100%; display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:20px;}
+.mode-btn{
+  width:100%; max-width:340px; padding:18px; border-radius:16px; border:1px solid rgba(224,166,58,0.25);
+  background:linear-gradient(135deg, rgba(224,166,58,0.14), rgba(200,120,58,0.08));
+  color:var(--text); font-size:1.05rem; font-weight:700; text-align:center;
+  cursor:pointer; transition:transform .12s;
+}
+.mode-btn:active{transform:scale(0.96);}
+.mode-btn .desc{display:block; font-size:0.75rem; color:var(--sub); font-weight:400; margin-top:4px;}
+.side-choice{display:flex; gap:10px; margin-top:4px;}
+.side-btn{padding:10px 18px; border-radius:100px; border:1px solid rgba(224,166,58,0.3); background:rgba(255,255,255,0.03);
+  color:var(--text); font-size:0.85rem; cursor:pointer;}
+.side-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1b140c; font-weight:900; border-color:transparent;}
+.diff-choice{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+
+/* ---- ゲーム画面 ---- */
+#game{display:none; width:100%; flex-direction:column; align-items:center;}
+.topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
+.topbar button{background:none; border:1px solid rgba(224,166,58,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
+
+.hand{display:flex; flex-wrap:wrap; gap:4px; width:100%; max-width:396px; min-height:40px; align-items:center; justify-content:center; padding:4px 0;}
+.hand-piece{
+  position:relative; width:38px; height:38px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(160deg,#f2d9a0,#d8b46e); color:#2a1c08; font-weight:900; font-size:1rem; cursor:pointer;
+  border:2px solid transparent; user-select:none;
+}
+.hand-piece.gote-piece{background:linear-gradient(160deg,#d8cdb8,#b3a689);}
+.hand-piece.empty{visibility:hidden;}
+.hand-piece.selected{border-color:var(--sel); box-shadow:0 0 8px rgba(127,217,127,0.7);}
+.hand-piece .cnt{position:absolute; bottom:-2px; right:-2px; background:#1b140c; color:#f2e6d3; font-size:0.55rem; border-radius:100px; padding:0 4px; font-weight:700;}
+
+.turn-indicator{font-size:0.85rem; font-weight:700; margin:2px 0; text-align:center; min-height:1.2em;}
+.turn-indicator.sente-turn{color:#f7e0b0;}
+.turn-indicator.gote-turn{color:#9fc6ff;}
+
+#board{
+  display:grid; grid-template-columns:repeat(9,1fr); grid-template-rows:repeat(9,1fr);
+  width:min(396px,92vw); height:min(396px,92vw);
+  background:var(--board); border:3px solid var(--board-line); border-radius:4px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.5);
+}
+.cell{
+  position:relative; display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--board-line);
+  font-size:clamp(1rem,3.6vw,1.3rem); font-weight:900; color:#1c1206;
+  cursor:pointer; user-select:none;
+}
+.cell.selected{background:rgba(127,217,127,0.45);}
+.cell.movable::after{content:''; position:absolute; width:26%; height:26%; border-radius:50%; background:rgba(108,172,228,0.65);}
+.cell.movable.has-piece::after{width:82%; height:82%; border-radius:8px; background:transparent; border:3px solid rgba(108,172,228,0.75); box-shadow:0 0 6px rgba(108,172,228,0.5);}
+.cell.last-move{background:rgba(224,166,58,0.35);}
+.piece{transform:rotate(0deg); line-height:1;}
+.piece.gote{transform:rotate(180deg); color:#2a2a2a;}
+.piece.promoted{color:#b3261e;}
+.piece.gote.promoted{color:#e0453a;}
+
+.msg-area{min-height:1.4em; font-size:0.8rem; color:var(--accent); text-align:center; margin-top:8px;}
+
+/* ---- モーダル ---- */
+.modal-bg{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10; align-items:center; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:linear-gradient(160deg,#2c2013,#1c140b); border:1px solid rgba(224,166,58,0.3); border-radius:16px; padding:24px; max-width:320px; width:88%; text-align:center;}
+.modal p{margin-bottom:16px; font-size:0.95rem;}
+.modal .btn-row{display:flex; gap:10px; justify-content:center;}
+.modal button{flex:1; padding:12px; border-radius:10px; border:none; font-weight:700; font-size:0.9rem; cursor:pointer;}
+.modal .btn-yes{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1b140c;}
+.modal .btn-no{background:rgba(255,255,255,0.08); color:var(--text);}
+.modal .btn-single{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1b140c;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home-link" href="../">← アプリ一覧へ</a>
+  <div class="app-title">♟️ 将棋</div>
+  <div class="app-sub">駒を選んでタップで指す</div>
+  <div class="app-version">v1.0.0</div>
+
+  <!-- ホーム画面 -->
+  <div id="home">
+    <div class="mode-btn" id="btn-vs-ai">🤖 対AI対戦<span class="desc">コンピュータと対局する</span></div>
+    <div class="side-choice" id="side-choice">
+      <button class="side-btn active" data-side="b">先手でプレイ</button>
+      <button class="side-btn" data-side="w">後手でプレイ</button>
+    </div>
+    <div class="diff-choice" id="diff-choice">
+      <button class="side-btn active" data-diff="1">やさしい</button>
+      <button class="side-btn" data-diff="2">ふつう</button>
+      <button class="side-btn" data-diff="3">つよい</button>
+    </div>
+    <div class="mode-btn" id="btn-2p" style="margin-top:6px;">👥 2人対戦<span class="desc">同じ端末で交互に指す</span></div>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game">
+    <div class="topbar">
+      <button id="btn-home">🏠 ホーム</button>
+      <span id="mode-label"></span>
+      <button id="btn-restart">↻ やりなおす</button>
+    </div>
+    <div class="hand" id="hand-gote"></div>
+    <div class="turn-indicator" id="turn-indicator"></div>
+    <div id="board"></div>
+    <div class="hand" id="hand-sente"></div>
+    <div class="msg-area" id="msg-area"></div>
+  </div>
+</div>
+
+<!-- 成りモーダル -->
+<div class="modal-bg" id="promote-modal">
+  <div class="modal">
+    <p>成りますか?</p>
+    <div class="btn-row">
+      <button class="btn-yes" id="promote-yes">成る</button>
+      <button class="btn-no" id="promote-no">成らない</button>
+    </div>
+  </div>
+</div>
+
+<!-- 結果モーダル -->
+<div class="modal-bg" id="result-modal">
+  <div class="modal">
+    <p id="result-text"></p>
+    <div class="btn-row">
+      <button class="btn-single" id="result-ok">ホームへ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   駒の定義
+   ========================================================= */
+var KANJI = {
+  FU:'歩', KY:'香', KE:'桂', GI:'銀', KI:'金', KA:'角', HI:'飛',
+  TO:'と', NY:'成香', NK:'成桂', NG:'成銀', UM:'馬', RY:'龍'
+};
+var PROMOTE_MAP = { FU:'TO', KY:'NY', KE:'NK', GI:'NG', KA:'UM', HI:'RY' };
+var BASE_MAP    = { TO:'FU', NY:'KY', NK:'KE', NG:'GI', UM:'KA', RY:'HI' };
+var PROMOTABLE  = ['FU','KY','KE','GI','KA','HI'];
+var HAND_ORDER  = ['HI','KA','KI','GI','KE','KY','FU'];
+var PIECE_VALUE = { FU:100, KY:300, KE:400, GI:500, KI:600, KA:800, HI:1000, OU:0,
+                     TO:600, NY:600, NK:600, NG:600, UM:1000, RY:1200 };
+
+function baseType(t){ return BASE_MAP[t] || t; }
+function opp(owner){ return owner === 'b' ? 'w' : 'b'; }
+
+/* =========================================================
+   盤面初期化
+   ========================================================= */
+function initialBoard(){
+  var b = [];
+  for (var r = 0; r < 9; r++){ b.push(new Array(9).fill(null)); }
+  var back = ['KY','KE','GI','KI','OU','KI','GI','KE','KY'];
+  for (var c = 0; c < 9; c++){
+    b[0][c] = { type: back[c], owner: 'w' };
+    b[8][c] = { type: back[c], owner: 'b' };
+    b[2][c] = { type: 'FU', owner: 'w' };
+    b[6][c] = { type: 'FU', owner: 'b' };
+  }
+  b[1][1] = { type: 'KA', owner: 'w' };
+  b[1][7] = { type: 'HI', owner: 'w' };
+  b[7][1] = { type: 'HI', owner: 'b' };
+  b[7][7] = { type: 'KA', owner: 'b' };
+  return b;
+}
+
+function initialHands(){
+  return {
+    b: { FU:0, KY:0, KE:0, GI:0, KI:0, KA:0, HI:0 },
+    w: { FU:0, KY:0, KE:0, GI:0, KI:0, KA:0, HI:0 }
+  };
+}
+
+function cloneState(state){
+  var nb = state.board.map(function(row){
+    return row.map(function(p){ return p ? { type:p.type, owner:p.owner } : null; });
+  });
+  var nh = {
+    b: Object.assign({}, state.hands.b),
+    w: Object.assign({}, state.hands.w)
+  };
+  return { board: nb, hands: nh };
+}
+
+/* =========================================================
+   駒の動き
+   ========================================================= */
+function inBounds(r,c){ return r >= 0 && r < 9 && c >= 0 && c < 9; }
+
+function goldVectors(dir){
+  return { step: [[dir,-1],[dir,0],[dir,1],[0,-1],[0,1],[-dir,0]] };
+}
+function silverVectors(dir){
+  return { step: [[dir,-1],[dir,0],[dir,1],[-dir,-1],[-dir,1]] };
+}
+function getVectors(type, owner){
+  var dir = owner === 'b' ? -1 : 1;
+  switch(type){
+    case 'FU': return { step: [[dir,0]] };
+    case 'KY': return { slide: [[dir,0]] };
+    case 'KE': return { step: [[2*dir,-1],[2*dir,1]] };
+    case 'GI': return silverVectors(dir);
+    case 'KI': case 'TO': case 'NY': case 'NK': case 'NG': return goldVectors(dir);
+    case 'KA': return { slide: [[1,1],[1,-1],[-1,1],[-1,-1]] };
+    case 'HI': return { slide: [[1,0],[-1,0],[0,1],[0,-1]] };
+    case 'OU': return { step: [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]] };
+    case 'UM': return { slide: [[1,1],[1,-1],[-1,1],[-1,-1]], step: [[1,0],[-1,0],[0,1],[0,-1]] };
+    case 'RY': return { slide: [[1,0],[-1,0],[0,1],[0,-1]], step: [[1,1],[1,-1],[-1,1],[-1,-1]] };
+  }
+  return { step: [] };
+}
+
+/* 疑似合法手 (自玉の安全は考慮しない) */
+function pseudoMovesFrom(board, r, c){
+  var piece = board[r][c];
+  if (!piece) return [];
+  var vec = getVectors(piece.type, piece.owner);
+  var moves = [];
+  (vec.step || []).forEach(function(d){
+    var nr = r + d[0], nc = c + d[1];
+    if (!inBounds(nr,nc)) return;
+    var t = board[nr][nc];
+    if (!t || t.owner !== piece.owner) moves.push([nr,nc]);
+  });
+  (vec.slide || []).forEach(function(d){
+    var nr = r + d[0], nc = c + d[1];
+    while (inBounds(nr,nc)){
+      var t = board[nr][nc];
+      if (!t){ moves.push([nr,nc]); }
+      else { if (t.owner !== piece.owner) moves.push([nr,nc]); break; }
+      nr += d[0]; nc += d[1];
+    }
+  });
+  return moves;
+}
+
+function findKing(board, owner){
+  for (var r = 0; r < 9; r++) for (var c = 0; c < 9; c++){
+    var p = board[r][c];
+    if (p && p.type === 'OU' && p.owner === owner) return [r,c];
+  }
+  return null;
+}
+
+function isSquareAttacked(board, r, c, byOwner){
+  for (var rr = 0; rr < 9; rr++) for (var cc = 0; cc < 9; cc++){
+    var p = board[rr][cc];
+    if (!p || p.owner !== byOwner) continue;
+    var mv = pseudoMovesFrom(board, rr, cc);
+    for (var i = 0; i < mv.length; i++){
+      if (mv[i][0] === r && mv[i][1] === c) return true;
+    }
+  }
+  return false;
+}
+
+function isInCheck(board, owner){
+  var k = findKing(board, owner);
+  if (!k) return false;
+  return isSquareAttacked(board, k[0], k[1], opp(owner));
+}
+
+function promotionZoneRows(owner){ return owner === 'b' ? [0,1,2] : [6,7,8]; }
+
+function mustPromote(type, toRow, owner){
+  var base = baseType(type);
+  if (base === 'FU' || base === 'KY') return owner === 'b' ? toRow === 0 : toRow === 8;
+  if (base === 'KE') return owner === 'b' ? toRow <= 1 : toRow >= 7;
+  return false;
+}
+function canPromoteMove(type, fromRow, toRow, owner){
+  if (PROMOTABLE.indexOf(baseType(type)) === -1) return false;
+  if (baseType(type) !== type) return false; // already promoted
+  var zone = promotionZoneRows(owner);
+  return zone.indexOf(fromRow) !== -1 || zone.indexOf(toRow) !== -1;
+}
+
+/* 合法手 (自玉が王手にならないもの) を生成。board move と drop の両方 */
+function generateLegalMoves(state, owner){
+  var board = state.board, hands = state.hands;
+  var moves = [];
+
+  for (var r = 0; r < 9; r++) for (var c = 0; c < 9; c++){
+    var p = board[r][c];
+    if (!p || p.owner !== owner) continue;
+    var pm = pseudoMovesFrom(board, r, c);
+    pm.forEach(function(dest){
+      var nr = dest[0], nc = dest[1];
+      // 動けない位置に不成で進むのを弾く
+      if (mustPromote(p.type, nr, owner) && baseType(p.type) === p.type){
+        addIfLegal(r,c,nr,nc,true);
+      } else {
+        addIfLegal(r,c,nr,nc,false);
+        if (canPromoteMove(p.type, r, nr, owner)) addIfLegal(r,c,nr,nc,true);
+      }
+    });
+  }
+
+  function addIfLegal(fr,fc,tr,tc,promote){
+    var s2 = cloneState(state);
+    applyMove(s2, { from:[fr,fc], to:[tr,tc], promote: promote });
+    if (!isInCheck(s2.board, owner)){
+      moves.push({ type:'move', from:[fr,fc], to:[tr,tc], promote: promote });
+    }
+  }
+
+  // drops
+  var hand = hands[owner];
+  HAND_ORDER.forEach(function(pt){
+    if (!hand[pt]) return;
+    for (var r = 0; r < 9; r++) for (var c = 0; c < 9; c++){
+      if (board[r][c]) continue;
+      if (pt === 'FU'){
+        if (owner === 'b' && r === 0) continue;
+        if (owner === 'w' && r === 8) continue;
+        // 二歩チェック
+        var hasPawn = false;
+        for (var rr = 0; rr < 9; rr++){
+          var pp = board[rr][c];
+          if (pp && pp.owner === owner && pp.type === 'FU'){ hasPawn = true; break; }
+        }
+        if (hasPawn) continue;
+      }
+      if (pt === 'KY'){ if (owner === 'b' && r === 0) continue; if (owner === 'w' && r === 8) continue; }
+      if (pt === 'KE'){ if (owner === 'b' && r <= 1) continue; if (owner === 'w' && r >= 7) continue; }
+
+      var s2 = cloneState(state);
+      applyDrop(s2, { piece: pt, to:[r,c], owner: owner });
+      if (!isInCheck(s2.board, owner)){
+        moves.push({ type:'drop', piece: pt, to:[r,c] });
+      }
+    }
+  });
+
+  return moves;
+}
+
+function applyMove(state, m){
+  var board = state.board;
+  var piece = board[m.from[0]][m.from[1]];
+  var captured = board[m.to[0]][m.to[1]];
+  if (captured){
+    state.hands[piece.owner][baseType(captured.type)]++;
+  }
+  var newType = piece.type;
+  if (m.promote) newType = PROMOTE_MAP[baseType(piece.type)] || piece.type;
+  board[m.to[0]][m.to[1]] = { type: newType, owner: piece.owner };
+  board[m.from[0]][m.from[1]] = null;
+}
+
+function applyDrop(state, d){
+  state.board[d.to[0]][d.to[1]] = { type: d.piece, owner: d.owner };
+  state.hands[d.owner][d.piece]--;
+}
+
+/* =========================================================
+   評価関数 & AI (ネガマックス + αβ枝刈り)
+   ========================================================= */
+function evaluate(state, owner){
+  var score = 0;
+  for (var r = 0; r < 9; r++) for (var c = 0; c < 9; c++){
+    var p = state.board[r][c];
+    if (!p) continue;
+    var v = PIECE_VALUE[p.type] || 0;
+    // 中央寄りをわずかに優遇
+    var centerBonus = (4 - Math.abs(4-r)) + (4 - Math.abs(4-c));
+    v += centerBonus * 0.5;
+    score += (p.owner === owner ? v : -v);
+  }
+  var h1 = state.hands[owner], h2 = state.hands[opp(owner)];
+  HAND_ORDER.forEach(function(pt){
+    score += (h1[pt]||0) * PIECE_VALUE[pt];
+    score -= (h2[pt]||0) * PIECE_VALUE[pt];
+  });
+  return score;
+}
+
+function applyAiMove(state, m){
+  if (m.type === 'move') applyMove(state, m);
+  else applyDrop(state, { piece: m.piece, to: m.to, owner: state._turnOwnerForDrop });
+}
+
+function negamax(state, owner, depth, alpha, beta){
+  var moves = generateLegalMoves(state, owner);
+  if (moves.length === 0){
+    return isInCheck(state.board, owner) ? -99999 - depth : -50000;
+  }
+  if (depth === 0){
+    return evaluate(state, owner);
+  }
+  // captures first for better pruning
+  moves.sort(function(a,b){
+    function capVal(m){
+      if (m.type !== 'move') return 0;
+      var t = state.board[m.to[0]][m.to[1]];
+      return t ? (PIECE_VALUE[t.type]||0) : 0;
+    }
+    return capVal(b) - capVal(a);
+  });
+  var best = -Infinity;
+  for (var i = 0; i < moves.length; i++){
+    var m = moves[i];
+    var s2 = cloneState(state);
+    if (m.type === 'move') applyMove(s2, m);
+    else applyDrop(s2, { piece: m.piece, to: m.to, owner: owner });
+    var score = -negamax(s2, opp(owner), depth-1, -beta, -alpha);
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function pickAiMove(state, owner, depth, slack){
+  slack = slack || 0;
+  var moves = generateLegalMoves(state, owner);
+  if (moves.length === 0) return null;
+  moves.sort(function(a,b){
+    function capVal(m){
+      if (m.type !== 'move') return 0;
+      var t = state.board[m.to[0]][m.to[1]];
+      return t ? (PIECE_VALUE[t.type]||0) : 0;
+    }
+    return capVal(b) - capVal(a);
+  });
+  var bestScore = -Infinity, scored = [];
+  var alpha = -Infinity, beta = Infinity;
+  for (var i = 0; i < moves.length; i++){
+    var m = moves[i];
+    var s2 = cloneState(state);
+    if (m.type === 'move') applyMove(s2, m);
+    else applyDrop(s2, { piece: m.piece, to: m.to, owner: owner });
+    var score = -negamax(s2, opp(owner), depth-1, -beta, -alpha);
+    scored.push({ m:m, score:score });
+    if (score > bestScore){ bestScore = score; }
+    if (bestScore > alpha) alpha = bestScore;
+  }
+  var candidates = scored.filter(function(s){ return s.score >= bestScore - slack; });
+  return candidates[Math.floor(Math.random()*candidates.length)].m;
+}
+
+/* =========================================================
+   UI 状態管理
+   ========================================================= */
+var els = {};
+['home','game','board','hand-gote','hand-sente','turn-indicator','msg-area',
+ 'mode-label','promote-modal','promote-yes','promote-no','result-modal','result-text','result-ok'
+].forEach(function(id){ els[id.replace(/-([a-z])/g, function(_,c){return c.toUpperCase();})] = document.getElementById(id); });
+
+var app = {
+  state: null,
+  turn: 'b',
+  mode: null,       // 'ai' | '2p'
+  humanSide: 'b',
+  aiDepth: 1,
+  aiSlack: 250,
+  selected: null,   // { kind:'board', r,c } or { kind:'hand', piece, owner }
+  legalTargets: [],
+  lastMove: null,
+  gameOver: false,
+  aiThinking: false
+};
+
+function newGame(){
+  app.state = { board: initialBoard(), hands: initialHands() };
+  app.turn = 'b';
+  app.selected = null;
+  app.legalTargets = [];
+  app.lastMove = null;
+  app.gameOver = false;
+  app.aiThinking = false;
+  render();
+  maybeAiMove();
+}
+
+function setMsg(t){ els.msgArea.textContent = t || ''; }
+
+function render(){
+  renderBoard();
+  renderHands();
+  renderTurn();
+}
+
+function renderTurn(){
+  if (app.gameOver){ els.turnIndicator.textContent = ''; return; }
+  var who = app.turn === 'b' ? '先手' : '後手';
+  if (app.mode === 'ai'){
+    who += (app.turn === app.humanSide) ? ' (あなた)' : ' (AI)';
+  }
+  els.turnIndicator.textContent = who + 'の番です';
+  els.turnIndicator.className = 'turn-indicator ' + (app.turn === 'b' ? 'sente-turn' : 'gote-turn');
+}
+
+function renderBoard(){
+  els.board.innerHTML = '';
+  for (var r = 0; r < 9; r++){
+    for (var c = 0; c < 9; c++){
+      var cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      var p = app.state.board[r][c];
+      if (p){
+        var span = document.createElement('span');
+        span.className = 'piece' + (p.owner === 'w' ? ' gote' : '') + (baseType(p.type) !== p.type ? ' promoted' : '');
+        span.textContent = KANJI[p.type];
+        cell.appendChild(span);
+        cell.classList.add('has-piece-cell');
+      }
+      if (app.selected && app.selected.kind === 'board' && app.selected.r === r && app.selected.c === c){
+        cell.classList.add('selected');
+      }
+      if (app.lastMove && app.lastMove.to && app.lastMove.to[0] === r && app.lastMove.to[1] === c){
+        cell.classList.add('last-move');
+      }
+      var target = app.legalTargets.find(function(t){ return t.r === r && t.c === c; });
+      if (target){
+        cell.classList.add('movable');
+        if (p) cell.classList.add('has-piece');
+      }
+      cell.addEventListener('click', onCellClick);
+      els.board.appendChild(cell);
+    }
+  }
+}
+
+function renderHands(){
+  renderHandRow(els.handGote, 'w');
+  renderHandRow(els.handSente, 'b');
+}
+function renderHandRow(container, owner){
+  container.innerHTML = '';
+  HAND_ORDER.forEach(function(pt){
+    var cnt = app.state.hands[owner][pt];
+    var div = document.createElement('div');
+    div.className = 'hand-piece' + (owner === 'w' ? ' gote-piece' : '') + (cnt === 0 ? ' empty' : '');
+    div.textContent = KANJI[pt];
+    if (cnt > 1){
+      var badge = document.createElement('span');
+      badge.className = 'cnt';
+      badge.textContent = cnt;
+      div.appendChild(badge);
+    }
+    if (app.selected && app.selected.kind === 'hand' && app.selected.piece === pt && app.selected.owner === owner){
+      div.classList.add('selected');
+    }
+    div.addEventListener('click', function(pt, owner){
+      return function(){ onHandClick(pt, owner); };
+    }(pt, owner));
+    container.appendChild(div);
+  });
+}
+
+function isHumanTurn(){
+  if (app.gameOver) return false;
+  if (app.mode === '2p') return true;
+  return app.turn === app.humanSide;
+}
+
+function onHandClick(pt, owner){
+  if (!isHumanTurn() || app.aiThinking) return;
+  if (owner !== app.turn) return;
+  if (app.state.hands[owner][pt] <= 0) return;
+  app.selected = { kind:'hand', piece: pt, owner: owner };
+  computeLegalTargetsForSelection();
+  render();
+}
+
+function onCellClick(e){
+  if (!isHumanTurn() || app.aiThinking) return;
+  var r = parseInt(e.currentTarget.dataset.r,10), c = parseInt(e.currentTarget.dataset.c,10);
+  var p = app.state.board[r][c];
+
+  if (app.selected){
+    var isTarget = app.legalTargets.some(function(t){ return t.r === r && t.c === c; });
+    if (isTarget){
+      performSelectedMove(r,c);
+      return;
+    }
+    // reselect
+    if (p && p.owner === app.turn){
+      app.selected = { kind:'board', r:r, c:c };
+      computeLegalTargetsForSelection();
+      render();
+      return;
+    }
+    app.selected = null; app.legalTargets = [];
+    render();
+    return;
+  }
+
+  if (p && p.owner === app.turn){
+    app.selected = { kind:'board', r:r, c:c };
+    computeLegalTargetsForSelection();
+    render();
+  }
+}
+
+function computeLegalTargetsForSelection(){
+  var all = generateLegalMoves(app.state, app.turn);
+  var sel = app.selected;
+  var targets = [];
+  all.forEach(function(m){
+    if (sel.kind === 'board' && m.type === 'move' && m.from[0] === sel.r && m.from[1] === sel.c){
+      if (!targets.some(function(t){ return t.r === m.to[0] && t.c === m.to[1]; })){
+        targets.push({ r: m.to[0], c: m.to[1] });
+      }
+    }
+    if (sel.kind === 'hand' && m.type === 'drop' && m.piece === sel.piece){
+      targets.push({ r: m.to[0], c: m.to[1] });
+    }
+  });
+  app.legalTargets = targets;
+}
+
+function performSelectedMove(tr, tc){
+  var sel = app.selected;
+  if (sel.kind === 'board'){
+    var piece = app.state.board[sel.r][sel.c];
+    var alreadyPromoted = baseType(piece.type) !== piece.type;
+    var forced = !alreadyPromoted && mustPromote(piece.type, tr, app.turn);
+    var optional = !alreadyPromoted && !forced && canPromoteMove(piece.type, sel.r, tr, app.turn);
+    if (forced){
+      commitMove({ type:'move', from:[sel.r,sel.c], to:[tr,tc], promote:true });
+    } else if (optional){
+      pendingMove = { type:'move', from:[sel.r,sel.c], to:[tr,tc] };
+      els.promoteModal.classList.add('show');
+    } else {
+      commitMove({ type:'move', from:[sel.r,sel.c], to:[tr,tc], promote:false });
+    }
+  } else {
+    commitMove({ type:'drop', piece: sel.piece, to:[tr,tc] });
+  }
+}
+
+var pendingMove = null;
+els.promoteYes.addEventListener('click', function(){
+  els.promoteModal.classList.remove('show');
+  var m = pendingMove; pendingMove = null;
+  m.promote = true;
+  commitMove(m);
+});
+els.promoteNo.addEventListener('click', function(){
+  els.promoteModal.classList.remove('show');
+  var m = pendingMove; pendingMove = null;
+  m.promote = false;
+  commitMove(m);
+});
+
+function commitMove(m){
+  var owner = app.turn;
+  if (m.type === 'move'){
+    applyMove(app.state, m);
+    app.lastMove = { to: m.to };
+  } else {
+    applyDrop(app.state, { piece: m.piece, to: m.to, owner: owner });
+    app.lastMove = { to: m.to };
+  }
+  app.selected = null; app.legalTargets = [];
+  app.turn = opp(owner);
+  setMsg('');
+  render();
+  checkGameEnd();
+  if (!app.gameOver) maybeAiMove();
+}
+
+function checkGameEnd(){
+  var moves = generateLegalMoves(app.state, app.turn);
+  if (moves.length === 0){
+    app.gameOver = true;
+    var winner = opp(app.turn);
+    var reason = isInCheck(app.state.board, app.turn) ? '詰み' : '手なし';
+    var winnerLabel = winner === 'b' ? '先手' : '後手';
+    showResult(winnerLabel + 'の勝ち (' + reason + ')');
+    return;
+  }
+  if (isInCheck(app.state.board, app.turn)){
+    setMsg((app.turn === 'b' ? '先手' : '後手') + '玉に王手!');
+  }
+}
+
+function showResult(text){
+  els.resultText.textContent = text;
+  els.resultModal.classList.add('show');
+  renderTurn();
+}
+els.resultOk.addEventListener('click', function(){
+  els.resultModal.classList.remove('show');
+  goHome();
+});
+
+function maybeAiMove(){
+  if (app.gameOver) return;
+  if (app.mode !== 'ai') return;
+  if (app.turn === app.humanSide) return;
+  app.aiThinking = true;
+  setMsg('AIが考え中…');
+  var aiOwner = app.turn;
+  setTimeout(function(){
+    var m = pickAiMove(app.state, aiOwner, app.aiDepth, app.aiSlack);
+    app.aiThinking = false;
+    if (!m){ return; } // checkGameEnd already handles no-move case via next call
+    if (m.type === 'move') applyMove(app.state, m);
+    else applyDrop(app.state, { piece: m.piece, to: m.to, owner: aiOwner });
+    app.lastMove = { to: m.to };
+    app.turn = opp(aiOwner);
+    setMsg('');
+    render();
+    checkGameEnd();
+  }, 150);
+}
+
+/* =========================================================
+   画面遷移
+   ========================================================= */
+function goHome(){
+  els.home.style.display = 'flex';
+  els.game.style.display = 'none';
+}
+function goGame(){
+  els.home.style.display = 'none';
+  els.game.style.display = 'flex';
+}
+
+document.getElementById('side-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#side-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.humanSide = btn.dataset.side;
+});
+document.getElementById('diff-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#diff-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  var diff = parseInt(btn.dataset.diff,10);
+  app.aiDepth = diff === 3 ? 2 : 1;      // やさしい/ふつう=1手先読み, つよい=2手先読み
+  app.aiSlack = diff === 1 ? 400 : (diff === 2 ? 150 : 30);
+});
+
+document.getElementById('btn-vs-ai').addEventListener('click', function(){
+  app.mode = 'ai';
+  els.modeLabel.textContent = '対AI対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-2p').addEventListener('click', function(){
+  app.mode = '2p';
+  els.modeLabel.textContent = '2人対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-home').addEventListener('click', goHome);
+document.getElementById('btn-restart').addEventListener('click', newGame);
+
+})();
+</script>
+</body>
+</html>
