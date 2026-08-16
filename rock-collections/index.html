@@ -496,7 +496,7 @@ body {
 
 <div class="header">
   <h1>💎 いし＆こうぶつ図鑑</h1>
-  <div class="subtitle">いし＆こうぶつを あつめて ずかんを つくろう！<br><span style="font-size:11px;opacity:0.7;">v1.0.1 | 2026-08-16 19:05</span></div>
+  <div class="subtitle">いし＆こうぶつを あつめて ずかんを つくろう！<br><span style="font-size:11px;opacity:0.7;">v1.1.0 | 2026-08-16 19:20</span></div>
 </div>
 
 <nav class="nav">
@@ -566,6 +566,9 @@ body {
     <div class="btn-group" style="margin-top: 20px;">
       <button class="btn btn-accent" onclick="addToCollection()">
         <i class="fa-solid fa-plus"></i> ずかんに いれる！
+      </button>
+      <button class="btn btn-secondary" onclick="discardResult()">
+        <i class="fa-solid fa-xmark"></i> いれない
       </button>
     </div>
   </div>
@@ -865,6 +868,16 @@ function addToCollection() {
   document.getElementById('analyzeControls').style.display = 'none';
 
   alert('🎉 ずかんに ついかしたよ！すごい！');
+}
+
+function discardResult() {
+  currentResult = null;
+  currentPhotoData = null;
+  document.getElementById('resultCard').classList.remove('show');
+  document.getElementById('capturedImg').style.display = 'none';
+  document.getElementById('cameraPlaceholder').style.display = 'flex';
+  document.getElementById('btnCapture').style.display = 'inline-flex';
+  document.getElementById('analyzeControls').style.display = 'none';
 }
 
 function renderCollection() {
