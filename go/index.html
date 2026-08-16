@@ -34,7 +34,7 @@ body::before{
     radial-gradient(ellipse 50% 40% at 85% 90%, rgba(47,143,99,0.12) 0%, transparent 70%);
   pointer-events:none; z-index:0;
 }
-.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.wrap{position:relative; z-index:1; width:100%; max-width:800px; display:flex; flex-direction:column; align-items:center;}
 .home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
 .app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
   background:linear-gradient(135deg,#bdeccf 0%,#4fb37a 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
@@ -62,7 +62,7 @@ body::before{
 .topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub); gap:4px;}
 .topbar button{background:none; border:1px solid rgba(79,179,122,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer; white-space:nowrap;}
 
-.status-row{display:flex; justify-content:space-between; width:100%; max-width:420px; font-size:0.72rem; color:var(--sub); padding:0 2px; margin-bottom:4px;}
+.status-row{display:flex; justify-content:space-between; width:100%; max-width:min(740px,94vw); font-size:0.72rem; color:var(--sub); padding:0 2px; margin-bottom:4px;}
 .status-row .cap-b, .status-row .cap-w{display:flex; align-items:center; gap:4px;}
 .stone-dot{display:inline-block; width:10px; height:10px; border-radius:50%;}
 .stone-dot.black{background:radial-gradient(circle at 32% 28%, var(--black-stone1), var(--black-stone2));}
@@ -72,7 +72,7 @@ body::before{
 .turn-indicator.black-turn{color:#eaf2ea;}
 .turn-indicator.white-turn{color:#9fd9ff;}
 
-#board-wrap{width:min(420px,94vw); aspect-ratio:1/1; position:relative;}
+#board-wrap{width:min(740px,94vw,60vh); aspect-ratio:1/1; position:relative;}
 #board{
   position:relative;
   display:grid;
@@ -147,7 +147,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">⚫️ 囲碁</div>
   <div class="app-sub">交点をタップして石を置く</div>
-  <div class="app-version">v1.0.0</div>
+  <div class="app-version">v1.0.1</div>
 
   <!-- ホーム画面 -->
   <div id="home">

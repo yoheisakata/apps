@@ -33,7 +33,7 @@ body::before{
     radial-gradient(ellipse 50% 40% at 85% 90%, rgba(200,120,58,0.1) 0%, transparent 70%);
   pointer-events:none; z-index:0;
 }
-.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.wrap{position:relative; z-index:1; width:100%; max-width:780px; display:flex; flex-direction:column; align-items:center;}
 .home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
 .app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
   background:linear-gradient(135deg,#f7e0b0 0%,#c8934e 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
@@ -61,7 +61,7 @@ body::before{
 .topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
 .topbar button{background:none; border:1px solid rgba(224,166,58,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
 
-.hand{display:flex; flex-wrap:wrap; gap:4px; width:100%; max-width:396px; min-height:40px; align-items:center; justify-content:center; padding:4px 0;}
+.hand{display:flex; flex-wrap:wrap; gap:4px; width:100%; max-width:min(720px,94vw); min-height:40px; align-items:center; justify-content:center; padding:4px 0;}
 .hand-piece{
   position:relative; width:38px; height:38px; border-radius:6px; display:flex; align-items:center; justify-content:center;
   background:linear-gradient(160deg,#f2d9a0,#d8b46e); color:#2a1c08; font-weight:900; font-size:1rem; cursor:pointer;
@@ -78,14 +78,14 @@ body::before{
 
 #board{
   display:grid; grid-template-columns:repeat(9,1fr); grid-template-rows:repeat(9,1fr);
-  width:min(396px,92vw); height:min(396px,92vw);
+  width:min(720px,94vw,58vh); height:min(720px,94vw,58vh);
   background:var(--board); border:3px solid var(--board-line); border-radius:4px;
   box-shadow:0 8px 30px rgba(0,0,0,0.5);
 }
 .cell{
   position:relative; display:flex; align-items:center; justify-content:center;
   border:1px solid var(--board-line);
-  font-size:clamp(1rem,3.6vw,1.3rem); font-weight:900; color:#1c1206;
+  font-size:clamp(1rem,4.2vw,2rem); font-weight:900; color:#1c1206;
   cursor:pointer; user-select:none;
 }
 .cell.selected{background:rgba(127,217,127,0.45);}
@@ -117,7 +117,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">♟️ 将棋</div>
   <div class="app-sub">駒を選んでタップで指す</div>
-  <div class="app-version">v1.0.1</div>
+  <div class="app-version">v1.0.2</div>
 
   <!-- ホーム画面 -->
   <div id="home">

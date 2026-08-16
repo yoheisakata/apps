@@ -35,7 +35,7 @@ body::before{
     radial-gradient(ellipse 55% 45% at 88% 92%, rgba(79,209,255,0.12) 0%, transparent 70%);
   pointer-events:none; z-index:0;
 }
-.wrap{position:relative; z-index:1; width:100%; max-width:460px; display:flex; flex-direction:column; align-items:center;}
+.wrap{position:relative; z-index:1; width:100%; max-width:720px; display:flex; flex-direction:column; align-items:center;}
 .home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
 .app-title{font-size:clamp(1.4rem,6vw,1.9rem); font-weight:900; text-align:center; margin:6px 0 2px;
   background:linear-gradient(135deg,#ffb3d6 0%,#9d8bff 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
@@ -67,7 +67,7 @@ body::before{
 .turn-indicator.p1-turn{color:var(--p1a);}
 .turn-indicator.p2-turn{color:var(--p2a);}
 
-.board-wrap{width:min(360px,92vw); display:flex; justify-content:center;}
+.board-wrap{width:min(640px,94vw,72vh); display:flex; justify-content:center;}
 #board{width:100%; height:auto; display:block; background:var(--board); border:3px solid var(--board-line); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.5);}
 .hole{fill:var(--hole); stroke:var(--hole-rim); stroke-width:1.2; cursor:pointer;}
 .hole.legal{fill:rgba(108,199,228,0.35); stroke:var(--move);}
@@ -99,7 +99,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">💎 ダイヤモンドゲーム</div>
   <div class="app-sub">駒を選んでタップで進める</div>
-  <div class="app-version">v1.0.0</div>
+  <div class="app-version">v1.0.1</div>
 
   <!-- ホーム画面 -->
   <div id="home">

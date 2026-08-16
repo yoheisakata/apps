@@ -34,7 +34,7 @@ body::before{
     radial-gradient(ellipse 50% 40% at 85% 90%, rgba(42,158,99,0.12) 0%, transparent 70%);
   pointer-events:none; z-index:0;
 }
-.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.wrap{position:relative; z-index:1; width:100%; max-width:780px; display:flex; flex-direction:column; align-items:center;}
 .home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
 .app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
   background:linear-gradient(135deg,#a6f5c6 0%,#3fcf7f 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
@@ -62,7 +62,7 @@ body::before{
 .topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
 .topbar button{background:none; border:1px solid rgba(63,207,127,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
 
-.score-row{display:flex; align-items:center; justify-content:center; gap:18px; width:100%; max-width:396px; margin-bottom:4px;}
+.score-row{display:flex; align-items:center; justify-content:center; gap:18px; width:100%; max-width:min(720px,94vw); margin-bottom:4px;}
 .score-chip{display:flex; align-items:center; gap:6px; font-size:0.9rem; font-weight:700; padding:6px 12px; border-radius:100px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);}
 .score-chip .dot{width:16px; height:16px; border-radius:50%; display:inline-block;}
 .score-chip .dot.black-dot{background:radial-gradient(circle at 35% 30%, var(--black-disc1), var(--black-disc2));}
@@ -75,7 +75,7 @@ body::before{
 
 #board{
   display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
-  width:min(396px,92vw); height:min(396px,92vw);
+  width:min(720px,94vw,58vh); height:min(720px,94vw,58vh);
   background:var(--board); border:3px solid var(--board-line); border-radius:4px;
   box-shadow:0 8px 30px rgba(0,0,0,0.5);
 }
@@ -109,7 +109,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">⚫️ オセロ</div>
   <div class="app-sub">石を置いて相手の石をひっくり返そう</div>
-  <div class="app-version">v1.0.0</div>
+  <div class="app-version">v1.0.1</div>
 
   <!-- ホーム画面 -->
   <div id="home">

@@ -34,7 +34,7 @@ body::before{
     radial-gradient(ellipse 50% 40% at 85% 90%, rgba(138,90,43,0.12) 0%, transparent 70%);
   pointer-events:none; z-index:0;
 }
-.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.wrap{position:relative; z-index:1; width:100%; max-width:780px; display:flex; flex-direction:column; align-items:center;}
 .home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
 .app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
   background:linear-gradient(135deg,#f3dba8 0%,#c08a48 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
@@ -62,7 +62,7 @@ body::before{
 .topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
 .topbar button{background:none; border:1px solid rgba(212,160,84,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
 
-.captured{display:flex; flex-wrap:wrap; gap:2px; width:100%; max-width:396px; min-height:22px; align-items:center; justify-content:center; padding:2px 0; font-size:1rem;}
+.captured{display:flex; flex-wrap:wrap; gap:2px; width:100%; max-width:min(720px,94vw); min-height:22px; align-items:center; justify-content:center; padding:2px 0; font-size:1rem;}
 .captured .cp{opacity:0.85;}
 .captured .cp.white{color:var(--white-piece); text-shadow:0 0 2px var(--white-outline);}
 .captured .cp.black{color:var(--black-piece); text-shadow:0 0 2px var(--black-outline);}
@@ -73,13 +73,13 @@ body::before{
 
 #board{
   display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
-  width:min(396px,92vw); height:min(396px,92vw);
+  width:min(720px,94vw,58vh); height:min(720px,94vw,58vh);
   border:3px solid var(--board-line); border-radius:4px;
   box-shadow:0 8px 30px rgba(0,0,0,0.5);
 }
 .cell{
   position:relative; display:flex; align-items:center; justify-content:center;
-  font-size:clamp(1.4rem,8vw,2.1rem); font-weight:900;
+  font-size:clamp(1.4rem,7vw,3.6rem); font-weight:900;
   cursor:pointer; user-select:none;
 }
 .cell.light{background:var(--board-light);}
@@ -114,7 +114,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">♞ チェス</div>
   <div class="app-sub">駒を選んでタップで動かす</div>
-  <div class="app-version">v1.0.0</div>
+  <div class="app-version">v1.0.1</div>
 
   <!-- ホーム画面 -->
   <div id="home">
