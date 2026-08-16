@@ -63,9 +63,10 @@ body::before{
 
 .hand{display:flex; flex-wrap:wrap; gap:4px; width:100%; max-width:min(720px,94vw); min-height:40px; align-items:center; justify-content:center; padding:4px 0;}
 .hand-piece{
-  position:relative; width:38px; height:38px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+  position:relative; width:40px; height:44px; display:flex; align-items:center; justify-content:center; padding-top:5%;
   background:linear-gradient(160deg,#f2d9a0,#d8b46e); color:#2a1c08; font-weight:900; font-size:1rem; cursor:pointer;
-  border:2px solid transparent; user-select:none;
+  clip-path:polygon(50% 0%, 100% 22%, 100% 100%, 0% 100%, 0% 22%);
+  border:2px solid transparent; box-shadow:0 2px 3px rgba(0,0,0,0.35); user-select:none;
 }
 .hand-piece.gote-piece{background:linear-gradient(160deg,#d8cdb8,#b3a689);}
 .hand-piece.empty{visibility:hidden;}
@@ -92,8 +93,15 @@ body::before{
 .cell.movable::after{content:''; position:absolute; width:26%; height:26%; border-radius:50%; background:rgba(108,172,228,0.65);}
 .cell.movable.has-piece::after{width:82%; height:82%; border-radius:8px; background:transparent; border:3px solid rgba(108,172,228,0.75); box-shadow:0 0 6px rgba(108,172,228,0.5);}
 .cell.last-move{background:rgba(224,166,58,0.35);}
-.piece{transform:rotate(0deg); line-height:1;}
-.piece.gote{transform:rotate(180deg); color:#2a2a2a;}
+.piece{
+  transform:rotate(0deg); line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  width:80%; height:88%; padding-top:6%;
+  background:linear-gradient(160deg,#f2d9a0,#d8b46e);
+  clip-path:polygon(50% 0%, 100% 22%, 100% 100%, 0% 100%, 0% 22%);
+  box-shadow:0 2px 3px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.35);
+}
+.piece.gote{transform:rotate(180deg); background:linear-gradient(160deg,#d8cdb8,#b3a689); color:#2a2a2a;}
 .piece.promoted{color:#b3261e;}
 .piece.gote.promoted{color:#e0453a;}
 
@@ -117,7 +125,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">♟️ 将棋</div>
   <div class="app-sub">駒を選んでタップで指す</div>
-  <div class="app-version">v1.0.2</div>
+  <div class="app-version">v1.0.3</div>
 
   <!-- ホーム画面 -->
   <div id="home">
