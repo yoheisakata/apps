@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚫</text></svg>">
+<title>五目並べ</title>
+<meta name="theme-color" content="#1c140b">
+<style>
+:root{
+  --bg1:#1c140b; --bg2:#241a0f; --bg3:#140d07;
+  --board:#d3a35f; --board-line:#6b4c26;
+  --text:#f2e6d3; --sub:#a5906f;
+  --accent:#e0a63a; --accent2:#c8783a;
+  --black-stone1:#4a4a4a; --black-stone2:#0a0a0a;
+  --white-stone1:#ffffff; --white-stone2:#c9c4bb;
+  --sel:#7fd97f; --last:#e0453a;
+}
+*,*::before,*::after{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;
+  background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px 12px 40px;
+  overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 8%, rgba(224,166,58,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 90%, rgba(200,120,58,0.1) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
+.app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
+  background:linear-gradient(135deg,#f7e0b0 0%,#c8934e 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+.app-sub{color:var(--sub); font-size:0.85rem; text-align:center; margin-bottom:4px;}
+.app-version{color:var(--sub); opacity:0.55; font-size:0.65rem; letter-spacing:.06em; text-align:center; margin-bottom:16px;}
+
+/* ---- ホーム画面 ---- */
+#home{width:100%; display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:20px;}
+.mode-btn{
+  width:100%; max-width:340px; padding:18px; border-radius:16px; border:1px solid rgba(224,166,58,0.25);
+  background:linear-gradient(135deg, rgba(224,166,58,0.14), rgba(200,120,58,0.08));
+  color:var(--text); font-size:1.05rem; font-weight:700; text-align:center;
+  cursor:pointer; transition:transform .12s;
+}
+.mode-btn:active{transform:scale(0.96);}
+.mode-btn .desc{display:block; font-size:0.75rem; color:var(--sub); font-weight:400; margin-top:4px;}
+.side-choice{display:flex; gap:10px; margin-top:4px;}
+.side-btn{padding:10px 18px; border-radius:100px; border:1px solid rgba(224,166,58,0.3); background:rgba(255,255,255,0.03);
+  color:var(--text); font-size:0.85rem; cursor:pointer;}
+.side-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1b140c; font-weight:900; border-color:transparent;}
+.diff-choice{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+
+/* ---- ゲーム画面 ---- */
+#game{display:none; width:100%; flex-direction:column; align-items:center;}
+.topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
+.topbar button{background:none; border:1px solid rgba(224,166,58,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
+
+.turn-indicator{font-size:0.85rem; font-weight:700; margin:2px 0 8px; text-align:center; min-height:1.2em; display:flex; align-items:center; justify-content:center; gap:6px;}
+.turn-indicator .dot{width:14px; height:14px; border-radius:50%; display:inline-block; box-shadow:inset 0 -2px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);}
+.turn-indicator .dot.black{background:radial-gradient(circle at 35% 30%, var(--black-stone1), var(--black-stone2));}
+.turn-indicator .dot.white{background:radial-gradient(circle at 35% 30%, var(--white-stone1), var(--white-stone2)); border:1px solid rgba(0,0,0,0.2);}
+
+#board{
+  position:relative;
+  display:grid;
+  width:min(450px,92vw); height:min(450px,92vw);
+  background:var(--board);
+  border:3px solid var(--board-line); border-radius:4px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.5);
+}
+.point{
+  position:relative; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; user-select:none;
+}
+.point::before{content:''; position:absolute; top:50%; left:0; width:100%; height:1.5px; background:var(--board-line); transform:translateY(-50%); pointer-events:none;}
+.point::after{content:''; position:absolute; left:50%; top:0; height:100%; width:1.5px; background:var(--board-line); transform:translateX(-50%); pointer-events:none;}
+.point.edge-l::before{left:50%; width:50%;}
+.point.edge-r::before{width:50%;}
+.point.edge-t::after{top:50%; height:50%;}
+.point.edge-b::after{height:50%;}
+.point .star{position:absolute; width:20%; height:20%; border-radius:50%; background:var(--board-line); opacity:0.6; pointer-events:none;}
+.stone{
+  position:relative; width:82%; height:82%; border-radius:50%; z-index:2;
+  box-shadow:0 2px 3px rgba(0,0,0,0.45), inset 0 -3px 4px rgba(0,0,0,0.25);
+  pointer-events:none;
+}
+.stone.black{background:radial-gradient(circle at 35% 28%, #5c5c5c, #0a0a0a 70%);}
+.stone.white{background:radial-gradient(circle at 35% 28%, #ffffff, #c9c4bb 75%); border:1px solid rgba(0,0,0,0.15);}
+.stone.last-move::after{content:''; position:absolute; inset:0; margin:auto; width:34%; height:34%; border-radius:50%; background:var(--last); opacity:0.85;}
+.point.hoverable:hover::before{background:var(--board-line);}
+
+.msg-area{min-height:1.4em; font-size:0.8rem; color:var(--accent); text-align:center; margin-top:10px;}
+
+/* ---- モーダル ---- */
+.modal-bg{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10; align-items:center; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:linear-gradient(160deg,#2c2013,#1c140b); border:1px solid rgba(224,166,58,0.3); border-radius:16px; padding:24px; max-width:320px; width:88%; text-align:center;}
+.modal p{margin-bottom:16px; font-size:0.95rem;}
+.modal .btn-row{display:flex; gap:10px; justify-content:center;}
+.modal button{flex:1; padding:12px; border-radius:10px; border:none; font-weight:700; font-size:0.9rem; cursor:pointer;}
+.modal .btn-single{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1b140c;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home-link" href="../">← アプリ一覧へ</a>
+  <div class="app-title">⚫ 五目並べ</div>
+  <div class="app-sub">交点をタップして石を置く</div>
+  <div class="app-version">v1.0.0</div>
+
+  <!-- ホーム画面 -->
+  <div id="home">
+    <div class="mode-btn" id="btn-vs-ai">🤖 対AI対戦<span class="desc">コンピュータと対局する</span></div>
+    <div class="side-choice" id="side-choice">
+      <button class="side-btn active" data-side="b">黒(先手)でプレイ</button>
+      <button class="side-btn" data-side="w">白(後手)でプレイ</button>
+    </div>
+    <div class="diff-choice" id="diff-choice">
+      <button class="side-btn active" data-diff="1">やさしい</button>
+      <button class="side-btn" data-diff="2">ふつう</button>
+      <button class="side-btn" data-diff="3">つよい</button>
+    </div>
+    <div class="mode-btn" id="btn-2p" style="margin-top:6px;">👥 2人対戦<span class="desc">同じ端末で交互に置く</span></div>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game">
+    <div class="topbar">
+      <button id="btn-home">🏠 ホーム</button>
+      <span id="mode-label"></span>
+      <button id="btn-restart">↻ やりなおす</button>
+    </div>
+    <div class="turn-indicator" id="turn-indicator"></div>
+    <div id="board"></div>
+    <div class="msg-area" id="msg-area"></div>
+  </div>
+</div>
+
+<!-- 結果モーダル -->
+<div class="modal-bg" id="result-modal">
+  <div class="modal">
+    <p id="result-text"></p>
+    <div class="btn-row">
+      <button class="btn-single" id="result-ok">ホームへ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   盤面定義
+   ========================================================= */
+var SIZE = 15;
+var WIN_LEN = 5;
+var DIRS = [[0,1],[1,0],[1,1],[1,-1]];
+var STAR_POINTS = [[3,3],[3,11],[11,3],[11,11],[7,7]];
+
+function emptyBoard(){
+  var b = [];
+  for (var r = 0; r < SIZE; r++){ b.push(new Array(SIZE).fill(null)); }
+  return b;
+}
+function inBounds(r,c){ return r >= 0 && r < SIZE && c >= 0 && c < SIZE; }
+function opp(p){ return p === 'b' ? 'w' : 'b'; }
+
+/* =========================================================
+   勝敗判定
+   盤上の (r,c) に player の石を置いた直後に呼ぶ。
+   4方向 (横/縦/右下がり斜め/右上がり斜め) それぞれについて、
+   その方向の直線上で置いた石を中心に前後へ連続する同色石を数え、
+   合計が5個以上(オーバーライン込み)なら勝ちとする。
+   ========================================================= */
+function checkWin(board, r, c, player){
+  for (var i = 0; i < DIRS.length; i++){
+    var dr = DIRS[i][0], dc = DIRS[i][1];
+    var count = 1;
+    var rr = r + dr, cc = c + dc;
+    while (inBounds(rr,cc) && board[rr][cc] === player){ count++; rr += dr; cc += dc; }
+    rr = r - dr; cc = c - dc;
+    while (inBounds(rr,cc) && board[rr][cc] === player){ count++; rr -= dr; cc -= dc; }
+    if (count >= WIN_LEN) return true;
+  }
+  return false;
+}
+
+function isBoardFull(board){
+  for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++){
+    if (!board[r][c]) return false;
+  }
+  return true;
+}
+
+/* =========================================================
+   評価関数 (ヒューリスティック)
+   石のある位置ごとに、その石を起点とする「連の始点」だけを
+   数えることで二重カウントを防ぎ、連の長さと両端の空き具合を
+   スコア化する。
+   ========================================================= */
+function shapeValue(len, openEnds){
+  if (len >= 5) return 100000;
+  if (len === 4) return openEnds >= 1 ? (openEnds === 2 ? 50000 : 10000) : 0;
+  if (len === 3) return openEnds === 2 ? 1000 : (openEnds === 1 ? 100 : 0);
+  if (len === 2) return openEnds === 2 ? 100 : (openEnds === 1 ? 10 : 0);
+  if (len === 1) return openEnds === 2 ? 5 : 1;
+  return 0;
+}
+
+function lineStartScore(board, r, c, dr, dc, player){
+  var pr = r - dr, pc = c - dc;
+  if (inBounds(pr,pc) && board[pr][pc] === player) return 0; // 連の途中なので起点からのみ数える
+  var len = 0, er = r, ec = c;
+  while (inBounds(er,ec) && board[er][ec] === player){ len++; er += dr; ec += dc; }
+  var afterOpen = inBounds(er,ec) && board[er][ec] === null;
+  var beforeOpen = inBounds(pr,pc) && board[pr][pc] === null;
+  var openEnds = (afterOpen?1:0) + (beforeOpen?1:0);
+  return shapeValue(len, openEnds);
+}
+
+function evaluateBoard(board, forPlayer){
+  var score = 0;
+  for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++){
+    var p = board[r][c];
+    if (!p) continue;
+    var sign = (p === forPlayer) ? 1 : -1;
+    // 相手の連は自分にとって脅威なので、やや重めに評価する
+    var weight = (p === forPlayer) ? 1 : 1.1;
+    for (var i = 0; i < DIRS.length; i++){
+      score += sign * weight * lineStartScore(board, r, c, DIRS[i][0], DIRS[i][1], p);
+    }
+  }
+  return score;
+}
+
+/* 指し手候補: 既存の石から一定距離以内の空きマスのみ(全マス探索を避ける) */
+function generateCandidates(board, radius){
+  radius = radius || 2;
+  var hasStone = false;
+  var set = {};
+  var list = [];
+  for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++){
+    if (!board[r][c]) continue;
+    hasStone = true;
+    for (var dr = -radius; dr <= radius; dr++){
+      for (var dc = -radius; dc <= radius; dc++){
+        var nr = r+dr, nc = c+dc;
+        if (!inBounds(nr,nc)) continue;
+        if (board[nr][nc]) continue;
+        var key = nr+'_'+nc;
+        if (set[key]) continue;
+        set[key] = true;
+        list.push([nr,nc]);
+      }
+    }
+  }
+  if (!hasStone) return [[Math.floor(SIZE/2), Math.floor(SIZE/2)]];
+  return list;
+}
+
+/* =========================================================
+   AI: 即勝ち/即ブロックの判定 + ネガマックス(αβ枝刈り)
+   ========================================================= */
+function findImmediateWin(board, player){
+  var cands = generateCandidates(board);
+  for (var i = 0; i < cands.length; i++){
+    var r = cands[i][0], c = cands[i][1];
+    board[r][c] = player;
+    var win = checkWin(board, r, c, player);
+    board[r][c] = null;
+    if (win) return [r,c];
+  }
+  return null;
+}
+
+function negamax(board, player, depth, alpha, beta){
+  var cands = generateCandidates(board);
+  if (depth === 0 || cands.length === 0){
+    return evaluateBoard(board, player);
+  }
+  // 評価順を粗く付けて枝刈り効率を上げる
+  cands.sort(function(a,b){
+    return quickScore(board, b, player) - quickScore(board, a, player);
+  });
+  var limited = cands.slice(0, 24); // 分岐数を抑える
+  var best = -Infinity;
+  for (var i = 0; i < limited.length; i++){
+    var r = limited[i][0], c = limited[i][1];
+    board[r][c] = player;
+    var win = checkWin(board, r, c, player);
+    var score;
+    if (win){
+      score = 100000 + depth;
+    } else {
+      score = -negamax(board, opp(player), depth-1, -beta, -alpha);
+    }
+    board[r][c] = null;
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function quickScore(board, cell, player){
+  var r = cell[0], c = cell[1];
+  var s = 0;
+  for (var i = 0; i < DIRS.length; i++){
+    var dr = DIRS[i][0], dc = DIRS[i][1];
+    // 自分目線と相手目線の両方をざっくり加点(攻守両用の候補選定)
+    s += patternAround(board, r, c, dr, dc, player);
+    s += patternAround(board, r, c, dr, dc, opp(player));
+  }
+  return s;
+}
+function patternAround(board, r, c, dr, dc, player){
+  var count = 0;
+  var rr = r+dr, cc = c+dc;
+  while (inBounds(rr,cc) && board[rr][cc] === player){ count++; rr+=dr; cc+=dc; }
+  rr = r-dr; cc = c-dc;
+  while (inBounds(rr,cc) && board[rr][cc] === player){ count++; rr-=dr; cc-=dc; }
+  return count;
+}
+
+/* difficulty: 1=やさしい 2=ふつう 3=つよい */
+function pickAiMove(board, aiPlayer, difficulty){
+  var humanPlayer = opp(aiPlayer);
+
+  // 1. 自分の即勝ち
+  var win = findImmediateWin(board, aiPlayer);
+  if (win) return win;
+
+  // 2. 相手の即勝ちを阻止 (やさしい でも最低限のブロックは行う)
+  var block = findImmediateWin(board, humanPlayer);
+
+  var depth = difficulty === 3 ? 2 : (difficulty === 2 ? 1 : 0);
+  var slack = difficulty === 1 ? 60 : (difficulty === 2 ? 20 : 0);
+  var blockBias = difficulty === 1 ? 0.6 : (difficulty === 2 ? 0.85 : 1.0);
+
+  if (block && Math.random() < blockBias){
+    return block;
+  }
+
+  var cands = generateCandidates(board);
+  cands.sort(function(a,b){
+    return quickScore(board, b, aiPlayer) - quickScore(board, a, aiPlayer);
+  });
+  var pool = cands.slice(0, difficulty === 3 ? 16 : 12);
+  if (pool.length === 0) pool = cands;
+
+  var scored = [];
+  var bestScore = -Infinity;
+  var alpha = -Infinity, beta = Infinity;
+  for (var i = 0; i < pool.length; i++){
+    var r = pool[i][0], c = pool[i][1];
+    board[r][c] = aiPlayer;
+    var sc;
+    if (checkWin(board, r, c, aiPlayer)){
+      sc = 100000;
+    } else if (depth === 0){
+      sc = evaluateBoard(board, aiPlayer);
+    } else {
+      sc = -negamax(board, humanPlayer, depth, -beta, -alpha);
+    }
+    board[r][c] = null;
+    scored.push({ cell:[r,c], score: sc });
+    if (sc > bestScore) bestScore = sc;
+    if (bestScore > alpha) alpha = bestScore;
+  }
+  var candidates2 = scored.filter(function(s){ return s.score >= bestScore - slack; });
+  if (candidates2.length === 0) candidates2 = scored;
+  return candidates2[Math.floor(Math.random()*candidates2.length)].cell;
+}
+
+/* =========================================================
+   UI 状態管理
+   ========================================================= */
+var els = {};
+['home','game','board','turn-indicator','msg-area',
+ 'mode-label','result-modal','result-text','result-ok'
+].forEach(function(id){ els[id.replace(/-([a-z])/g, function(_,c){return c.toUpperCase();})] = document.getElementById(id); });
+
+var app = {
+  board: null,
+  turn: 'b',
+  mode: null,       // 'ai' | '2p'
+  humanSide: 'b',
+  difficulty: 1,
+  lastMove: null,
+  gameOver: false,
+  aiThinking: false
+};
+
+function newGame(){
+  app.board = emptyBoard();
+  app.turn = 'b';
+  app.lastMove = null;
+  app.gameOver = false;
+  app.aiThinking = false;
+  render();
+  maybeAiMove();
+}
+
+function setMsg(t){ els.msgArea.textContent = t || ''; }
+
+function render(){
+  renderBoard();
+  renderTurn();
+}
+
+function renderTurn(){
+  if (app.gameOver){ els.turnIndicator.innerHTML = ''; return; }
+  var label = app.turn === 'b' ? '黒' : '白';
+  if (app.mode === 'ai'){
+    label += (app.turn === app.humanSide) ? ' (あなた)' : ' (AI)';
+  }
+  els.turnIndicator.innerHTML = '<span class="dot ' + (app.turn === 'b' ? 'black' : 'white') + '"></span><span>' + label + 'の番です</span>';
+}
+
+function renderBoard(){
+  var boardEl = els.board;
+  boardEl.style.gridTemplateColumns = 'repeat(' + SIZE + ',1fr)';
+  boardEl.style.gridTemplateRows = 'repeat(' + SIZE + ',1fr)';
+  boardEl.innerHTML = '';
+  for (var r = 0; r < SIZE; r++){
+    for (var c = 0; c < SIZE; c++){
+      var pt = document.createElement('div');
+      pt.className = 'point';
+      if (c === 0) pt.classList.add('edge-l');
+      if (c === SIZE-1) pt.classList.add('edge-r');
+      if (r === 0) pt.classList.add('edge-t');
+      if (r === SIZE-1) pt.classList.add('edge-b');
+      pt.dataset.r = r; pt.dataset.c = c;
+
+      var p = app.board[r][c];
+      if (p){
+        var stone = document.createElement('div');
+        stone.className = 'stone ' + (p === 'b' ? 'black' : 'white');
+        if (app.lastMove && app.lastMove[0] === r && app.lastMove[1] === c){
+          stone.classList.add('last-move');
+        }
+        pt.appendChild(stone);
+      } else {
+        var isStar = STAR_POINTS.some(function(sp){ return sp[0]===r && sp[1]===c; });
+        if (isStar){
+          var star = document.createElement('div');
+          star.className = 'star';
+          pt.appendChild(star);
+        }
+        pt.classList.add('hoverable');
+      }
+      pt.addEventListener('click', onPointClick);
+      boardEl.appendChild(pt);
+    }
+  }
+}
+
+function isHumanTurn(){
+  if (app.gameOver) return false;
+  if (app.mode === '2p') return true;
+  return app.turn === app.humanSide;
+}
+
+function onPointClick(e){
+  if (!isHumanTurn() || app.aiThinking) return;
+  var r = parseInt(e.currentTarget.dataset.r,10), c = parseInt(e.currentTarget.dataset.c,10);
+  if (app.board[r][c]) return;
+  placeStone(r, c, app.turn);
+}
+
+function placeStone(r, c, player){
+  app.board[r][c] = player;
+  app.lastMove = [r,c];
+  setMsg('');
+  var won = checkWin(app.board, r, c, player);
+  render();
+  if (won){
+    app.gameOver = true;
+    var label = player === 'b' ? '黒' : '白';
+    if (app.mode === 'ai'){
+      label += (player === app.humanSide) ? ' (あなた)' : ' (AI)';
+    }
+    showResult(label + 'の勝ち!');
+    return;
+  }
+  if (isBoardFull(app.board)){
+    app.gameOver = true;
+    showResult('引き分け(盤面が埋まりました)');
+    return;
+  }
+  app.turn = opp(player);
+  render();
+  maybeAiMove();
+}
+
+function showResult(text){
+  els.resultText.textContent = text;
+  els.resultModal.classList.add('show');
+  renderTurn();
+}
+els.resultOk.addEventListener('click', function(){
+  els.resultModal.classList.remove('show');
+  goHome();
+});
+
+function maybeAiMove(){
+  if (app.gameOver) return;
+  if (app.mode !== 'ai') return;
+  if (app.turn === app.humanSide) return;
+  app.aiThinking = true;
+  setMsg('AIが考え中…');
+  var aiOwner = app.turn;
+  setTimeout(function(){
+    var move = pickAiMove(app.board, aiOwner, app.difficulty);
+    app.aiThinking = false;
+    setMsg('');
+    if (!move) return;
+    placeStone(move[0], move[1], aiOwner);
+  }, 150);
+}
+
+/* =========================================================
+   画面遷移
+   ========================================================= */
+function goHome(){
+  els.home.style.display = 'flex';
+  els.game.style.display = 'none';
+}
+function goGame(){
+  els.home.style.display = 'none';
+  els.game.style.display = 'flex';
+}
+
+document.getElementById('side-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#side-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.humanSide = btn.dataset.side;
+});
+document.getElementById('diff-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#diff-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.difficulty = parseInt(btn.dataset.diff,10);
+});
+
+document.getElementById('btn-vs-ai').addEventListener('click', function(){
+  app.mode = 'ai';
+  els.modeLabel.textContent = '対AI対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-2p').addEventListener('click', function(){
+  app.mode = '2p';
+  els.modeLabel.textContent = '2人対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-home').addEventListener('click', goHome);
+document.getElementById('btn-restart').addEventListener('click', newGame);
+
+})();
+</script>
+</body>
+</html>

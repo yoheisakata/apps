@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚫️</text></svg>">
+<title>囲碁</title>
+<meta name="theme-color" content="#12201a">
+<style>
+:root{
+  --bg1:#12201a; --bg2:#182a21; --bg3:#0d1712;
+  --board:#dcb35c; --board-line:#5a4222;
+  --text:#eaf2ea; --sub:#93a89b;
+  --accent:#4fb37a; --accent2:#2f8f63;
+  --black-stone1:#4a4a4a; --black-stone2:#0a0a0a;
+  --white-stone1:#ffffff; --white-stone2:#d4d4d4;
+  --sel:#7fd9c9; --ko:#e0673a;
+}
+*,*::before,*::after{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;
+  background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px 12px 40px;
+  overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 8%, rgba(79,179,122,0.14) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 90%, rgba(47,143,99,0.12) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
+.app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
+  background:linear-gradient(135deg,#bdeccf 0%,#4fb37a 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+.app-sub{color:var(--sub); font-size:0.85rem; text-align:center; margin-bottom:4px;}
+.app-version{color:var(--sub); opacity:0.55; font-size:0.65rem; letter-spacing:.06em; text-align:center; margin-bottom:16px;}
+
+/* ---- ホーム画面 ---- */
+#home{width:100%; display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:20px;}
+.mode-btn{
+  width:100%; max-width:340px; padding:18px; border-radius:16px; border:1px solid rgba(79,179,122,0.25);
+  background:linear-gradient(135deg, rgba(79,179,122,0.14), rgba(47,143,99,0.08));
+  color:var(--text); font-size:1.05rem; font-weight:700; text-align:center;
+  cursor:pointer; transition:transform .12s;
+}
+.mode-btn:active{transform:scale(0.96);}
+.mode-btn .desc{display:block; font-size:0.75rem; color:var(--sub); font-weight:400; margin-top:4px;}
+.opt-label{font-size:0.72rem; color:var(--sub); text-align:center; margin-top:2px;}
+.side-choice, .diff-choice, .size-choice{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+.side-btn{padding:10px 18px; border-radius:100px; border:1px solid rgba(79,179,122,0.3); background:rgba(255,255,255,0.03);
+  color:var(--text); font-size:0.85rem; cursor:pointer;}
+.side-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0d1712; font-weight:900; border-color:transparent;}
+
+/* ---- ゲーム画面 ---- */
+#game{display:none; width:100%; flex-direction:column; align-items:center;}
+.topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub); gap:4px;}
+.topbar button{background:none; border:1px solid rgba(79,179,122,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer; white-space:nowrap;}
+
+.status-row{display:flex; justify-content:space-between; width:100%; max-width:420px; font-size:0.72rem; color:var(--sub); padding:0 2px; margin-bottom:4px;}
+.status-row .cap-b, .status-row .cap-w{display:flex; align-items:center; gap:4px;}
+.stone-dot{display:inline-block; width:10px; height:10px; border-radius:50%;}
+.stone-dot.black{background:radial-gradient(circle at 32% 28%, var(--black-stone1), var(--black-stone2));}
+.stone-dot.white{background:radial-gradient(circle at 32% 28%, var(--white-stone1), var(--white-stone2)); border:1px solid #999;}
+
+.turn-indicator{font-size:0.85rem; font-weight:700; margin:2px 0; text-align:center; min-height:1.2em;}
+.turn-indicator.black-turn{color:#eaf2ea;}
+.turn-indicator.white-turn{color:#9fd9ff;}
+
+#board-wrap{width:min(420px,94vw); aspect-ratio:1/1; position:relative;}
+#board{
+  position:relative;
+  display:grid;
+  width:100%; height:100%;
+  background:var(--board); border:3px solid var(--board-line); border-radius:4px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.5);
+}
+.point{
+  position:relative; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; user-select:none;
+}
+.point::before, .point::after{
+  content:''; position:absolute; background:var(--board-line); z-index:1;
+}
+.point::before{ /* horizontal line */
+  left:0; right:0; top:50%; height:1.5px; transform:translateY(-50%);
+}
+.point::after{ /* vertical line */
+  top:0; bottom:0; left:50%; width:1.5px; transform:translateX(-50%);
+}
+.point.col-first::before{ left:50%; }
+.point.col-last::before{ right:50%; }
+.point.row-first::after{ top:50%; }
+.point.row-last::after{ bottom:50%; }
+
+.hoshi::before{ content:''; position:absolute; width:20%; height:20%; min-width:5px; min-height:5px; border-radius:50%; background:var(--board-line); z-index:1; left:50%; top:50%; transform:translate(-50%,-50%); }
+
+.stone{
+  position:relative; z-index:2; width:86%; height:86%; border-radius:50%;
+  box-shadow:0 2px 3px rgba(0,0,0,0.5);
+  pointer-events:none;
+}
+.stone.black{background:radial-gradient(circle at 32% 28%, var(--black-stone1), var(--black-stone2));}
+.stone.white{background:radial-gradient(circle at 32% 28%, var(--white-stone1), var(--white-stone2));}
+
+.point.last-move .stone::after{
+  content:''; position:absolute; left:50%; top:50%; width:26%; height:26%; border-radius:50%;
+  transform:translate(-50%,-50%); background:var(--sel); z-index:3;
+}
+.point.ko-marker::after{
+  content:''; position:absolute; left:50%; top:50%; width:30%; height:30%; border-radius:50%;
+  transform:translate(-50%,-50%); border:2px solid var(--ko); z-index:3; background:transparent;
+}
+
+.msg-area{min-height:1.4em; font-size:0.8rem; color:var(--accent); text-align:center; margin-top:8px;}
+
+.action-row{display:flex; gap:10px; margin-top:12px;}
+.action-row button{
+  padding:10px 18px; border-radius:100px; border:1px solid rgba(79,179,122,0.35);
+  background:rgba(255,255,255,0.04); color:var(--text); font-size:0.82rem; font-weight:700; cursor:pointer;
+}
+.action-row button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0d1712; border-color:transparent;}
+
+/* ---- モーダル ---- */
+.modal-bg{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10; align-items:center; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:linear-gradient(160deg,#182a21,#0d1712); border:1px solid rgba(79,179,122,0.3); border-radius:16px; padding:24px; max-width:340px; width:88%; text-align:center;}
+.modal p{margin-bottom:10px; font-size:0.95rem;}
+.modal .score-table{width:100%; margin:12px 0; font-size:0.82rem; border-collapse:collapse;}
+.modal .score-table td{padding:4px 6px; border-bottom:1px solid rgba(255,255,255,0.08); text-align:left;}
+.modal .score-table td:last-child{text-align:right; font-weight:700;}
+.modal .btn-row{display:flex; gap:10px; justify-content:center;}
+.modal button{flex:1; padding:12px; border-radius:10px; border:none; font-weight:700; font-size:0.9rem; cursor:pointer;}
+.modal .btn-yes{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0d1712;}
+.modal .btn-no{background:rgba(255,255,255,0.08); color:var(--text);}
+.modal .btn-single{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0d1712;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home-link" href="../">← アプリ一覧へ</a>
+  <div class="app-title">⚫️ 囲碁</div>
+  <div class="app-sub">交点をタップして石を置く</div>
+  <div class="app-version">v1.0.0</div>
+
+  <!-- ホーム画面 -->
+  <div id="home">
+    <div class="mode-btn" id="btn-vs-ai">🤖 対AI対戦<span class="desc">コンピュータと対局する</span></div>
+    <div class="opt-label">盤の大きさ</div>
+    <div class="size-choice" id="size-choice">
+      <button class="side-btn active" data-size="9">9路盤</button>
+      <button class="side-btn" data-size="13">13路盤</button>
+    </div>
+    <div class="opt-label">対AI対戦の設定</div>
+    <div class="side-choice" id="side-choice">
+      <button class="side-btn active" data-side="b">黒でプレイ(先手)</button>
+      <button class="side-btn" data-side="w">白でプレイ(後手)</button>
+    </div>
+    <div class="diff-choice" id="diff-choice">
+      <button class="side-btn active" data-diff="1">やさしい</button>
+      <button class="side-btn" data-diff="2">ふつう</button>
+      <button class="side-btn" data-diff="3">つよい</button>
+    </div>
+    <div class="mode-btn" id="btn-2p" style="margin-top:6px;">👥 2人対戦<span class="desc">同じ端末で交互に打つ</span></div>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game">
+    <div class="topbar">
+      <button id="btn-home">🏠 ホーム</button>
+      <span id="mode-label"></span>
+      <button id="btn-restart">↻ やりなおす</button>
+    </div>
+    <div class="status-row">
+      <span class="cap-b"><span class="stone-dot black"></span>アゲハマ: <span id="cap-b">0</span></span>
+      <span class="cap-w"><span class="stone-dot white"></span>アゲハマ: <span id="cap-w">0</span></span>
+    </div>
+    <div class="turn-indicator" id="turn-indicator"></div>
+    <div id="board-wrap"><div id="board"></div></div>
+    <div class="msg-area" id="msg-area"></div>
+    <div class="action-row">
+      <button id="btn-pass">🚫 パス</button>
+      <button id="btn-resign">🏳 投了</button>
+    </div>
+  </div>
+</div>
+
+<!-- 結果モーダル -->
+<div class="modal-bg" id="result-modal">
+  <div class="modal">
+    <p id="result-text"></p>
+    <table class="score-table" id="score-table"></table>
+    <div class="btn-row">
+      <button class="btn-single" id="result-ok">ホームへ</button>
+    </div>
+  </div>
+</div>
+
+<!-- パス確認モーダル -->
+<div class="modal-bg" id="pass-modal">
+  <div class="modal">
+    <p>パスしますか?<br><span style="font-size:0.78rem; color:var(--sub);">連続でパスするとその時点で対局が終了し、地の計算に入ります。</span></p>
+    <div class="btn-row">
+      <button class="btn-yes" id="pass-yes">パスする</button>
+      <button class="btn-no" id="pass-no">やめる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   ENGINE START (純粋関数群・DOM非依存。go/CLAUDE.md 記載の手順で
+   Node からユニットテスト可能な形にしてある)
+   ========================================================= */
+function idx(size, r, c){ return r * size + c; }
+function inBounds(size, r, c){ return r >= 0 && r < size && c >= 0 && c < size; }
+function neighbors(size, r, c){
+  var n = [];
+  if (r > 0) n.push([r - 1, c]);
+  if (r < size - 1) n.push([r + 1, c]);
+  if (c > 0) n.push([r, c - 1]);
+  if (c < size - 1) n.push([r, c + 1]);
+  return n;
+}
+function createBoard(size){ return new Array(size * size).fill(null); }
+function boardToString(board){
+  var s = '';
+  for (var i = 0; i < board.length; i++) s += (board[i] === null ? '.' : board[i]);
+  return s;
+}
+function opponentOf(color){ return color === 'b' ? 'w' : 'b'; }
+
+/* 連(グループ)とその呼吸点(liberties)を求める */
+function getGroup(board, size, r, c){
+  var color = board[idx(size, r, c)];
+  if (!color) return null;
+  var visited = {};
+  var startKey = r + '_' + c;
+  visited[startKey] = true;
+  var stones = [[r, c]];
+  var libertyKeys = {};
+  var stack = [[r, c]];
+  while (stack.length){
+    var cur = stack.pop();
+    var nbs = neighbors(size, cur[0], cur[1]);
+    for (var i = 0; i < nbs.length; i++){
+      var nr = nbs[i][0], nc = nbs[i][1];
+      var key = nr + '_' + nc;
+      var v = board[idx(size, nr, nc)];
+      if (v === null){
+        libertyKeys[key] = true;
+      } else if (v === color && !visited[key]){
+        visited[key] = true;
+        stones.push([nr, nc]);
+        stack.push([nr, nc]);
+      }
+    }
+  }
+  return { color: color, stones: stones, liberties: Object.keys(libertyKeys).length };
+}
+
+/*
+ * 着手を試みる。合法なら {legal:true, board, captured} を、
+ * 非合法なら {legal:false, reason} を返す。元の board は変更しない (非破壊)。
+ * koBoardStr: この着手で再現してはいけない2手前の局面の文字列。null なら未チェック(単純コウルール)。
+ */
+function attemptMove(board, size, r, c, color, koBoardStr){
+  if (!inBounds(size, r, c)) return { legal: false, reason: 'out-of-bounds' };
+  if (board[idx(size, r, c)] !== null) return { legal: false, reason: 'occupied' };
+
+  var trial = board.slice();
+  trial[idx(size, r, c)] = color;
+  var opponent = opponentOf(color);
+  var captured = [];
+  var nbs = neighbors(size, r, c);
+  var checkedGroups = {};
+
+  for (var i = 0; i < nbs.length; i++){
+    var nr = nbs[i][0], nc = nbs[i][1];
+    if (trial[idx(size, nr, nc)] !== opponent) continue;
+    var grp = getGroup(trial, size, nr, nc);
+    var gkey = grp.stones.map(function(s){ return s[0] + '_' + s[1]; }).sort().join('|');
+    if (checkedGroups[gkey]) continue;
+    checkedGroups[gkey] = true;
+    if (grp.liberties === 0){
+      grp.stones.forEach(function(s){
+        trial[idx(size, s[0], s[1])] = null;
+        captured.push(s);
+      });
+    }
+  }
+
+  var ownGroup = getGroup(trial, size, r, c);
+  if (ownGroup.liberties === 0){
+    return { legal: false, reason: 'suicide' };
+  }
+
+  if (koBoardStr){
+    var trialStr = boardToString(trial);
+    if (trialStr === koBoardStr) return { legal: false, reason: 'ko' };
+  }
+
+  return { legal: true, board: trial, captured: captured };
+}
+
+/* 地の計算 (中国式・面積制: 自分の石の数 + 自分だけに囲まれた空点の数) */
+function computeArea(board, size){
+  var visited = {};
+  var blackStones = 0, whiteStones = 0;
+  for (var i = 0; i < board.length; i++){
+    if (board[i] === 'b') blackStones++;
+    else if (board[i] === 'w') whiteStones++;
+  }
+  var blackTerritory = 0, whiteTerritory = 0, dame = 0;
+  for (var r = 0; r < size; r++){
+    for (var c = 0; c < size; c++){
+      var key = r + '_' + c;
+      if (visited[key]) continue;
+      if (board[idx(size, r, c)] !== null) continue;
+      var region = [];
+      var borders = {};
+      var stack = [[r, c]];
+      visited[key] = true;
+      while (stack.length){
+        var cur = stack.pop();
+        region.push(cur);
+        var nbs = neighbors(size, cur[0], cur[1]);
+        for (var i2 = 0; i2 < nbs.length; i2++){
+          var nr = nbs[i2][0], nc = nbs[i2][1];
+          var nk = nr + '_' + nc;
+          var v = board[idx(size, nr, nc)];
+          if (v === null){
+            if (!visited[nk]){ visited[nk] = true; stack.push([nr, nc]); }
+          } else {
+            borders[v] = true;
+          }
+        }
+      }
+      var bordersB = !!borders.b, bordersW = !!borders.w;
+      if (bordersB && !bordersW) blackTerritory += region.length;
+      else if (bordersW && !bordersB) whiteTerritory += region.length;
+      else dame += region.length;
+    }
+  }
+  return {
+    blackStones: blackStones, whiteStones: whiteStones,
+    blackTerritory: blackTerritory, whiteTerritory: whiteTerritory,
+    blackScore: blackStones + blackTerritory,
+    whiteScore: whiteStones + whiteTerritory,
+    dame: dame
+  };
+}
+/* ========================================================= ENGINE END */
+
+var KOMI = 6.5; /* 中国式面積制での白番コミ(引き分け防止のため.5刻み) */
+
+/* =========================================================
+   AI (ヒューリスティック — 本格的な囲碁エンジンではない。詳細は CLAUDE.md)
+   ========================================================= */
+function starPoints(size){
+  if (size === 9) return [[2,2],[2,6],[6,2],[6,6],[4,4]];
+  if (size === 13) return [[3,3],[3,9],[9,3],[9,9],[3,6],[9,6],[6,3],[6,9],[6,6]];
+  return [];
+}
+
+function isSelfEnclosedByOwnColor(board, size, r, c, color){
+  var nbs = neighbors(size, r, c);
+  for (var i = 0; i < nbs.length; i++){
+    if (board[idx(size, nbs[i][0], nbs[i][1])] !== color) return false;
+  }
+  return nbs.length > 0;
+}
+
+function scoreCandidateMove(board, size, r, c, color, moveResult){
+  var opponent = opponentOf(color);
+  var score = 0;
+
+  /* 1) 相手の石を取れるなら大きく加点 (取れる連を見逃さない) */
+  score += moveResult.captured.length * 100;
+
+  /* 2) 着手後の自分の連の呼吸点 */
+  var ownGroup = getGroup(moveResult.board, size, r, c);
+  score += Math.min(ownGroup.liberties, 6) * 3;
+
+  /* 3) 自分から自己アタリ(呼吸点1)を避ける (相手を取った場合を除く) */
+  if (moveResult.captured.length === 0 && ownGroup.liberties === 1){
+    score -= 60;
+  }
+
+  /* 4) 自分の眼を無駄に埋めない (周囲が全部自分の石の点は基本打たない) */
+  if (isSelfEnclosedByOwnColor(board, size, r, c, color)){
+    score -= 45;
+  }
+
+  /* 5) 着手で相手の連をアタリ(呼吸点1)に追い込めるなら加点 */
+  var nbs = neighbors(size, r, c);
+  var checkedOpp = {};
+  nbs.forEach(function(n){
+    var nr = n[0], nc = n[1];
+    if (moveResult.board[idx(size, nr, nc)] !== opponent) return;
+    var grp = getGroup(moveResult.board, size, nr, nc);
+    var gkey = grp.stones.map(function(s){ return s.join('_'); }).sort().join('|');
+    if (checkedOpp[gkey]) return;
+    checkedOpp[gkey] = true;
+    if (grp.liberties === 1) score += 25;
+    else if (grp.liberties === 2) score += 6;
+  });
+
+  /* 6) 既存の石(自分・相手とも)の近くを好む (盤全体に散らばりすぎない) */
+  var proximity = 0;
+  for (var i = 0; i < board.length; i++){
+    if (board[i] === null) continue;
+    var br = Math.floor(i / size), bc = i % size;
+    var dist = Math.max(Math.abs(br - r), Math.abs(bc - c));
+    if (dist === 0) continue;
+    if (board[i] === color) proximity += Math.max(0, 4 - dist) * 1.2;
+    else proximity += Math.max(0, 3 - dist) * 0.6;
+  }
+  score += proximity;
+
+  /* 7) 1路目(盤端)は序盤ではやや割り引く */
+  if (r === 0 || r === size - 1 || c === 0 || c === size - 1) score -= 5;
+
+  /* 8) 星に近い点をわずかに優遇 (序盤の骨組み作り) */
+  var stars = starPoints(size);
+  var nearStar = stars.some(function(s){ return Math.max(Math.abs(s[0]-r), Math.abs(s[1]-c)) <= 1; });
+  if (nearStar) score += 3;
+
+  return score;
+}
+
+function collectAiCandidates(board, size, color, koBoardStr){
+  var out = [];
+  for (var r = 0; r < size; r++){
+    for (var c = 0; c < size; c++){
+      if (board[idx(size, r, c)] !== null) continue;
+      var res = attemptMove(board, size, r, c, color, koBoardStr);
+      if (!res.legal) continue;
+      var score = scoreCandidateMove(board, size, r, c, color, res);
+      out.push({ r: r, c: c, result: res, score: score });
+    }
+  }
+  return out;
+}
+
+/*
+ * difficulty: 1=やさしい 2=ふつう 3=つよい
+ * 返り値: {pass:true} または {pass:false, r, c, result}
+ */
+function chooseAiMove(state, color, difficulty){
+  var board = state.board, size = state.size;
+  var koBoardStr = state.history.length >= 2 ? state.history[state.history.length - 2] : null;
+  var candidates = collectAiCandidates(board, size, color, koBoardStr);
+
+  if (candidates.length === 0) return { pass: true };
+
+  candidates.sort(function(a, b){ return b.score - a.score; });
+  var best = candidates[0];
+
+  /* 終盤、これ以上の得が見込めない(最善手が地を減らすだけ)なら相手のパスに合わせてパスする */
+  var emptyCount = 0;
+  for (var i = 0; i < board.length; i++) if (board[i] === null) emptyCount++;
+  var lateGame = emptyCount < size * size * 0.35;
+  if (state.lastActionWasPass && lateGame && best.score <= 4 && best.result.captured.length === 0){
+    return { pass: true };
+  }
+
+  /* 難易度による揺らぎ: やさしいほど上位候補からランダムに広く選ぶ */
+  var noise = difficulty === 3 ? 0.06 : (difficulty === 2 ? 0.22 : 0.45);
+  var pool = candidates.filter(function(cand){
+    return cand.score >= best.score - (Math.abs(best.score) + 20) * noise;
+  });
+  if (pool.length === 0) pool = [best];
+  var pick = pool[Math.floor(Math.random() * pool.length)];
+  return { pass: false, r: pick.r, c: pick.c, result: pick.result };
+}
+
+/* =========================================================
+   UI 状態管理
+   ========================================================= */
+var els = {};
+['home','game','board','board-wrap','turn-indicator','msg-area','mode-label',
+ 'cap-b','cap-w','result-modal','result-text','score-table','result-ok',
+ 'pass-modal','pass-yes','pass-no','btn-pass','btn-resign'
+].forEach(function(id){ els[id.replace(/-([a-z])/g, function(_,c){return c.toUpperCase();})] = document.getElementById(id); });
+
+var app = {
+  size: 9,
+  state: null,      // { board, size, history: [strings], captures:{b,w}, lastActionWasPass }
+  turn: 'b',
+  mode: null,        // 'ai' | '2p'
+  humanSide: 'b',
+  aiDifficulty: 1,
+  lastMove: null,    // [r,c] or null
+  koPoint: null,     // [r,c] currently ko-forbidden point, or null
+  passCount: 0,
+  gameOver: false,
+  aiThinking: false
+};
+
+function newGame(){
+  var size = app.size;
+  app.state = {
+    board: createBoard(size),
+    size: size,
+    history: [boardToString(createBoard(size))],
+    captures: { b: 0, w: 0 },
+    lastActionWasPass: false
+  };
+  app.turn = 'b';
+  app.lastMove = null;
+  app.koPoint = null;
+  app.passCount = 0;
+  app.gameOver = false;
+  app.aiThinking = false;
+  render();
+  maybeAiMove();
+}
+
+function setMsg(t){ els.msgArea.textContent = t || ''; }
+
+function render(){
+  renderBoard();
+  renderStatus();
+  renderTurn();
+}
+
+function renderTurn(){
+  if (app.gameOver){ els.turnIndicator.textContent = ''; return; }
+  var who = app.turn === 'b' ? '黒' : '白';
+  if (app.mode === 'ai'){
+    who += (app.turn === app.humanSide) ? ' (あなた)' : ' (AI)';
+  }
+  els.turnIndicator.textContent = who + 'の番です';
+  els.turnIndicator.className = 'turn-indicator ' + (app.turn === 'b' ? 'black-turn' : 'white-turn');
+}
+
+function renderStatus(){
+  els.capB.textContent = app.state.captures.b;
+  els.capW.textContent = app.state.captures.w;
+}
+
+function renderBoard(){
+  var size = app.size;
+  els.board.style.gridTemplateColumns = 'repeat(' + size + ',1fr)';
+  els.board.style.gridTemplateRows = 'repeat(' + size + ',1fr)';
+  els.board.innerHTML = '';
+  var stars = starPoints(size);
+  for (var r = 0; r < size; r++){
+    for (var c = 0; c < size; c++){
+      var pt = document.createElement('div');
+      var cls = 'point';
+      if (c === 0) cls += ' col-first';
+      if (c === size - 1) cls += ' col-last';
+      if (r === 0) cls += ' row-first';
+      if (r === size - 1) cls += ' row-last';
+      pt.className = cls;
+      pt.dataset.r = r; pt.dataset.c = c;
+
+      if (stars.some(function(s){ return s[0] === r && s[1] === c; }) && app.state.board[idx(size,r,c)] === null){
+        pt.classList.add('hoshi');
+      }
+
+      var v = app.state.board[idx(size, r, c)];
+      if (v){
+        var stone = document.createElement('div');
+        stone.className = 'stone ' + (v === 'b' ? 'black' : 'white');
+        pt.appendChild(stone);
+        if (app.lastMove && app.lastMove[0] === r && app.lastMove[1] === c){
+          pt.classList.add('last-move');
+        }
+      }
+      if (app.koPoint && app.koPoint[0] === r && app.koPoint[1] === c && v === null){
+        pt.classList.add('ko-marker');
+      }
+      pt.addEventListener('click', onPointClick);
+      els.board.appendChild(pt);
+    }
+  }
+}
+
+function isHumanTurn(){
+  if (app.gameOver) return false;
+  if (app.mode === '2p') return true;
+  return app.turn === app.humanSide;
+}
+
+function onPointClick(e){
+  if (!isHumanTurn() || app.aiThinking) return;
+  var r = parseInt(e.currentTarget.dataset.r, 10);
+  var c = parseInt(e.currentTarget.dataset.c, 10);
+  tryHumanMove(r, c);
+}
+
+function koBoardStrFor(state){
+  return state.history.length >= 2 ? state.history[state.history.length - 2] : null;
+}
+
+function tryHumanMove(r, c){
+  var state = app.state;
+  var res = attemptMove(state.board, state.size, r, c, app.turn, koBoardStrFor(state));
+  if (!res.legal){
+    setMsg(reasonToMessage(res.reason));
+    return;
+  }
+  commitMove(r, c, res);
+}
+
+function reasonToMessage(reason){
+  if (reason === 'occupied') return 'そこにはすでに石があります';
+  if (reason === 'suicide') return '自分の石が取られてしまう手(自殺手)は打てません';
+  if (reason === 'ko') return 'コウのルールにより、直前の局面を再現する手は打てません';
+  return '打てない場所です';
+}
+
+function commitMove(r, c, res){
+  var state = app.state;
+  var mover = app.turn;
+  var opponent = opponentOf(mover);
+  state.board = res.board;
+  if (res.captured.length){
+    state.captures[mover] += res.captured.length;
+  }
+  state.history.push(boardToString(state.board));
+  state.lastActionWasPass = false;
+
+  /* 単純コウ表示: 1子だけ取り、打った石が呼吸点1つの単石ならコウ形とみなして表示する */
+  if (res.captured.length === 1){
+    var g = getGroup(state.board, state.size, r, c);
+    if (g.stones.length === 1 && g.liberties === 1){
+      app.koPoint = res.captured[0];
+    } else {
+      app.koPoint = null;
+    }
+  } else {
+    app.koPoint = null;
+  }
+
+  app.lastMove = [r, c];
+  app.passCount = 0;
+  app.turn = opponent;
+  setMsg('');
+  render();
+  if (!app.gameOver) maybeAiMove();
+}
+
+function doPass(){
+  if (app.gameOver) return;
+  var state = app.state;
+  state.lastActionWasPass = true;
+  state.history.push(boardToString(state.board));
+  app.passCount++;
+  app.lastMove = null;
+  app.koPoint = null;
+  var passer = app.turn;
+  app.turn = opponentOf(passer);
+  setMsg((passer === 'b' ? '黒' : '白') + 'がパスしました');
+  render();
+  if (app.passCount >= 2){
+    endGameByScore();
+    return;
+  }
+  if (!app.gameOver) maybeAiMove();
+}
+
+function endGameByScore(){
+  app.gameOver = true;
+  var scoring = computeArea(app.state.board, app.state.size);
+  var whiteAdjusted = scoring.whiteScore + KOMI;
+  var winner, margin;
+  if (scoring.blackScore > whiteAdjusted){
+    winner = '黒'; margin = (scoring.blackScore - whiteAdjusted).toFixed(1);
+  } else {
+    winner = '白'; margin = (whiteAdjusted - scoring.blackScore).toFixed(1);
+  }
+  showResult(winner + 'の勝ち (' + margin + '目差)', scoring, whiteAdjusted);
+}
+
+function endGameByResign(){
+  app.gameOver = true;
+  var winner = app.turn === 'b' ? '白' : '黒';
+  showResult(winner + 'の勝ち (投了)', null, null);
+}
+
+function showResult(text, scoring, whiteAdjusted){
+  els.resultText.textContent = text;
+  els.scoreTable.innerHTML = '';
+  if (scoring){
+    var rows = [
+      ['黒 石数', scoring.blackStones],
+      ['黒 地', scoring.blackTerritory],
+      ['黒 合計', scoring.blackScore],
+      ['白 石数', scoring.whiteStones],
+      ['白 地', scoring.whiteTerritory],
+      ['白 合計(コミ' + KOMI + '込み)', whiteAdjusted.toFixed(1)]
+    ];
+    rows.forEach(function(row){
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td'); td1.textContent = row[0];
+      var td2 = document.createElement('td'); td2.textContent = row[1];
+      tr.appendChild(td1); tr.appendChild(td2);
+      els.scoreTable.appendChild(tr);
+    });
+  }
+  els.resultModal.classList.add('show');
+  renderTurn();
+}
+els.resultOk.addEventListener('click', function(){
+  els.resultModal.classList.remove('show');
+  goHome();
+});
+
+els.btnPass.addEventListener('click', function(){
+  if (!isHumanTurn() || app.aiThinking) return;
+  els.passModal.classList.add('show');
+});
+els.passYes.addEventListener('click', function(){
+  els.passModal.classList.remove('show');
+  doPass();
+});
+els.passNo.addEventListener('click', function(){
+  els.passModal.classList.remove('show');
+});
+els.btnResign.addEventListener('click', function(){
+  if (app.gameOver) return;
+  endGameByResign();
+});
+
+function maybeAiMove(){
+  if (app.gameOver) return;
+  if (app.mode !== 'ai') return;
+  if (app.turn === app.humanSide) return;
+  app.aiThinking = true;
+  setMsg('AIが考え中…');
+  var aiOwner = app.turn;
+  setTimeout(function(){
+    var move = chooseAiMove(app.state, aiOwner, app.aiDifficulty);
+    app.aiThinking = false;
+    if (move.pass){
+      setMsg('');
+      doPass();
+      return;
+    }
+    setMsg('');
+    commitMove(move.r, move.c, move.result);
+  }, 250);
+}
+
+/* =========================================================
+   画面遷移
+   ========================================================= */
+function goHome(){
+  els.home.style.display = 'flex';
+  els.game.style.display = 'none';
+}
+function goGame(){
+  els.home.style.display = 'none';
+  els.game.style.display = 'flex';
+}
+
+document.getElementById('size-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#size-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.size = parseInt(btn.dataset.size, 10);
+});
+document.getElementById('side-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#side-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.humanSide = btn.dataset.side;
+});
+document.getElementById('diff-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#diff-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.aiDifficulty = parseInt(btn.dataset.diff, 10);
+});
+
+document.getElementById('btn-vs-ai').addEventListener('click', function(){
+  app.mode = 'ai';
+  els.modeLabel.textContent = '対AI対戦 (' + app.size + '路盤)';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-2p').addEventListener('click', function(){
+  app.mode = '2p';
+  els.modeLabel.textContent = '2人対戦 (' + app.size + '路盤)';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-home').addEventListener('click', goHome);
+document.getElementById('btn-restart').addEventListener('click', newGame);
+
+})();
+</script>
+</body>
+</html>

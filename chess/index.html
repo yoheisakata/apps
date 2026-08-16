@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>">
+<title>チェス</title>
+<meta name="theme-color" content="#1c140f">
+<style>
+:root{
+  --bg1:#1c140f; --bg2:#241a12; --bg3:#140e0a;
+  --board-light:#f0d9b5; --board-dark:#946f4b; --board-line:#5c4023;
+  --text:#f1e6d8; --sub:#a08a72;
+  --accent:#d4a054; --accent2:#8a5a2b;
+  --sel:#7fd97f; --move:#6cace4;
+  --white-piece:#fbf6ea; --white-outline:#3a2a16;
+  --black-piece:#1a1108; --black-outline:#f1e6d8;
+}
+*,*::before,*::after{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;
+  background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px 12px 40px;
+  overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 8%, rgba(212,160,84,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 90%, rgba(138,90,43,0.12) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+.wrap{position:relative; z-index:1; width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center;}
+.home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
+.app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
+  background:linear-gradient(135deg,#f3dba8 0%,#c08a48 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+.app-sub{color:var(--sub); font-size:0.85rem; text-align:center; margin-bottom:4px;}
+.app-version{color:var(--sub); opacity:0.55; font-size:0.65rem; letter-spacing:.06em; text-align:center; margin-bottom:16px;}
+
+/* ---- ホーム画面 ---- */
+#home{width:100%; display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:20px;}
+.mode-btn{
+  width:100%; max-width:340px; padding:18px; border-radius:16px; border:1px solid rgba(212,160,84,0.25);
+  background:linear-gradient(135deg, rgba(212,160,84,0.14), rgba(138,90,43,0.08));
+  color:var(--text); font-size:1.05rem; font-weight:700; text-align:center;
+  cursor:pointer; transition:transform .12s;
+}
+.mode-btn:active{transform:scale(0.96);}
+.mode-btn .desc{display:block; font-size:0.75rem; color:var(--sub); font-weight:400; margin-top:4px;}
+.side-choice{display:flex; gap:10px; margin-top:4px;}
+.side-btn{padding:10px 18px; border-radius:100px; border:1px solid rgba(212,160,84,0.3); background:rgba(255,255,255,0.03);
+  color:var(--text); font-size:0.85rem; cursor:pointer;}
+.side-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1c140f; font-weight:900; border-color:transparent;}
+.diff-choice{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+
+/* ---- ゲーム画面 ---- */
+#game{display:none; width:100%; flex-direction:column; align-items:center;}
+.topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
+.topbar button{background:none; border:1px solid rgba(212,160,84,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
+
+.captured{display:flex; flex-wrap:wrap; gap:2px; width:100%; max-width:396px; min-height:22px; align-items:center; justify-content:center; padding:2px 0; font-size:1rem;}
+.captured .cp{opacity:0.85;}
+.captured .cp.white{color:var(--white-piece); text-shadow:0 0 2px var(--white-outline);}
+.captured .cp.black{color:var(--black-piece); text-shadow:0 0 2px var(--black-outline);}
+
+.turn-indicator{font-size:0.85rem; font-weight:700; margin:2px 0; text-align:center; min-height:1.2em;}
+.turn-indicator.white-turn{color:#f7e8c8;}
+.turn-indicator.black-turn{color:#9fc6ff;}
+
+#board{
+  display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
+  width:min(396px,92vw); height:min(396px,92vw);
+  border:3px solid var(--board-line); border-radius:4px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.5);
+}
+.cell{
+  position:relative; display:flex; align-items:center; justify-content:center;
+  font-size:clamp(1.4rem,8vw,2.1rem); font-weight:900;
+  cursor:pointer; user-select:none;
+}
+.cell.light{background:var(--board-light);}
+.cell.dark{background:var(--board-dark);}
+.cell.selected{background:rgba(127,217,127,0.55);}
+.cell.movable::after{content:''; position:absolute; width:24%; height:24%; border-radius:50%; background:rgba(108,172,228,0.7);}
+.cell.movable.has-piece::after{width:84%; height:84%; border-radius:8px; background:transparent; border:3px solid rgba(108,172,228,0.8); box-shadow:0 0 6px rgba(108,172,228,0.5);}
+.cell.last-move{background:rgba(212,160,84,0.45);}
+.cell.in-check{background:rgba(220,60,50,0.55);}
+.piece.white{color:var(--white-piece); text-shadow:0 0 2px var(--white-outline), 0 0 1px var(--white-outline);}
+.piece.black{color:var(--black-piece); text-shadow:0 0 2px var(--black-outline), 0 0 1px var(--black-outline);}
+.piece{line-height:1;}
+
+.msg-area{min-height:1.4em; font-size:0.8rem; color:var(--accent); text-align:center; margin-top:8px;}
+
+/* ---- モーダル ---- */
+.modal-bg{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10; align-items:center; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:linear-gradient(160deg,#2c2013,#1c140b); border:1px solid rgba(212,160,84,0.3); border-radius:16px; padding:24px; max-width:320px; width:88%; text-align:center;}
+.modal p{margin-bottom:16px; font-size:0.95rem;}
+.modal .btn-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+.modal button{flex:1; min-width:64px; padding:12px; border-radius:10px; border:none; font-weight:700; font-size:0.9rem; cursor:pointer;}
+.modal .btn-yes{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1c140f;}
+.modal .btn-no{background:rgba(255,255,255,0.08); color:var(--text);}
+.modal .btn-single{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1c140f;}
+.modal .promo-btn{font-size:1.6rem; padding:10px 6px;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home-link" href="../">← アプリ一覧へ</a>
+  <div class="app-title">♞ チェス</div>
+  <div class="app-sub">駒を選んでタップで動かす</div>
+  <div class="app-version">v1.0.0</div>
+
+  <!-- ホーム画面 -->
+  <div id="home">
+    <div class="mode-btn" id="btn-vs-ai">🤖 対AI対戦<span class="desc">コンピュータと対局する</span></div>
+    <div class="side-choice" id="side-choice">
+      <button class="side-btn active" data-side="w">白でプレイ</button>
+      <button class="side-btn" data-side="b">黒でプレイ</button>
+    </div>
+    <div class="diff-choice" id="diff-choice">
+      <button class="side-btn active" data-diff="1">やさしい</button>
+      <button class="side-btn" data-diff="2">ふつう</button>
+      <button class="side-btn" data-diff="3">つよい</button>
+    </div>
+    <div class="mode-btn" id="btn-2p" style="margin-top:6px;">👥 2人対戦<span class="desc">同じ端末で交互に指す</span></div>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game">
+    <div class="topbar">
+      <button id="btn-home">🏠 ホーム</button>
+      <span id="mode-label"></span>
+      <button id="btn-restart">↻ やりなおす</button>
+    </div>
+    <div class="captured" id="captured-black"></div>
+    <div class="turn-indicator" id="turn-indicator"></div>
+    <div id="board"></div>
+    <div class="captured" id="captured-white"></div>
+    <div class="msg-area" id="msg-area"></div>
+  </div>
+</div>
+
+<!-- 昇格モーダル -->
+<div class="modal-bg" id="promote-modal">
+  <div class="modal">
+    <p>昇格する駒を選んでください</p>
+    <div class="btn-row">
+      <button class="btn-yes promo-btn" data-p="Q">♕</button>
+      <button class="btn-yes promo-btn" data-p="R">♖</button>
+      <button class="btn-yes promo-btn" data-p="B">♗</button>
+      <button class="btn-yes promo-btn" data-p="N">♘</button>
+    </div>
+  </div>
+</div>
+
+<!-- 結果モーダル -->
+<div class="modal-bg" id="result-modal">
+  <div class="modal">
+    <p id="result-text"></p>
+    <div class="btn-row">
+      <button class="btn-single" id="result-ok">ホームへ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   チェス エンジン (盤・駒の動き・合法手生成・AI)
+   DOM に依存しない純粋関数群。Node でのテストのため、この IIFE の
+   下半分「UI 状態管理」とは完全に切り離してある
+   (テスト時は同じロジックを chess/engine.js として複製し、
+   require() して単体テストした — 詳細は CLAUDE.md 参照)。
+   ========================================================= */
+
+var PIECE_VALUE = { P:100, N:320, B:330, R:500, Q:900, K:20000 };
+var PROMO_CHOICES = ['Q','R','B','N'];
+
+function opp(owner){ return owner === 'w' ? 'b' : 'w'; }
+function inBounds(r,c){ return r >= 0 && r < 8 && c >= 0 && c < 8; }
+
+/* 盤面初期化: row0=8段目(黒陣・上側), row7=1段目(白陣・下側) */
+function initialBoard(){
+  var b = [];
+  for (var r = 0; r < 8; r++){ b.push(new Array(8).fill(null)); }
+  var back = ['R','N','B','Q','K','B','N','R'];
+  for (var c = 0; c < 8; c++){
+    b[0][c] = { type: back[c], owner: 'b' };
+    b[1][c] = { type: 'P', owner: 'b' };
+    b[6][c] = { type: 'P', owner: 'w' };
+    b[7][c] = { type: back[c], owner: 'w' };
+  }
+  return b;
+}
+
+function initialState(){
+  return {
+    board: initialBoard(),
+    turn: 'w',
+    castling: { wK:true, wQ:true, bK:true, bQ:true },
+    enPassant: null,
+    halfmoveClock: 0,
+    fullmoveNumber: 1
+  };
+}
+
+function cloneState(state){
+  var nb = state.board.map(function(row){
+    return row.map(function(p){ return p ? { type:p.type, owner:p.owner } : null; });
+  });
+  return {
+    board: nb,
+    turn: state.turn,
+    castling: Object.assign({}, state.castling),
+    enPassant: state.enPassant ? [state.enPassant[0], state.enPassant[1]] : null,
+    halfmoveClock: state.halfmoveClock,
+    fullmoveNumber: state.fullmoveNumber
+  };
+}
+
+/* 駒の「利き」(攻撃しているマス) — 王手判定・キャスリング可否判定用。
+   ポーンは前進では攻撃せず、斜めは駒が無くても攻撃扱いになる点が
+   実際の移動可否(pseudoMovesFrom)と異なるので別関数にしてある */
+var KNIGHT_D = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+var KING_D   = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+var BISHOP_D = [[-1,-1],[-1,1],[1,-1],[1,1]];
+var ROOK_D   = [[-1,0],[1,0],[0,-1],[0,1]];
+
+function attacksFrom(board, r, c){
+  var p = board[r][c];
+  if (!p) return [];
+  var out = [];
+  if (p.type === 'P'){
+    var dir = p.owner === 'w' ? -1 : 1;
+    [[dir,-1],[dir,1]].forEach(function(d){
+      var nr = r+d[0], nc = c+d[1];
+      if (inBounds(nr,nc)) out.push([nr,nc]);
+    });
+    return out;
+  }
+  if (p.type === 'N'){
+    KNIGHT_D.forEach(function(d){
+      var nr = r+d[0], nc = c+d[1];
+      if (inBounds(nr,nc)) out.push([nr,nc]);
+    });
+    return out;
+  }
+  if (p.type === 'K'){
+    KING_D.forEach(function(d){
+      var nr = r+d[0], nc = c+d[1];
+      if (inBounds(nr,nc)) out.push([nr,nc]);
+    });
+    return out;
+  }
+  var dirs = p.type === 'B' ? BISHOP_D : p.type === 'R' ? ROOK_D : BISHOP_D.concat(ROOK_D);
+  dirs.forEach(function(d){
+    var nr = r+d[0], nc = c+d[1];
+    while (inBounds(nr,nc)){
+      out.push([nr,nc]);
+      if (board[nr][nc]) break;
+      nr += d[0]; nc += d[1];
+    }
+  });
+  return out;
+}
+
+function isSquareAttacked(board, r, c, byOwner){
+  for (var rr = 0; rr < 8; rr++) for (var cc = 0; cc < 8; cc++){
+    var p = board[rr][cc];
+    if (!p || p.owner !== byOwner) continue;
+    var atk = attacksFrom(board, rr, cc);
+    for (var i = 0; i < atk.length; i++){
+      if (atk[i][0] === r && atk[i][1] === c) return true;
+    }
+  }
+  return false;
+}
+
+function findKing(board, owner){
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++){
+    var p = board[r][c];
+    if (p && p.type === 'K' && p.owner === owner) return [r,c];
+  }
+  return null;
+}
+
+function isInCheck(board, owner){
+  var k = findKing(board, owner);
+  if (!k) return false;
+  return isSquareAttacked(board, k[0], k[1], opp(owner));
+}
+
+/* 疑似合法手 (自玉の安全は考慮しない)。キャスリングは
+   「通過マスが攻撃されていないか」を含めてこの段階でチェックする */
+function pseudoMovesFrom(state, r, c){
+  var board = state.board;
+  var p = board[r][c];
+  if (!p) return [];
+  var moves = [];
+
+  if (p.type === 'P'){
+    var dir = p.owner === 'w' ? -1 : 1;
+    var startRow = p.owner === 'w' ? 6 : 1;
+    var lastRow = p.owner === 'w' ? 0 : 7;
+    var nr = r + dir;
+    if (inBounds(nr,c) && !board[nr][c]){
+      pushPawn(nr, c);
+      var nr2 = r + 2*dir;
+      if (r === startRow && !board[nr2][c]){
+        moves.push({ from:[r,c], to:[nr2,c], isDouble:true });
+      }
+    }
+    [[dir,-1],[dir,1]].forEach(function(d){
+      var tr = r+d[0], tc = c+d[1];
+      if (!inBounds(tr,tc)) return;
+      var t = board[tr][tc];
+      if (t && t.owner !== p.owner){
+        pushPawn(tr, tc);
+      } else if (!t && state.enPassant && state.enPassant[0] === tr && state.enPassant[1] === tc){
+        moves.push({ from:[r,c], to:[tr,tc], isEnPassant:true });
+      }
+    });
+    function pushPawn(tr, tc){
+      if (tr === lastRow){
+        moves.push({ from:[r,c], to:[tr,tc], isPromotion:true });
+      } else {
+        moves.push({ from:[r,c], to:[tr,tc] });
+      }
+    }
+    return moves;
+  }
+
+  if (p.type === 'N' || p.type === 'K'){
+    var dset = p.type === 'N' ? KNIGHT_D : KING_D;
+    dset.forEach(function(d){
+      var tr = r+d[0], tc = c+d[1];
+      if (!inBounds(tr,tc)) return;
+      var t = board[tr][tc];
+      if (!t || t.owner !== p.owner) moves.push({ from:[r,c], to:[tr,tc] });
+    });
+    if (p.type === 'K'){
+      addCastlingMoves(state, r, c, p.owner, moves);
+    }
+    return moves;
+  }
+
+  var dirs = p.type === 'B' ? BISHOP_D : p.type === 'R' ? ROOK_D : BISHOP_D.concat(ROOK_D);
+  dirs.forEach(function(d){
+    var tr = r+d[0], tc = c+d[1];
+    while (inBounds(tr,tc)){
+      var t = board[tr][tc];
+      if (!t){ moves.push({ from:[r,c], to:[tr,tc] }); }
+      else { if (t.owner !== p.owner) moves.push({ from:[r,c], to:[tr,tc] }); break; }
+      tr += d[0]; tc += d[1];
+    }
+  });
+  return moves;
+}
+
+function addCastlingMoves(state, r, c, owner, moves){
+  var board = state.board;
+  var homeRow = owner === 'w' ? 7 : 0;
+  if (r !== homeRow || c !== 4) return;
+  var enemy = opp(owner);
+  if (isSquareAttacked(board, r, c, enemy)) return;
+
+  if (state.castling[owner + 'K']){
+    if (!board[homeRow][5] && !board[homeRow][6]){
+      var rook = board[homeRow][7];
+      if (rook && rook.type === 'R' && rook.owner === owner){
+        if (!isSquareAttacked(board, homeRow, 5, enemy) && !isSquareAttacked(board, homeRow, 6, enemy)){
+          moves.push({ from:[r,c], to:[homeRow,6], isCastle:'K' });
+        }
+      }
+    }
+  }
+  if (state.castling[owner + 'Q']){
+    if (!board[homeRow][1] && !board[homeRow][2] && !board[homeRow][3]){
+      var rook2 = board[homeRow][0];
+      if (rook2 && rook2.type === 'R' && rook2.owner === owner){
+        if (!isSquareAttacked(board, homeRow, 3, enemy) && !isSquareAttacked(board, homeRow, 2, enemy)){
+          moves.push({ from:[r,c], to:[homeRow,2], isCastle:'Q' });
+        }
+      }
+    }
+  }
+}
+
+/* 指し手の適用 */
+function applyMove(state, m){
+  var board = state.board;
+  var piece = board[m.from[0]][m.from[1]];
+  var owner = piece.owner;
+  var captured = board[m.to[0]][m.to[1]];
+
+  if (m.isEnPassant){
+    var capRow = m.from[0];
+    captured = board[capRow][m.to[1]];
+    board[capRow][m.to[1]] = null;
+  }
+
+  var newType = piece.type;
+  if (m.isPromotion){ newType = m.promotion || 'Q'; }
+  board[m.to[0]][m.to[1]] = { type:newType, owner:owner };
+  board[m.from[0]][m.from[1]] = null;
+
+  if (m.isCastle){
+    var homeRow = m.from[0];
+    if (m.isCastle === 'K'){
+      board[homeRow][5] = board[homeRow][7];
+      board[homeRow][7] = null;
+    } else {
+      board[homeRow][3] = board[homeRow][0];
+      board[homeRow][0] = null;
+    }
+  }
+
+  if (piece.type === 'K'){
+    state.castling[owner+'K'] = false;
+    state.castling[owner+'Q'] = false;
+  }
+  if (piece.type === 'R'){
+    if (m.from[0] === (owner==='w'?7:0) && m.from[1] === 0) state.castling[owner+'Q'] = false;
+    if (m.from[0] === (owner==='w'?7:0) && m.from[1] === 7) state.castling[owner+'K'] = false;
+  }
+  if (captured && captured.type === 'R'){
+    var capOwner = captured.owner;
+    var capHome = capOwner === 'w' ? 7 : 0;
+    if (m.to[0] === capHome && m.to[1] === 0) state.castling[capOwner+'Q'] = false;
+    if (m.to[0] === capHome && m.to[1] === 7) state.castling[capOwner+'K'] = false;
+  }
+
+  if (m.isDouble){
+    state.enPassant = [(m.from[0]+m.to[0])/2, m.from[1]];
+  } else {
+    state.enPassant = null;
+  }
+
+  if (piece.type === 'P' || captured) state.halfmoveClock = 0; else state.halfmoveClock++;
+  if (owner === 'b') state.fullmoveNumber++;
+
+  state.turn = opp(owner);
+  return captured;
+}
+
+/* 合法手生成 (自玉が王手のままになる手を除外) */
+function generateLegalMoves(state, owner){
+  var board = state.board;
+  var moves = [];
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++){
+    var p = board[r][c];
+    if (!p || p.owner !== owner) continue;
+    var pm = pseudoMovesFrom(state, r, c);
+    pm.forEach(function(m){
+      if (m.isPromotion){
+        PROMO_CHOICES.forEach(function(pt){
+          var mm = Object.assign({}, m, { promotion: pt });
+          if (isLegal(mm)) moves.push(mm);
+        });
+      } else {
+        if (isLegal(m)) moves.push(m);
+      }
+    });
+  }
+  function isLegal(m){
+    var s2 = cloneState(state);
+    applyMove(s2, m);
+    return !isInCheck(s2.board, owner);
+  }
+  return moves;
+}
+
+function hasAnyLegalMove(state, owner){
+  var board = state.board;
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++){
+    var p = board[r][c];
+    if (!p || p.owner !== owner) continue;
+    var pm = pseudoMovesFrom(state, r, c);
+    for (var i = 0; i < pm.length; i++){
+      var s2 = cloneState(state);
+      var m = pm[i];
+      if (m.isPromotion) m = Object.assign({}, m, { promotion:'Q' });
+      applyMove(s2, m);
+      if (!isInCheck(s2.board, owner)) return true;
+    }
+  }
+  return false;
+}
+
+/* 評価関数 & AI (ネガマックス + αβ枝刈り) */
+var CENTER_BONUS = [
+  [0,0,0,0,0,0,0,0],
+  [0,1,1,1,1,1,1,0],
+  [0,1,2,2,2,2,1,0],
+  [0,1,2,3,3,2,1,0],
+  [0,1,2,3,3,2,1,0],
+  [0,1,2,2,2,2,1,0],
+  [0,1,1,1,1,1,1,0],
+  [0,0,0,0,0,0,0,0]
+];
+
+function evaluate(state, owner){
+  var score = 0;
+  var board = state.board;
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++){
+    var p = board[r][c];
+    if (!p) continue;
+    var v = PIECE_VALUE[p.type] || 0;
+    if (p.type !== 'K') v += CENTER_BONUS[r][c] * 2;
+    score += (p.owner === owner ? v : -v);
+  }
+  return score;
+}
+
+function moveCaptureValue(state, m){
+  if (m.isEnPassant) return PIECE_VALUE.P;
+  var t = state.board[m.to[0]][m.to[1]];
+  var v = t ? (PIECE_VALUE[t.type]||0) : 0;
+  if (m.isPromotion) v += (PIECE_VALUE[m.promotion||'Q'] - PIECE_VALUE.P);
+  return v;
+}
+
+function orderMoves(state, moves){
+  return moves.slice().sort(function(a,b){
+    return moveCaptureValue(state,b) - moveCaptureValue(state,a);
+  });
+}
+
+function negamax(state, owner, depth, alpha, beta){
+  var moves = generateLegalMoves(state, owner);
+  if (moves.length === 0){
+    return isInCheck(state.board, owner) ? -99999 - depth : 0;
+  }
+  if (depth === 0){
+    return evaluate(state, owner);
+  }
+  moves = orderMoves(state, moves);
+  var best = -Infinity;
+  for (var i = 0; i < moves.length; i++){
+    var s2 = cloneState(state);
+    applyMove(s2, moves[i]);
+    var score = -negamax(s2, opp(owner), depth-1, -beta, -alpha);
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+function pickAiMove(state, owner, depth, slack){
+  slack = slack || 0;
+  var moves = generateLegalMoves(state, owner);
+  if (moves.length === 0) return null;
+  moves = orderMoves(state, moves);
+  var bestScore = -Infinity, scored = [];
+  var alpha = -Infinity, beta = Infinity;
+  for (var i = 0; i < moves.length; i++){
+    var s2 = cloneState(state);
+    applyMove(s2, moves[i]);
+    var score = -negamax(s2, opp(owner), depth-1, -beta, -alpha);
+    scored.push({ m: moves[i], score: score });
+    if (score > bestScore) bestScore = score;
+    if (bestScore > alpha) alpha = bestScore;
+  }
+  var candidates = scored.filter(function(s){ return s.score >= bestScore - slack; });
+  return candidates[Math.floor(Math.random()*candidates.length)].m;
+}
+
+function gameStatus(state){
+  var owner = state.turn;
+  var hasMove = hasAnyLegalMove(state, owner);
+  var check = isInCheck(state.board, owner);
+  if (!hasMove){
+    return check ? { over:true, result:'checkmate', winner: opp(owner) } : { over:true, result:'stalemate', winner:null };
+  }
+  return { over:false, check:check };
+}
+
+/* =========================================================
+   UI 状態管理
+   ========================================================= */
+var GLYPH = {
+  w: { K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙' },
+  b: { K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟' }
+};
+
+var els = {};
+['home','game','board','captured-black','captured-white','turn-indicator','msg-area',
+ 'mode-label','promote-modal','result-modal','result-text','result-ok'
+].forEach(function(id){ els[id.replace(/-([a-z])/g, function(_,c){return c.toUpperCase();})] = document.getElementById(id); });
+
+var app = {
+  state: null,
+  mode: null,        // 'ai' | '2p'
+  humanSide: 'w',
+  aiDepth: 2,
+  aiSlack: 200,
+  selected: null,     // { r, c }
+  legalTargets: [],   // [{r,c,move}]
+  lastMove: null,     // { from:[r,c], to:[r,c] }
+  captured: { w:[], b:[] }, // 取られた駒 (取った側の owner ごとに保持)
+  gameOver: false,
+  aiThinking: false,
+  flipped: false
+};
+
+function newGame(){
+  app.state = initialState();
+  app.selected = null;
+  app.legalTargets = [];
+  app.lastMove = null;
+  app.captured = { w:[], b:[] };
+  app.gameOver = false;
+  app.aiThinking = false;
+  app.flipped = (app.mode === 'ai' && app.humanSide === 'b');
+  render();
+  maybeAiMove();
+}
+
+function setMsg(t){ els.msgArea.textContent = t || ''; }
+
+function render(){
+  renderBoard();
+  renderCaptured();
+  renderTurn();
+}
+
+function renderTurn(){
+  if (app.gameOver){ els.turnIndicator.textContent = ''; return; }
+  var who = app.state.turn === 'w' ? '白' : '黒';
+  if (app.mode === 'ai'){
+    who += (app.state.turn === app.humanSide) ? ' (あなた)' : ' (AI)';
+  }
+  els.turnIndicator.textContent = who + 'の番です';
+  els.turnIndicator.className = 'turn-indicator ' + (app.state.turn === 'w' ? 'white-turn' : 'black-turn');
+}
+
+function visToActual(vr, vc){
+  return app.flipped ? [7-vr, 7-vc] : [vr, vc];
+}
+
+function renderBoard(){
+  els.board.innerHTML = '';
+  var checkedKingSq = null;
+  if (!app.gameOver && isInCheck(app.state.board, app.state.turn)){
+    checkedKingSq = findKing(app.state.board, app.state.turn);
+  }
+  for (var vr = 0; vr < 8; vr++){
+    for (var vc = 0; vc < 8; vc++){
+      var pos = visToActual(vr, vc);
+      var r = pos[0], c = pos[1];
+      var cell = document.createElement('div');
+      cell.className = 'cell ' + (((r+c)%2===0) ? 'light' : 'dark');
+      cell.dataset.r = r; cell.dataset.c = c;
+      var p = app.state.board[r][c];
+      if (p){
+        var span = document.createElement('span');
+        span.className = 'piece ' + (p.owner === 'w' ? 'white' : 'black');
+        span.textContent = GLYPH[p.owner][p.type];
+        cell.appendChild(span);
+      }
+      if (app.selected && app.selected.r === r && app.selected.c === c){
+        cell.classList.add('selected');
+      }
+      if (app.lastMove && ((app.lastMove.to[0]===r && app.lastMove.to[1]===c) || (app.lastMove.from[0]===r && app.lastMove.from[1]===c))){
+        cell.classList.add('last-move');
+      }
+      if (checkedKingSq && checkedKingSq[0]===r && checkedKingSq[1]===c){
+        cell.classList.add('in-check');
+      }
+      var target = app.legalTargets.find(function(t){ return t.r === r && t.c === c; });
+      if (target){
+        cell.classList.add('movable');
+        if (p) cell.classList.add('has-piece');
+      }
+      cell.addEventListener('click', onCellClick);
+      els.board.appendChild(cell);
+    }
+  }
+}
+
+function renderCaptured(){
+  renderCapturedRow(els.capturedBlack, 'w'); // 白が取った黒の駒 → 黒側の列に並べて表示(黒が減ったことを示す)
+  renderCapturedRow(els.capturedWhite, 'b');
+}
+function renderCapturedRow(container, capturedOwner){
+  container.innerHTML = '';
+  var order = ['Q','R','B','N','P'];
+  var list = app.captured[capturedOwner === 'w' ? 'b' : 'w'] || [];
+  var sorted = list.slice().sort(function(a,b){ return order.indexOf(a) - order.indexOf(b); });
+  sorted.forEach(function(t){
+    var span = document.createElement('span');
+    span.className = 'cp ' + (capturedOwner === 'w' ? 'black' : 'white');
+    span.textContent = GLYPH[capturedOwner === 'w' ? 'b' : 'w'][t];
+    container.appendChild(span);
+  });
+}
+
+function isHumanTurn(){
+  if (app.gameOver) return false;
+  if (app.mode === '2p') return true;
+  return app.state.turn === app.humanSide;
+}
+
+function onCellClick(e){
+  if (!isHumanTurn() || app.aiThinking) return;
+  var r = parseInt(e.currentTarget.dataset.r,10), c = parseInt(e.currentTarget.dataset.c,10);
+  var p = app.state.board[r][c];
+
+  if (app.selected){
+    var target = app.legalTargets.find(function(t){ return t.r === r && t.c === c; });
+    if (target){
+      performMove(target);
+      return;
+    }
+    if (p && p.owner === app.state.turn){
+      selectSquare(r,c);
+      return;
+    }
+    app.selected = null; app.legalTargets = [];
+    render();
+    return;
+  }
+
+  if (p && p.owner === app.state.turn){
+    selectSquare(r,c);
+  }
+}
+
+function selectSquare(r,c){
+  app.selected = { r:r, c:c };
+  var all = generateLegalMoves(app.state, app.state.turn);
+  var targets = [];
+  all.forEach(function(m){
+    if (m.from[0] === r && m.from[1] === c){
+      var existing = targets.find(function(t){ return t.r === m.to[0] && t.c === m.to[1]; });
+      if (existing){
+        // 同じマスへ複数の昇格候補がある場合はまとめて保持
+        existing.moves.push(m);
+      } else {
+        targets.push({ r: m.to[0], c: m.to[1], moves: [m] });
+      }
+    }
+  });
+  app.legalTargets = targets;
+  render();
+}
+
+var pendingPromoTarget = null;
+function performMove(target){
+  if (target.moves.length > 1){
+    // 昇格の駒選択が必要
+    pendingPromoTarget = target;
+    els.promoteModal.classList.add('show');
+    return;
+  }
+  commitMove(target.moves[0]);
+}
+
+[].forEach.call(document.querySelectorAll('#promote-modal .promo-btn'), function(btn){
+  btn.addEventListener('click', function(){
+    els.promoteModal.classList.remove('show');
+    var pt = btn.dataset.p;
+    var target = pendingPromoTarget; pendingPromoTarget = null;
+    if (!target) return;
+    var m = target.moves.find(function(mm){ return mm.promotion === pt; }) || target.moves[0];
+    commitMove(m);
+  });
+});
+
+function commitMove(m){
+  var owner = app.state.turn;
+  var captured = applyMove(app.state, m);
+  if (captured){
+    app.captured[owner].push(captured.type);
+  }
+  app.lastMove = { from: m.from, to: m.to };
+  app.selected = null; app.legalTargets = [];
+  setMsg('');
+  render();
+  checkGameEnd();
+  if (!app.gameOver) maybeAiMove();
+}
+
+function checkGameEnd(){
+  var status = gameStatus(app.state);
+  if (status.over){
+    app.gameOver = true;
+    if (status.result === 'checkmate'){
+      var winnerLabel = status.winner === 'w' ? '白' : '黒';
+      showResult(winnerLabel + 'の勝ち (チェックメイト)');
+    } else {
+      showResult('引き分け (ステイルメイト)');
+    }
+    render();
+    return;
+  }
+  if (status.check){
+    setMsg((app.state.turn === 'w' ? '白' : '黒') + '玉にチェック!');
+  }
+}
+
+function showResult(text){
+  els.resultText.textContent = text;
+  els.resultModal.classList.add('show');
+  renderTurn();
+}
+els.resultOk.addEventListener('click', function(){
+  els.resultModal.classList.remove('show');
+  goHome();
+});
+
+function maybeAiMove(){
+  if (app.gameOver) return;
+  if (app.mode !== 'ai') return;
+  if (app.state.turn === app.humanSide) return;
+  app.aiThinking = true;
+  setMsg('AIが考え中…');
+  var aiOwner = app.state.turn;
+  setTimeout(function(){
+    var m = pickAiMove(app.state, aiOwner, app.aiDepth, app.aiSlack);
+    app.aiThinking = false;
+    if (!m){ return; }
+    var captured = applyMove(app.state, m);
+    if (captured){
+      app.captured[aiOwner].push(captured.type);
+    }
+    app.lastMove = { from: m.from, to: m.to };
+    setMsg('');
+    render();
+    checkGameEnd();
+  }, 150);
+}
+
+/* =========================================================
+   画面遷移
+   ========================================================= */
+function goHome(){
+  els.home.style.display = 'flex';
+  els.game.style.display = 'none';
+}
+function goGame(){
+  els.home.style.display = 'none';
+  els.game.style.display = 'flex';
+}
+
+document.getElementById('side-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#side-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.humanSide = btn.dataset.side;
+});
+document.getElementById('diff-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#diff-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  var diff = parseInt(btn.dataset.diff,10);
+  app.aiDepth = diff === 1 ? 1 : (diff === 2 ? 2 : 3); // やさしい=1手, ふつう=2手, つよい=3手先読み
+  app.aiSlack = diff === 1 ? 400 : (diff === 2 ? 150 : 0);
+});
+
+document.getElementById('btn-vs-ai').addEventListener('click', function(){
+  app.mode = 'ai';
+  els.modeLabel.textContent = '対AI対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-2p').addEventListener('click', function(){
+  app.mode = '2p';
+  els.modeLabel.textContent = '2人対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-home').addEventListener('click', goHome);
+document.getElementById('btn-restart').addEventListener('click', newGame);
+
+})();
+</script>
+</body>
+</html>

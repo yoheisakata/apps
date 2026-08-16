@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💎</text></svg>">
+<title>ダイヤモンドゲーム</title>
+<meta name="theme-color" content="#140b26">
+<style>
+:root{
+  --bg1:#140b26; --bg2:#1c0f33; --bg3:#0d0718;
+  --board:#241a3d; --board-line:#4a3a72;
+  --hole:#2f2352; --hole-rim:#5c4a8e;
+  --text:#f0e9ff; --sub:#a595c9;
+  --accent:#ff5ea8; --accent2:#7c4dff;
+  --sel:#7fe0a0; --move:#6cc7e4;
+  --p1a:#ff7a59; --p1b:#ff5ea8;
+  --p2a:#4fd1ff; --p2b:#3b6bff;
+}
+*,*::before,*::after{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;
+  background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px 12px 40px;
+  overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 6%, rgba(255,94,168,0.14) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 45% at 88% 92%, rgba(79,209,255,0.12) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+.wrap{position:relative; z-index:1; width:100%; max-width:460px; display:flex; flex-direction:column; align-items:center;}
+.home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
+.app-title{font-size:clamp(1.4rem,6vw,1.9rem); font-weight:900; text-align:center; margin:6px 0 2px;
+  background:linear-gradient(135deg,#ffb3d6 0%,#9d8bff 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+.app-sub{color:var(--sub); font-size:0.85rem; text-align:center; margin-bottom:4px;}
+.app-version{color:var(--sub); opacity:0.55; font-size:0.65rem; letter-spacing:.06em; text-align:center; margin-bottom:16px;}
+
+/* ---- ホーム画面 ---- */
+#home{width:100%; display:flex; flex-direction:column; align-items:center; gap:14px; padding-top:16px;}
+.mode-btn{
+  width:100%; max-width:340px; padding:18px; border-radius:16px; border:1px solid rgba(255,94,168,0.25);
+  background:linear-gradient(135deg, rgba(255,94,168,0.14), rgba(124,77,255,0.1));
+  color:var(--text); font-size:1.05rem; font-weight:700; text-align:center;
+  cursor:pointer; transition:transform .12s;
+}
+.mode-btn:active{transform:scale(0.96);}
+.mode-btn .desc{display:block; font-size:0.75rem; color:var(--sub); font-weight:400; margin-top:4px;}
+.side-choice{display:flex; gap:10px; margin-top:4px;}
+.side-btn{padding:10px 18px; border-radius:100px; border:1px solid rgba(255,94,168,0.3); background:rgba(255,255,255,0.03);
+  color:var(--text); font-size:0.85rem; cursor:pointer;}
+.side-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#140b26; font-weight:900; border-color:transparent;}
+.diff-choice{display:flex; gap:8px; margin-top:2px; flex-wrap:wrap; justify-content:center;}
+
+/* ---- ゲーム画面 ---- */
+#game{display:none; width:100%; flex-direction:column; align-items:center;}
+.topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
+.topbar button{background:none; border:1px solid rgba(255,94,168,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
+
+.turn-indicator{font-size:0.85rem; font-weight:700; margin:2px 0 8px; text-align:center; min-height:1.2em;}
+.turn-indicator.p1-turn{color:var(--p1a);}
+.turn-indicator.p2-turn{color:var(--p2a);}
+
+.board-wrap{width:min(360px,92vw); display:flex; justify-content:center;}
+#board{width:100%; height:auto; display:block; background:var(--board); border:3px solid var(--board-line); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.5);}
+.hole{fill:var(--hole); stroke:var(--hole-rim); stroke-width:1.2; cursor:pointer;}
+.hole.legal{fill:rgba(108,199,228,0.35); stroke:var(--move);}
+.hole.selected-empty{fill:rgba(127,224,160,0.35); stroke:var(--sel);}
+.hole-hit{fill:transparent; cursor:pointer;}
+.piece{cursor:pointer;}
+.piece.p1{fill:url(#gradP1);}
+.piece.p2{fill:url(#gradP2);}
+.piece-rim{fill:none; stroke:rgba(0,0,0,0.35); stroke-width:1;}
+.piece.selected{stroke:var(--sel); stroke-width:2.5;}
+.piece.legal-jump-target{stroke:var(--move); stroke-width:2.5;}
+.last-move-ring{fill:none; stroke:rgba(255,255,255,0.55); stroke-width:2; stroke-dasharray:2 2;}
+
+.msg-area{min-height:1.4em; font-size:0.8rem; color:var(--accent); text-align:center; margin-top:8px;}
+
+/* ---- モーダル ---- */
+.modal-bg{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:10; align-items:center; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:linear-gradient(160deg,#231539,#150c26); border:1px solid rgba(255,94,168,0.3); border-radius:16px; padding:24px; max-width:320px; width:88%; text-align:center;}
+.modal p{margin-bottom:16px; font-size:0.95rem;}
+.modal .btn-row{display:flex; gap:10px; justify-content:center;}
+.modal button{flex:1; padding:12px; border-radius:10px; border:none; font-weight:700; font-size:0.9rem; cursor:pointer;}
+.modal .btn-single{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#140b26;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home-link" href="../">← アプリ一覧へ</a>
+  <div class="app-title">💎 ダイヤモンドゲーム</div>
+  <div class="app-sub">駒を選んでタップで進める</div>
+  <div class="app-version">v1.0.0</div>
+
+  <!-- ホーム画面 -->
+  <div id="home">
+    <div class="mode-btn" id="btn-vs-ai">🤖 対AI対戦<span class="desc">コンピュータと対局する</span></div>
+    <div class="side-choice" id="side-choice">
+      <button class="side-btn active" data-side="p1">先攻でプレイ</button>
+      <button class="side-btn" data-side="p2">後攻でプレイ</button>
+    </div>
+    <div class="diff-choice" id="diff-choice">
+      <button class="side-btn active" data-diff="1">やさしい</button>
+      <button class="side-btn" data-diff="2">ふつう</button>
+      <button class="side-btn" data-diff="3">つよい</button>
+    </div>
+    <div class="mode-btn" id="btn-2p" style="margin-top:6px;">👥 2人対戦<span class="desc">同じ端末で交互に進める</span></div>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game">
+    <div class="topbar">
+      <button id="btn-home">🏠 ホーム</button>
+      <span id="mode-label"></span>
+      <button id="btn-restart">↻ やりなおす</button>
+    </div>
+    <div class="turn-indicator" id="turn-indicator"></div>
+    <div class="board-wrap"><svg id="board" viewBox="0 0 369 420" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="gradP1" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="#ff9d7a"/>
+          <stop offset="100%" stop-color="#ff5ea8"/>
+        </radialGradient>
+        <radialGradient id="gradP2" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="#8be9ff"/>
+          <stop offset="100%" stop-color="#3b6bff"/>
+        </radialGradient>
+      </defs>
+    </svg></div>
+    <div class="msg-area" id="msg-area"></div>
+  </div>
+</div>
+
+<!-- 結果モーダル -->
+<div class="modal-bg" id="result-modal">
+  <div class="modal">
+    <p id="result-text"></p>
+    <div class="btn-row">
+      <button class="btn-single" id="result-ok">ホームへ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   エンジン (盤面ロジック) — cube 座標系 (x,y,z, x+y+z=0)
+   盤は「六角形 + 6つの三角形の先端」からなる星型 (ヘキサグラム)。
+   TriangleUp   = { x>=-n, y>=-n, z>=-n }
+   TriangleDown = { x<=n,  y<=n,  z<=n  }
+   の和集合。交わりが中央の六角形、それぞれの三角形からはみ出す
+   部分 (3つずつ) が計6つの先端になる。n=4 で 61 + 6*10 = 121 穴。
+   ========================================================= */
+var N = 4;
+var DIRS = [[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]];
+
+function ckey(x,y,z){ return x+','+y+','+z; }
+
+function inStar(x,y,z,n){
+  var minV = Math.min(x,y,z), maxV = Math.max(x,y,z);
+  return (minV >= -n) || (maxV <= n);
+}
+function pointLabel(x,y,z,n){
+  if (x > n) return '+x';
+  if (x < -n) return '-x';
+  if (y > n) return '+y';
+  if (y < -n) return '-y';
+  if (z > n) return '+z';
+  if (z < -n) return '-z';
+  return null;
+}
+function buildShape(n){
+  var cells = [];
+  var set = {};
+  var points = { '+x':[], '-x':[], '+y':[], '-y':[], '+z':[], '-z':[] };
+  for (var x=-2*n; x<=2*n; x++){
+    for (var y=-2*n; y<=2*n; y++){
+      var z = -x-y;
+      if (Math.abs(z) > 2*n) continue;
+      if (!inStar(x,y,z,n)) continue;
+      var lbl = pointLabel(x,y,z,n);
+      var c = { x:x, y:y, z:z, label:lbl };
+      cells.push(c);
+      set[ckey(x,y,z)] = c;
+      if (lbl) points[lbl].push(c);
+    }
+  }
+  return { cells:cells, set:set, points:points };
+}
+var SHAPE = buildShape(N);
+function isValidCell(x,y,z){ return !!SHAPE.set[ckey(x,y,z)]; }
+var OPPOSITE_POINT = { '+x':'-x','-x':'+x','+y':'-y','-y':'+y','+z':'-z','-z':'+z' };
+
+/* ---- 画面座標への変換 (+x 先端を下、-x 先端を上にする回転込み) ---- */
+var DIR_X = [1,0], DIR_Y = [-0.5,0.866025403], DIR_Z = [-0.5,-0.866025403];
+var SCALE = 16, PAD = 18;
+(function(){
+  var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  SHAPE.cells.forEach(function(c){
+    var px = c.x*DIR_X[0]+c.y*DIR_Y[0]+c.z*DIR_Z[0];
+    var py = c.x*DIR_X[1]+c.y*DIR_Y[1]+c.z*DIR_Z[1];
+    var rx = -py, ry = px; // 90度回転
+    c.px = rx; c.py = ry;
+    if (rx<minX)minX=rx; if(rx>maxX)maxX=rx;
+    if (ry<minY)minY=ry; if(ry>maxY)maxY=ry;
+  });
+  SHAPE.cells.forEach(function(c){
+    c.sx = (c.px - minX) * SCALE + PAD;
+    c.sy = (c.py - minY) * SCALE + PAD;
+  });
+})();
+var HOLE_R = 8.6, PIECE_R = 7.4;
+
+function cellAt(x,y,z){ return SHAPE.set[ckey(x,y,z)]; }
+
+/* ---- 初期配置 ---- */
+function initialBoard(p1Point, p2Point){
+  var board = {};
+  SHAPE.points[p1Point].forEach(function(c){ board[ckey(c.x,c.y,c.z)] = 'p1'; });
+  SHAPE.points[p2Point].forEach(function(c){ board[ckey(c.x,c.y,c.z)] = 'p2'; });
+  return board;
+}
+function cloneBoard(board){
+  var nb = {};
+  for (var k in board){ if (board.hasOwnProperty(k)) nb[k]=board[k]; }
+  return nb;
+}
+
+/* ---- 着手生成 ---- */
+function neighborsOf(x,y,z){
+  var res = [];
+  for (var i=0;i<DIRS.length;i++){
+    var d = DIRS[i], nx=x+d[0], ny=y+d[1], nz=z+d[2];
+    if (isValidCell(nx,ny,nz)) res.push({x:nx,y:ny,z:nz});
+  }
+  return res;
+}
+function jumpDestsFrom(board,x,y,z){
+  var res = [];
+  for (var i=0;i<DIRS.length;i++){
+    var d = DIRS[i];
+    var mx=x+d[0], my=y+d[1], mz=z+d[2];
+    var lx=x+2*d[0], ly=y+2*d[1], lz=z+2*d[2];
+    if (!isValidCell(mx,my,mz)) continue;
+    if (!board[ckey(mx,my,mz)]) continue;
+    if (!isValidCell(lx,ly,lz)) continue;
+    if (board[ckey(lx,ly,lz)]) continue;
+    res.push({x:lx,y:ly,z:lz});
+  }
+  return res;
+}
+/* チェーンジャンプで到達できる全マス。同じチェーン内で同じ穴に
+   二度着地しない (無限ループ防止も兼ねる)。 */
+function reachableViaJumps(board,x,y,z){
+  var visited = {}; visited[ckey(x,y,z)] = true;
+  var result = {};
+  function dfs(cx,cy,cz){
+    var dests = jumpDestsFrom(board,cx,cy,cz);
+    for (var i=0;i<dests.length;i++){
+      var d = dests[i], k = ckey(d.x,d.y,d.z);
+      if (visited[k]) continue;
+      visited[k] = true;
+      result[k] = d;
+      dfs(d.x,d.y,d.z);
+    }
+  }
+  dfs(x,y,z);
+  return Object.keys(result).map(function(k){ return result[k]; });
+}
+function movesForPiece(board,x,y,z){
+  var moves = [];
+  neighborsOf(x,y,z).forEach(function(n){
+    if (!board[ckey(n.x,n.y,n.z)]) moves.push({ type:'step', from:{x:x,y:y,z:z}, to:n });
+  });
+  reachableViaJumps(board,x,y,z).forEach(function(d){
+    moves.push({ type:'jump', from:{x:x,y:y,z:z}, to:d });
+  });
+  return moves;
+}
+function movesForPlayer(board, owner){
+  var moves = [];
+  for (var k in board){
+    if (!board.hasOwnProperty(k) || board[k] !== owner) continue;
+    var p = k.split(',');
+    moves = moves.concat(movesForPiece(board, +p[0], +p[1], +p[2]));
+  }
+  return moves;
+}
+function applyMove(board, move){
+  var fromKey = ckey(move.from.x, move.from.y, move.from.z);
+  var toKey = ckey(move.to.x, move.to.y, move.to.z);
+  var owner = board[fromKey];
+  delete board[fromKey];
+  board[toKey] = owner;
+}
+function hasWon(board, owner, targetPoint){
+  var cells = SHAPE.points[targetPoint];
+  for (var i=0;i<cells.length;i++){
+    var c = cells[i];
+    if (board[ckey(c.x,c.y,c.z)] !== owner) return false;
+  }
+  return true;
+}
+
+/* =========================================================
+   評価関数 & AI (ネガマックス + αβ枝刈り)
+   捕獲のないレースゲームなので、評価値は「自分の出発先端の軸に
+   沿ってどれだけゴール側へ進んだか」の合計 (相手分は差し引く)。
+   連続ジャンプは1手で大きく前進できるため、探索なしでも貪欲に
+   高評価だが、1〜2手の先読みで相手の進みも考慮する。
+   ========================================================= */
+function axisOfPoint(pt){ return pt[1]; }
+function signOfPoint(pt){ return pt[0]==='+' ? 1 : -1; }
+function evaluateForOwner(board, owner, ownerPt, oppPt){
+  var axis = axisOfPoint(ownerPt), sign = -signOfPoint(ownerPt);
+  var oAxis = axisOfPoint(oppPt), oSign = -signOfPoint(oppPt);
+  var score = 0;
+  for (var k in board){
+    if (!board.hasOwnProperty(k)) continue;
+    var o = board[k];
+    var p = k.split(',');
+    var coord = { x:+p[0], y:+p[1], z:+p[2] };
+    if (o === owner) score += sign * coord[axis];
+    else score -= oSign * coord[oAxis];
+  }
+  return score;
+}
+function moveProgressDelta(m, pt){
+  var axis = axisOfPoint(pt), sign = -signOfPoint(pt);
+  return sign * (m.to[axis] - m.from[axis]);
+}
+
+function negamax(board, owner, ownerPt, opp, oppPt, depth, alpha, beta){
+  var moves = movesForPlayer(board, owner);
+  if (moves.length === 0 || depth === 0){
+    return evaluateForOwner(board, owner, ownerPt, oppPt);
+  }
+  moves.sort(function(a,b){ return moveProgressDelta(b,ownerPt) - moveProgressDelta(a,ownerPt); });
+  var best = -Infinity;
+  for (var i=0;i<moves.length;i++){
+    var nb = cloneBoard(board);
+    applyMove(nb, moves[i]);
+    var score = -negamax(nb, opp, oppPt, owner, ownerPt, depth-1, -beta, -alpha);
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+function pickAiMove(board, owner, ownerPt, opp, oppPt, depth, slack){
+  var moves = movesForPlayer(board, owner);
+  if (moves.length === 0) return null;
+  moves.sort(function(a,b){ return moveProgressDelta(b,ownerPt) - moveProgressDelta(a,ownerPt); });
+  var scored = [], bestScore = -Infinity, alpha = -Infinity, beta = Infinity;
+  for (var i=0;i<moves.length;i++){
+    var nb = cloneBoard(board);
+    applyMove(nb, moves[i]);
+    var score = -negamax(nb, opp, oppPt, owner, ownerPt, depth-1, -beta, -alpha);
+    scored.push({ m:moves[i], score:score });
+    if (score > bestScore) bestScore = score;
+    if (bestScore > alpha) alpha = bestScore;
+  }
+  var candidates = scored.filter(function(s){ return s.score >= bestScore - slack; });
+  return candidates[Math.floor(Math.random()*candidates.length)].m;
+}
+
+/* =========================================================
+   UI 状態管理
+   ========================================================= */
+var els = {};
+['home','game','board','turn-indicator','msg-area','mode-label',
+ 'result-modal','result-text','result-ok'
+].forEach(function(id){ els[id.replace(/-([a-z])/g, function(_,c){return c.toUpperCase();})] = document.getElementById(id); });
+
+var P1_POINT = '+x', P2_POINT = '-x';
+
+var app = {
+  board: null,
+  turn: 'p1',
+  mode: null,        // 'ai' | '2p'
+  humanSide: 'p1',
+  aiDepth: 1,
+  aiSlack: 200,
+  selected: null,    // {x,y,z}
+  legalTargets: [],  // [{x,y,z}]
+  lastMove: null,    // {from:{x,y,z}, to:{x,y,z}}
+  gameOver: false,
+  aiThinking: false
+};
+
+function opp(owner){ return owner === 'p1' ? 'p2' : 'p1'; }
+function pointOf(owner){ return owner === 'p1' ? P1_POINT : P2_POINT; }
+
+function newGame(){
+  app.board = initialBoard(P1_POINT, P2_POINT);
+  app.turn = 'p1';
+  app.selected = null;
+  app.legalTargets = [];
+  app.lastMove = null;
+  app.gameOver = false;
+  app.aiThinking = false;
+  setMsg('');
+  render();
+  maybeAiMove();
+}
+
+function setMsg(t){ els.msgArea.textContent = t || ''; }
+
+/* ---- 描画 ---- */
+var SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){
+  var el = document.createElementNS(SVGNS, tag);
+  for (var k in attrs){ el.setAttribute(k, attrs[k]); }
+  return el;
+}
+
+function render(){
+  renderBoard();
+  renderTurn();
+}
+
+function renderTurn(){
+  if (app.gameOver){ els.turnIndicator.textContent = ''; return; }
+  var who = app.turn === 'p1' ? '先攻' : '後攻';
+  if (app.mode === 'ai') who += (app.turn === app.humanSide) ? ' (あなた)' : ' (AI)';
+  els.turnIndicator.textContent = who + 'の番です';
+  els.turnIndicator.className = 'turn-indicator ' + (app.turn === 'p1' ? 'p1-turn' : 'p2-turn');
+}
+
+function renderBoard(){
+  var svg = els.board;
+  // defs は保持し、それ以外を再構築
+  var defs = svg.querySelector('defs');
+  svg.innerHTML = '';
+  if (defs) svg.appendChild(defs);
+
+  var legalMap = {};
+  app.legalTargets.forEach(function(t){ legalMap[ckey(t.x,t.y,t.z)] = true; });
+
+  SHAPE.cells.forEach(function(c){
+    var k = ckey(c.x,c.y,c.z);
+    var occ = app.board[k];
+    var isLegal = !!legalMap[k];
+    var isSelected = app.selected && app.selected.x===c.x && app.selected.y===c.y && app.selected.z===c.z;
+
+    var holeClass = 'hole' + (isLegal && !occ ? ' legal' : '') + (isSelected && !occ ? ' selected-empty' : '');
+    svg.appendChild(svgEl('circle', { cx:c.sx, cy:c.sy, r:HOLE_R, class:holeClass }));
+
+    if (app.lastMove && ((app.lastMove.to.x===c.x&&app.lastMove.to.y===c.y&&app.lastMove.to.z===c.z) ||
+                          (app.lastMove.from.x===c.x&&app.lastMove.from.y===c.y&&app.lastMove.from.z===c.z))){
+      svg.appendChild(svgEl('circle', { cx:c.sx, cy:c.sy, r:HOLE_R+2, class:'last-move-ring' }));
+    }
+
+    if (occ){
+      var pieceClass = 'piece ' + occ + (isSelected ? ' selected' : '') + (isLegal ? ' legal-jump-target' : '');
+      svg.appendChild(svgEl('circle', { cx:c.sx, cy:c.sy, r:PIECE_R, class:pieceClass }));
+      svg.appendChild(svgEl('circle', { cx:c.sx, cy:c.sy, r:PIECE_R, class:'piece-rim' }));
+    }
+    // クリック判定用の透明な広めの円 (穴/駒どちらの上にも重ねる)
+    var hit = svgEl('circle', { cx:c.sx, cy:c.sy, r:HOLE_R+2, class:'hole-hit' });
+    hit.dataset.x = c.x; hit.dataset.y = c.y; hit.dataset.z = c.z;
+    hit.addEventListener('click', onCellClick);
+    svg.appendChild(hit);
+  });
+}
+
+function isHumanTurn(){
+  if (app.gameOver) return false;
+  if (app.mode === '2p') return true;
+  return app.turn === app.humanSide;
+}
+
+function onCellClick(e){
+  if (!isHumanTurn() || app.aiThinking) return;
+  var x = parseInt(e.currentTarget.dataset.x,10);
+  var y = parseInt(e.currentTarget.dataset.y,10);
+  var z = parseInt(e.currentTarget.dataset.z,10);
+  var k = ckey(x,y,z);
+  var occ = app.board[k];
+
+  if (app.selected){
+    var isTarget = app.legalTargets.some(function(t){ return t.x===x&&t.y===y&&t.z===z; });
+    if (isTarget){
+      performMove(app.selected, {x:x,y:y,z:z});
+      return;
+    }
+    if (occ === app.turn){
+      app.selected = { x:x, y:y, z:z };
+      app.legalTargets = movesForPiece(app.board, x,y,z).map(function(m){ return m.to; });
+      render();
+      return;
+    }
+    app.selected = null; app.legalTargets = [];
+    render();
+    return;
+  }
+
+  if (occ === app.turn){
+    app.selected = { x:x, y:y, z:z };
+    app.legalTargets = movesForPiece(app.board, x,y,z).map(function(m){ return m.to; });
+    render();
+  }
+}
+
+function performMove(from, to){
+  var owner = app.turn;
+  applyMove(app.board, { from:from, to:to });
+  app.lastMove = { from:from, to:to };
+  app.selected = null; app.legalTargets = [];
+  setMsg('');
+  render();
+
+  if (hasWon(app.board, owner, OPPOSITE_POINT[pointOf(owner)])){
+    app.gameOver = true;
+    var label = ownerLabel(owner);
+    showResult(label + 'の勝ち!');
+    return;
+  }
+
+  app.turn = opp(owner);
+  render();
+
+  var nextMoves = movesForPlayer(app.board, app.turn);
+  if (nextMoves.length === 0){
+    setMsg((app.turn==='p1'?'先攻':'後攻') + 'は動かせる駒がありません。手番を交代します。');
+    app.turn = opp(app.turn);
+    render();
+  }
+
+  maybeAiMove();
+}
+
+function ownerLabel(owner){
+  if (app.mode === 'ai') return (owner === app.humanSide) ? 'あなた' : 'AI';
+  return (owner === 'p1') ? '先攻' : '後攻';
+}
+
+function showResult(text){
+  els.resultText.textContent = text;
+  els.resultModal.classList.add('show');
+  renderTurn();
+}
+els.resultOk.addEventListener('click', function(){
+  els.resultModal.classList.remove('show');
+  goHome();
+});
+
+function maybeAiMove(){
+  if (app.gameOver) return;
+  if (app.mode !== 'ai') return;
+  if (app.turn === app.humanSide) return;
+  app.aiThinking = true;
+  setMsg('AIが考え中…');
+  var aiOwner = app.turn;
+  setTimeout(function(){
+    var m = pickAiMove(app.board, aiOwner, pointOf(aiOwner), opp(aiOwner), pointOf(opp(aiOwner)), app.aiDepth, app.aiSlack);
+    app.aiThinking = false;
+    if (!m){
+      setMsg((aiOwner==='p1'?'先攻':'後攻') + '(AI)は動かせる駒がありません。手番を交代します。');
+      app.turn = opp(aiOwner);
+      render();
+      return;
+    }
+    applyMove(app.board, m);
+    app.lastMove = { from:m.from, to:m.to };
+    setMsg('');
+    render();
+    if (hasWon(app.board, aiOwner, OPPOSITE_POINT[pointOf(aiOwner)])){
+      app.gameOver = true;
+      showResult(ownerLabel(aiOwner) + 'の勝ち!');
+      return;
+    }
+    app.turn = opp(aiOwner);
+    render();
+    var nextMoves = movesForPlayer(app.board, app.turn);
+    if (nextMoves.length === 0){
+      setMsg((app.turn==='p1'?'先攻':'後攻') + 'は動かせる駒がありません。手番を交代します。');
+      app.turn = opp(app.turn);
+      render();
+    }
+    maybeAiMove();
+  }, 150);
+}
+
+/* =========================================================
+   画面遷移
+   ========================================================= */
+function goHome(){
+  els.home.style.display = 'flex';
+  els.game.style.display = 'none';
+}
+function goGame(){
+  els.home.style.display = 'none';
+  els.game.style.display = 'flex';
+}
+
+document.getElementById('side-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#side-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  app.humanSide = btn.dataset.side;
+});
+document.getElementById('diff-choice').addEventListener('click', function(e){
+  var btn = e.target.closest('.side-btn');
+  if (!btn) return;
+  [].forEach.call(document.querySelectorAll('#diff-choice .side-btn'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  var diff = parseInt(btn.dataset.diff,10);
+  app.aiDepth = (diff === 3) ? 2 : 1;
+  app.aiSlack = (diff === 1) ? 200 : (diff === 2 ? 60 : 12);
+});
+
+document.getElementById('btn-vs-ai').addEventListener('click', function(){
+  app.mode = 'ai';
+  els.modeLabel.textContent = '対AI対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-2p').addEventListener('click', function(){
+  app.mode = '2p';
+  els.modeLabel.textContent = '2人対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-home').addEventListener('click', goHome);
+document.getElementById('btn-restart').addEventListener('click', newGame);
+
+})();
+</script>
+</body>
+</html>
