@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>💎 いし＆こうぶつ図鑑</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪨</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%234a7c3f%22/><text y=%22.88em%22 x=%2210%22 font-size=%2270%22>🪨</text></svg>">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4a7c3f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="いしずかん">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 :root {
@@ -496,7 +502,7 @@ body {
 
 <div class="header">
   <h1>💎 いし＆こうぶつ図鑑</h1>
-  <div class="subtitle">いし＆こうぶつを あつめて ずかんを つくろう！<br><span style="font-size:11px;opacity:0.7;">v1.1.0 | 2026-08-16 19:20</span></div>
+  <div class="subtitle">いし＆こうぶつを あつめて ずかんを つくろう！<br><span style="font-size:11px;opacity:0.7;">v1.2.0 | 2026-08-16 19:40</span></div>
 </div>
 
 <nav class="nav">
@@ -996,6 +1002,11 @@ function celebrate() {
     el.classList.remove('show');
     el.innerHTML = '';
   }, 2500);
+}
+
+// ===== オフライン対応 (ホーム画面に追加して使うため) =====
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  navigator.serviceWorker.register('sw.js').catch(function () { /* オフライン化はできなくても動く */ });
 }
 </script>
 
