@@ -250,6 +250,32 @@ body {
   margin-bottom: 16px;
 }
 
+.price-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(232, 168, 56, 0.12);
+  border: 1px solid rgba(232, 168, 56, 0.35);
+  border-radius: 12px;
+  padding: 8px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.price-box .price-amount {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 16px;
+}
+
+.price-note {
+  display: block;
+  font-size: 12px;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
 .result-facts {
   background: rgba(74, 124, 63, 0.05);
   border-radius: 12px;
@@ -502,7 +528,7 @@ body {
 
 <div class="header">
   <h1>💎 いし＆こうぶつ図鑑</h1>
-  <div class="subtitle">いし＆こうぶつを あつめて ずかんを つくろう！<br><span style="font-size:11px;opacity:0.7;">v1.2.0 | 2026-08-16 19:40</span></div>
+  <div class="subtitle">いし＆こうぶつを あつめて ずかんを つくろう！<br><span style="font-size:11px;opacity:0.7;">v1.3.0 | 2026-08-16 20:10</span></div>
 </div>
 
 <nav class="nav">
@@ -564,6 +590,7 @@ body {
     <div class="result-name" id="resultName"></div>
     <div class="result-name-en" id="resultNameEn"></div>
     <div id="resultRarity"></div>
+    <div id="resultPrice"></div>
     <div class="result-desc" id="resultDesc"></div>
     <div class="result-facts">
       <h3>⭐ おもしろ じょうほう</h3>
@@ -763,8 +790,13 @@ async function analyzeRock() {
   "hardness": "モース硬度（数字）",
   "crystal_system": "結晶系（例：六方晶系、等軸晶系など。わからなければ空文字）",
   "luster": "光沢（ガラス光沢、金属光沢など）",
-  "found_in": "主な産地（日本で見つかる場合は日本の産地も）"
+  "found_in": "主な産地（日本で見つかる場合は日本の産地も）",
+  "price_usd_low": 5,
+  "price_usd_high": 20,
+  "price_note": "値段のかんたんな説明（やさしい日本語で1文）"
 }
+
+price_usd_low / price_usd_high は数値のみ（引用符なし）にしてください。一般的な鉱物即売会やオンラインショップでの、コレクター向け標本としてのおおよその相場（アメリカドル）を、わかる範囲で幅（low〜high）で見積もってください。正確な鑑定はできないので、あくまで目安で構いません。サイズや品質で大きく変わることが多いので price_note に一言補足してください。全く見当がつかない場合は両方とも 0 にしてください。
 
 もし鉱物や石でないものが写っている場合は、最も似ている鉱物に見立てて回答してください。`
             }
@@ -804,6 +836,20 @@ async function analyzeRock() {
   }
 }
 
+function formatPriceHtml(result) {
+  const low = Number(result.price_usd_low);
+  const high = Number(result.price_usd_high);
+  if (!isFinite(low) || !isFinite(high) || (low <= 0 && high <= 0)) {
+    return '';
+  }
+  const fmt = n => '$' + n.toLocaleString('en-US');
+  const amount = (low > 0 && high > 0 && low !== high)
+    ? `${fmt(low)} 〜 ${fmt(high)}`
+    : fmt(Math.max(low, high));
+  const note = result.price_note ? `<span class="price-note">${result.price_note}</span>` : '';
+  return `<div class="price-box">💰 <span class="price-amount">${amount}</span> くらい${note}</div>`;
+}
+
 function showResult(result) {
   document.getElementById('resultName').textContent = result.name;
   const categoryLabel = result.category ? ` [${result.category}]` : '';
@@ -826,6 +872,8 @@ function showResult(result) {
 
   const rarityEl = document.getElementById('resultRarity');
   rarityEl.innerHTML = `<span class="rarity-badge" style="background:${rarityColors[result.rarity] || rarityColors.common}">${rarityLabels[result.rarity] || 'ふつう ★'}</span>`;
+
+  document.getElementById('resultPrice').innerHTML = formatPriceHtml(result);
 
   document.getElementById('resultDesc').textContent = result.description;
 
@@ -930,6 +978,7 @@ function showDetail(id) {
     <h2 style="font-size: 24px; color: var(--primary);">${rock.name}</h2>
     <p style="color: var(--text-light); margin-bottom: 12px;">${rock.name_kanji || ''} / ${rock.name_en}</p>
     <p style="margin-bottom: 8px;"><strong>レアど：</strong>${rarityLabels[rock.rarity] || 'ふつう'}</p>
+    ${formatPriceHtml(rock)}
     <p style="margin-bottom: 12px;">${rock.description}</p>
     <div style="background: rgba(74,124,63,0.05); padding: 12px; border-radius: 10px;">
       <strong>⭐ おもしろ じょうほう</strong>
