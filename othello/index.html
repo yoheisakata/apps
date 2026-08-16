@@ -89,7 +89,9 @@ body::before{
 .disc{width:82%; height:82%; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.4); transform:scale(0); animation:pop .18s ease-out forwards;}
 .disc.black{background:radial-gradient(circle at 35% 30%, var(--black-disc1), var(--black-disc2));}
 .disc.white{background:radial-gradient(circle at 35% 30%, var(--white-disc1), var(--white-disc2));}
+.disc.flipping{animation:flipDisc .32s linear;}
 @keyframes pop{ to{ transform:scale(1); } }
+@keyframes flipDisc{ 0%{ transform:scaleX(1); } 50%{ transform:scaleX(0); } 100%{ transform:scaleX(1); } }
 
 .msg-area{min-height:1.4em; font-size:0.8rem; color:var(--accent); text-align:center; margin-top:8px;}
 
@@ -109,7 +111,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">⚫️ オセロ</div>
   <div class="app-sub">石を置いて相手の石をひっくり返そう</div>
-  <div class="app-version">v1.0.1</div>
+  <div class="app-version">v1.1.0</div>
 
   <!-- ホーム画面 -->
   <div id="home">
@@ -332,8 +334,12 @@ var app = {
   legalTargets: [],
   lastMove: null,
   gameOver: false,
-  aiThinking: false
+  aiThinking: false,
+  animating: false
 };
+
+var FLIP_STAGGER_MS = 90;
+var FLIP_DURATION_MS = 320;
 
 function newGame(){
   app.board = initialBoard();
@@ -404,18 +410,61 @@ function isHumanTurn(){
 }
 
 function onCellClick(e){
-  if (!isHumanTurn() || app.aiThinking) return;
+  if (!isHumanTurn() || app.aiThinking || app.animating) return;
   var r = parseInt(e.currentTarget.dataset.r,10), c = parseInt(e.currentTarget.dataset.c,10);
   var move = app.legalTargets.find(function(t){ return t.r === r && t.c === c; });
   if (!move) return;
   commitMove(move);
 }
 
+function cellEl(r,c){
+  return els.board.querySelector('.cell[data-r="' + r + '"][data-c="' + c + '"]');
+}
+
+/* 石を1つずつ順番にひっくり返すアニメーションを再生してから、
+   盤面データを確定させて callback を呼ぶ (盤面データ自体はアニメ完了まで更新しない) */
+function playMoveAnimated(move, player, callback){
+  app.animating = true;
+  app.legalTargets = [];
+  [].forEach.call(els.board.querySelectorAll('.cell.movable'), function(cell){ cell.classList.remove('movable'); });
+  [].forEach.call(els.board.querySelectorAll('.cell.last-move'), function(cell){ cell.classList.remove('last-move'); });
+
+  var placedCell = cellEl(move.r, move.c);
+  if (placedCell){
+    var disc = document.createElement('div');
+    disc.className = 'disc ' + (player === 'b' ? 'black' : 'white');
+    placedCell.appendChild(disc);
+    placedCell.classList.add('last-move');
+  }
+
+  move.flips.forEach(function(pos, i){
+    setTimeout(function(){
+      var cell = cellEl(pos[0], pos[1]);
+      if (!cell) return;
+      var d = cell.querySelector('.disc');
+      if (!d) return;
+      d.classList.add('flipping');
+      setTimeout(function(){
+        d.classList.remove('black','white');
+        d.classList.add(player === 'b' ? 'black' : 'white');
+      }, FLIP_DURATION_MS / 2);
+    }, (i + 1) * FLIP_STAGGER_MS);
+  });
+
+  var totalDelay = move.flips.length * FLIP_STAGGER_MS + FLIP_DURATION_MS + 60;
+  setTimeout(function(){
+    applyMove(app.board, move, player);
+    app.lastMove = { r: move.r, c: move.c };
+    app.animating = false;
+    callback();
+  }, totalDelay);
+}
+
 function commitMove(move){
   var player = app.turn;
-  applyMove(app.board, move, player);
-  app.lastMove = { r: move.r, c: move.c };
-  advanceTurn();
+  playMoveAnimated(move, player, function(){
+    advanceTurn();
+  });
 }
 
 /* 手番を進める。パスが必要な場合は自動でスキップしメッセージを出す。
@@ -480,10 +529,10 @@ function maybeAiMove(){
     var m = pickAiMove(app.board, aiPlayer, app.aiDepth, app.aiSlack);
     app.aiThinking = false;
     if (!m){ return; } // legalMoves already guaranteed non-empty by advanceTurn
-    applyMove(app.board, m, aiPlayer);
-    app.lastMove = { r: m.r, c: m.c };
     setMsg('');
-    advanceTurn();
+    playMoveAnimated(m, aiPlayer, function(){
+      advanceTurn();
+    });
   }, 150);
 }
 
