@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🃏</text></svg>">
+<title>トランプゲーム</title>
+<meta name="theme-color" content="#0b3d24">
+<style>
+:root{
+  --bg1:#0b3d24; --bg2:#0f2e1c; --bg3:#081f14;
+  --felt:#0f5c33; --felt-line:#0a3a20;
+  --text:#eaf5ec; --sub:#8fbfa0;
+  --accent:#f2c14e; --accent2:#e0a92e;
+  --danger:#e0574e;
+  --card-bg:#fefefe; --card-red:#c0392b; --card-black:#1c1c1c;
+  --back1:#1c5c8a; --back2:#0d3a5c;
+}
+*,*::before,*::after{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif;
+  background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 55%,var(--bg3) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:16px 12px 40px;
+  overflow-x:hidden;
+}
+body::before{
+  content:''; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 8%, rgba(242,193,78,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 90%, rgba(28,92,138,0.14) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+.wrap{position:relative; z-index:1; width:100%; max-width:820px; display:flex; flex-direction:column; align-items:center;}
+.home-link{align-self:flex-start; color:var(--sub); text-decoration:none; font-size:0.8rem; margin-bottom:6px;}
+.app-title{font-size:clamp(1.5rem,6vw,2rem); font-weight:900; text-align:center; margin:6px 0 2px;
+  background:linear-gradient(135deg,#f7dd8f 0%,var(--accent) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
+.app-sub{color:var(--sub); font-size:0.85rem; text-align:center; margin-bottom:4px;}
+.app-version{color:var(--sub); opacity:0.55; font-size:0.65rem; letter-spacing:.06em; text-align:center; margin-bottom:16px;}
+
+.screen{display:none; width:100%; flex-direction:column; align-items:center;}
+.screen.active{display:flex;}
+
+/* ---- ホーム ---- */
+#home{gap:14px; padding-top:10px;}
+.game-btn{
+  width:100%; max-width:380px; padding:18px; border-radius:16px; border:1px solid rgba(242,193,78,0.25);
+  background:linear-gradient(135deg, rgba(242,193,78,0.14), rgba(224,169,46,0.07));
+  color:var(--text); font-size:1.05rem; font-weight:700; text-align:center;
+  cursor:pointer; transition:transform .12s;
+}
+.game-btn:active{transform:scale(0.96);}
+.game-btn .desc{display:block; font-size:0.75rem; color:var(--sub); font-weight:400; margin-top:4px;}
+.notice{margin-top:20px; font-size:0.72rem; color:var(--sub); text-align:center; max-width:380px; line-height:1.6;}
+
+/* ---- セットアップ ---- */
+.setup-title{font-size:1.2rem; font-weight:800; margin:10px 0 16px; text-align:center;}
+.setup-group{display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px; width:100%;}
+.setup-label{font-size:0.8rem; color:var(--sub); margin-bottom:2px;}
+.choice-row{display:flex; gap:8px; flex-wrap:wrap; justify-content:center;}
+.choice-btn{padding:10px 18px; border-radius:100px; border:1px solid rgba(242,193,78,0.3); background:rgba(255,255,255,0.03);
+  color:var(--text); font-size:0.85rem; cursor:pointer;}
+.choice-btn.active{background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1a1200; font-weight:900; border-color:transparent;}
+.start-btn{margin-top:8px; padding:14px 36px; border-radius:100px; border:none; font-size:1rem; font-weight:900;
+  background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1a1200; cursor:pointer;}
+.start-btn:active{transform:scale(0.96);}
+.back-btn{background:none; border:1px solid rgba(255,255,255,0.2); color:var(--sub); border-radius:100px; padding:6px 16px; font-size:0.78rem; cursor:pointer; margin-bottom:10px;}
+
+/* ---- ゲーム共通 ---- */
+.topbar{width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; color:var(--sub);}
+.topbar button{background:none; border:1px solid rgba(242,193,78,0.3); color:var(--sub); border-radius:100px; padding:5px 12px; font-size:0.75rem; cursor:pointer;}
+.hud{display:flex; align-items:center; justify-content:center; gap:14px; width:100%; margin-bottom:8px; font-size:0.85rem; flex-wrap:wrap;}
+.hud .chip{padding:6px 12px; border-radius:100px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); font-weight:700;}
+.hud .chip.current{border-color:var(--accent); box-shadow:0 0 8px rgba(242,193,78,0.4); color:var(--accent);}
+.turn-indicator{font-size:0.85rem; font-weight:700; margin:2px 0 8px; text-align:center; min-height:1.2em; color:var(--accent);}
+
+/* ---- カード ---- */
+.card{
+  background:var(--card-bg); border-radius:6px; position:relative;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 6px rgba(0,0,0,0.4);
+  color:var(--card-black); user-select:none; flex-shrink:0;
+}
+.card.red{color:var(--card-red);}
+.card.empty{background:rgba(255,255,255,0.05); box-shadow:none; border:2px dashed rgba(255,255,255,0.12);}
+.card.back{
+  background:repeating-linear-gradient(135deg, var(--back1) 0 6px, var(--back2) 6px 12px);
+  border:2px solid rgba(255,255,255,0.5); border-radius:6px;
+}
+.card .c-rank{position:absolute; font-size:0.6em; font-weight:900; line-height:1;}
+.card .c-rank.tl{top:4%; left:8%;}
+.card .c-rank.br{bottom:4%; right:8%; transform:rotate(180deg);}
+.card .c-suit.big{font-size:1.6em;}
+.card.joker{font-size:1.4em; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;}
+.card.joker .jk-label{font-size:0.28em; font-weight:900; letter-spacing:0.05em;}
+.card.selected{outline:3px solid var(--accent); outline-offset:-2px; transform:translateY(-6px);}
+.card.disabled{opacity:0.4;}
+
+/* size variants */
+.card.sz-sm{width:38px; height:54px; border-radius:5px;}
+.card.sz-sm .c-suit.big{font-size:1.2em;}
+.card.sz-sm .c-rank{font-size:0.55em;}
+.card.sz-md{width:52px; height:74px;}
+.card.sz-lg{width:64px; height:90px;}
+.card.sz-lg .c-suit.big{font-size:1.9em;}
+
+/* ---- 神経衰弱 ---- */
+#shinkei-grid{display:grid; grid-template-columns:repeat(auto-fill, 42px); gap:6px; justify-content:center; width:100%; max-width:640px; margin-bottom:14px;}
+.mem-card{width:42px; height:58px; border-radius:6px; cursor:pointer;
+  background:repeating-linear-gradient(135deg, var(--back1) 0 6px, var(--back2) 6px 12px);
+  border:2px solid rgba(255,255,255,0.5);
+  display:flex; align-items:center; justify-content:center; font-size:1.1em; font-weight:800;
+  color:var(--card-black); transition:transform .15s;
+}
+.mem-card.up{background:var(--card-bg); border-color:rgba(0,0,0,0.15);}
+.mem-card.up.red{color:var(--card-red);}
+.mem-card.matched{opacity:0.28; cursor:default; background:var(--card-bg); border-color:transparent;}
+.mem-card.matched.red{color:var(--card-red);}
+
+/* ---- ババ抜き ---- */
+.baba-opponents{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; width:100%; margin-bottom:14px;}
+.baba-opp{display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.03);}
+.baba-opp.targetable{border:2px solid var(--accent); box-shadow:0 0 10px rgba(242,193,78,0.4);}
+.baba-opp .name{font-size:0.75rem; font-weight:700; color:var(--sub);}
+.baba-opp.targetable .name{color:var(--accent);}
+.baba-opp .hand-fan{display:flex;}
+.baba-opp .hand-fan .card{margin-left:-22px; cursor:default;}
+.baba-opp .hand-fan .card:first-child{margin-left:0;}
+.baba-opp.targetable .hand-fan .card{cursor:pointer;}
+.baba-opp.out{opacity:0.35;}
+.baba-my-hand{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; width:100%; max-width:640px; margin-top:10px;}
+.baba-result-list{display:flex; flex-direction:column; gap:6px; margin:14px 0; width:100%; max-width:320px;}
+.baba-result-row{display:flex; justify-content:space-between; padding:8px 14px; border-radius:10px; background:rgba(255,255,255,0.04); font-size:0.9rem;}
+.baba-result-row.loser{background:rgba(224,87,78,0.18); color:#ffb3ac; font-weight:800;}
+
+/* ---- スピード ---- */
+.speed-board{display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;}
+.speed-center{display:flex; gap:18px; justify-content:center; align-items:center; margin:8px 0;}
+.speed-pile{display:flex; flex-direction:column; align-items:center; gap:4px;}
+.speed-pile .label{font-size:0.65rem; color:var(--sub);}
+.speed-side{display:flex; flex-direction:column; align-items:center; gap:6px; width:100%;}
+.speed-side .stock-row{display:flex; align-items:center; gap:10px;}
+.speed-hand{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; min-height:74px;}
+.speed-player-label{font-size:0.8rem; font-weight:700; color:var(--sub);}
+.speed-player-label.p2{order:-1;}
+.stuck-banner{font-size:0.75rem; color:var(--accent); font-weight:700; min-height:1.2em; text-align:center;}
+
+/* ---- 汎用: プレイヤー一覧・アクションボタン・手札列 ---- */
+.mini-players{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:10px;}
+.mini-player{padding:6px 12px; border-radius:10px; background:rgba(255,255,255,0.04); font-size:0.72rem; text-align:center; border:1px solid transparent;}
+.mini-player.current{border-color:var(--accent); color:var(--accent);}
+.mini-player.out{opacity:0.35;}
+.action-row{display:flex; gap:10px; justify-content:center; margin-top:12px; flex-wrap:wrap;}
+.action-btn{padding:12px 24px; border-radius:100px; border:none; font-weight:900; font-size:0.92rem; cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#1a1200;}
+.action-btn.secondary{background:rgba(255,255,255,0.08); color:var(--text); border:1px solid rgba(255,255,255,0.15); font-weight:700;}
+.action-btn:disabled{opacity:0.3; cursor:default;}
+.action-btn:active:not(:disabled){transform:scale(0.95);}
+.center-pile-row{display:flex; gap:6px; justify-content:center; align-items:center; margin:10px 0; min-height:74px; flex-wrap:wrap;}
+.hand-row{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; width:100%; max-width:640px; margin-top:8px;}
+.msg-line{font-size:0.75rem; color:var(--danger); min-height:1.2em; text-align:center; margin-top:2px;}
+
+/* ---- 大富豪 ---- */
+#daifugo-pile-count{font-size:0.7rem; color:var(--sub); text-align:center;}
+
+/* ---- 7並べ ---- */
+.sevens-board{display:flex; flex-direction:column; gap:5px; width:100%; max-width:720px; overflow-x:auto; margin-bottom:6px; padding-bottom:4px;}
+.sevens-row{display:flex; align-items:center; gap:3px;}
+.sevens-row .suit-label{width:20px; text-align:center; font-size:0.9rem; flex-shrink:0;}
+.sevens-slots{display:flex; gap:2px;}
+.sevens-slot{width:26px; height:36px; border-radius:4px; background:rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:center;
+  font-size:0.55rem; color:var(--sub); flex-shrink:0;}
+.sevens-slot .card{width:26px; height:36px; border-radius:4px;}
+.sevens-slot .card .c-suit.big{font-size:0.8em;}
+.sevens-slot .card .c-rank{font-size:0.5em;}
+
+/* ---- 21 ---- */
+.tw-hand-block, .bj-hand-block{display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.03);}
+.tw-hand-block.current, .bj-hand-block.current{border:2px solid var(--accent); box-shadow:0 0 10px rgba(242,193,78,0.35);}
+.tw-total, .bj-total{font-size:0.8rem; color:var(--sub); font-weight:700;}
+.tw-status{font-size:0.68rem; color:var(--accent);}
+.tw-players, .bj-area{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; width:100%; margin-bottom:10px;}
+
+/* ---- ポーカー ---- */
+.poker-hands{display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin:14px 0;}
+.poker-hand-block{display:flex; flex-direction:column; align-items:center; gap:6px;}
+.poker-hand-name{font-size:0.82rem; color:var(--accent); font-weight:800;}
+.poker-pass-card{padding:24px; border-radius:16px; background:rgba(255,255,255,0.05); text-align:center; font-size:0.95rem; font-weight:700; cursor:pointer; border:1px solid rgba(242,193,78,0.3);}
+
+/* ---- ブラックジャック ---- */
+.bj-dealer{margin-bottom:6px;}
+
+/* ---- 結果画面共通 ---- */
+.result-title{font-size:1.3rem; font-weight:900; margin:14px 0 6px; text-align:center;}
+.result-sub{font-size:0.9rem; color:var(--sub); margin-bottom:16px; text-align:center;}
+.result-actions{display:flex; gap:10px; margin-top:6px;}
+
+@media (max-width:420px){
+  #shinkei-grid{grid-template-columns:repeat(auto-fill, 36px);}
+  .mem-card{width:36px; height:50px; font-size:0.95em;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="home-link" href="../">← My Apps</a>
+  <div class="app-title">🃏 トランプゲーム</div>
+  <div class="app-sub">遊びたいゲームを選んでね</div>
+  <div class="app-version">v1.1.0</div>
+
+  <!-- ===== ホーム ===== -->
+  <div id="home" class="screen active">
+    <div class="game-btn" onclick="goSetup('shinkei')">🧠 神経衰弱<span class="desc">2枚めくってペアを揃えよう</span></div>
+    <div class="game-btn" onclick="goSetup('baba')">🃏 ババ抜き<span class="desc">ジョーカーを持たずに上がろう</span></div>
+    <div class="game-btn" onclick="goSetup('speed')">⚡ スピード<span class="desc">連続する数字を素早く出そう</span></div>
+    <div class="game-btn" onclick="goSetup('daifugo')">👑 大富豪<span class="desc">手札を早くなくそう</span></div>
+    <div class="game-btn" onclick="goSetup('sevens')">🔢 ７並べ<span class="desc">7から数字をつなげよう</span></div>
+    <div class="game-btn" onclick="goSetup('tw')">🎲 21<span class="desc">21に一番近づいた人が勝ち</span></div>
+    <div class="game-btn" onclick="goSetup('poker')">♠️ ポーカー<span class="desc">5枚交換して役を競おう</span></div>
+    <div class="game-btn" onclick="goSetup('bj')">🂡 ブラックジャック<span class="desc">ディーラーと21を競おう</span></div>
+  </div>
+
+  <!-- ===== 神経衰弱: セットアップ ===== -->
+  <div id="shinkei-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">🧠 神経衰弱</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="shinkeiSetupPick('mode','ai',this)">🤖 対AI対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="shinkeiSetupPick('mode','2p',this)">👥 2人対戦</div>
+      </div>
+    </div>
+    <div class="setup-group" id="shinkei-diff-group">
+      <div class="setup-label">CPUの記憶力</div>
+      <div class="choice-row">
+        <div class="choice-btn" data-k="diff" data-v="easy" onclick="shinkeiSetupPick('diff','easy',this)">かんたん</div>
+        <div class="choice-btn active" data-k="diff" data-v="normal" onclick="shinkeiSetupPick('diff','normal',this)">ふつう</div>
+        <div class="choice-btn" data-k="diff" data-v="hard" onclick="shinkeiSetupPick('diff','hard',this)">つよい</div>
+      </div>
+    </div>
+    <div class="setup-group">
+      <div class="setup-label">カード枚数</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="size" data-v="24" onclick="shinkeiSetupPick('size','24',this)">24枚(お手軽)</div>
+        <div class="choice-btn" data-k="size" data-v="52" onclick="shinkeiSetupPick('size','52',this)">52枚(本格)</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startShinkei()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== 神経衰弱: ゲーム ===== -->
+  <div id="shinkei-game" class="screen">
+    <div class="topbar"><span id="shinkei-mode-label"></span><button onclick="quitShinkei()">やめる</button></div>
+    <div class="hud">
+      <div class="chip" id="shinkei-score-0"></div>
+      <div class="chip" id="shinkei-score-1"></div>
+    </div>
+    <div class="turn-indicator" id="shinkei-turn"></div>
+    <div id="shinkei-grid"></div>
+  </div>
+
+  <!-- ===== 神経衰弱: 結果 ===== -->
+  <div id="shinkei-result" class="screen">
+    <div class="result-title" id="shinkei-result-title"></div>
+    <div class="result-sub" id="shinkei-result-sub"></div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('shinkei')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <!-- ===== ババ抜き: セットアップ ===== -->
+  <div id="baba-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">🃏 ババ抜き</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="babaSetupPick('mode','ai',this)">🤖 対AI対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="babaSetupPick('mode','2p',this)">👥 2人対戦</div>
+      </div>
+    </div>
+    <div class="setup-group" id="baba-cpu-group">
+      <div class="setup-label">CPUの人数</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="cpu" data-v="2" onclick="babaSetupPick('cpu','2',this)">CPU 2人</div>
+        <div class="choice-btn" data-k="cpu" data-v="3" onclick="babaSetupPick('cpu','3',this)">CPU 3人</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startBaba()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== ババ抜き: ゲーム ===== -->
+  <div id="baba-game" class="screen">
+    <div class="topbar"><span>ババ抜き</span><button onclick="quitBaba()">やめる</button></div>
+    <div class="turn-indicator" id="baba-turn"></div>
+    <div class="baba-opponents" id="baba-opponents"></div>
+    <div class="setup-label" style="margin-top:10px;">あなたの手札</div>
+    <div class="baba-my-hand" id="baba-my-hand"></div>
+  </div>
+
+  <!-- ===== ババ抜き: 結果 ===== -->
+  <div id="baba-result" class="screen">
+    <div class="result-title">🃏 ゲーム終了</div>
+    <div class="baba-result-list" id="baba-result-list"></div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('baba')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <!-- ===== スピード: セットアップ ===== -->
+  <div id="speed-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">⚡ スピード</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="speedSetupPick('mode','ai',this)">🤖 対AI対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="speedSetupPick('mode','2p',this)">👥 2人対戦(同じ端末)</div>
+      </div>
+    </div>
+    <div class="setup-group" id="speed-diff-group">
+      <div class="setup-label">CPUの速さ</div>
+      <div class="choice-row">
+        <div class="choice-btn" data-k="diff" data-v="easy" onclick="speedSetupPick('diff','easy',this)">ゆっくり</div>
+        <div class="choice-btn active" data-k="diff" data-v="normal" onclick="speedSetupPick('diff','normal',this)">ふつう</div>
+        <div class="choice-btn" data-k="diff" data-v="hard" onclick="speedSetupPick('diff','hard',this)">はやい</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startSpeed()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== スピード: ゲーム ===== -->
+  <div id="speed-game" class="screen">
+    <div class="topbar"><span id="speed-mode-label"></span><button onclick="quitSpeed()">やめる</button></div>
+    <div class="stuck-banner" id="speed-stuck"></div>
+    <div class="speed-board">
+      <div class="speed-side">
+        <div class="speed-player-label p2" id="speed-p2-label"></div>
+        <div class="speed-hand" id="speed-hand-2"></div>
+        <div class="stock-row"><div class="speed-pile"><div class="label">山札</div><div id="speed-stock-2"></div></div></div>
+      </div>
+      <div class="speed-center">
+        <div class="speed-pile"><div class="label">場A</div><div id="speed-center-a"></div></div>
+        <div class="speed-pile"><div class="label">場B</div><div id="speed-center-b"></div></div>
+      </div>
+      <div class="speed-side">
+        <div class="stock-row"><div class="speed-pile"><div class="label">山札</div><div id="speed-stock-1"></div></div></div>
+        <div class="speed-hand" id="speed-hand-1"></div>
+        <div class="speed-player-label" id="speed-p1-label"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== スピード: 結果 ===== -->
+  <div id="speed-result" class="screen">
+    <div class="result-title" id="speed-result-title"></div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('speed')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <!-- ===== 大富豪: セットアップ ===== -->
+  <div id="daifugo-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">👑 大富豪</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="daifugoSetupPick('mode','ai',this)">🤖 対AI対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="daifugoSetupPick('mode','2p',this)">👥 2人対戦</div>
+      </div>
+    </div>
+    <div class="setup-group" id="daifugo-cpu-group">
+      <div class="setup-label">CPUの人数</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="cpu" data-v="2" onclick="daifugoSetupPick('cpu','2',this)">CPU 2人</div>
+        <div class="choice-btn" data-k="cpu" data-v="3" onclick="daifugoSetupPick('cpu','3',this)">CPU 3人</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startDaifugo()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== 大富豪: ゲーム ===== -->
+  <div id="daifugo-game" class="screen">
+    <div class="topbar"><span>大富豪</span><button onclick="quitDaifugo()">やめる</button></div>
+    <div class="mini-players" id="daifugo-players"></div>
+    <div class="turn-indicator" id="daifugo-turn"></div>
+    <div class="setup-label">場札<span id="daifugo-pile-count"></span></div>
+    <div class="center-pile-row" id="daifugo-pile"></div>
+    <div class="msg-line" id="daifugo-msg"></div>
+    <div class="setup-label" style="margin-top:8px;">あなたの手札(タップで選択)</div>
+    <div class="hand-row" id="daifugo-hand"></div>
+    <div class="action-row">
+      <button class="action-btn" id="daifugo-play-btn" onclick="daifugoPlayHuman()">出す</button>
+      <button class="action-btn secondary" id="daifugo-pass-btn" onclick="daifugoPassHuman()">パス</button>
+    </div>
+  </div>
+
+  <!-- ===== 大富豪: 結果 ===== -->
+  <div id="daifugo-result" class="screen">
+    <div class="result-title">👑 ゲーム終了</div>
+    <div class="baba-result-list" id="daifugo-result-list"></div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('daifugo')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <!-- ===== 7並べ: セットアップ ===== -->
+  <div id="sevens-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">🔢 ７並べ</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="sevensSetupPick('mode','ai',this)">🤖 対AI対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="sevensSetupPick('mode','2p',this)">👥 2人対戦</div>
+      </div>
+    </div>
+    <div class="setup-group" id="sevens-cpu-group">
+      <div class="setup-label">CPUの人数</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="cpu" data-v="2" onclick="sevensSetupPick('cpu','2',this)">CPU 2人</div>
+        <div class="choice-btn" data-k="cpu" data-v="3" onclick="sevensSetupPick('cpu','3',this)">CPU 3人</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startSevens()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== 7並べ: ゲーム ===== -->
+  <div id="sevens-game" class="screen">
+    <div class="topbar"><span>7並べ</span><button onclick="quitSevens()">やめる</button></div>
+    <div class="mini-players" id="sevens-players"></div>
+    <div class="turn-indicator" id="sevens-turn"></div>
+    <div class="sevens-board" id="sevens-board"></div>
+    <div class="msg-line" id="sevens-msg"></div>
+    <div class="setup-label" style="margin-top:6px;">あなたの手札</div>
+    <div class="hand-row" id="sevens-hand"></div>
+    <div class="action-row">
+      <button class="action-btn secondary" id="sevens-pass-btn" onclick="sevensPassHuman()">パス</button>
+    </div>
+  </div>
+
+  <!-- ===== 7並べ: 結果 ===== -->
+  <div id="sevens-result" class="screen">
+    <div class="result-title">🔢 ゲーム終了</div>
+    <div class="baba-result-list" id="sevens-result-list"></div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('sevens')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <!-- ===== 21: セットアップ ===== -->
+  <div id="tw-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">🎲 21</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="twSetupPick('mode','ai',this)">🤖 対AI対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="twSetupPick('mode','2p',this)">👥 2人対戦</div>
+      </div>
+    </div>
+    <div class="setup-group" id="tw-cpu-group">
+      <div class="setup-label">CPUの人数</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="cpu" data-v="2" onclick="twSetupPick('cpu','2',this)">CPU 2人</div>
+        <div class="choice-btn" data-k="cpu" data-v="3" onclick="twSetupPick('cpu','3',this)">CPU 3人</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startTw()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== 21: ゲーム ===== -->
+  <div id="tw-game" class="screen">
+    <div class="topbar"><span>21</span><button onclick="quitTw()">やめる</button></div>
+    <div class="turn-indicator" id="tw-turn"></div>
+    <div class="tw-players" id="tw-players"></div>
+    <div class="action-row">
+      <button class="action-btn" id="tw-hit-btn" onclick="twHit()">引く</button>
+      <button class="action-btn secondary" id="tw-stand-btn" onclick="twStand()">止める</button>
+    </div>
+  </div>
+
+  <!-- ===== 21: 結果 ===== -->
+  <div id="tw-result" class="screen">
+    <div class="result-title">🎲 ゲーム終了</div>
+    <div class="baba-result-list" id="tw-result-list"></div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('tw')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <!-- ===== ポーカー: セットアップ ===== -->
+  <div id="poker-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">♠️ ポーカー</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="pokerSetupPick('mode','ai',this)">🤖 対AI対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="pokerSetupPick('mode','2p',this)">👥 2人対戦(同じ端末)</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startPoker()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== ポーカー: ゲーム ===== -->
+  <div id="poker-game" class="screen">
+    <div class="topbar"><span id="poker-mode-label"></span><button onclick="quitPoker()">やめる</button></div>
+    <div class="turn-indicator" id="poker-turn"></div>
+    <div id="poker-pass-area"></div>
+    <div class="hand-row" id="poker-hand"></div>
+    <div class="msg-line" id="poker-msg"></div>
+    <div class="action-row">
+      <button class="action-btn" id="poker-draw-btn" onclick="pokerDrawClick()">交換する</button>
+    </div>
+  </div>
+
+  <!-- ===== ポーカー: 結果 ===== -->
+  <div id="poker-result" class="screen">
+    <div class="result-title" id="poker-result-title"></div>
+    <div class="poker-hands">
+      <div class="poker-hand-block">
+        <div class="poker-hand-name" id="poker-hand-0-label"></div>
+        <div class="hand-row" id="poker-hand-0-cards"></div>
+      </div>
+      <div class="poker-hand-block">
+        <div class="poker-hand-name" id="poker-hand-1-label"></div>
+        <div class="hand-row" id="poker-hand-1-cards"></div>
+      </div>
+    </div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('poker')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+  <!-- ===== ブラックジャック: セットアップ ===== -->
+  <div id="bj-setup" class="screen">
+    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
+    <div class="setup-title">🂡 ブラックジャック</div>
+    <div class="setup-group">
+      <div class="setup-label">対戦相手</div>
+      <div class="choice-row">
+        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="bjSetupPick('mode','ai',this)">🤖 ディーラーと1人で対戦</div>
+        <div class="choice-btn" data-k="mode" data-v="2p" onclick="bjSetupPick('mode','2p',this)">👥 2人対戦(同じディーラー)</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startBj()">ゲーム開始</button>
+  </div>
+
+  <!-- ===== ブラックジャック: ゲーム ===== -->
+  <div id="bj-game" class="screen">
+    <div class="topbar"><span>ブラックジャック</span><button onclick="quitBj()">やめる</button></div>
+    <div class="turn-indicator" id="bj-turn"></div>
+    <div class="bj-dealer">
+      <div class="setup-label">ディーラー</div>
+      <div class="bj-hand-block">
+        <div class="bj-total" id="bj-dealer-total"></div>
+        <div class="hand-row" id="bj-dealer-hand"></div>
+      </div>
+    </div>
+    <div class="bj-area" id="bj-players"></div>
+    <div class="action-row">
+      <button class="action-btn" id="bj-hit-btn" onclick="bjHit()">ヒット</button>
+      <button class="action-btn secondary" id="bj-stand-btn" onclick="bjStand()">スタンド</button>
+    </div>
+  </div>
+
+  <!-- ===== ブラックジャック: 結果 ===== -->
+  <div id="bj-result" class="screen">
+    <div class="result-title">🂡 ゲーム終了</div>
+    <div class="baba-result-list" id="bj-result-list"></div>
+    <div class="result-actions">
+      <button class="start-btn" onclick="goSetup('bj')">もう一度</button>
+      <button class="back-btn" onclick="goHome()">ホームへ</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===================== 共通ユーティリティ ===================== */
+const SUITS = ['♠','♥','♦','♣'];
+const SUIT_COLOR = {'♠':'black','♣':'black','♥':'red','♦':'red'};
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+function rankValue(r){ return RANKS.indexOf(r)+1; }
+
+function makeDeck(withJoker){
+  const deck=[]; let id=0;
+  for(const s of SUITS) for(const r of RANKS) deck.push({id:id++, suit:s, rank:r, color:SUIT_COLOR[s]});
+  if(withJoker) deck.push({id:id++, suit:'JOKER', rank:'JOKER', color:'black'});
+  return deck;
+}
+function shuffle(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+function cardHTML(card, sizeClass, extraClass){
+  const sz = sizeClass || 'sz-md';
+  if(!card) return `<div class="card empty ${sz} ${extraClass||''}"></div>`;
+  const colorCls = card.color==='red' ? 'red' : '';
+  if(card.rank==='JOKER') return `<div class="card ${colorCls} ${sz} joker ${extraClass||''}">🃏<span class="jk-label">JOKER</span></div>`;
+  return `<div class="card ${colorCls} ${sz} ${extraClass||''}"><span class="c-rank tl">${card.rank}</span><span class="c-suit big">${card.suit}</span><span class="c-rank br">${card.rank}</span></div>`;
+}
+function backHTML(sizeClass, extraClass){
+  return `<div class="card back ${sizeClass||'sz-md'} ${extraClass||''}"></div>`;
+}
+
+function goHome(){
+  stopAllLoops();
+  document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
+  document.getElementById('home').classList.add('active');
+}
+function goSetup(game){
+  stopAllLoops();
+  document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
+  document.getElementById(game+'-setup').classList.add('active');
+}
+function goScreen(id){
+  document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function stopAllLoops(){
+  if(speedTimer){ clearInterval(speedTimer); speedTimer=null; }
+}
+
+/* ===================== 神経衰弱 ===================== */
+let shinkeiCfg = {mode:'ai', diff:'normal', size:'24'};
+function shinkeiSetupPick(k,v,el){
+  shinkeiCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('shinkei-diff-group').style.display = (shinkeiCfg.mode==='ai') ? 'flex' : 'none';
+}
+
+let shinkei = null;
+function startShinkei(){
+  const n = parseInt(shinkeiCfg.size,10);
+  let deck = shuffle(makeDeck(false));
+  // 枚数指定に合わせてランクをペアで抽出(24枚なら12ランク×2組)
+  const pairsNeeded = n/2;
+  const chosenRanks = shuffle(RANKS.slice()).slice(0, pairsNeeded);
+  let cards = deck.filter(c=>chosenRanks.includes(c.rank));
+  cards = shuffle(cards);
+  shinkei = {
+    cards: cards.map(c=>({...c, matched:false})),
+    flipped: [],
+    scores: [0,0],
+    turn: 0,
+    mode: shinkeiCfg.mode,
+    difficulty: shinkeiCfg.diff,
+    cpuMemory: {},
+    busy: false,
+  };
+  document.getElementById('shinkei-mode-label').textContent = shinkei.mode==='ai' ? '対AI対戦' : '2人対戦';
+  goScreen('shinkei-game');
+  shinkeiRender();
+}
+function shinkeiPlayerName(i){
+  if(shinkei.mode==='ai') return i===0 ? 'あなた' : 'CPU';
+  return i===0 ? 'プレイヤー1' : 'プレイヤー2';
+}
+function shinkeiRender(){
+  const grid = document.getElementById('shinkei-grid');
+  grid.innerHTML='';
+  shinkei.cards.forEach((c,i)=>{
+    const up = shinkei.flipped.includes(i) || c.matched;
+    const el = document.createElement('div');
+    el.className = 'mem-card' + (up?' up':'') + (c.matched?' matched':'') + (up && c.color==='red' ? ' red':'');
+    el.textContent = up ? (c.rank==='JOKER'?'🃏':c.rank+c.suit) : '';
+    el.onclick = ()=> shinkeiFlip(i);
+    grid.appendChild(el);
+  });
+  document.getElementById('shinkei-score-0').textContent = `${shinkeiPlayerName(0)}: ${shinkei.scores[0]}`;
+  document.getElementById('shinkei-score-1').textContent = `${shinkeiPlayerName(1)}: ${shinkei.scores[1]}`;
+  document.getElementById('shinkei-score-0').classList.toggle('current', shinkei.turn===0);
+  document.getElementById('shinkei-score-1').classList.toggle('current', shinkei.turn===1);
+  document.getElementById('shinkei-turn').textContent = shinkei.busy ? '' : `${shinkeiPlayerName(shinkei.turn)}の番`;
+}
+function shinkeiMemorize(i){
+  const c = shinkei.cards[i];
+  const recall = {easy:0.3, normal:0.55, hard:0.85}[shinkei.difficulty];
+  if(Math.random() < recall) shinkei.cpuMemory[c.id]=i;
+  else delete shinkei.cpuMemory[c.id];
+}
+function shinkeiFlip(i){
+  if(!shinkei || shinkei.busy) return;
+  if(shinkei.mode==='ai' && shinkei.turn===1) return; // CPU番は手動操作不可
+  shinkeiDoFlip(i);
+}
+function shinkeiDoFlip(i){
+  if(!shinkei || shinkei.busy) return;
+  const c = shinkei.cards[i];
+  if(c.matched || shinkei.flipped.includes(i)) return;
+  shinkei.flipped.push(i);
+  shinkeiMemorize(i);
+  shinkeiRender();
+  if(shinkei.flipped.length===2){
+    shinkei.busy = true;
+    setTimeout(shinkeiResolve, 700);
+  }
+}
+function shinkeiResolve(){
+  const [i,j] = shinkei.flipped;
+  const a=shinkei.cards[i], b=shinkei.cards[j];
+  const match = a.rank===b.rank;
+  if(match){ a.matched=true; b.matched=true; shinkei.scores[shinkei.turn]++; }
+  shinkei.flipped=[];
+  shinkei.busy=false;
+  if(!match) shinkei.turn = 1-shinkei.turn;
+  shinkeiRender();
+  if(shinkei.cards.every(c=>c.matched)){ shinkeiEnd(); return; }
+  if(shinkei.mode==='ai' && shinkei.turn===1){
+    shinkei.busy = true;
+    setTimeout(cpuShinkeiTurn, 700);
+  }
+}
+function cpuShinkeiTurn(){
+  shinkei.busy=false;
+  const mem = shinkei.cpuMemory;
+  const known = Object.keys(mem).map(id=>({id, idx:mem[id]})).filter(m=>!shinkei.cards[m.idx].matched);
+  const byRank = {};
+  known.forEach(m=>{ const r=shinkei.cards[m.idx].rank; (byRank[r]=byRank[r]||[]).push(m.idx); });
+  let first, second;
+  let pairIdx=null;
+  for(const r in byRank){ if(byRank[r].length>=2){ pairIdx=byRank[r].slice(0,2); break; } }
+  const unmatched = shinkei.cards.map((c,i)=>i).filter(i=>!shinkei.cards[i].matched);
+  if(pairIdx){ [first,second]=pairIdx; }
+  else {
+    if(known.length>0 && Math.random()<0.5){ first = known[Math.floor(Math.random()*known.length)].idx; }
+    else { first = unmatched[Math.floor(Math.random()*unmatched.length)]; }
+    const remaining = unmatched.filter(x=>x!==first);
+    second = remaining[Math.floor(Math.random()*remaining.length)];
+  }
+  shinkeiDoFlip(first);
+  setTimeout(()=>shinkeiDoFlip(second), 550);
+}
+function shinkeiEnd(){
+  const [s0,s1] = shinkei.scores;
+  let title, sub;
+  if(shinkei.mode==='ai'){
+    if(s0>s1){ title='🎉 あなたの勝ち!'; }
+    else if(s0<s1){ title='😢 CPUの勝ち'; }
+    else { title='引き分け'; }
+  } else {
+    if(s0>s1){ title='🎉 プレイヤー1の勝ち!'; }
+    else if(s0<s1){ title='🎉 プレイヤー2の勝ち!'; }
+    else { title='引き分け'; }
+  }
+  sub = `${shinkeiPlayerName(0)}: ${s0}組 / ${shinkeiPlayerName(1)}: ${s1}組`;
+  document.getElementById('shinkei-result-title').textContent = title;
+  document.getElementById('shinkei-result-sub').textContent = sub;
+  goScreen('shinkei-result');
+}
+function quitShinkei(){ goSetup('shinkei'); }
+
+/* ===================== ババ抜き ===================== */
+let babaCfg = {mode:'ai', cpu:'2'};
+function babaSetupPick(k,v,el){
+  babaCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('baba-cpu-group').style.display = (babaCfg.mode==='ai') ? 'flex' : 'none';
+}
+
+let baba = null;
+function removePairs(hand){
+  const byRank = {};
+  hand.forEach(c=>{ if(c.rank!=='JOKER'){ (byRank[c.rank]=byRank[c.rank]||[]).push(c); } });
+  const toRemove = new Set();
+  for(const r in byRank){
+    const list = byRank[r];
+    const pairCount = Math.floor(list.length/2)*2;
+    for(let i=0;i<pairCount;i++) toRemove.add(list[i].id);
+  }
+  if(toRemove.size===0) return hand;
+  return hand.filter(c=>!toRemove.has(c.id));
+}
+function startBaba(){
+  const numCpu = babaCfg.mode==='ai' ? parseInt(babaCfg.cpu,10) : 1;
+  const players = [];
+  players.push({id:0, name:'あなた', isHuman:true, hand:[]});
+  if(babaCfg.mode==='ai'){
+    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[]});
+  } else {
+    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[]});
+  }
+  const deck = shuffle(makeDeck(true));
+  deck.forEach((c,i)=>{ players[i % players.length].hand.push(c); });
+  players.forEach(p=>{ p.hand = removePairs(p.hand); });
+  baba = {
+    players,
+    seatOrder: players.map(p=>p.id),
+    currentId: 0,
+    finishedOrder: [],
+    waitingHuman: false,
+    targetId: null,
+  };
+  goScreen('baba-game');
+  babaRender();
+  setTimeout(babaTurn, 400);
+}
+function babaGetPlayer(id){ return baba.players.find(p=>p.id===id); }
+function babaNextActive(fromId){
+  const order = baba.seatOrder;
+  const idx = order.indexOf(fromId);
+  for(let step=1; step<=order.length; step++){
+    const cand = order[(idx+step)%order.length];
+    const p = babaGetPlayer(cand);
+    if(p.hand.length>0) return cand;
+  }
+  return null;
+}
+function babaRender(){
+  const oppWrap = document.getElementById('baba-opponents');
+  const myWrap = document.getElementById('baba-my-hand');
+  oppWrap.innerHTML='';
+  const human = babaGetPlayer(0);
+  baba.players.filter(p=>p.id!==0).forEach(p=>{
+    const div = document.createElement('div');
+    const isTarget = baba.waitingHuman && baba.targetId===p.id;
+    div.className = 'baba-opp' + (p.hand.length===0?' out':'') + (isTarget?' targetable':'');
+    const fan = document.createElement('div'); fan.className='hand-fan';
+    p.hand.forEach((c,idx)=>{
+      const cardEl = document.createElement('div');
+      cardEl.innerHTML = backHTML('sz-sm');
+      const inner = cardEl.firstElementChild;
+      if(isTarget){ inner.onclick = ()=> babaDraw(p.id, idx); }
+      fan.appendChild(inner);
+    });
+    div.innerHTML = `<div class="name">${p.name}${p.hand.length===0?' (上がり)':' ('+p.hand.length+'枚)'}</div>`;
+    div.appendChild(fan);
+    oppWrap.appendChild(div);
+  });
+  myWrap.innerHTML='';
+  if(human.hand.length===0){
+    myWrap.innerHTML = '<div style="color:var(--sub); font-size:0.85rem;">上がりました!</div>';
+  } else {
+    human.hand.forEach(c=>{ myWrap.innerHTML += cardHTML(c, 'sz-md'); });
+  }
+  let turnText = '';
+  if(baba.waitingHuman){
+    const targetName = babaGetPlayer(baba.targetId).name;
+    turnText = `あなたの番: ${targetName} のカードを1枚タップして引こう`;
+  } else {
+    const cur = babaGetPlayer(baba.currentId);
+    turnText = cur ? `${cur.name} の番です...` : '';
+  }
+  document.getElementById('baba-turn').textContent = turnText;
+}
+function babaTurn(){
+  if(!baba) return;
+  const current = babaGetPlayer(baba.currentId);
+  const targetId = babaNextActive(current.id);
+  if(targetId===null){ babaEnd(); return; }
+  baba.targetId = targetId;
+  if(current.isHuman){
+    baba.waitingHuman = true;
+    babaRender();
+  } else {
+    baba.waitingHuman = false;
+    babaRender();
+    const target = babaGetPlayer(targetId);
+    setTimeout(()=>{
+      const idx = Math.floor(Math.random()*target.hand.length);
+      babaDraw(targetId, idx);
+    }, 700);
+  }
+}
+function babaDraw(targetId, idx){
+  if(!baba) return;
+  const current = babaGetPlayer(baba.currentId);
+  const target = babaGetPlayer(targetId);
+  if(idx<0 || idx>=target.hand.length) return;
+  const [card] = target.hand.splice(idx,1);
+  current.hand.push(card);
+  current.hand = removePairs(current.hand);
+  baba.waitingHuman = false;
+  babaRender();
+  if(current.hand.length===0 && !baba.finishedOrder.includes(current.id)) baba.finishedOrder.push(current.id);
+  if(target.hand.length===0 && !baba.finishedOrder.includes(target.id)) baba.finishedOrder.push(target.id);
+  const remaining = baba.players.filter(p=>p.hand.length>0);
+  if(remaining.length<=1){
+    if(remaining.length===1 && !baba.finishedOrder.includes(remaining[0].id)) baba.finishedOrder.push(remaining[0].id);
+    babaEnd();
+    return;
+  }
+  baba.currentId = targetId;
+  setTimeout(babaTurn, 500);
+}
+function babaEnd(){
+  const list = document.getElementById('baba-result-list');
+  list.innerHTML='';
+  const loserId = baba.finishedOrder[baba.finishedOrder.length-1];
+  baba.finishedOrder.forEach((id,i)=>{
+    const p = babaGetPlayer(id);
+    const row = document.createElement('div');
+    const isLoser = id===loserId;
+    row.className = 'baba-result-row' + (isLoser?' loser':'');
+    row.innerHTML = `<span>${isLoser?'😭':'🎉'} ${p.name}</span><span>${isLoser?'負け(ジョーカー)':(i+1)+'位'}</span>`;
+    list.appendChild(row);
+  });
+  goScreen('baba-result');
+}
+function quitBaba(){ baba=null; goSetup('baba'); }
+
+/* ===================== スピード ===================== */
+let speedCfg = {mode:'ai', diff:'normal'};
+function speedSetupPick(k,v,el){
+  speedCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('speed-diff-group').style.display = (speedCfg.mode==='ai') ? 'flex' : 'none';
+}
+
+let speed = null;
+let speedTimer = null;
+function startSpeed(){
+  const deck = shuffle(makeDeck(false));
+  const centerA = deck.pop();
+  const centerB = deck.pop();
+  const stock1 = deck.slice(0,25);
+  const stock2 = deck.slice(25,50);
+  speed = {
+    mode: speedCfg.mode,
+    diff: speedCfg.diff,
+    center: [centerA, centerB],
+    stock: [stock1, stock2],
+    hand: [[],[]],
+    selected: [null,null],
+    stuckSince: null,
+    lastStuckResolve: 0,
+    over: false,
+  };
+  for(let p=0;p<2;p++){
+    for(let k=0;k<5;k++){ if(speed.stock[p].length) speed.hand[p].push(speed.stock[p].shift()); }
+  }
+  document.getElementById('speed-mode-label').textContent = speed.mode==='ai' ? '対AI対戦' : '2人対戦';
+  document.getElementById('speed-p1-label').textContent = speed.mode==='ai' ? 'あなた' : 'プレイヤー1';
+  document.getElementById('speed-p2-label').textContent = speed.mode==='ai' ? 'CPU' : 'プレイヤー2';
+  goScreen('speed-game');
+  speedRender();
+  speedTimer = setInterval(speedTick, 250);
+}
+function speedCanPlay(card, centerCard){
+  if(!card || !centerCard) return false;
+  const d = Math.abs(rankValue(card.rank) - rankValue(centerCard.rank));
+  return d===1;
+}
+function speedRefill(p){
+  while(speed.hand[p].length<5 && speed.stock[p].length>0){
+    speed.hand[p].push(speed.stock[p].shift());
+  }
+}
+function speedPlay(p, handIdx, pileIdx){
+  if(!speed || speed.over) return;
+  const card = speed.hand[p][handIdx];
+  if(!speedCanPlay(card, speed.center[pileIdx])) return false;
+  speed.hand[p].splice(handIdx,1);
+  speed.center[pileIdx] = card;
+  speed.selected[p]=null;
+  speedRefill(p);
+  speed.stuckSince=null;
+  speedRender();
+  speedCheckWin();
+  return true;
+}
+function speedCheckWin(){
+  for(let p=0;p<2;p++){
+    if(speed.hand[p].length===0 && speed.stock[p].length===0){
+      speed.over=true;
+      clearInterval(speedTimer); speedTimer=null;
+      const isAI = speed.mode==='ai';
+      let title;
+      if(isAI) title = p===0 ? '🎉 あなたの勝ち!' : '😢 CPUの勝ち';
+      else title = p===0 ? '🎉 プレイヤー1の勝ち!' : '🎉 プレイヤー2の勝ち!';
+      document.getElementById('speed-result-title').textContent = title;
+      goScreen('speed-result');
+      return;
+    }
+  }
+}
+function speedHasMove(p){
+  return speed.hand[p].some(c=> speedCanPlay(c, speed.center[0]) || speedCanPlay(c, speed.center[1]));
+}
+function speedTick(){
+  if(!speed || speed.over) return;
+  // CPU
+  if(speed.mode==='ai'){
+    const reactChance = {easy:0.5, normal:0.85, hard:1}[speed.diff];
+    if(Math.random() < reactChance){
+      for(let i=0;i<speed.hand[1].length;i++){
+        const c = speed.hand[1][i];
+        if(speedCanPlay(c, speed.center[0])){ speedPlay(1,i,0); return; }
+        if(speedCanPlay(c, speed.center[1])){ speedPlay(1,i,1); return; }
+      }
+    }
+  }
+  // 行き詰まり検出
+  if(!speedHasMove(0) && !speedHasMove(1)){
+    if(speed.stuckSince===null) speed.stuckSince = Date.now();
+    document.getElementById('speed-stuck').textContent = '行き詰まり中... まもなく場を入れ替えます';
+    if(Date.now() - speed.stuckSince > 900){
+      speedResolveStuck();
+    }
+  } else {
+    speed.stuckSince = null;
+    document.getElementById('speed-stuck').textContent = '';
+  }
+}
+function speedResolveStuck(){
+  for(let p=0;p<2;p++){
+    let card = null;
+    if(speed.stock[p].length>0) card = speed.stock[p].shift();
+    else if(speed.hand[p].length>0) card = speed.hand[p].shift();
+    if(card) speed.center[p] = card;
+  }
+  speed.stuckSince = null;
+  speedRefill(0); speedRefill(1);
+  speedRender();
+  speedCheckWin();
+}
+function speedSelect(p, idx){
+  if(!speed || speed.over) return;
+  if(speed.mode==='ai' && p===1) return;
+  speed.selected[p] = (speed.selected[p]===idx) ? null : idx;
+  speedRender();
+}
+function speedTryPile(p, pileIdx){
+  if(!speed || speed.over) return;
+  if(speed.mode==='ai' && p===1) return;
+  const idx = speed.selected[p];
+  if(idx===null || idx===undefined) return;
+  speedPlay(p, idx, pileIdx);
+}
+function speedRender(){
+  document.getElementById('speed-center-a').innerHTML = cardHTML(speed.center[0], 'sz-lg');
+  document.getElementById('speed-center-b').innerHTML = cardHTML(speed.center[1], 'sz-lg');
+  document.getElementById('speed-center-a').querySelector('.card, .card.empty').onclick = ()=>{ speedTryPile(0,0); speedTryPile(1,0); };
+  document.getElementById('speed-center-b').querySelector('.card, .card.empty').onclick = ()=>{ speedTryPile(0,1); speedTryPile(1,1); };
+
+  for(let p=0;p<2;p++){
+    const handWrap = document.getElementById('speed-hand-'+(p+1));
+    handWrap.innerHTML='';
+    speed.hand[p].forEach((c,idx)=>{
+      const wrap = document.createElement('div');
+      const canMove = speedCanPlay(c, speed.center[0]) || speedCanPlay(c, speed.center[1]);
+      wrap.innerHTML = cardHTML(c, 'sz-md', (speed.selected[p]===idx?'selected':'') + (canMove?'':' disabled'));
+      const inner = wrap.firstElementChild;
+      inner.onclick = ()=> speedSelect(p, idx);
+      handWrap.appendChild(inner);
+    });
+    document.getElementById('speed-stock-'+(p+1)).innerHTML = backHTML('sz-sm') + `<div style="text-align:center; font-size:0.65rem; color:var(--sub); margin-top:2px;">${speed.stock[p].length}枚</div>`;
+  }
+}
+function quitSpeed(){
+  if(speedTimer){ clearInterval(speedTimer); speedTimer=null; }
+  speed=null;
+  goSetup('speed');
+}
+
+/* ===================== 大富豪 ===================== */
+const DAIFUGO_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
+function daifugoValue(rank){ return rank==='JOKER' ? 100 : DAIFUGO_ORDER.indexOf(rank); }
+
+let daifugoCfg = {mode:'ai', cpu:'2'};
+function daifugoSetupPick(k,v,el){
+  daifugoCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('daifugo-cpu-group').style.display = (daifugoCfg.mode==='ai') ? 'flex' : 'none';
+}
+
+let daifugo = null;
+function startDaifugo(){
+  const numCpu = daifugoCfg.mode==='ai' ? parseInt(daifugoCfg.cpu,10) : 1;
+  const players = [];
+  players.push({id:0, name:'あなた', isHuman:true, hand:[]});
+  if(daifugoCfg.mode==='ai'){
+    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[]});
+  } else {
+    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[]});
+  }
+  const deck = shuffle(makeDeck(true));
+  deck.forEach((c,i)=>{ players[i % players.length].hand.push(c); });
+  players.forEach(p=>{ p.hand.sort((a,b)=> daifugoValue(a.rank)-daifugoValue(b.rank)); });
+  let startId = 0;
+  for(const p of players){ if(p.hand.some(c=>c.rank==='3' && c.suit==='♦')){ startId=p.id; break; } }
+  daifugo = {
+    players,
+    seatOrder: players.map(p=>p.id),
+    currentId: startId,
+    lastPlayerId: startId,
+    pile: [],
+    requiredCount: null,
+    passedIds: new Set(),
+    finishedOrder: [],
+    selected: [],
+    waitingHuman: false,
+    over: false,
+  };
+  goScreen('daifugo-game');
+  daifugoRender();
+  setTimeout(daifugoTurn, 400);
+}
+function daifugoGetPlayer(id){ return daifugo.players.find(p=>p.id===id); }
+function daifugoNextTurnId(fromId){
+  const order = daifugo.seatOrder;
+  const idx = order.indexOf(fromId);
+  for(let step=1; step<=order.length; step++){
+    const cand = order[(idx+step)%order.length];
+    const p = daifugoGetPlayer(cand);
+    if(p.hand.length>0 && !daifugo.passedIds.has(cand)) return cand;
+  }
+  return null;
+}
+function daifugoValidSelection(cards){
+  if(cards.length===0) return false;
+  if(daifugo.requiredCount!==null && cards.length!==daifugo.requiredCount) return false;
+  const hasJoker = cards.some(c=>c.rank==='JOKER');
+  if(hasJoker && cards.length!==1) return false;
+  if(!hasJoker){
+    const r = cards[0].rank;
+    if(!cards.every(c=>c.rank===r)) return false;
+  }
+  if(daifugo.requiredCount!==null){
+    const pileVal = daifugoValue(daifugo.pile[0].rank);
+    const myVal = daifugoValue(cards[0].rank);
+    if(myVal<=pileVal) return false;
+  }
+  return true;
+}
+function daifugoResolvePlay(playerId, cards){
+  const p = daifugoGetPlayer(playerId);
+  const ids = cards.map(c=>c.id);
+  p.hand = p.hand.filter(c=>!ids.includes(c.id));
+  daifugo.pile = cards;
+  daifugo.requiredCount = cards.length;
+  daifugo.lastPlayerId = playerId;
+  daifugo.passedIds = new Set();
+  if(p.hand.length===0 && !daifugo.finishedOrder.includes(playerId)) daifugo.finishedOrder.push(playerId);
+  const isEight = cards[0].rank==='8';
+  const remaining = daifugo.players.filter(pl=>pl.hand.length>0);
+  if(remaining.length<=1){
+    if(remaining.length===1 && !daifugo.finishedOrder.includes(remaining[0].id)) daifugo.finishedOrder.push(remaining[0].id);
+    daifugoRender();
+    daifugoEnd();
+    return;
+  }
+  if(isEight){
+    daifugo.pile = [];
+    daifugo.requiredCount = null;
+    daifugo.passedIds = new Set();
+    if(p.hand.length>0){
+      daifugo.currentId = playerId;
+    } else {
+      const nextId = daifugoNextTurnId(playerId);
+      daifugo.currentId = nextId===null ? playerId : nextId;
+      if(nextId===null){ daifugoRender(); daifugoEnd(); return; }
+    }
+  } else {
+    const nextId = daifugoNextTurnId(playerId);
+    daifugo.currentId = (nextId===null) ? playerId : nextId;
+    if(nextId===null){ daifugo.pile=[]; daifugo.requiredCount=null; daifugo.passedIds=new Set(); }
+  }
+  daifugoRender();
+  setTimeout(daifugoTurn, 500);
+}
+function daifugoResolvePass(playerId){
+  daifugo.passedIds.add(playerId);
+  const nextId = daifugoNextTurnId(playerId);
+  if(nextId===null || nextId===daifugo.lastPlayerId){
+    daifugo.pile = [];
+    daifugo.requiredCount = null;
+    daifugo.passedIds = new Set();
+    daifugo.currentId = daifugo.lastPlayerId;
+  } else {
+    daifugo.currentId = nextId;
+  }
+  daifugoRender();
+  setTimeout(daifugoTurn, 500);
+}
+function daifugoTurn(){
+  if(!daifugo || daifugo.over) return;
+  const current = daifugoGetPlayer(daifugo.currentId);
+  if(!current || current.hand.length===0){ return; }
+  if(current.isHuman){
+    daifugo.waitingHuman = true;
+    daifugo.selected = [];
+    daifugoRender();
+  } else {
+    daifugo.waitingHuman = false;
+    daifugoRender();
+    setTimeout(()=>daifugoCpuMove(current), 700);
+  }
+}
+function daifugoCpuMove(p){
+  if(!daifugo || daifugo.over) return;
+  const byRank = {};
+  p.hand.forEach(c=>{ if(c.rank!=='JOKER') (byRank[c.rank]=byRank[c.rank]||[]).push(c); });
+  let choice = null;
+  if(daifugo.requiredCount===null){
+    const groups = Object.values(byRank).sort((a,b)=> daifugoValue(a[0].rank)-daifugoValue(b[0].rank));
+    if(groups.length>0) choice = [groups[0][0]];
+    else { const joker = p.hand.find(c=>c.rank==='JOKER'); if(joker) choice=[joker]; }
+  } else {
+    const n = daifugo.requiredCount;
+    const pileVal = daifugoValue(daifugo.pile[0].rank);
+    const candidates = Object.values(byRank).filter(g=>g.length>=n && daifugoValue(g[0].rank)>pileVal)
+      .sort((a,b)=> daifugoValue(a[0].rank)-daifugoValue(b[0].rank));
+    if(candidates.length>0) choice = candidates[0].slice(0,n);
+    else if(n===1){ const joker = p.hand.find(c=>c.rank==='JOKER'); if(joker) choice=[joker]; }
+  }
+  if(choice){ daifugoResolvePlay(p.id, choice); }
+  else { daifugoResolvePass(p.id); }
+}
+function daifugoToggle(cardId){
+  if(!daifugo.waitingHuman) return;
+  const idx = daifugo.selected.indexOf(cardId);
+  if(idx>=0) daifugo.selected.splice(idx,1); else daifugo.selected.push(cardId);
+  daifugoRender();
+}
+function daifugoPlayHuman(){
+  if(!daifugo.waitingHuman) return;
+  const human = daifugoGetPlayer(0);
+  const cards = human.hand.filter(c=>daifugo.selected.includes(c.id));
+  if(!daifugoValidSelection(cards)){
+    document.getElementById('daifugo-msg').textContent = 'そのカードの組み合わせは出せません';
+    return;
+  }
+  document.getElementById('daifugo-msg').textContent = '';
+  daifugo.waitingHuman = false;
+  daifugoResolvePlay(0, cards);
+}
+function daifugoPassHuman(){
+  if(!daifugo.waitingHuman) return;
+  if(daifugo.requiredCount===null){
+    document.getElementById('daifugo-msg').textContent = 'あなたの番です。何か出してください';
+    return;
+  }
+  document.getElementById('daifugo-msg').textContent = '';
+  daifugo.waitingHuman = false;
+  daifugoResolvePass(0);
+}
+function daifugoRender(){
+  const playersEl = document.getElementById('daifugo-players');
+  playersEl.innerHTML = daifugo.players.map(p=>{
+    const cls = 'mini-player' + (p.id===daifugo.currentId?' current':'') + (p.hand.length===0?' out':'');
+    return `<div class="${cls}">${p.name}<br>${p.hand.length===0?'上がり':p.hand.length+'枚'}</div>`;
+  }).join('');
+  document.getElementById('daifugo-pile-count').textContent = daifugo.requiredCount ? `(${daifugo.requiredCount}枚出し)` : '(フリー)';
+  document.getElementById('daifugo-pile').innerHTML = daifugo.pile.length ? daifugo.pile.map(c=>cardHTML(c,'sz-md')).join('') : '<span style="color:var(--sub); font-size:0.8rem;">まだありません</span>';
+  const human = daifugoGetPlayer(0);
+  document.getElementById('daifugo-hand').innerHTML = human.hand.map(c=>{
+    const sel = daifugo.selected.includes(c.id) ? 'selected' : '';
+    return cardHTML(c,'sz-md',sel).replace('class="card', `data-id="${c.id}" class="card`);
+  }).join('');
+  document.querySelectorAll('#daifugo-hand .card').forEach(el=>{
+    el.onclick = ()=> daifugoToggle(parseInt(el.getAttribute('data-id'),10));
+  });
+  document.getElementById('daifugo-play-btn').disabled = !daifugo.waitingHuman;
+  document.getElementById('daifugo-pass-btn').disabled = !daifugo.waitingHuman || daifugo.requiredCount===null;
+  const cur = daifugoGetPlayer(daifugo.currentId);
+  document.getElementById('daifugo-turn').textContent = daifugo.waitingHuman ? 'あなたの番です' : (cur ? `${cur.name} の番です...` : '');
+}
+function daifugoEnd(){
+  daifugo.over = true;
+  const list = document.getElementById('daifugo-result-list');
+  const loserId = daifugo.finishedOrder[daifugo.finishedOrder.length-1];
+  const titles = ['👑 大富豪','😊 富豪','😐 平民','😢 貧民','😭 大貧民'];
+  list.innerHTML = daifugo.finishedOrder.map((id,i)=>{
+    const p = daifugoGetPlayer(id);
+    const isLoser = id===loserId;
+    const label = titles[Math.min(i, titles.length-1)];
+    return `<div class="baba-result-row${isLoser?' loser':''}"><span>${label} ${p.name}</span><span>${i+1}位</span></div>`;
+  }).join('');
+  goScreen('daifugo-result');
+}
+function quitDaifugo(){ daifugo=null; goSetup('daifugo'); }
+
+/* ===================== 7並べ ===================== */
+let sevensCfg = {mode:'ai', cpu:'2'};
+function sevensSetupPick(k,v,el){
+  sevensCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('sevens-cpu-group').style.display = (sevensCfg.mode==='ai') ? 'flex' : 'none';
+}
+
+let sevens = null;
+function startSevens(){
+  const numCpu = sevensCfg.mode==='ai' ? parseInt(sevensCfg.cpu,10) : 1;
+  const players = [];
+  players.push({id:0, name:'あなた', isHuman:true, hand:[]});
+  if(sevensCfg.mode==='ai'){
+    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[]});
+  } else {
+    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[]});
+  }
+  const deck = shuffle(makeDeck(false));
+  deck.forEach((c,i)=>{ players[i % players.length].hand.push(c); });
+  players.forEach(p=>{ p.hand.sort((a,b)=> (a.suit===b.suit ? rankValue(a.rank)-rankValue(b.rank) : SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit))); });
+  let startId = 0;
+  for(const p of players){ if(p.hand.some(c=>c.rank==='7' && c.suit==='♠')){ startId=p.id; break; } }
+  sevens = {
+    players,
+    seatOrder: players.map(p=>p.id),
+    currentId: startId,
+    board: {},
+    finishedOrder: [],
+    waitingHuman: false,
+  };
+  goScreen('sevens-game');
+  sevensRender();
+  setTimeout(sevensTurn, 400);
+}
+function sevensGetPlayer(id){ return sevens.players.find(p=>p.id===id); }
+function sevensNextId(fromId){
+  const order = sevens.seatOrder;
+  const idx = order.indexOf(fromId);
+  for(let step=1; step<=order.length; step++){
+    const cand = order[(idx+step)%order.length];
+    if(sevensGetPlayer(cand).hand.length>0) return cand;
+  }
+  return null;
+}
+function sevensLegal(card){
+  if(card.rank==='7') return !sevens.board[card.suit] || (sevens.board[card.suit].min<=7 && sevens.board[card.suit].max>=7);
+  const b = sevens.board[card.suit];
+  if(!b) return false;
+  const v = rankValue(card.rank);
+  return v===b.max+1 || v===b.min-1;
+}
+function sevensPlaceCard(playerId, cardId){
+  const p = sevensGetPlayer(playerId);
+  const idx = p.hand.findIndex(c=>c.id===cardId);
+  if(idx<0) return false;
+  const card = p.hand[idx];
+  if(!sevensLegal(card)) return false;
+  p.hand.splice(idx,1);
+  const v = rankValue(card.rank);
+  if(!sevens.board[card.suit]) sevens.board[card.suit] = {min:v, max:v};
+  else { const b = sevens.board[card.suit]; b.min=Math.min(b.min,v); b.max=Math.max(b.max,v); }
+  if(p.hand.length===0 && !sevens.finishedOrder.includes(playerId)) sevens.finishedOrder.push(playerId);
+  return true;
+}
+function sevensAdvance(){
+  const remaining = sevens.players.filter(p=>p.hand.length>0);
+  if(remaining.length<=1){
+    if(remaining.length===1 && !sevens.finishedOrder.includes(remaining[0].id)) sevens.finishedOrder.push(remaining[0].id);
+    sevensRender();
+    sevensEnd();
+    return;
+  }
+  const nextId = sevensNextId(sevens.currentId);
+  sevens.currentId = nextId;
+  sevensRender();
+  setTimeout(sevensTurn, 500);
+}
+function sevensTurn(){
+  if(!sevens) return;
+  const current = sevensGetPlayer(sevens.currentId);
+  if(current.isHuman){
+    sevens.waitingHuman = true;
+    sevensRender();
+  } else {
+    sevens.waitingHuman = false;
+    sevensRender();
+    setTimeout(()=>sevensCpuMove(current), 700);
+  }
+}
+function sevensCpuMove(p){
+  if(!sevens) return;
+  const sevenCard = p.hand.find(c=>c.rank==='7' && sevensLegal(c));
+  const card = sevenCard || p.hand.find(c=>sevensLegal(c));
+  if(card){ sevensPlaceCard(p.id, card.id); }
+  sevensAdvance();
+}
+function sevensPlayHuman(cardId){
+  if(!sevens.waitingHuman) return;
+  const ok = sevensPlaceCard(0, cardId);
+  if(!ok){ document.getElementById('sevens-msg').textContent='そのカードは出せません'; return; }
+  document.getElementById('sevens-msg').textContent='';
+  sevens.waitingHuman = false;
+  sevensAdvance();
+}
+function sevensPassHuman(){
+  if(!sevens.waitingHuman) return;
+  document.getElementById('sevens-msg').textContent='';
+  sevens.waitingHuman = false;
+  sevensAdvance();
+}
+function sevensRender(){
+  const playersEl = document.getElementById('sevens-players');
+  playersEl.innerHTML = sevens.players.map(p=>{
+    const cls = 'mini-player' + (p.id===sevens.currentId?' current':'') + (p.hand.length===0?' out':'');
+    return `<div class="${cls}">${p.name}<br>${p.hand.length===0?'上がり':p.hand.length+'枚'}</div>`;
+  }).join('');
+  const boardEl = document.getElementById('sevens-board');
+  boardEl.innerHTML='';
+  SUITS.forEach(s=>{
+    const row = document.createElement('div'); row.className='sevens-row';
+    const label = document.createElement('div'); label.className='suit-label'; label.textContent=s;
+    if(SUIT_COLOR[s]==='red') label.style.color='var(--card-red)';
+    row.appendChild(label);
+    const slots = document.createElement('div'); slots.className='sevens-slots';
+    for(let v=1; v<=13; v++){
+      const rank = RANKS[v-1];
+      const b = sevens.board[s];
+      const placed = b && v>=b.min && v<=b.max;
+      const slot = document.createElement('div'); slot.className='sevens-slot';
+      if(placed){ slot.innerHTML = cardHTML({rank, suit:s, color:SUIT_COLOR[s]}, 'sz-sm'); }
+      else { slot.textContent = rank; }
+      slots.appendChild(slot);
+    }
+    row.appendChild(slots);
+    boardEl.appendChild(row);
+  });
+  const human = sevensGetPlayer(0);
+  document.getElementById('sevens-hand').innerHTML = human.hand.map(c=>{
+    const legal = sevens.waitingHuman && sevensLegal(c);
+    return cardHTML(c,'sz-md', legal ? '' : 'disabled').replace('class="card', `data-id="${c.id}" class="card`);
+  }).join('');
+  document.querySelectorAll('#sevens-hand .card').forEach(el=>{
+    el.onclick = ()=> sevensPlayHuman(parseInt(el.getAttribute('data-id'),10));
+  });
+  document.getElementById('sevens-pass-btn').disabled = !sevens.waitingHuman;
+  const cur = sevensGetPlayer(sevens.currentId);
+  document.getElementById('sevens-turn').textContent = sevens.waitingHuman ? 'あなたの番です(出せるカードがなければパス)' : (cur?`${cur.name} の番です...`:'');
+}
+function sevensEnd(){
+  const list = document.getElementById('sevens-result-list');
+  const loserId = sevens.finishedOrder[sevens.finishedOrder.length-1];
+  list.innerHTML = sevens.finishedOrder.map((id,i)=>{
+    const p = sevensGetPlayer(id);
+    const isLoser = id===loserId;
+    return `<div class="baba-result-row${isLoser?' loser':''}"><span>${isLoser?'😭':'🎉'} ${p.name}</span><span>${i+1}位</span></div>`;
+  }).join('');
+  goScreen('sevens-result');
+}
+function quitSevens(){ sevens=null; goSetup('sevens'); }
+
+/* ===================== 21 ===================== */
+function calcHandValue(hand){
+  let total=0, aces=0;
+  hand.forEach(c=>{
+    if(c.rank==='A'){ aces++; total+=11; }
+    else if(['J','Q','K'].includes(c.rank)) total+=10;
+    else total+=parseInt(c.rank,10);
+  });
+  while(total>21 && aces>0){ total-=10; aces--; }
+  return total;
+}
+let twCfg = {mode:'ai', cpu:'2'};
+function twSetupPick(k,v,el){
+  twCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tw-cpu-group').style.display = (twCfg.mode==='ai') ? 'flex' : 'none';
+}
+let tw = null;
+function startTw(){
+  const numCpu = twCfg.mode==='ai' ? parseInt(twCfg.cpu,10) : 1;
+  const players = [];
+  players.push({id:0, name:'あなた', isHuman:true, hand:[], status:'playing'});
+  if(twCfg.mode==='ai'){
+    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[], status:'playing'});
+  } else {
+    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[], status:'playing'});
+  }
+  const deck = shuffle(makeDeck(false));
+  players.forEach(p=>{ p.hand.push(deck.shift()); });
+  tw = { players, deck, seatOrder: players.map(p=>p.id), currentId: players[0].id, over:false };
+  goScreen('tw-game');
+  twRender();
+  setTimeout(twTurn, 400);
+}
+function twGetPlayer(id){ return tw.players.find(p=>p.id===id); }
+function twNextId(fromId){
+  const order = tw.seatOrder;
+  const idx = order.indexOf(fromId);
+  for(let step=1; step<=order.length; step++){
+    const cand = order[(idx+step)%order.length];
+    if(twGetPlayer(cand).status==='playing') return cand;
+  }
+  return null;
+}
+function twTurn(){
+  if(!tw || tw.over) return;
+  const current = twGetPlayer(tw.currentId);
+  if(current.isHuman){
+    twRender();
+  } else {
+    twRender();
+    setTimeout(()=>twCpuStep(current), 700);
+  }
+}
+function twCpuStep(p){
+  if(!tw || tw.over) return;
+  const total = calcHandValue(p.hand);
+  if(total<17 && tw.deck.length>0){
+    p.hand.push(tw.deck.shift());
+    const nt = calcHandValue(p.hand);
+    if(nt>21){ p.status='busted'; twAdvance(); return; }
+    twRender();
+    setTimeout(()=>twCpuStep(p), 700);
+  } else {
+    p.status='stood';
+    twAdvance();
+  }
+}
+function twHit(){
+  if(!tw || tw.over) return;
+  const p = twGetPlayer(tw.currentId);
+  if(!p.isHuman) return;
+  if(tw.deck.length===0) return;
+  p.hand.push(tw.deck.shift());
+  const total = calcHandValue(p.hand);
+  if(total>21){ p.status='busted'; twRender(); setTimeout(twAdvance, 600); }
+  else { twRender(); }
+}
+function twStand(){
+  if(!tw || tw.over) return;
+  const p = twGetPlayer(tw.currentId);
+  if(!p.isHuman) return;
+  p.status='stood';
+  twRender();
+  setTimeout(twAdvance, 300);
+}
+function twAdvance(){
+  const nextId = twNextId(tw.currentId);
+  if(nextId===null){ twEnd(); return; }
+  tw.currentId = nextId;
+  setTimeout(twTurn, 400);
+}
+function twRender(){
+  const playersEl = document.getElementById('tw-players');
+  playersEl.innerHTML = tw.players.map(p=>{
+    const total = calcHandValue(p.hand);
+    const statusLabel = p.status==='busted' ? 'バースト' : p.status==='stood' ? 'ストップ' : 'プレイ中';
+    const cls = 'tw-hand-block' + (p.id===tw.currentId && p.status==='playing' ? ' current' : '');
+    return `<div class="${cls}"><div>${p.name}</div><div class="hand-row">${p.hand.map(c=>cardHTML(c,'sz-sm')).join('')}</div><div class="tw-total">${total}</div><div class="tw-status">${statusLabel}</div></div>`;
+  }).join('');
+  const cur = twGetPlayer(tw.currentId);
+  document.getElementById('tw-turn').textContent = (cur && cur.isHuman && cur.status==='playing') ? 'あなたの番です' : (cur?`${cur.name} の番です...`:'');
+  const isMyTurn = cur && cur.isHuman && cur.status==='playing';
+  document.getElementById('tw-hit-btn').disabled = !isMyTurn;
+  document.getElementById('tw-stand-btn').disabled = !isMyTurn;
+}
+function twEnd(){
+  tw.over = true;
+  const alive = tw.players.filter(p=>p.status!=='busted');
+  let best = -1;
+  alive.forEach(p=>{ const t=calcHandValue(p.hand); if(t>best) best=t; });
+  const winners = alive.filter(p=>calcHandValue(p.hand)===best);
+  const list = document.getElementById('tw-result-list');
+  if(winners.length===0){
+    list.innerHTML = `<div class="baba-result-row loser"><span>😭 全員バースト</span><span>-</span></div>`;
+  } else {
+    const ranked = [...tw.players].sort((a,b)=>{
+      const av = a.status==='busted' ? -1 : calcHandValue(a.hand);
+      const bv = b.status==='busted' ? -1 : calcHandValue(b.hand);
+      return bv-av;
+    });
+    list.innerHTML = ranked.map(p=>{
+      const isWinner = winners.includes(p);
+      const t = calcHandValue(p.hand);
+      const label = p.status==='busted' ? 'バースト' : `${t}点`;
+      return `<div class="baba-result-row${p.status==='busted'?' loser':''}"><span>${isWinner?'🎉':''} ${p.name}</span><span>${label}</span></div>`;
+    }).join('');
+  }
+  goScreen('tw-result');
+}
+function quitTw(){ tw=null; goSetup('tw'); }
+
+/* ===================== ポーカー ===================== */
+function pokerCardValue(c){
+  if(c.rank==='A') return 14;
+  if(c.rank==='K') return 13;
+  if(c.rank==='Q') return 12;
+  if(c.rank==='J') return 11;
+  return parseInt(c.rank,10);
+}
+function pokerEvaluate(hand){
+  const values = hand.map(pokerCardValue).sort((a,b)=>b-a);
+  const suits = hand.map(c=>c.suit);
+  const isFlush = suits.every(s=>s===suits[0]);
+  const uniq = [...new Set(values)];
+  let isStraight=false, straightHigh=0;
+  if(uniq.length===5){
+    if(values[0]-values[4]===4){ isStraight=true; straightHigh=values[0]; }
+    else if(values[0]===14 && values[1]===5 && values[2]===4 && values[3]===3 && values[4]===2){ isStraight=true; straightHigh=5; }
+  }
+  const counts={};
+  values.forEach(v=>counts[v]=(counts[v]||0)+1);
+  const groups = Object.entries(counts).map(([v,c])=>({v:parseInt(v),c})).sort((a,b)=> b.c-a.c || b.v-a.v);
+  let rank, name, tiebreak;
+  if(isStraight && isFlush){ rank=8; name = straightHigh===14?'ロイヤルストレートフラッシュ':'ストレートフラッシュ'; tiebreak=[straightHigh]; }
+  else if(groups[0].c===4){ rank=7; name='フォーカード'; tiebreak=[groups[0].v, groups[1].v]; }
+  else if(groups[0].c===3 && groups[1] && groups[1].c===2){ rank=6; name='フルハウス'; tiebreak=[groups[0].v, groups[1].v]; }
+  else if(isFlush){ rank=5; name='フラッシュ'; tiebreak=values; }
+  else if(isStraight){ rank=4; name='ストレート'; tiebreak=[straightHigh]; }
+  else if(groups[0].c===3){ rank=3; name='スリーカード'; tiebreak=[groups[0].v, ...groups.slice(1).map(g=>g.v)]; }
+  else if(groups[0].c===2 && groups[1] && groups[1].c===2){ rank=2; name='ツーペア'; const pv=[groups[0].v,groups[1].v].sort((a,b)=>b-a); tiebreak=[...pv, groups[2].v]; }
+  else if(groups[0].c===2){ rank=1; name='ワンペア'; tiebreak=[groups[0].v, ...groups.slice(1).map(g=>g.v)]; }
+  else { rank=0; name='ブタ(役なし)'; tiebreak=values; }
+  return {rank, name, tiebreak};
+}
+function pokerCompare(a,b){
+  if(a.rank!==b.rank) return a.rank-b.rank;
+  const len = Math.max(a.tiebreak.length, b.tiebreak.length);
+  for(let i=0;i<len;i++){
+    const av=a.tiebreak[i]||0, bv=b.tiebreak[i]||0;
+    if(av!==bv) return av-bv;
+  }
+  return 0;
+}
+function pokerCpuDiscardIdx(hand){
+  const info = hand.map((c,i)=>({i, v:pokerCardValue(c)}));
+  const counts={};
+  info.forEach(o=>counts[o.v]=(counts[o.v]||0)+1);
+  const suits = hand.map(c=>c.suit);
+  const isFlush = suits.every(s=>s===suits[0]);
+  const vals = info.map(o=>o.v).sort((a,b)=>b-a);
+  const uniq=[...new Set(vals)];
+  const isStraight = uniq.length===5 && (vals[0]-vals[4]===4);
+  if(isFlush || isStraight) return [];
+  return info.filter(o=> counts[o.v]===1 && o.v<12).map(o=>o.i);
+}
+let pokerCfg = {mode:'ai'};
+function pokerSetupPick(k,v,el){
+  pokerCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+let poker = null;
+function startPoker(){
+  const deck = shuffle(makeDeck(false));
+  poker = {
+    mode: pokerCfg.mode,
+    deck,
+    hand: [deck.splice(0,5), deck.splice(0,5)],
+    selected: [[],[]],
+    phase: 'p1',
+  };
+  document.getElementById('poker-mode-label').textContent = poker.mode==='ai' ? '対AI対戦' : '2人対戦';
+  goScreen('poker-game');
+  pokerRender();
+}
+function pokerName(p){
+  if(poker.mode==='ai') return p===0 ? 'あなた' : 'CPU';
+  return p===0 ? 'プレイヤー1' : 'プレイヤー2';
+}
+function pokerToggle(p, idx){
+  const expectPhase = p===0 ? 'p1' : 'p2';
+  if(poker.phase!==expectPhase) return;
+  if(poker.mode==='ai' && p===1) return;
+  const sel = poker.selected[p];
+  const at = sel.indexOf(idx);
+  if(at>=0) sel.splice(at,1); else sel.push(idx);
+  pokerRender();
+}
+function pokerDrawClick(){
+  if(poker.phase==='p1'){ pokerDraw(0); }
+  else if(poker.phase==='p2'){ pokerDraw(1); }
+}
+function pokerDraw(p){
+  const sel = [...poker.selected[p]].sort((a,b)=>b-a);
+  sel.forEach(idx=> poker.hand[p].splice(idx,1));
+  while(poker.hand[p].length<5) poker.hand[p].push(poker.deck.shift());
+  poker.selected[p]=[];
+  if(p===0){
+    if(poker.mode==='ai'){
+      pokerCpuDraw();
+      pokerReveal();
+    } else {
+      poker.phase='pass2';
+      pokerRender();
+    }
+  } else {
+    pokerReveal();
+  }
+}
+function pokerCpuDraw(){
+  const idxs = pokerCpuDiscardIdx(poker.hand[1]).sort((a,b)=>b-a);
+  idxs.forEach(idx=> poker.hand[1].splice(idx,1));
+  while(poker.hand[1].length<5) poker.hand[1].push(poker.deck.shift());
+}
+function pokerStartP2(){
+  poker.phase='p2';
+  pokerRender();
+}
+function pokerRender(){
+  const passArea = document.getElementById('poker-pass-area');
+  const handWrap = document.getElementById('poker-hand');
+  const drawBtn = document.getElementById('poker-draw-btn');
+  const msg = document.getElementById('poker-msg');
+  msg.textContent='';
+  if(poker.phase==='pass2'){
+    passArea.innerHTML = `<div class="poker-pass-card" onclick="pokerStartP2()">交代: ${pokerName(1)}の番です<br><span style="font-size:0.75rem; color:var(--sub);">タップして手札を見る</span></div>`;
+    handWrap.innerHTML='';
+    drawBtn.style.display='none';
+    document.getElementById('poker-turn').textContent='';
+    return;
+  }
+  passArea.innerHTML='';
+  drawBtn.style.display='';
+  const p = poker.phase==='p1' ? 0 : 1;
+  document.getElementById('poker-turn').textContent = `${pokerName(p)}の番: 交換したいカードをタップして選び、「交換する」を押してください(0枚でもOK)`;
+  handWrap.innerHTML = poker.hand[p].map((c,idx)=>{
+    const sel = poker.selected[p].includes(idx) ? 'selected' : '';
+    return cardHTML(c,'sz-md',sel).replace('class="card', `data-idx="${idx}" data-p="${p}" class="card`);
+  }).join('');
+  document.querySelectorAll('#poker-hand .card').forEach(el=>{
+    el.onclick = ()=> pokerToggle(parseInt(el.getAttribute('data-p'),10), parseInt(el.getAttribute('data-idx'),10));
+  });
+}
+function pokerReveal(){
+  const e0 = pokerEvaluate(poker.hand[0]);
+  const e1 = pokerEvaluate(poker.hand[1]);
+  const cmp = pokerCompare(e0,e1);
+  const n0 = pokerName(0), n1 = pokerName(1);
+  let title;
+  if(cmp>0) title = `🎉 ${n0}の勝ち!`;
+  else if(cmp<0) title = `🎉 ${n1}の勝ち!`;
+  else title = '引き分け';
+  document.getElementById('poker-result-title').textContent = title;
+  document.getElementById('poker-hand-0-label').textContent = `${n0}: ${e0.name}`;
+  document.getElementById('poker-hand-1-label').textContent = `${n1}: ${e1.name}`;
+  document.getElementById('poker-hand-0-cards').innerHTML = poker.hand[0].map(c=>cardHTML(c,'sz-md')).join('');
+  document.getElementById('poker-hand-1-cards').innerHTML = poker.hand[1].map(c=>cardHTML(c,'sz-md')).join('');
+  goScreen('poker-result');
+}
+function quitPoker(){ poker=null; goSetup('poker'); }
+
+/* ===================== ブラックジャック ===================== */
+let bjCfg = {mode:'ai'};
+function bjSetupPick(k,v,el){
+  bjCfg[k]=v;
+  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+let bj = null;
+function startBj(){
+  const deck = shuffle(makeDeck(false));
+  const players = [];
+  players.push({id:0, name: bjCfg.mode==='ai' ? 'あなた' : 'プレイヤー1', hand:[deck.shift(), deck.shift()], status:'playing'});
+  if(bjCfg.mode==='2p'){ players.push({id:1, name:'プレイヤー2', hand:[deck.shift(), deck.shift()], status:'playing'}); }
+  bj = {
+    mode: bjCfg.mode,
+    deck,
+    players,
+    dealer: {hand:[deck.shift(), deck.shift()]},
+    currentIdx: 0,
+    phase: 'player',
+    over: false,
+  };
+  goScreen('bj-game');
+  bjRender();
+}
+function bjCurrentPlayer(){ return bj.players[bj.currentIdx]; }
+function bjHit(){
+  if(!bj || bj.phase!=='player') return;
+  const p = bjCurrentPlayer();
+  p.hand.push(bj.deck.shift());
+  const total = calcHandValue(p.hand);
+  if(total>21){ p.status='busted'; bjRender(); setTimeout(bjNextPlayer, 700); }
+  else { bjRender(); }
+}
+function bjStand(){
+  if(!bj || bj.phase!=='player') return;
+  const p = bjCurrentPlayer();
+  p.status='stood';
+  bjRender();
+  setTimeout(bjNextPlayer, 300);
+}
+function bjNextPlayer(){
+  if(bj.currentIdx < bj.players.length-1){
+    bj.currentIdx++;
+    bjRender();
+  } else {
+    bj.phase='dealer';
+    bjRender();
+    setTimeout(bjDealerStep, 700);
+  }
+}
+function bjDealerStep(){
+  const total = calcHandValue(bj.dealer.hand);
+  const anyoneAlive = bj.players.some(p=>p.status!=='busted');
+  if(anyoneAlive && total<17){
+    bj.dealer.hand.push(bj.deck.shift());
+    bjRender();
+    setTimeout(bjDealerStep, 700);
+  } else {
+    bjEnd();
+  }
+}
+function bjRender(){
+  const dealerTotalEl = document.getElementById('bj-dealer-total');
+  const dealerHandEl = document.getElementById('bj-dealer-hand');
+  const showAll = bj.phase!=='player';
+  if(showAll){
+    dealerHandEl.innerHTML = bj.dealer.hand.map(c=>cardHTML(c,'sz-md')).join('');
+    dealerTotalEl.textContent = calcHandValue(bj.dealer.hand);
+  } else {
+    dealerHandEl.innerHTML = cardHTML(bj.dealer.hand[0],'sz-md') + backHTML('sz-md');
+    dealerTotalEl.textContent = '?';
+  }
+  const playersEl = document.getElementById('bj-players');
+  playersEl.innerHTML = bj.players.map((p,i)=>{
+    const total = calcHandValue(p.hand);
+    const statusLabel = p.status==='busted'?'バースト':p.status==='stood'?'スタンド':'プレイ中';
+    const cls = 'bj-hand-block' + (bj.phase==='player' && i===bj.currentIdx ? ' current' : '');
+    return `<div class="${cls}"><div>${p.name}</div><div class="hand-row">${p.hand.map(c=>cardHTML(c,'sz-md')).join('')}</div><div class="bj-total">${total}</div><div class="tw-status">${statusLabel}</div></div>`;
+  }).join('');
+  const isMyTurn = bj.phase==='player';
+  document.getElementById('bj-hit-btn').disabled = !isMyTurn;
+  document.getElementById('bj-stand-btn').disabled = !isMyTurn;
+  document.getElementById('bj-turn').textContent = bj.phase==='player' ? `${bjCurrentPlayer().name}の番です` : bj.phase==='dealer' ? 'ディーラーの番です...' : '';
+}
+function bjEnd(){
+  bj.over = true;
+  const dTotal = calcHandValue(bj.dealer.hand);
+  const dealerBusted = dTotal>21;
+  const list = document.getElementById('bj-result-list');
+  list.innerHTML = bj.players.map(p=>{
+    const total = calcHandValue(p.hand);
+    let result;
+    if(p.status==='busted') result='負け(バースト)';
+    else if(dealerBusted) result='勝ち(ディーラーバースト)';
+    else if(total>dTotal) result='勝ち';
+    else if(total<dTotal) result='負け';
+    else result='引き分け';
+    const isWin = result.startsWith('勝ち');
+    return `<div class="baba-result-row${result.startsWith('負け')?' loser':''}"><span>${isWin?'🎉':''} ${p.name}(${total})</span><span>${result}</span></div>`;
+  }).join('') + `<div class="baba-result-row"><span>ディーラー</span><span>${dTotal}${dealerBusted?'(バースト)':''}</span></div>`;
+  bjRender();
+  goScreen('bj-result');
+}
+function quitBj(){ bj=null; goSetup('bj'); }
+</script>
+</body>
+</html>
