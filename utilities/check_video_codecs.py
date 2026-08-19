@@ -15,7 +15,11 @@ check_video_codecs.py
   python3 check_video_codecs.py <フォルダ> --html ~/Desktop/codecs.html
   python3 check_video_codecs.py <フォルダ> --report ~/Desktop/codecs.txt
   python3 check_video_codecs.py <フォルダ> --csv ~/Desktop/codecs.csv
+  python3 check_video_codecs.py <フォルダ> --refresh             # キャッシュをリセットして再検査
   python3 check_video_codecs.py <フォルダ> --paths-only          # パスだけ(パイプ用)
+
+h265 + mp4 は確定済みとみなし、次回以降 ffprobe をスキップする。
+キャッシュは <フォルダ>/.check_video_codecs_cache.json に保存される。
 
 コンテナ判定は拡張子で行う(.mp4 = mp4)。ffmpeg の mov/mp4 は同じ demuxer
 (`mov,mp4,m4a,3gp,3g2,mj2`)で報告されるため、format_name では .mov と .mp4 を
@@ -42,8 +46,35 @@ CODEC_LABELS = {
 }
 
 
-def probe(path: Path) -> dict:
-    """1ファイル分の情報を返す。失敗しても例外は投げない。"""
+def load_cache(cache_path: Path) -> dict[str, dict]:
+    """キャッシュファイルを読み込む (無かったら空)。"""
+    if cache_path.exists():
+        try:
+            return json.loads(cache_path.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+    return {}
+
+
+def save_cache(cache_path: Path, cache: dict[str, dict]) -> None:
+    """キャッシュをファイルに書き出す。"""
+    try:
+        cache_path.write_text(json.dumps(cache, indent=2, ensure_ascii=False),
+                             encoding='utf-8')
+    except Exception:
+        pass
+
+
+def probe(path: Path, cache: dict[str, dict] | None = None) -> dict:
+    """1ファイル分の情報を返す。失敗しても例外は投げない。
+    cache に h265+mp4 なら ffprobe をスキップ。"""
+    path_key = str(path)
+    if cache and path_key in cache:
+        cached = cache[path_key]
+        # h265 かつ mp4 なら再検査しない
+        if cached.get('codec') == 'h265' and cached.get('is_mp4'):
+            return cached | {'path': path}
+
     result = subprocess.run(
         ['ffprobe', '-v', 'quiet',
          '-select_streams', 'v:0',
@@ -76,8 +107,7 @@ def probe(path: Path) -> dict:
 
     codec = CODEC_LABELS.get(codec_raw, codec_raw or '(不明)')
     is_mp4 = path.suffix.lower() == '.mp4'
-    return {
-        'path': path,
+    result_dict = {
         'codec': codec,
         'codec_raw': codec_raw,
         'format_name': format_name,
@@ -88,6 +118,10 @@ def probe(path: Path) -> dict:
         'width': width,
         'height': height,
     }
+    if cache is not None:
+        cache[path_key] = result_dict
+
+    return result_dict | {'path': path}
 
 
 def human_size(n: int) -> str:
@@ -125,6 +159,67 @@ GROUP_LABELS = {
 }
 
 
+def write_markdown(out_path: Path, root: Path, results: list[dict],
+                   targets: list[dict], label: str) -> None:
+    """Markdown テーブルに書き出す。"""
+    from datetime import datetime
+
+    counts = {g: 0 for g in GROUP_LABELS}
+    sizes = {g: 0 for g in GROUP_LABELS}
+    for r in results:
+        g = group_of(r)
+        counts[g] += 1
+        sizes[g] += r['size']
+
+    # サマリー
+    lines = [
+        f'# 動画コーデック調査',
+        f'',
+        f'**対象**: {root} ({len(results)} ファイル)',
+        f'**実行**: {datetime.now().strftime("%Y-%m-%d %H:%M")}',
+        f'',
+        f'## 集計',
+        f'',
+        f'| グループ | 件数 | サイズ |',
+        f'|---------|------|--------|',
+    ]
+    for g, glabel in GROUP_LABELS.items():
+        if counts[g]:
+            lines.append(f'| {glabel} | {counts[g]} | {human_size(sizes[g])} |')
+
+    # コーデック × コンテナ の内訳
+    lines.append(f'')
+    lines.append(f'## コーデック × コンテナ の内訳')
+    lines.append(f'')
+    lines.append(f'| コーデック | コンテナ | 件数 | サイズ |')
+    lines.append(f'|----------|---------|------|--------|')
+    combo: dict[tuple[str, str], list] = {}
+    for r in results:
+        key = (r['codec'], r['path'].suffix.lower().lstrip('.'))
+        c = combo.setdefault(key, [0, 0])
+        c[0] += 1
+        c[1] += r['size']
+    for (codec, ext), (n, sz) in sorted(combo.items(), key=lambda x: -x[1][0]):
+        lines.append(f'| {codec} | {ext} | {n} | {human_size(sz)} |')
+
+    # ファイル一覧
+    lines.append(f'')
+    lines.append(f'## {label} ({len(targets)} 件)')
+    lines.append(f'')
+    lines.append(f'| パス | コーデック | コンテナ | サイズ | 長さ | 解像度 |')
+    lines.append(f'|------|----------|---------|--------|------|--------|')
+    for r in sorted(targets, key=lambda x: str(x['path'])):
+        rel = str(r['path'])
+        if rel.startswith(str(root)):
+            rel = rel[len(str(root)):].lstrip('/')
+        res = f'{r["width"]}x{r["height"]}' if r['width'] else '-'
+        dur = human_duration(r['duration'])
+        ext = r['path'].suffix.lower().lstrip('.') or '-'
+        lines.append(f'| {rel} | {r["codec"]} | {ext} | {human_size(r["size"])} | {dur} | {res} |')
+
+    out_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+
 def write_html(out_path: Path, root: Path, results: list[dict],
                targets: list[dict], label: str) -> None:
     """1枚の自己完結 HTML(検索・絞り込み・ソート付き)に書き出す。
@@ -133,6 +228,7 @@ def write_html(out_path: Path, root: Path, results: list[dict],
     """
     from datetime import datetime
     from html import escape
+    from urllib.parse import quote
 
     counts = {g: 0 for g in GROUP_LABELS}
     sizes = {g: 0 for g in GROUP_LABELS}
@@ -145,16 +241,32 @@ def write_html(out_path: Path, root: Path, results: list[dict],
     for r in targets:
         shown[group_of(r)] += 1
 
+    # コーデック × コンテナ の内訳(全ファイル)
+    combo: dict[tuple[str, str], list] = {}
+    for r in results:
+        key = (r['codec'], r['path'].suffix.lower().lstrip('.'))
+        c = combo.setdefault(key, [0, 0])
+        c[0] += 1
+        c[1] += r['size']
+    combo_rows = ''.join(
+        f'<tr><td>{escape(codec)}</td><td>{escape(ext)}</td>'
+        f'<td class="num">{n}</td><td class="num">{human_size(sz)}</td></tr>'
+        for (codec, ext), (n, sz) in sorted(combo.items(), key=lambda x: -x[1][0])
+    )
+
     rows = []
     for r in sorted(targets, key=lambda x: str(x['path'])):
         g = group_of(r)
-        rel = str(r['path'])
+        full = str(r['path'])
+        rel = full
         if rel.startswith(str(root)):
             rel = rel[len(str(root)):].lstrip('/')
         res = f'{r["width"]}x{r["height"]}' if r['width'] else '-'
+        href = 'file://' + quote(full)
         rows.append(
-            f'<tr data-g="{g}">'
-            f'<td class="path" title="{escape(str(r["path"]))}">{escape(rel)}</td>'
+            f'<tr data-g="{g}" data-p="{escape(full)}">'
+            f'<td class="path"><a href="{escape(href)}" title="{escape(full)}">'
+            f'{escape(rel)}</a></td>'
             f'<td><span class="tag {"ok" if r["codec"] == "h265" else "warn"}">'
             f'{escape(r["codec"])}</span></td>'
             f'<td><span class="tag {"ok" if r["is_mp4"] else "warn"}">'
@@ -237,23 +349,39 @@ def write_html(out_path: Path, root: Path, results: list[dict],
   .tag.ok {{ background:var(--okbg); color:var(--ok); }}
   .tag.warn {{ background:var(--warnbg); color:var(--warn); }}
   tr:hover td {{ background:color-mix(in srgb, var(--accent) 7%, transparent); }}
+  td.path a {{ color:inherit; text-decoration:none; }}
+  td.path a:hover {{ color:var(--accent); text-decoration:underline; }}
+  details {{ margin-bottom:20px; }}
+  summary {{ cursor:pointer; color:var(--sub); font-size:13px; }}
+  details table {{ margin-top:8px; width:auto; }}
+  .wrap2 {{ display:inline-block; background:var(--panel);
+    border:1px solid var(--line); border-radius:10px; overflow:hidden;
+    margin-top:8px; }}
+  .wrap2 th {{ position:static; }}
 </style>
 <h1>動画コーデック調査</h1>
 <div class="meta">{escape(str(root))} — 全 {len(results)} ファイル /
   {datetime.now().strftime('%Y-%m-%d %H:%M')} 時点</div>
 <div class="cards">{''.join(cards)}</div>
+<details><summary>コーデック × コンテナ の内訳(全ファイル)</summary>
+<div class="wrap2"><table>
+<thead><tr><th>コーデック</th><th>コンテナ</th><th>件数</th><th>サイズ</th></tr></thead>
+<tbody>{combo_rows}</tbody>
+</table></div></details>
 <h2>{escape(label)} — {len(targets)} 件</h2>
 <div class="bar">{''.join(chips)}
   <input id="q" type="search" placeholder="パスで絞り込み…">
+  <button class="chip" id="copy">表示中のパスをコピー</button>
   <span id="count"></span>
 </div>
-<div class="wrap"><table>
+<div class="wrap"><table id="main">
 <thead><tr><th>パス</th><th>コーデック</th><th>コンテナ</th><th>サイズ</th>
 <th>長さ</th><th>解像度</th></tr></thead>
 <tbody>{''.join(rows)}</tbody>
 </table></div>
 <script>
-const rows = [...document.querySelectorAll('tbody tr')];
+const table = document.getElementById('main');
+const rows = [...table.querySelectorAll('tbody tr')];
 const q = document.getElementById('q');
 const countEl = document.getElementById('count');
 let filter = 'all';
@@ -269,17 +397,29 @@ function apply() {{
   }}
   countEl.textContent = n + ' 件表示';
 }}
-document.querySelectorAll('.chip').forEach(b => b.onclick = () => {{
-  document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+document.querySelectorAll('.chip[data-f]').forEach(b => b.onclick = () => {{
+  document.querySelectorAll('.chip[data-f]').forEach(
+    x => x.classList.remove('active'));
   b.classList.add('active');
   filter = b.dataset.f;
   apply();
 }});
 q.oninput = apply;
-document.querySelectorAll('th').forEach((th, i) => {{
+document.getElementById('copy').onclick = async (e) => {{
+  const text = rows.filter(tr => !tr.hidden)
+    .map(tr => tr.dataset.p).join('\\n');
+  try {{
+    await navigator.clipboard.writeText(text);
+    e.target.textContent = 'コピーしました';
+  }} catch {{
+    e.target.textContent = 'コピーできませんでした';
+  }}
+  setTimeout(() => {{ e.target.textContent = '表示中のパスをコピー'; }}, 1500);
+}};
+table.querySelectorAll('th').forEach((th, i) => {{
   let asc = true;
   th.onclick = () => {{
-    const tbody = document.querySelector('tbody');
+    const tbody = table.querySelector('tbody');
     const sorted = rows.slice().sort((a, b) => {{
       const av = a.cells[i].dataset.v, bv = b.cells[i].dataset.v;
       if (av !== undefined && bv !== undefined)
@@ -315,11 +455,14 @@ def main() -> int:
                         help='一覧に出す対象 (既定: not-h265-mp4 = h265+mp4 になっていないもの)')
     parser.add_argument('--workers', type=int, default=8,
                         help='ffprobe の並列数 (既定: 8)')
+    parser.add_argument('--refresh', action='store_true',
+                        help='キャッシュを無視して全ファイルを再検査する')
     parser.add_argument('--report', help='一覧をテキストファイルにも書き出す')
     parser.add_argument('--csv', help='全ファイルの調査結果を CSV に書き出す')
     parser.add_argument('--html',
                         help='一覧を HTML(検索・絞り込み・ソート付き)に書き出す。'
                              '表は --list の対象のみ、集計は全ファイル分')
+    parser.add_argument('--markdown', help='一覧を Markdown テーブルに書き出す')
     parser.add_argument('--paths-only', action='store_true',
                         help='集計を出さずフルパスだけを出力する')
     args = parser.parse_args()
@@ -334,11 +477,22 @@ def main() -> int:
         print(f'動画ファイルが見つかりません: {root}', file=sys.stderr)
         return 1
 
+    cache_path = root / '.check_video_codecs_cache.json'
+    cache = {} if args.refresh else load_cache(cache_path)
+
     if not args.paths_only:
+        cached_ok = sum(1 for f in files if str(f) in cache and
+                       cache[str(f)].get('codec') == 'h265' and
+                       cache[str(f)].get('is_mp4'))
         print(f'調査対象: {len(files)} ファイル ({root})', file=sys.stderr)
+        if cached_ok:
+            print(f'  → キャッシュから {cached_ok} 件スキップ', file=sys.stderr)
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        results = list(pool.map(probe, files))
+        results = list(pool.map(lambda f: probe(f, cache), files))
+
+    if cache:
+        save_cache(cache_path, cache)
 
     # --- 集計 ---
     counts: dict[tuple[str, str], int] = {}
@@ -412,6 +566,11 @@ def main() -> int:
         html_path = Path(args.html).expanduser()
         write_html(html_path, root, results, targets, label)
         print(f'HTML を書き出しました: {html_path}', file=sys.stderr)
+
+    if args.markdown:
+        md_path = Path(args.markdown).expanduser()
+        write_markdown(md_path, root, results, targets, label)
+        print(f'Markdown を書き出しました: {md_path}', file=sys.stderr)
 
     return 0
 

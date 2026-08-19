@@ -40,7 +40,25 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-VIDEO_EXTENSIONS = {'.mp4', '.mov', '.m4v', '.mkv', '.avi'}
+VIDEO_EXTENSIONS = {'.mp4', '.mov', '.m4v', '.mkv', '.avi', '.mts', '.m2ts', '.mpg', '.mpeg'}
+
+def load_cache(cache_path: Path) -> dict:
+    """キャッシュを読み込む (無かったら空)。"""
+    if cache_path.exists():
+        try:
+            return json.loads(cache_path.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+    return {}
+
+
+def save_cache(cache_path: Path, cache: dict) -> None:
+    """キャッシュを保存する。"""
+    try:
+        cache_path.write_text(json.dumps(cache, indent=2, ensure_ascii=False),
+                             encoding='utf-8')
+    except Exception:
+        pass
 
 def get_video_codec(filepath):
     """動画のビデオコーデックを取得する"""
@@ -298,11 +316,14 @@ def report_only(folder, report_file=None, min_size_mb=0):
 
 
 def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
-                    remux_only=False, skip_if_larger=False):
+                    remux_only=False, skip_if_larger=False, refresh_cache=False):
     folder = Path(folder)
     if not folder.exists() or not folder.is_dir():
         print(f'エラー: フォルダが見つかりません: {folder}')
         sys.exit(1)
+
+    cache_path = folder / '.encode_h265_cache.json'
+    cache = {} if refresh_cache else load_cache(cache_path)
 
     print(f'対象フォルダ: {folder}')
     print(f'モード: {"DRY-RUN" if dry_run else "実行"}')
@@ -336,6 +357,19 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
     for i, src in enumerate(files, 1):
         print(f'[{i}/{total}] {src.relative_to(folder)}')
 
+        src_key = str(src)
+        if src_key in cache:
+            cached_action = cache[src_key].get('action')
+            if cached_action in ('remuxed', 'encoded', 'kept_original'):
+                print(f'  [CACHED] {cached_action} (前回実行済み)')
+                if cached_action == 'remuxed':
+                    remuxed += 1
+                elif cached_action == 'encoded':
+                    encoded += 1
+                elif cached_action == 'kept_original':
+                    kept_original += 1
+                continue
+
         try:
             codec = get_video_codec(src)
         except subprocess.TimeoutExpired:
@@ -355,6 +389,7 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
 
         if already_h265_flag and already_mp4:
             print(' → スキップ（H.265かつ.mp4）')
+            cache[src_key] = {'action': 'skip', 'codec': codec}
             skipped_h265 += 1
             continue
 
@@ -374,12 +409,14 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
             success = remux_to_mp4(src, tmp_dst, dry_run=dry_run)
             if success:
                 finalize(src, tmp_dst, dry_run=dry_run)
+                cache[src_key] = {'action': 'remuxed', 'codec': codec}
                 remuxed += 1
             else:
                 failed += 1
         elif remux_only:
             # --remux-only のときはエンコードが必要なファイルをスキップ
             print(' → スキップ（H.265でないためエンコードが必要、--remux-only 指定）')
+            cache[src_key] = {'action': 'skip', 'codec': codec, 'reason': 'remux_only'}
             skipped_h265 += 1
         else:
             # H.265に再エンコード
@@ -397,11 +434,13 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
                     tmp_dst.unlink()
                     if already_mp4:
                         print('  既に.mp4のため変更なし')
+                        cache[src_key] = {'action': 'kept_original', 'codec': codec, 'reason': 'larger_mp4'}
                     else:
                         print('  コンテナのみ.mp4に変換（元コーデックのまま）')
                         remux_dst = src.with_name(src.stem + '_mp4.mp4')
                         if remux_to_mp4(src, remux_dst, dry_run=dry_run):
                             finalize(src, remux_dst, dry_run=dry_run)
+                            cache[src_key] = {'action': 'kept_original', 'codec': codec, 'reason': 'larger_remux'}
                         else:
                             failed += 1
                             continue
@@ -409,6 +448,7 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
                     continue
 
             finalize(src, tmp_dst, dry_run=dry_run)
+            cache[src_key] = {'action': 'encoded', 'codec': codec}
             encoded += 1
 
     print(f'\n=== 結果 ===')
@@ -419,6 +459,9 @@ def process_folder(folder, crf=20, preset='slow', dry_run=False, min_size_mb=0,
         print(f'  H.265の方が大きく元コーデック維持: {kept_original}件')
     print(f'  失敗:                     {failed}件')
     print(f'  エラースキップ:           {skipped_err}件')
+
+    if cache:
+        save_cache(cache_path, cache)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -454,6 +497,8 @@ def main():
                         choices=['ultrafast','superfast','veryfast','faster',
                                  'fast','medium','slow','slower','veryslow'],
                         help='エンコード速度 (デフォルト: medium)')
+    parser.add_argument('--refresh-cache', action='store_true',
+                        help='キャッシュを無視して全ファイルを再処理する')
     args = parser.parse_args()
 
     if args.report is not None:
@@ -462,7 +507,8 @@ def main():
     else:
         process_folder(args.folder, crf=args.crf, preset=args.preset,
                        dry_run=args.dry_run, min_size_mb=args.min_size,
-                       remux_only=args.remux_only, skip_if_larger=args.skip_if_larger)
+                       remux_only=args.remux_only, skip_if_larger=args.skip_if_larger,
+                       refresh_cache=args.refresh_cache)
 
 if __name__ == '__main__':
     main()
