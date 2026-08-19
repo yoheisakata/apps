@@ -33,6 +33,13 @@ enum YouTubePlaylistClient {
             // `--ignore-errors`: プレイリスト中の非公開・削除済み動画1本のエラーで
             // 全体の取得が失敗しないようにする(取得できた分だけ返す)。
             proc.arguments = ["--flat-playlist", "--dump-json", "--no-warnings", "--ignore-errors", trimmed]
+            // `Core/DownloadStore.swift`の`startYouTubeDownload`と同じ理由で明示的な`PATH`を
+            // 渡す(2026-08-14追加) ― `--flat-playlist`はフォーマット解決(JSチャレンジ解決が
+            // 必要になる経路)を通常スキップするため影響は小さいはずだが、念のため揃えている。
+            var environment = ProcessInfo.processInfo.environment
+            let homebrewPaths = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin"
+            environment["PATH"] = homebrewPaths + ":" + (environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")
+            proc.environment = environment
 
             let outPipe = Pipe()
             let errPipe = Pipe()

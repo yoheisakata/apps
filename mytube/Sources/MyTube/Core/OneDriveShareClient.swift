@@ -33,6 +33,9 @@ enum OneDriveShareClient {
         let folderPath: [String]
         let modifiedDate: Date?
         let remoteID: String
+        /// APIレスポンスに含まれるファイルサイズ(2026-08-14復活、`VideoItem.knownFileSize`
+        /// のドキュメント参照)。ダウンロード前でもサイズを表示できるようにするため。
+        let size: Int64?
     }
 
     /// 共有URLからフォルダ(またはファイル単体)を再帰的にスキャンし、対応拡張子の動画だけを
@@ -71,7 +74,8 @@ enum OneDriveShareClient {
             fileExtension: (video.name as NSString).pathExtension.lowercased(),
             folderPath: video.folderPath,
             remoteID: video.remoteID,
-            remoteKind: .oneDrive
+            remoteKind: .oneDrive,
+            knownFileSize: video.size
         )
     }
 
@@ -158,8 +162,11 @@ enum OneDriveShareClient {
         let lastModifiedDateTime: String?
         let folder: FolderFacet?
         let downloadURL: String?
+        /// `select=*`のレスポンスに含まれるファイルサイズ(2026-08-14復活、
+        /// `VideoItem.knownFileSize`のドキュメント参照)。
+        let size: Int64?
         enum CodingKeys: String, CodingKey {
-            case id, name, lastModifiedDateTime, folder
+            case id, name, lastModifiedDateTime, folder, size
             case downloadURL = "@content.downloadUrl"
         }
     }
@@ -180,7 +187,7 @@ enum OneDriveShareClient {
         return RemoteVideo(
             downloadURL: downloadURL, name: item.name,
             channel: pathComponents.first ?? VideoScanner.rootChannelLabel, folderPath: pathComponents,
-            modifiedDate: modifiedDate, remoteID: item.id
+            modifiedDate: modifiedDate, remoteID: item.id, size: item.size
         )
     }
 

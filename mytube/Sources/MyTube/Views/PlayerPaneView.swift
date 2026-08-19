@@ -41,6 +41,15 @@ struct PlayerPaneView: View {
     let onClose: () -> Void
     /// 再生失敗ポップアップの「再読み込み」ボタンから呼ばれる(OneDrive限定、下記 alert 参照)。
     let onRetry: (VideoItem) -> Void
+    /// サイドバー下部に埋め込む小さいプレイヤー用(2026-08-14追加、「MyTubeボタンを押した際、
+    /// 再生画面のほかに再生可能なリストや他の関連ボタンが表示されているので、画面だけを
+    /// 表示してほしい」という要望への対応)。`true`(既定)ならこれまで通りのフル表示
+    /// (`playerArea`+`metadataRow`+`upNextList`)、`false`なら動画本体(`embeddedMiniBody`)
+    /// だけを描画する ― タイトル・チャンネル・前後ボタン・自動再生トグル・再生速度メニュー・
+    /// 「再生可能な動画」リストは一切出さない。`isMiniPlayerMode`(常に最前面のフローティング
+    /// ウィンドウ)とは別軸 ― こちらはサイドバーに埋め込まれたまま縮小表示するだけで、
+    /// ウィンドウレベルやサイズは一切変更しない。
+    var showsFullChrome: Bool = true
 
     @StateObject private var engine = PlayerEngine()
     @ObservedObject private var downloadStore = DownloadStore.shared
@@ -57,6 +66,8 @@ struct PlayerPaneView: View {
         Group {
             if isMiniPlayerMode {
                 miniPlayerBody
+            } else if !showsFullChrome {
+                embeddedMiniBody
             } else {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -134,42 +145,26 @@ struct PlayerPaneView: View {
     /// 置き換わり、右列は`upNextList`(次の動画)専用になった。タイトル等が横幅を取り合わなく
     /// なった分、`playerArea`の実質的な横幅の取り分はさらに広がっている。
     private var playerArea: some View {
-        ZStack(alignment: .topTrailing) {
-            ZStack {
-                NativeVideoPlayerView(player: engine.player)
-                    // 動画を切り替えるたびに AVKit 側のネイティブ再生ビューを強制的に作り直す。
-                    // `.id()` を付けないと、`replaceCurrentItem` 後も古い動画のフレームが
-                    // 画面に残ったまま更新されない(タイトル等の表示は新しい動画に切り替わって
-                    // いるのに、実際の映像だけ前の動画のまま、という AVKit-SwiftUI ブリッジ側の
-                    // 表示崩れが起きることがある)。
-                    .id(video.id)
+        ZStack {
+            NativeVideoPlayerView(player: engine.player)
+                // 動画を切り替えるたびに AVKit 側のネイティブ再生ビューを強制的に作り直す。
+                // `.id()` を付けないと、`replaceCurrentItem` 後も古い動画のフレームが
+                // 画面に残ったまま更新されない(タイトル等の表示は新しい動画に切り替わって
+                // いるのに、実際の映像だけ前の動画のまま、という AVKit-SwiftUI ブリッジ側の
+                // 表示崩れが起きることがある)。
+                .id(video.id)
 
-                // YouTube動画はダウンロード完了まで`PlayerEngine`にURLを渡さない
-                // (`play(_:)`参照 ― 映像+音声が別ストリームでAVPlayerでは合成再生できない
-                // ため、OneDriveと違い即時ストリーミングできない)。その間は真っ黒な
-                // プレイヤー領域の上に進捗を重ねて表示する。
-                if video.remoteKind == .youtube, !downloadStore.isDownloaded(video) {
-                    YouTubeDownloadingOverlay(state: downloadStore.state(for: video))
-                }
+            // YouTube動画はダウンロード完了まで`PlayerEngine`にURLを渡さない
+            // (`play(_:)`参照 ― 映像+音声が別ストリームでAVPlayerでは合成再生できない
+            // ため、OneDriveと違い即時ストリーミングできない)。その間は真っ黒な
+            // プレイヤー領域の上に進捗を重ねて表示する。
+            if video.remoteKind == .youtube, !downloadStore.isDownloaded(video) {
+                YouTubeDownloadingOverlay(state: downloadStore.state(for: video))
             }
-            .aspectRatio(16 / 9, contentMode: .fit)
-            .background(Color.black)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            // グリッドの上に常駐するプレイヤーを閉じるボタン(以前の「戻る」に相当)。
-            // ミニプレーヤーへ入るボタンは`TopBarView`側(`ContentView.onEnterMiniPlayer`)に
-            // 移した(2026-08-07、「トップバーにボタンをおいて」という要望への対応 ―
-            // 以前はここに`pip.enter`ボタンを重ねていたが、動画上に小さいアイコンを置くより
-            // 常時見えるトップバーの方が見つけやすいと判断し、こちらは元の1ボタンに戻した)。
-            Button(action: onClose) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(.white, .black.opacity(0.5))
-            }
-            .buttonStyle(.plain)
-            .padding(8)
-            .help("プレイヤーを閉じる")
         }
+        .aspectRatio(16 / 9, contentMode: .fit)
+        .background(Color.black)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .frame(maxWidth: .infinity)
         .frame(maxHeight: 720)
     }
@@ -191,7 +186,7 @@ struct PlayerPaneView: View {
     /// 解除しきれずドラッグリサイズで高さが縮み続ける、という2つの実機不具合が出たため撤去した
     /// (`WindowLevelAccessor`のドキュメント参照)。
     private var miniPlayerBody: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: .bottomTrailing) {
             NativeVideoPlayerView(player: engine.player)
                 .id(video.id)
 
@@ -205,6 +200,10 @@ struct PlayerPaneView: View {
             // 見た目を揃えるための黒背景の円を`.background(Circle())`で自前描画している
             // (`xmark.circle.fill`のような`X.circle.fill`という名前のバリアントが存在するか
             // 確証が持てなかったため、シンボル名に依存せず確実に同じ見た目を作れるこちらを選んだ)。
+            // **右下に配置**(2026-08-14、右上→左上→右下と変更): `AVPlayerView`標準の
+            // コントロールバー(`.inline`スタイル、フルスクリーンボタン・音量ポップアップなど)は
+            // 上部・左上のどちらにも要素が出うることが実機で判明したため、コントロールバーが
+            // 通常出ない右下へ最終的に移した。
             HStack(spacing: 8) {
                 Button {
                     isMiniPlayerMode = false
@@ -236,15 +235,44 @@ struct PlayerPaneView: View {
         .frame(minWidth: 240, idealWidth: 360, maxWidth: 960)
     }
 
+    /// サイドバー下部に埋め込む小さいプレイヤーの`body`(2026-08-14追加、`showsFullChrome`の
+    /// ドキュメント参照)。動画本体+閉じるボタンのみ ― タイトル・前後ボタン・自動再生・
+    /// 再生速度・「再生可能な動画」リストは一切出さない。`ContentView`側がこのビュー全体に
+    /// `.onTapGesture`でフル表示への復帰を仕込んでいるため、動画自体をタップしても復帰する
+    /// (閉じるボタンだけは`Button`が優先してヒットテストするため`onClose`が呼ばれる)。
+    private var embeddedMiniBody: some View {
+        ZStack(alignment: .topTrailing) {
+            NativeVideoPlayerView(player: engine.player)
+                .id(video.id)
+
+            Button(action: onClose) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.white, .black.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .padding(6)
+            .help("プレイヤーを閉じる")
+        }
+        .aspectRatio(16 / 9, contentMode: .fit)
+        .background(Color.black)
+        .frame(maxWidth: .infinity)
+    }
+
     /// プレイヤーの下に横一列で並ぶ、タイトル・チャンネル・ダウンロード状態・自動再生トグル・
     /// 再生速度メニュー(2026-08-06、`upNextList`の追加に伴い右の縦積み`infoSidebar`から
     /// この位置へ戻した ― 右列は次の動画リスト専用にするため。プレイヤーと同じ横幅を
     /// 使えるので、280/220pt幅に収める必要があった頃と違い1行のHStackで余裕がある)。
     private var metadataRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(video.title)
-                .font(.title3.bold())
-                .lineLimit(2)
+            HStack(spacing: 8) {
+                Text(video.title)
+                    .font(.title3.bold())
+                    .lineLimit(2)
+                // お気に入りボタン(2026-08-14追加、「動画再生時に登録可能に」という
+                // 要望への対応)。
+                FavoriteButton(video: video, font: .title3)
+            }
 
             HStack(spacing: 8) {
                 Image(systemName: "folder.fill")
@@ -270,6 +298,39 @@ struct PlayerPaneView: View {
                     }
                 }
                 Spacer(minLength: 12)
+                HStack(spacing: 6) {
+                    Button(action: playPrevious) {
+                        Image(systemName: "chevron.left")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(previousVideo == nil)
+                    .help("前の動画")
+
+                    Button(action: playNext) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(nextVideo == nil)
+                    .help("次の動画")
+
+                    // ミニプレーヤー(常に最前面表示)ボタン(2026-08-14、「最前面ボタンは、
+                    // 次の動画、前の動画のボタンの横にして」という要望への対応 ―
+                    // 以前は`playerArea`右上に✕ボタンと並べていたが、前後の動画ボタンの
+                    // 隣に移した)。
+                    Button {
+                        isMiniPlayerMode = true
+                    } label: {
+                        Image(systemName: "pip.enter")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("ミニプレーヤー最前面に表示")
+                }
                 Toggle("自動再生", isOn: $isAutoplayEnabled)
                     .toggleStyle(.switch)
                     .controlSize(.small)
@@ -282,28 +343,42 @@ struct PlayerPaneView: View {
         }
     }
 
-    /// 「次の動画」リスト(2026-08-06追加、「Playerをできるだけ大きくしたい。YouTubeのように、
-    /// 次の動画リストは右に」という要望への対応)。`queue`(オートプレイのキューと同じ、
-    /// `filteredVideos`由来)のうち現在の`video`より後ろの項目をサムネイル付きの縦リストで
-    /// 表示し、クリックで`onSelect`を呼んで即座にその動画へ切り替える。
-    /// **高さは画面下まで伸ばす**(`.frame(maxHeight: .infinity)`)。当初は`playerArea`+
-    /// `metadataRow`の実測高さに合わせて収めていた(`GeometryReader`+`PreferenceKey`で測定
-    /// ― 「画面下までストレッチすると`HomeVideosView`のグリッドが実質見えなくなる」ことを
-    /// 理由に、その頃はグリッドを常に見せる方針だったため)が、2026-08-06に`ContentView`側で
-    /// 「動画選択中はグリッドを表示しない」方針へ変更した(`PlayerPaneView`冒頭のドキュメント
-    /// 参照)のに伴い、その制約が無くなったため素直に画面下まで伸ばす形に単純化した。
+    /// 再生可能な動画一覧(2026-08-06追加、2026-08-14に現在のキュー全体を表示するよう変更)。
+    /// `queue`(フィルター済みのキュー、`filteredVideos`由来)全体をサムネイル付きの縦リストで
+    /// 表示し、現在再生中の動画をハイライトして示す。クリックで`onSelect`を呼んで即座にその
+    /// 動画へ切り替える。次の動画へ移動しても一覧は保持され、プレイリストとして機能する。
+    /// **高さは画面下まで伸ばす**(`.frame(maxHeight: .infinity)`)。
     private var upNextList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !upNextVideos.isEmpty {
-                Text("次の動画")
+            if !queue.isEmpty {
+                // 見出しは「動画リスト」という固定文字列ではなく、現在再生中の動画の
+                // チャンネル名を出す(2026-08-14、「再生モードでの"動画リスト"は、
+                // チャンネル名に変えてほしい」という要望への対応 ― `queue`自体が
+                // サイドバーで選んだフォルダ配下に絞り込まれているため、通常は
+                // リスト全体が同じチャンネル/フォルダの動画になる)。
+                Text(video.channel)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(upNextVideos) { nextVideo in
-                        UpNextRow(video: nextVideo) { onSelect(nextVideo) }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(queue) { queueVideo in
+                            UpNextRow(
+                                video: queueVideo,
+                                isCurrentVideo: queueVideo.id == video.id
+                            ) {
+                                onSelect(queueVideo)
+                            }
+                            .id(queueVideo.id)
+                        }
                     }
+                }
+                .onAppear {
+                    proxy.scrollTo(video.id, anchor: .center)
+                }
+                .onChange(of: video.id) { newVideoId in
+                    proxy.scrollTo(newVideoId, anchor: .center)
                 }
             }
         }
@@ -311,12 +386,16 @@ struct PlayerPaneView: View {
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    /// `queue`のうち現在の`video`より後ろの項目だけ(YouTubeの「次の動画」と同じく、
-    /// 既に見終わった/現在見ている項目は出さない)。`video`が`queue`に見つからない場合
-    /// (絞り込みが変わった直後など)は`queue`全体をそのまま「次の動画」として出す。
-    private var upNextVideos: [VideoItem] {
-        guard let index = queue.firstIndex(of: video) else { return queue }
-        return Array(queue[(index + 1)...])
+    /// 現在の`video`より前の動画(キューに存在すれば)。
+    private var previousVideo: VideoItem? {
+        guard let index = queue.firstIndex(of: video), index > 0 else { return nil }
+        return queue[index - 1]
+    }
+
+    /// 現在の`video`より後ろの動画(キューに存在すれば)。
+    private var nextVideo: VideoItem? {
+        guard let index = queue.firstIndex(of: video), index + 1 < queue.count else { return nil }
+        return queue[index + 1]
     }
 
     private func deleteLocalCopy() {
@@ -327,6 +406,16 @@ struct PlayerPaneView: View {
                 deleteLocalCopyErrorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func playPrevious() {
+        guard let previous = previousVideo else { return }
+        onSelect(previous)
+    }
+
+    private func playNext() {
+        guard let next = nextVideo else { return }
+        onSelect(next)
     }
 
     /// OneDriveはローカルにダウンロード済みならそちらを優先して再生し(`DownloadStore.playableURL`)、
@@ -473,32 +562,34 @@ private struct YouTubeDownloadingOverlay: View {
     }
 }
 
-/// `upNextList`の1行(2026-08-06追加)。小さいサムネイル(`VideoThumbnailView`、長さ・
-/// ダウンロード状態バッジ込み)+タイトル(2行)+チャンネル名。`VideoCardView`と同じく
-/// カード全体を`Button`で覆う単純な作り(ネストした別コントロールは持たないため、
-/// `Views/PointingHandCursor.swift`が警告する「`Button`内側のインタラクティブなコントロール」
-/// 問題は該当しない)。
+/// 再生可能な動画一覧の1行(2026-08-06追加、2026-08-14に現在再生中の動画ハイライトに対応)。
+/// 小さいサムネイル(`VideoThumbnailView`、長さ・ダウンロード状態バッジ込み)+タイトル(2行)+
+/// チャンネル名。`VideoCardView`と同じくカード全体を`Button`で覆う単純な作り(ネストした別
+/// コントロールは持たないため、`Views/PointingHandCursor.swift`が警告する「`Button`内側の
+/// インタラクティブなコントロール」問題は該当しない)。現在再生中の動画は背景でハイライトし、
+/// リストを見やすくしている。
 private struct UpNextRow: View {
     let video: VideoItem
+    var isCurrentVideo: Bool = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(alignment: .top, spacing: 8) {
                 VideoThumbnailView(video: video, width: 120)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(video.title)
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                    Text(video.channel)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(video.title)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
             }
         }
         .buttonStyle(.plain)
         .pointingHandOnHover()
+        .background {
+            if isCurrentVideo {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.accentColor.opacity(0.15))
+            }
+        }
     }
 }

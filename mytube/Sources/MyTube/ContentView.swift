@@ -3,14 +3,21 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    /// サイドバー下のミニプレーヤーのサイズ(2026-08-14追加)。幅はサイドバー自身の最大幅
+    /// (`SidebarView.body`末尾の`.frame`)に合わせ、高さは16:9のアスペクト比から逆算する。
+    private static let miniPlayerWidth: CGFloat = 260
+    private static let miniPlayerHeight: CGFloat = miniPlayerWidth * 9 / 16
+
     /// ローカルフォルダ・OneDrive共有リンクは複数同時に開ける(2026-08-04〜、「開いたものは
     /// 明示的に閉じるまでロードしたままにしたい」という要望に対応)。それぞれ独立した配列で
     /// 持ち、`allVideos`(下記)で合算する。`openFolder(_:)`/`openRemote(name:shareURL:)`は
     /// 既存の配列を全部置き換えるのではなく、対象の要素だけを追加・更新する。
     @State private var localSources: [LocalSource] = []
     @State private var remoteSources: [RemoteSource] = []
-    /// フォルダを切り替えても(サイドバーが手動で再表示されていれば視聴中でも操作できる、
-    /// `isSidebarCollapsed`参照)`selectedVideo`はここでは触らない(以前は
+    /// 「お気に入り」「最近再生した動画」チャンネル(2026-08-14追加)の母集団。
+    @ObservedObject private var favoritesStore = FavoritesStore.shared
+    @ObservedObject private var recentlyPlayedStore = RecentlyPlayedStore.shared
+    /// フォルダを切り替えても`selectedVideo`はここでは触らない(以前は
     /// `.onChange(of: selectedChannel)`で`selectedVideo = nil`にしてホーム画面へ強制的に
     /// 戻していたが、`WatchView.onDisappear`(当時の名称)が`engine.stop()`するため再生が
     /// 止まってしまう不具合だった、2026-08-04削除)。選択変更は`filteredVideos`
@@ -20,14 +27,10 @@ struct ContentView: View {
     /// `nil`なら「すべての動画」(全ソース合算)。ソースをまたいだ同名サブフォルダを
     /// 区別するため`sourceID`も持つ(単なる`channel`文字列だけでは一意に決まらない)。
     @State private var selectedNode: SidebarSelection?
+    /// 「お気に入り」「最近再生した動画」チャンネルの選択状態(2026-08-14追加)。
+    /// `selectedNode`と排他的 ― `.onChange`で互いに相手を`nil`に戻す(下記`body`末尾参照)。
+    @State private var specialSelection: SpecialLibrarySelection?
     @State private var selectedVideo: VideoItem?
-    /// フォルダツリーサイドバーを隠しているか(2026-08-06追加、「再生プレーヤーの下のリストを
-    /// 削除したら、画面がもう少し大きくなるのでは?」という提案への回答 ― 実際にはプレイヤーは
-    /// デフォルトウィンドウ幅では横幅で頭打ちになっており、下のグリッドではなくこの左サイドバー
-    /// (幅220〜260pt)を隠す方が効くと判断した。動画を開くたびに自動で`true`にし、閉じたら
-    /// `false`に戻す(`.onChange(of: selectedVideo)`参照)。`TopBarView`左端のボタンでいつでも
-    /// 手動で表示・非表示を切り替えられる ― 視聴中でも別のフォルダに切り替えたい場合はそちらを使う。
-    @State private var isSidebarCollapsed = false
     /// ミニプレーヤーモード(2026-08-07追加、「常に最前面表示のミニプレーヤーモード」という
     /// 要望への対応)。オンの間は`TopBarView`/`SidebarView`を描画せず、`PlayerPaneView`にも
     /// 直接束縛して動画のみのコンパクトな`body`(`miniPlayerBody`)へ切り替えさせる ―
@@ -36,8 +39,12 @@ struct ContentView: View {
     /// 走らないようにしている。ウィンドウを実際に小さく・常に最前面にする処理は
     /// `WindowLevelAccessor`(本ファイル末尾)が`.background`経由でNSWindowを直接操作する。
     @State private var isMiniPlayerMode = false
+    /// プレイヤーを小さく表示するモード(2026-08-14追加、「再生中にMyTubeボタンを押したら
+    /// トップページに戻るけど、再生中の動画も消さないように小さく表示にできない?」という
+    /// 要望への対応)。オンの間は、ホーム画面を表示しつつ、再生中の動画を右下隅に小さく表示。
+    /// `selectedVideo`は保持されたままなので、小さいプレイヤーをクリックするとフル表示に戻る。
+    @State private var isPlayerMinimized = false
     @State private var searchText = ""
-    @State private var selectedSortOption: SortOption = .titleAscending
     @State private var homeViewMode: HomeViewMode = Settings.homeViewMode
     @State private var minLengthSecondsText = ""
     @State private var maxLengthSecondsText = ""
@@ -71,18 +78,47 @@ struct ContentView: View {
     private var maxLengthSeconds: Int? { Int(maxLengthSecondsText) }
     private var isLengthFilterActive: Bool { minLengthSeconds != nil || maxLengthSeconds != nil }
 
+    /// 動画の長さの先読みが必要か ― 長さフィルターが有効なとき(2026-08-14、ソート機能は
+    /// `VideoTableView`のヘッダークリックへ移し、`TopBarView`側の「並び替え」メニューは
+    /// 撤去したため、ここでは長さフィルターだけが条件になる)。
+    private var needsDurations: Bool { isLengthFilterActive }
+
+    /// 長さフィルターに渡す長さ取得クロージャ。`VideoItem.knownDurationSeconds`
+    /// (YouTubeのみ、yt-dlpのメタデータから取得済み)があればそちらを優先し、無ければ
+    /// `videoDurations`(`ThumbnailStore`が非同期で先読みした値)を見る。
+    private func duration(for video: VideoItem) -> TimeInterval? {
+        video.knownDurationSeconds ?? videoDurations[video.url]
+    }
+
     /// サイドバーでノードが選択されていれば、そのソースの動画だけを対象に`folderPath`の
     /// 前方一致で絞り込む(祖先フォルダを選んだら配下も全部含む、explorerと同じ挙動)。
     /// 未選択(`nil`)なら全ソース合算(`allVideos`)がそのまま対象。
     private var filteredVideos: [VideoItem] {
         var videos: [VideoItem]
-        if let selectedNode {
-            let sourceVideos = localSources.first(where: { $0.id == selectedNode.sourceID })?.videos
-                ?? remoteSources.first(where: { $0.id == selectedNode.sourceID })?.videos
-                ?? []
-            videos = sourceVideos.filter { $0.folderPath.starts(with: selectedNode.folderPath) }
-        } else {
-            videos = allVideos
+        // `keepsOrder`が`true`の間は末尾の固定ソート(ファイル名昇順)を適用しない ―
+        // 「最近再生した動画」(2026-08-14追加)は新しい順という意味のある順序を`videos`が
+        // 既に持っているため、上書きしない。
+        var keepsOrder = false
+        switch specialSelection {
+        case .favorites:
+            // お気に入り(2026-08-14追加)。順序は末尾の固定ソート(ファイル名昇順)に任せる ―
+            // 「最近再生した動画」と違って登録順・再生順に意味を持たせる要望ではないため。
+            videos = allVideos.filter { favoritesStore.isFavorite($0) }
+        case .recentlyPlayed:
+            // 最近再生した動画(2026-08-14追加)。`RecentlyPlayedStore.orderedKeys`
+            // (新しい順のキー配列)の順に`VideoItem`を並べ直す。
+            let videosByKey = Dictionary(allVideos.map { ($0.stableKey, $0) }, uniquingKeysWith: { first, _ in first })
+            videos = recentlyPlayedStore.orderedKeys.compactMap { videosByKey[$0] }
+            keepsOrder = true
+        case nil:
+            if let selectedNode {
+                let sourceVideos = localSources.first(where: { $0.id == selectedNode.sourceID })?.videos
+                    ?? remoteSources.first(where: { $0.id == selectedNode.sourceID })?.videos
+                    ?? []
+                videos = sourceVideos.filter { $0.folderPath.starts(with: selectedNode.folderPath) }
+            } else {
+                videos = allVideos
+            }
         }
         if isLengthFilterActive {
             videos = videos.filter { video in
@@ -96,7 +132,36 @@ struct ContentView: View {
         if !trimmedQuery.isEmpty {
             videos = videos.filter { $0.title.localizedCaseInsensitiveContains(trimmedQuery) }
         }
-        return videos.sorted(by: selectedSortOption.areInIncreasingOrder)
+        guard !keepsOrder else { return videos }
+        // グリッド表示は常にタイトル昇順の固定順(2026-08-14、「並び替え」メニューは撤去し、
+        // ソート機能は`VideoTableView`のヘッダークリックに一本化した ― グリッド自体にはヘッダーが
+        // 無いため並び替え手段を持たない、ファイル名順という単純な既定挙動にしている)。
+        return videos.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    /// `PlayerPaneView`の`queue`(右側の「再生可能な動画」リスト・オートプレイの母集団)専用
+    /// (2026-08-14追加、「すべての動画から動画を選んだら、再生中はその動画のチャンネルの
+    /// 動画を一覧に出してほしい」という要望への対応)。サイドバーでフォルダを明示的に選んで
+    /// いる間(`selectedNode != nil`)は`filteredVideos`と同じ(絞り込み済みのため)。
+    /// 「すべての動画」を選んでいる間(`selectedNode == nil`)は、`filteredVideos`
+    /// (全ソース合算)をさらに現在再生中の動画の`channel`で絞り込む ― フォルダを選ばずに
+    /// 「すべての動画」グリッドから動画を1本開いた場合、右のリスト/オートプレイが無関係な
+    /// 全動画を対象にしてしまわないようにする。
+    /// **「お気に入り」「最近再生した動画」の間はこの`channel`絞り込みを適用しない**
+    /// (2026-08-18、「自動再生がうまくいかないときがある」という報告で発覚・修正 ―
+    /// `specialSelection`(`Models.swift`)が非nilの間も`selectedNode`は`nil`のままのため、
+    /// 上記の絞り込みガードが誤って発動し、`filteredVideos`(お気に入り一覧/最近再生した
+    /// 動画一覧、既にフォルダ横断の意図的なリスト)を現在再生中の動画と同じ`channel`の
+    /// 動画だけにさらに絞り込んでしまっていた。フォルダをまたいで集めたお気に入りは
+    /// 大抵1本ごとに`channel`(元のサブフォルダ名)がバラバラなため、絞り込んだ結果
+    /// `queue`が実質1件(自分自身)だけになり、`PlayerPaneView.setupAutoplayNext()`の
+    /// `index + 1 < queue.count`が常に偽になって次の動画へ進めなくなっていた ―
+    /// エラーも出ずに次の動画へ進まないだけなので「自動再生がうまくいかないときがある」
+    /// という分かりにくい症状になっていた。`specialSelection != nil`のときは
+    /// `filteredVideos`をそのまま返し、お気に入り/最近再生の一覧全体を`queue`にする。
+    private var playerQueue: [VideoItem] {
+        guard specialSelection == nil, selectedNode == nil, let selectedVideo else { return filteredVideos }
+        return filteredVideos.filter { $0.channel == selectedVideo.channel }
     }
 
     var body: some View {
@@ -104,11 +169,9 @@ struct ContentView: View {
             if !isMiniPlayerMode {
                 TopBarView(
                     searchText: $searchText,
-                    selectedSortOption: $selectedSortOption,
                     homeViewMode: $homeViewMode,
                     minLengthSecondsText: $minLengthSecondsText,
                     maxLengthSecondsText: $maxLengthSecondsText,
-                    isSidebarCollapsed: $isSidebarCollapsed,
                     isMeasuringDurations: isMeasuringDurations,
                     onChooseFolder: chooseFolder,
                     onOpenShareLink: {
@@ -119,55 +182,108 @@ struct ContentView: View {
                         youtubeLoadError = nil
                         showsYouTubeSheet = true
                     },
-                    onGoHome: { selectedVideo = nil },
-                    isMiniPlayerAvailable: selectedVideo != nil,
-                    onEnterMiniPlayer: { isMiniPlayerMode = true }
+                    onGoHome: { isPlayerMinimized = true }
                 )
                 Divider()
             }
-            HStack(spacing: 0) {
-                if !isSidebarCollapsed && !isMiniPlayerMode {
-                    SidebarView(
-                        localSources: localSources,
-                        remoteSources: remoteSources,
-                        selectedNode: $selectedNode,
-                        onUnload: unloadSource
-                    )
-                    Divider()
-                }
-                // 動画選択中は`PlayerPaneView`、未選択なら`HomeVideosView`(2026-08-06、
-                // 「再生中は一旦Grid消したらどうなる?」という提案を実際に試した結果 ―
-                // プレイヤーは横幅で頭打ちのため、下のグリッドを隠しても`playerArea`自体は
-                // 大きくならないが、`upNextList`(次の動画)が画面下まで使えるようになり
-                // YouTubeの視聴ページに近い見た目になる、という理由で採用した。
-                // 2026-08-05時点では「動画を見ながらグリッドから他の動画も探せる」ことを
-                // 理由に常時表示にしていた(旧`WatchView`からの統合の動機)が、今回は
-                // その方針を明示的に変更している ― 動画を探すのは`upNextList`か、
-                // プレイヤーを閉じてグリッドへ戻る形になる。
-                VStack(spacing: 0) {
-                    if let selectedVideo {
-                        PlayerPaneView(
-                            video: selectedVideo,
-                            queue: filteredVideos,
-                            isMiniPlayerMode: $isMiniPlayerMode,
-                            onSelect: { self.selectedVideo = $0 },
-                            onClose: { self.selectedVideo = nil },
-                            onRetry: retryPlayback
-                        )
-                    } else {
+            // `PlayerPaneView`は状態(フル表示/サイドバー下の縮小表示/常時最前面フロート)に
+            // 関わらず**常に同じ1箇所**(このZStackの2番目の要素)だけで呼び出す(2026-08-14、
+            // 「MyTubeボタンを押してミニプレーヤーになるとき、動画が最初から再生になって
+            // しまう」というバグ修正)。以前はフル表示用とサイドバー埋め込み用で別々の
+            // 場所に`PlayerPaneView(...)`を書いていたが、SwiftUIはビューの「型+ツリー上の
+            // 位置」で同一性を判定するため、状態が切り替わって呼び出し箇所自体が変わると
+            // 別インスタンス扱いになり`@StateObject private var engine`(`AVPlayer`)が
+            // 丸ごと作り直されて再生位置が失われていた。表示の違いは`.frame`のサイズ/
+            // `showsFullChrome`パラメータ・`ZStack`の`alignment`だけで表現し、呼び出し箇所
+            // 自体(ソースコード上の1箇所)は変えない。
+            let isFullPlayerMode = selectedVideo != nil && !isPlayerMinimized && !isMiniPlayerMode
+            let showsChrome = !isFullPlayerMode && !isMiniPlayerMode
+            ZStack(alignment: isFullPlayerMode ? .topLeading : .bottomLeading) {
+                HStack(spacing: 0) {
+                    // サイドバーはホーム画面・サイドバー下ミニ表示のときだけ表示し、
+                    // フル再生中・フローティングのミニプレーヤー中は隠す(トグルなしの
+                    // シンプルな2状態 ― `isSidebarCollapsed`の手動切替は撤去済み)。
+                    if showsChrome {
+                        VStack(spacing: 0) {
+                            SidebarView(
+                                localSources: localSources,
+                                remoteSources: remoteSources,
+                                selectedNode: $selectedNode,
+                                specialSelection: $specialSelection,
+                                onUnload: unloadSource,
+                                onRescan: rescanSource
+                            )
+                            .frame(maxHeight: .infinity)
+
+                            // サイドバー下部の小さいプレイヤーが重なる分だけ、ツリーの
+                            // スクロール領域を空けておく(実際のプレイヤー本体は下記
+                            // `ZStack`の`.bottomLeading`オーバーレイとして重なって描画される
+                            // ― ツリーの中身と被らないための余白)。
+                            if selectedVideo != nil, isPlayerMinimized {
+                                Divider()
+                                Color.clear.frame(height: Self.miniPlayerHeight)
+                            }
+                        }
+                        .frame(maxWidth: Self.miniPlayerWidth, maxHeight: .infinity)
+                        Divider()
+
                         HomeVideosView(
                             videos: filteredVideos,
                             hasFolder: hasAnySource,
                             isScanning: isLoadingWithNothingToShow,
                             viewMode: homeViewMode,
-                            onSelect: { selectedVideo = $0 }
+                            // ホーム画面のグリッド/一覧から動画を選んだときは常にフル表示で
+                            // 開く(2026-08-14、「MyTubeボタンでミニプレーヤーになったあと、
+                            // 別の動画をクリックしたらミニプレーヤーで再生されている。別の
+                            // 動画のときは通常のプレーヤーモードで開いていてほしい」という
+                            // 要望への対応)。以前は`isPlayerMinimized`をここで触っていなかった
+                            // ため、サイドバー下のミニ表示中に別の動画を選ぶとミニ表示のまま
+                            // 切り替わっていた ― `PlayerPaneView`の`onSelect`(次の動画/リストの
+                            // クリック)は据え置きのまま(そちらはミニ表示を維持したい経路)、
+                            // ホームのグリッドから選んだときだけフルへ戻す。
+                            onSelect: {
+                                selectedVideo = $0
+                                isPlayerMinimized = false
+                            }
                         )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
-                // ミニプレーヤーモード中は`.infinity`で広げない ― `PlayerPaneView.miniPlayerBody`の
-                // 小さいidealサイズがそのままこのVStack・上位のHStack/VStackへ伝わり、ウィンドウが
-                // 追従して縮む(`isMiniPlayerMode`のドキュメント参照)。
-                .frame(maxWidth: isMiniPlayerMode ? nil : .infinity, maxHeight: isMiniPlayerMode ? nil : .infinity)
+                // フローティング(`isMiniPlayerMode`)中は`.infinity`で広げない ―
+                // `PlayerPaneView.miniPlayerBody`の小さいidealサイズがこの`HStack`〜上位の
+                // `VStack`へそのまま伝わり、ウィンドウが追従して縮む(`isMiniPlayerMode`の
+                // ドキュメント参照)。フル再生中・サイドバー下ミニ表示中はウィンドウの通常
+                // サイズを保つため`.infinity`で広げる。
+                .frame(
+                    maxWidth: isMiniPlayerMode ? nil : .infinity,
+                    maxHeight: isMiniPlayerMode ? nil : .infinity
+                )
+
+                if let selectedVideo {
+                    PlayerPaneView(
+                        video: selectedVideo,
+                        queue: playerQueue,
+                        isMiniPlayerMode: $isMiniPlayerMode,
+                        onSelect: { self.selectedVideo = $0 },
+                        onClose: { self.selectedVideo = nil },
+                        onRetry: retryPlayback,
+                        showsFullChrome: isFullPlayerMode
+                    )
+                    // フル表示: 領域いっぱいに広げる。サイドバー下ミニ表示: サイドバーと
+                    // 同じ幅(`Self.miniPlayerWidth`)に固定し、高さはアスペクト比まかせ。
+                    // フローティング: 一切frameを付けず`miniPlayerBody`自身の
+                    // `.frame(minWidth:idealWidth:maxWidth:)`にウィンドウサイズを委ねる。
+                    .frame(width: (isFullPlayerMode || isMiniPlayerMode) ? nil : Self.miniPlayerWidth)
+                    .frame(
+                        maxWidth: isFullPlayerMode ? .infinity : nil,
+                        maxHeight: isFullPlayerMode ? .infinity : nil
+                    )
+                    .onTapGesture {
+                        guard isPlayerMinimized, !isFullPlayerMode, !isMiniPlayerMode else { return }
+                        isPlayerMinimized = false
+                    }
+                    .help(isPlayerMinimized && !isFullPlayerMode && !isMiniPlayerMode ? "クリックでプレイヤーを最大化" : "")
+                }
             }
             .overlay {
                 if isDropTargeted {
@@ -187,18 +303,27 @@ struct ContentView: View {
         .onChange(of: minLengthSecondsText) { _ in ensureDurationsLoaded() }
         .onChange(of: maxLengthSecondsText) { _ in ensureDurationsLoaded() }
         .onChange(of: homeViewMode) { newValue in Settings.homeViewMode = newValue }
-        // 動画を開いたら自動でサイドバーを隠し、閉じたら自動で戻す(`isSidebarCollapsed`の
-        // ドキュメント参照)。動画から動画への切り替え(どちらも非nil)でも発火するが、
-        // その場合も`newValue != nil`は変わらず`true`のままなので、手動でサイドバーを
-        // 再表示していた場合は次の動画に切り替えたタイミングで再び隠れる(視聴中は隠れた
-        // ままにする、という単純な規則を優先した)。
         .onChange(of: selectedVideo) { newValue in
-            isSidebarCollapsed = newValue != nil
             // プレイヤーを閉じたらミニプレーヤーモードも解除する(閉じるボタンは
             // `PlayerPaneView.miniPlayerBody`側で`isMiniPlayerMode = false`してから
             // `onClose`を呼んでいるが、他の経路(ホームロゴ等)で`selectedVideo`が
             // `nil`になった場合の保険)。
             if newValue == nil { isMiniPlayerMode = false }
+            // 「最近再生した動画」チャンネルへ記録する(2026-08-14追加)。同じ動画への
+            // 切り替え(既に再生中の動画を選び直した等)でも先頭へ動かして構わないため
+            // 特に重複判定はしない(`RecentlyPlayedStore.recordPlayed`側で同じキーの
+            // 既存エントリを取り除いてから先頭に挿し直す)。
+            if let newValue {
+                recentlyPlayedStore.recordPlayed(newValue)
+            }
+        }
+        .onChange(of: selectedNode) { newValue in
+            // フォルダツリーとお気に入り/最近再生は排他 ― どちらかを選んだらもう片方は
+            // 自動的に外す(2026-08-14追加)。
+            if newValue != nil { specialSelection = nil }
+        }
+        .onChange(of: specialSelection) { newValue in
+            if newValue != nil { selectedNode = nil }
         }
         .sheet(isPresented: $showsShareLinkSheet) {
             OpenRemoteLinkSheet(
@@ -334,6 +459,19 @@ struct ContentView: View {
         }
     }
 
+    /// `SidebarView`のツリーの再スキャンボタンから呼ばれる(2026-08-14追加、「再スキャン機能を
+    /// 入れて」という要望への対応)。`openFolder(_:)`/`openRemote(...)`は既に「同じパス/URLを
+    /// 再度開いたら再スキャン(中身の更新)」という重複排除ロジックを持っているため、
+    /// ここではそれをそのまま呼び直すだけ ― `unloadSource(id:)`と同じ「ローカル/リモートどちら
+    /// のソースIDかを判定して振り分ける」薄いラッパー。
+    private func rescanSource(id: String) {
+        if let source = localSources.first(where: { $0.id == id }) {
+            openFolder(source.url)
+        } else if let source = remoteSources.first(where: { $0.id == id }) {
+            openRemote(name: source.name, shareURL: source.shareURL, kind: source.kind)
+        }
+    }
+
     /// 登録済みリンクを選ぶ/新規登録/起動時の自動復元の3箇所から呼ばれる。表示名は
     /// OneDrive/YouTube側のフォルダ名・プレイリスト名ではなくユーザーが付けた`name`を使う
     /// (選ぶ手がかりはこちらのため)。既に同じURLを開いていれば再読み込み(更新)、
@@ -400,7 +538,8 @@ struct ContentView: View {
                             remoteID: video.remoteID,
                             remoteKind: video.remoteKind,
                             thumbnailURL: video.thumbnailURL,
-                            knownDurationSeconds: video.knownDurationSeconds
+                            knownDurationSeconds: video.knownDurationSeconds,
+                            knownFileSize: video.knownFileSize
                         )
                     }
                     remoteSources[index].isLoading = false
@@ -502,13 +641,14 @@ struct ContentView: View {
         Settings.youtubePlaylistBookmarks = youtubePlaylistBookmarks
     }
 
-    /// 長さフィルターが有効な間、まだ長さが分かっていない動画の長さをバックグラウンドで先読みする。
-    /// サムネイル画像は生成しない(`ThumbnailStore.loadDuration`)ため、大量の動画があっても
-    /// 画像デコードほどの負荷はかからないが、`limiter` はサムネイル生成と共有しているので
-    /// 同時実行数は変わらず抑えられる。
+    /// 長さフィルターが有効な間、または長さ順ソートが選ばれている間(2026-08-14追加、
+    /// `needsDurations`参照)、まだ長さが分かっていない動画の長さをバックグラウンドで
+    /// 先読みする。サムネイル画像は生成しない(`ThumbnailStore.loadDuration`)ため、大量の
+    /// 動画があっても画像デコードほどの負荷はかからないが、`limiter` はサムネイル生成と
+    /// 共有しているので同時実行数は変わらず抑えられる。
     private func ensureDurationsLoaded() {
-        guard isLengthFilterActive else { return }
-        let missing = allVideos.filter { videoDurations[$0.url] == nil }
+        guard needsDurations else { return }
+        let missing = allVideos.filter { duration(for: $0) == nil }
         guard !missing.isEmpty else { return }
         isMeasuringDurations = true
         Task.detached(priority: .utility) {

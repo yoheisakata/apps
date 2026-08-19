@@ -10,6 +10,8 @@ enum Settings {
     private static let homeViewModeKey = "mytube.homeViewMode"
     private static let autoplayEnabledKey = "mytube.autoplayEnabled"
     private static let maxCacheBytesKey = "mytube.maxCacheBytes"
+    private static let favoriteKeysKey = "mytube.favoriteKeys"
+    private static let recentlyPlayedKeysKey = "mytube.recentlyPlayedKeys"
 
     /// 現在開いているローカルフォルダのパス一覧(複数可)。非サンドボックスアプリのため
     /// 素のパス文字列で十分(security-scoped bookmark は不要 — myorganizer 等の他アプリと同じ方針)。
@@ -99,5 +101,20 @@ enum Settings {
     static var maxCacheBytes: Int64 {
         get { (UserDefaults.standard.object(forKey: maxCacheBytesKey) as? Int64) ?? 5_000_000_000 }
         set { UserDefaults.standard.set(newValue, forKey: maxCacheBytesKey) }
+    }
+
+    /// お気に入りに登録した動画の`VideoItem.stableKey`の集合(2026-08-14追加、
+    /// 「お気に入りチャンネルを追加してほしい。リスト時や動画再生時に登録可能に」という
+    /// 要望への対応)。`Core/FavoritesStore.swift`が唯一の読み書き元。
+    static var favoriteKeys: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: favoriteKeysKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: favoriteKeysKey) }
+    }
+
+    /// 最近再生した動画の`VideoItem.stableKey`一覧、新しい順(2026-08-14追加)。
+    /// `Core/RecentlyPlayedStore.swift`が唯一の読み書き元。
+    static var recentlyPlayedKeys: [String] {
+        get { UserDefaults.standard.stringArray(forKey: recentlyPlayedKeysKey) ?? [] }
+        set { UserDefaults.standard.set(newValue, forKey: recentlyPlayedKeysKey) }
     }
 }

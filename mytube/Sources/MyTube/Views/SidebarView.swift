@@ -18,10 +18,18 @@ struct SidebarView: View {
     let localSources: [LocalSource]
     let remoteSources: [RemoteSource]
     @Binding var selectedNode: SidebarSelection?
+    /// 「お気に入り」「最近再生した動画」チャンネルの選択状態(2026-08-14追加)。
+    /// `selectedNode`とは`ContentView`側の`.onChange`で排他的に管理される。
+    @Binding var specialSelection: SpecialLibrarySelection?
     /// ソースID(`LocalSource.id`/`RemoteSource.id`)を渡してそのソースをアンロードする
     /// (2026-08-05、「左のライブラリセクションからアンロードしたい」という要望に対応 ―
     /// 以前はトップバーの`OpenSourcesPopover`経由でしか閉じられなかった)。
     let onUnload: (String) -> Void
+    /// ソースIDを渡してそのソースを再スキャンする(2026-08-14追加、「再スキャン機能を
+    /// 入れて」という要望への対応)。ローカルフォルダに後から動画を追加した場合や、
+    /// OneDrive/YouTube側の中身が変わった場合に、アプリを再起動せずに最新の状態へ
+    /// 更新できるようにする。
+    let onRescan: (String) -> Void
 
     /// 展開中のノードID(`FolderTreeNode.id`)の集合。開閉状態は`OutlineGroup`任せではなく
     /// ここで自前管理する(上記の理由で自前の再帰ビューに切り替えたため)。既定は全ノード
@@ -67,10 +75,27 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SidebarRow(title: "すべての動画", icon: "house.fill", isSelected: selectedNode == nil) {
-                selectedNode = nil
+            // 「すべての動画」(フォルダ未選択=全ソース合算)へ戻る入口(2026-08-14、
+            // 一度撤去したが「全部の動画表示がなくなっている」という報告を受けて復活させた
+            // ― サイドバーで特定のフォルダを選んだ後、全体表示に戻る手段がここにしか無いため)。
+            // 「お気に入り」「最近再生した動画」は横断的なチャンネルとして、フォルダツリーの
+            // 上、この3つのSidebarRowと並べて置く(2026-08-14追加、「チャンネルとして、
+            // お気に入りと最近再生したビデオを追加してほしい」という要望への対応)。
+            if hasAnySource {
+                SidebarRow(title: "すべての動画", icon: "house.fill", isSelected: selectedNode == nil && specialSelection == nil) {
+                    selectedNode = nil
+                    specialSelection = nil
+                }
+                .padding(.top, 8)
+
+                SidebarRow(title: "お気に入り", icon: "star.fill", isSelected: specialSelection == .favorites) {
+                    specialSelection = .favorites
+                }
+
+                SidebarRow(title: "最近再生した動画", icon: "clock.fill", isSelected: specialSelection == .recentlyPlayed) {
+                    specialSelection = .recentlyPlayed
+                }
             }
-            .padding(.top, 8)
 
             if hasAnySource {
                 ScrollView {
@@ -116,7 +141,8 @@ struct SidebarView: View {
                     showsDownloadAll: showsDownloadAll,
                     expandedNodeIDs: $expandedNodeIDs,
                     selectedNode: $selectedNode,
-                    onUnload: onUnload
+                    onUnload: onUnload,
+                    onRescan: onRescan
                 )
             }
         }
@@ -172,8 +198,14 @@ private struct FolderTreeRow: View {
     @Binding var expandedNodeIDs: Set<String>
     @Binding var selectedNode: SidebarSelection?
     let onUnload: (String) -> Void
+    let onRescan: (String) -> Void
 
     @State private var isHovering = false
+    /// フォルダ右クリック「合計サイズを表示」用の状態(2026-08-14追加、「フォルダごとの
+    /// トータルサイズを右クリックで知りたい」という要望への対応)。`nil`の間はポップオーバー
+    /// 内に「計算中…」を表示する。
+    @State private var showsSizePopover = false
+    @State private var totalSizeResult: (totalBytes: Int64, unknownCount: Int)?
 
     /// 1階層ぶんのインデント幅(2026-08-05、「サブフォルダはもう少しずらしてほしい」という
     /// 要望に対応。以前の`OutlineGroup`任せの暗黙のインデント量より明示的に広げてある)。
@@ -203,35 +235,76 @@ private struct FolderTreeRow: View {
         }
     }
 
+    /// 右クリック「合計サイズを表示」(2026-08-14追加)。`videosInSubtree`(このフォルダ配下、
+    /// サブフォルダも含む)の各動画のサイズを`FileSizeStore`(ローカルはファイルI/O、
+    /// ダウンロード済みリモートは`DownloadStore.localFileSize`、いずれも内部でキャッシュ済み)
+    /// から並行して取得し合算する。未ダウンロードのリモート動画はサイズを取得する手段が
+    /// 無いため合計には含めず、件数だけ`unknownCount`として別に数えてポップオーバーに
+    /// 注記を出す(合計が実際のディスク使用量より少なく見える理由を明示するため)。
+    private func calculateTotalSize() {
+        totalSizeResult = nil
+        showsSizePopover = true
+        let videos = videosInSubtree
+        Task {
+            var total: Int64 = 0
+            var unknownCount = 0
+            await withTaskGroup(of: Int64?.self) { group in
+                for video in videos {
+                    group.addTask { await FileSizeStore.shared.loadSize(for: video) }
+                }
+                for await size in group {
+                    if let size {
+                        total += size
+                    } else {
+                        unknownCount += 1
+                    }
+                }
+            }
+            totalSizeResult = (total, unknownCount)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button {
-                selectedNode = selection
-            } label: {
-                HStack(spacing: 0) {
-                    Spacer(minLength: 0).frame(width: CGFloat(depth) * indentUnit)
+            // **chevron(展開矢印)は選択用の`Button`の外(兄弟)に置く**(2026-08-14、
+            // 「expandしようとするがうまくいかないときがある」「アラインされていない?」
+            // という報告への対応 ― 以前はこのchevron自体が選択用`Button`の`label`内に
+            // 入れ子になった別の`Button`だった。SwiftUI(特にmacOS)は入れ子になった
+            // `Button`のヒットテストが不安定なことがあり(`Views/PointingHandCursor.swift`
+            // の「`Button`内側では`.onHover`ベースの処理が信頼できない」というドキュメント
+            // 参照 ― 同じ「入れ子`Button`は避ける」教訓)、クリック位置によって親の選択
+            // アクションに奪われたり、逆に矢印の回転アニメーションのズレでヒット領域が
+            // 見た目とずれたりすることがあった。chevron・再スキャン・アンロードの3つの
+            // 小さいボタンをすべて選択用`Button`と兄弟(同じ`HStack`内)に出すことで解消する。
+            HStack(spacing: 0) {
+                Spacer(minLength: 0).frame(width: CGFloat(depth) * indentUnit)
 
-                    Group {
-                        if hasChildren {
-                            Button {
-                                if isExpanded {
-                                    expandedNodeIDs.remove(node.id)
-                                } else {
-                                    expandedNodeIDs.insert(node.id)
-                                }
-                            } label: {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                Group {
+                    if hasChildren {
+                        Button {
+                            if isExpanded {
+                                expandedNodeIDs.remove(node.id)
+                            } else {
+                                expandedNodeIDs.insert(node.id)
                             }
-                            .buttonStyle(.plain)
-                        } else {
-                            Color.clear
+                        } label: {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                                .frame(width: chevronSlotWidth, height: chevronSlotWidth, alignment: .center)
+                                .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear.frame(width: chevronSlotWidth, height: chevronSlotWidth)
                     }
-                    .frame(width: chevronSlotWidth, alignment: .center)
+                }
+                .frame(width: chevronSlotWidth, alignment: .center)
 
+                Button {
+                    selectedNode = selection
+                } label: {
                     HStack {
                         Image(systemName: "folder.fill")
                             .foregroundStyle(.blue)
@@ -239,9 +312,32 @@ private struct FolderTreeRow: View {
                         Text(node.name)
                             .lineLimit(1)
                         Spacer(minLength: 8)
-                        // アンロードはソースのルート行(サブフォルダではなく開いたフォルダ/
-                        // 共有リンク/プレイリストそのもの)だけに出す。
-                        if node.folderPath.isEmpty, isHovering {
+                    }
+                    .padding(.leading, 6)
+                    .padding(.trailing, 16)
+                    .padding(.vertical, 3)
+                    .background(selectedNode == selection ? Color.accentColor.opacity(0.18) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .overlay(alignment: .trailing) {
+                    // 再スキャン・アンロードはソースのルート行(サブフォルダではなく
+                    // 開いたフォルダ/共有リンク/プレイリストそのもの)だけに出す
+                    // (2026-08-14、再スキャンボタンを追加 ―「再スキャン機能を入れて」
+                    // という要望への対応)。選択用`Button`の`overlay`(＝兄弟相当、`label`の
+                    // 外)に置くことで、上記chevronと同じ理由で入れ子`Button`を避けている。
+                    if node.folderPath.isEmpty, isHovering {
+                        HStack(spacing: 4) {
+                            Button {
+                                onRescan(node.sourceID)
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("再スキャン")
+
                             Button {
                                 onUnload(node.sourceID)
                             } label: {
@@ -251,18 +347,12 @@ private struct FolderTreeRow: View {
                             .buttonStyle(.plain)
                             .help("アンロード")
                         }
+                        .padding(.trailing, 16)
                     }
-                    .padding(.leading, 6)
-                    .padding(.trailing, 16)
-                    .padding(.vertical, 3)
-                    .background(selectedNode == selection ? Color.accentColor.opacity(0.18) : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .padding(.leading, 2)
-                .padding(.trailing, 8)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .padding(.leading, 2)
+            .padding(.trailing, 8)
             .onHover { isHovering = $0 }
             .contextMenu {
                 if showsDownloadAll {
@@ -272,6 +362,14 @@ private struct FolderTreeRow: View {
                         Label("配下をすべてダウンロード", systemImage: "arrow.down.circle")
                     }
                 }
+                Button {
+                    calculateTotalSize()
+                } label: {
+                    Label("合計サイズを表示", systemImage: "internaldrive")
+                }
+            }
+            .popover(isPresented: $showsSizePopover) {
+                FolderSizePopover(folderName: node.name, result: totalSizeResult)
             }
 
             if isExpanded {
@@ -283,10 +381,52 @@ private struct FolderTreeRow: View {
                         showsDownloadAll: showsDownloadAll,
                         expandedNodeIDs: $expandedNodeIDs,
                         selectedNode: $selectedNode,
-                        onUnload: onUnload
+                        onUnload: onUnload,
+                        onRescan: onRescan
                     )
                 }
             }
         }
+    }
+}
+
+/// フォルダ右クリック「合計サイズを表示」のポップオーバー(2026-08-14追加)。
+/// `result`が`nil`の間(`FolderTreeRow.calculateTotalSize()`が集計中)は`ProgressView`を出す。
+private struct FolderSizePopover: View {
+    let folderName: String
+    let result: (totalBytes: Int64, unknownCount: Int)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(folderName)
+                .font(.headline)
+            if let result {
+                Text(Self.formattedSize(result.totalBytes))
+                    .font(.title2.monospacedDigit())
+                if result.unknownCount > 0 {
+                    // 未ダウンロードのリモート動画はサイズを取得できないため合計に
+                    // 含まれない ― 実際のディスク使用量よりこの合計が少なく見える理由を
+                    // 明示する。
+                    Text("未ダウンロードの\(result.unknownCount)件は含まれません")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("計算中…")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .frame(minWidth: 220)
+    }
+
+    private static func formattedSize(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 }

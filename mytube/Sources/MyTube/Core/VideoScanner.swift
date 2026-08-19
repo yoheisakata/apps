@@ -42,10 +42,14 @@ enum VideoScanner {
             guard videoExtensions.contains(url.pathExtension.lowercased()) else { continue }
 
             let folderPath = folderPathComponents(for: url, rootComponents: rootComponents)
+            // ルート直下(サブフォルダ無し)の動画は、意味を持たない固定文字列
+            // `rootChannelLabel`(「(ルート)」)ではなく、選んだフォルダ自身の名前を
+            // チャンネルにする(2026-08-14、「ローカルのローディングでは、チャンネルが
+            // ルートになってるけど、フォルダ名をチャンネル名にして」という要望への対応)。
             items.append(VideoItem(
                 url: url,
                 title: url.deletingPathExtension().lastPathComponent,
-                channel: folderPath.first ?? rootChannelLabel,
+                channel: folderPath.first ?? root.lastPathComponent,
                 modifiedDate: values?.contentModificationDate,
                 fileExtension: url.pathExtension.lowercased(),
                 folderPath: folderPath

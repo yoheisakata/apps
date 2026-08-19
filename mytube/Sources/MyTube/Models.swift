@@ -54,8 +54,25 @@ struct VideoItem: Identifiable, Hashable {
     /// 判明済みの長さ。非nilなら`ThumbnailStore`は未ダウンロードの動画をAVAssetで
     /// プロービングせずこの値をそのまま使う。
     var knownDurationSeconds: TimeInterval? = nil
+    /// OneDriveのAPIレスポンスに含まれるファイルサイズ(2026-08-14追加、「前はダウンロード
+    /// せずにサイズとれたような」という指摘で復活させた ― `OneDriveShareClient.DriveItemChild`
+    /// が`select=*`で取得しているレスポンスには元々`size`フィールドが含まれていたが、
+    /// 2026-08-05の初回ロード高速化の際に完全な不使用フィールドとして`VideoItem`ごと削除して
+    /// いた。今回サイズ表示機能を追加するにあたり、`FileSizeStore`がダウンロード前の
+    /// OneDrive動画でもこの値があればファイルI/O無しでサイズを返せるよう復活させた)。
+    /// ローカル/YouTubeは`nil`のまま(ローカルは`FileSizeStore`が直接statする、YouTubeは
+    /// `--flat-playlist`のメタデータにサイズが含まれないため)。
+    var knownFileSize: Int64? = nil
 
     var isRemote: Bool { remoteID != nil }
+
+    /// お気に入り・最近再生した動画の記録に使う、再スキャン・再起動をまたいで安定したキー
+    /// (2026-08-14追加)。リモート動画は`remoteID`(OneDriveのアイテムID/YouTubeの動画ID、
+    /// 署名付きURLの再発行やスキャンのたびには変わらない)を使う ―
+    /// `ThumbnailStore.cacheKey`が同じ理由で`url`ではなく`remoteID`を優先しているのと同じ
+    /// 考え方。ローカル動画は`remoteID`を持たないため`url.path`(ファイルパス、移動・
+    /// リネームしない限り安定)を使う。
+    var stableKey: String { remoteID ?? url.path }
 }
 
 /// 「共有リンクを開く」/「YouTubeプレイリストを開く」シートに登録する、名前付きのURL。
@@ -93,6 +110,14 @@ struct SidebarSelection: Hashable {
     let folderPath: [String]
 }
 
+/// サイドバーの「お気に入り」「最近再生した動画」チャンネル(2026-08-14追加)。フォルダツリー
+/// (`SidebarSelection`)とは別の軸 ― `ContentView`が`selectedNode`と排他的に管理する
+/// (どちらか一方を選ぶと、もう片方は自動的に`nil`に戻る)。
+enum SpecialLibrarySelection: Hashable {
+    case favorites
+    case recentlyPlayed
+}
+
 /// 現在開いている1つのOneDrive共有リンク/YouTubeプレイリスト(複数同時に開ける、2026-08-04〜)。
 /// `id`はURL文字列 ― 同じリンクを二重に開かないための重複排除キー
 /// (`ContentView.openRemote(name:shareURL:kind:)`参照)。`SharedLinkBookmark`(登録済み
@@ -108,41 +133,6 @@ struct RemoteSource: Identifiable, Equatable {
     var videos: [VideoItem] = []
     var isLoading = false
     var errorMessage: String?
-}
-
-/// トップバーの並び替え(2026-08-05、「期間のフィルタはいらない。かわりにソート機能を
-/// つけて」という要望に対応 ― 以前あった期間フィルター(`TimeFilter`、更新日時で絞り込む)を
-/// 廃止し、絞り込みではなく並び替えに置き換えた)。既定は`titleAscending`
-/// (`ContentView.filteredVideos`の以前からの固定ソート方式=ファイル名昇順)。
-enum SortOption: String, CaseIterable, Identifiable {
-    case titleAscending, titleDescending, dateNewest, dateOldest
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .titleAscending: return "タイトル (A→Z)"
-        case .titleDescending: return "タイトル (Z→A)"
-        case .dateNewest: return "更新日時が新しい順"
-        case .dateOldest: return "更新日時が古い順"
-        }
-    }
-
-    /// `ContentView.filteredVideos`が`videos.sorted(by:)`にそのまま渡す比較関数。
-    /// 更新日時が無い動画(`modifiedDate == nil` ― OneDrive/YouTubeの一部動画で起こりうる)は
-    /// 日時順ソートの末尾に固定する(不明な日時を「一番古い」扱いにしても直感に反しないため)。
-    func areInIncreasingOrder(_ lhs: VideoItem, _ rhs: VideoItem) -> Bool {
-        switch self {
-        case .titleAscending:
-            return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
-        case .titleDescending:
-            return lhs.title.localizedStandardCompare(rhs.title) == .orderedDescending
-        case .dateNewest, .dateOldest:
-            guard let lhsDate = lhs.modifiedDate else { return false }
-            guard let rhsDate = rhs.modifiedDate else { return true }
-            return self == .dateNewest ? lhsDate > rhsDate : lhsDate < rhsDate
-        }
-    }
 }
 
 /// ホーム画面の表示形式(2026-08-05追加、「MyTubeの動画の表示の仕方を増やしたい」という

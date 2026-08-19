@@ -14,6 +14,12 @@ struct VideoThumbnailView: View {
     /// 代わりに別列で長さを表示する(2026-08-05、「ハイブリッド時はサムネに時間が被っている」
     /// という指摘を受けて追加)。
     var showsDurationBadge: Bool = true
+    /// ダウンロード状態バッジ(左上、チェックマーク)にファイルサイズも添えるか。
+    /// `VideoTableView`は専用の「サイズ」列を持つため、狭いサムネイルにまで重複して
+    /// 表示させない(2026-08-14、「ハイブリッドでは、ファイルサイズをサムネイルに
+    /// 表示しないで」という要望への対応)。`false`でもチェックマーク自体(ダウンロード
+    /// 済みかどうか)は引き続き表示する。
+    var showsFileSizeInBadge: Bool = true
 
     @ObservedObject private var downloadStore = DownloadStore.shared
     @State private var image: NSImage?
@@ -36,7 +42,10 @@ struct VideoThumbnailView: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(alignment: .topLeading) {
                 if video.isRemote {
-                    DownloadBadge(state: downloadStore.state(for: video), fileSize: downloadStore.localFileSize(for: video))
+                    DownloadBadge(
+                        state: downloadStore.state(for: video),
+                        fileSize: showsFileSizeInBadge ? downloadStore.localFileSize(for: video) : nil
+                    )
                 }
             }
 

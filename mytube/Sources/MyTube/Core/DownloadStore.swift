@@ -373,6 +373,19 @@ final class DownloadStore: ObservableObject {
         }
         args.append(video.url.absoluteString)
         proc.arguments = args
+        // `yt-dlp`自身はフルパス(`ytdlp`)で直接execするため`PATH`が無くても起動できるが、
+        // 内部でYouTubeのJSチャレンジ解決に`deno`(Homebrewでインストール)を`PATH`検索で
+        // 探して起動する ― GUIアプリをFinder/Dockから起動した場合、継承される`PATH`が
+        // 最小限(`/usr/bin:/bin:/usr/sbin:/sbin`程度)で`/opt/homebrew/bin`を含まないため、
+        // `deno`が見つからずJSチャレンジを解けずに終了コード1で失敗していた(2026-08-14、
+        // 「YoutubeのDLができなくなっています」という報告で発覚 ― yt-dlp/YouTube側の
+        // 変更でJSチャレンジ解決が必須になったことがこの不具合を顕在化させたとみられる)。
+        // `ToolLocator.searchDirs`と同じ既知のHomebrewパスを明示的な`PATH`として渡すことで、
+        // 起動元(Finder/Dock/Terminal)によらず`deno`/`node`を確実に見つけられるようにする。
+        var environment = ProcessInfo.processInfo.environment
+        let homebrewPaths = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin"
+        environment["PATH"] = homebrewPaths + ":" + (environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")
+        proc.environment = environment
 
         let pipe = Pipe()
         proc.standardOutput = pipe

@@ -121,6 +121,24 @@ final class ThumbnailStore: ObservableObject {
             }
         }
         let diskPath = cacheDir.appendingPathComponent("\(key).jpg")
+
+        // OneDriveはサムネイル生成(フレーム抽出)を一切行わない(2026-08-14、
+        // 「OneDriveのリンクから動画はサムネイルをDLしないとしたら、パフォーマンスは
+        // 上がる?」という質問を受け、「1(サムネイル自体を出さない、最速)でいい」との
+        // 回答で対応)。**このチェックは下のディスクキャッシュ読み込みより前に置く必要がある**
+        // ― 以前は先にディスクキャッシュを見ていたため、この変更を入れる前に既に生成済みの
+        // OneDriveサムネイルがディスクに残っている場合、そちらが優先して読み込まれてしまい
+        // 「サムネイルなしにしたはずだけどまだ出てくる」という不具合になっていた。ディスクの
+        // 古いキャッシュファイル自体は消していない(孤児化するだけで実害はない)が、
+        // このチェックを先頭に置くことで二度と読み込まれなくなる。長さ
+        // (`asset.load(.duration)`のみ、通常ファイルヘッダだけで済み軽量)は引き続き取得する。
+        if item.remoteKind == .oneDrive, item.thumbnailURL == nil {
+            await limiter.acquire()
+            let result = await loadDurationOnly(item: item, key: key)
+            await limiter.release()
+            return result
+        }
+
         // ディスクキャッシュの読み込み(JPEGデコード含む)は`limiter`の外(無制限)だが、
         // `Task.detached`でメインスレッドの外に逃がす(2026-08-05、初回ロードのパフォーマンス
         // 改善 ― `ThumbnailStore`は`@MainActor`なので、素朴に`Data(contentsOf:)`を直接
@@ -154,6 +172,8 @@ final class ThumbnailStore: ObservableObject {
         // フレーム抽出できない(ダウンロード完了後は`item.url`ではなくローカルファイルを
         // `DownloadStore`経由で再生するが、サムネイルは常に公式画像で十分なため、
         // ダウンロード状態に関わらずこちらを使う)。
+        // ここに来る時点でOneDrive動画は除外済み(上記の早期return参照)なので、残りは
+        // YouTube(公式サムネイル直リンク)かローカル(フレーム抽出)のどちらか。
         let result: ThumbnailResult
         if let thumbnailURL = item.thumbnailURL {
             result = await fetchRemoteThumbnail(thumbnailURL: thumbnailURL, knownDuration: item.knownDurationSeconds, diskPath: diskPath, key: key)
@@ -212,6 +232,18 @@ final class ThumbnailStore: ObservableObject {
         }
         durationCache.setObject(NSNumber(value: duration), forKey: key as NSString)
         return ThumbnailResult(image: nsImage, duration: duration)
+    }
+
+    /// OneDrive動画用: サムネイル画像は生成せず長さだけ取得する(2026-08-14追加、`generate`の
+    /// OneDrive分岐参照)。`AVAssetImageGenerator`によるフレーム抽出(ネットワーク越しの部分
+    /// 読み込み+デコードを伴う)を行わないため、`renderAndCache`よりずっと軽量。
+    private func loadDurationOnly(item: VideoItem, key: String) async -> ThumbnailResult {
+        guard let durationTime = try? await AVURLAsset(url: item.url).load(.duration), durationTime.isNumeric else {
+            return ThumbnailResult(image: nil, duration: nil)
+        }
+        let duration = durationTime.seconds
+        durationCache.setObject(NSNumber(value: duration), forKey: key as NSString)
+        return ThumbnailResult(image: nil, duration: duration)
     }
 
     /// `NSImage`は`Sendable`適合がmacOS 14+限定(このアプリは`.macOS(.v13)`が最低ライン)なため、

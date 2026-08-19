@@ -3,16 +3,9 @@ import SwiftUI
 /// YouTube のヘッダーを模した、常時表示の上部バー。ロゴ・検索欄・フォルダ選択ボタンを持つ。
 struct TopBarView: View {
     @Binding var searchText: String
-    @Binding var selectedSortOption: SortOption
     @Binding var homeViewMode: HomeViewMode
     @Binding var minLengthSecondsText: String
     @Binding var maxLengthSecondsText: String
-    /// 左のフォルダツリーサイドバーを隠しているかどうか(2026-08-06追加、「再生プレーヤーの
-    /// 下のリストを削除したら、画面がもう少し大きくなるのでは?」という提案を受けて ―
-    /// 実際にはプレイヤーは横幅で頭打ちになっていたため、下のグリッドではなくこのサイドバーを
-    /// 隠す方が効く。動画を開くと`ContentView`が自動でこれを`true`にする(下記参照)ため、
-    /// この左端のボタンは主に「動画視聴中でもフォルダを切り替えたい」ときの手動復帰用。
-    @Binding var isSidebarCollapsed: Bool
     let isMeasuringDurations: Bool
     let onChooseFolder: () -> Void
     let onOpenShareLink: () -> Void
@@ -22,13 +15,6 @@ struct TopBarView: View {
     /// 要望への対応)。`ContentView`が`selectedVideo = nil`を渡す ― YouTubeのロゴクリックと
     /// 同じ「ホームへ戻る」操作。
     let onGoHome: () -> Void
-    /// ミニプレーヤーへ入るボタンの有効/無効(動画再生中のみ)とアクション(2026-08-07追加、
-    /// 「トップバーにボタンをおいて」という要望への対応 ― 以前は動画プレイヤー右上に
-    /// `pip.enter`アイコンを重ねていたが、常時見えるトップバーの方が見つけやすいためこちらへ
-    /// 移した。ミニプレーヤーから元に戻すボタンは逆にトップバーが隠れているため出せず、
-    /// `PlayerPaneView`の`miniPlayerBody`側(＋ボタン)に残っている)。
-    let isMiniPlayerAvailable: Bool
-    let onEnterMiniPlayer: () -> Void
 
     @State private var showsLengthFilterPopover = false
     @State private var showsCacheSettingsPopover = false
@@ -52,24 +38,13 @@ struct TopBarView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            Button {
-                isSidebarCollapsed.toggle()
-            } label: {
-                Image(systemName: "sidebar.left")
-            }
-            .help(isSidebarCollapsed ? "サイドバーを表示" : "サイドバーを隠す")
-
-            Button(action: onEnterMiniPlayer) {
-                Image(systemName: "pip.enter")
-            }
-            .disabled(!isMiniPlayerAvailable)
-            .help("ミニプレーヤー")
-
+            // ホームボタンは常に左端(2026-08-14、ミニプレーヤーボタンをプレイヤー画面側へ
+            // 移した(`PlayerPaneView.playerArea`参照)のに伴い、左端に来るよう整理した)。
             Button(action: onGoHome) {
                 HStack(spacing: 6) {
                     Image(systemName: "play.rectangle.fill")
                         .foregroundStyle(.red)
-                    Text("MyTube")
+                    Text("HOME")
                         .font(.title3.bold())
                 }
             }
@@ -114,22 +89,6 @@ struct TopBarView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(width: 130)
-
-            Menu {
-                ForEach(SortOption.allCases) { option in
-                    Button {
-                        selectedSortOption = option
-                    } label: {
-                        if option == selectedSortOption {
-                            Label(option.label, systemImage: "checkmark")
-                        } else {
-                            Text(option.label)
-                        }
-                    }
-                }
-            } label: {
-                Label(selectedSortOption.label, systemImage: "arrow.up.arrow.down")
-            }
 
             Button {
                 showsLengthFilterPopover = true
