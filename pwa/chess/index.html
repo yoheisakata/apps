@@ -12,7 +12,7 @@
   --board-light:#f0d9b5; --board-dark:#946f4b; --board-line:#5c4023;
   --text:#f1e6d8; --sub:#a08a72;
   --accent:#d4a054; --accent2:#8a5a2b;
-  --sel:#7fd97f; --move:#6cace4;
+  --sel:#7fd97f; --move:#d4a054;
   --white-piece:#fbf6ea; --white-outline:#3a2a16;
   --black-piece:#1a1108; --black-outline:#f1e6d8;
 }
@@ -64,12 +64,21 @@ body::before{
 
 .captured{display:flex; flex-wrap:wrap; gap:2px; width:100%; max-width:min(720px,94vw); min-height:22px; align-items:center; justify-content:center; padding:2px 0; font-size:1rem;}
 .captured .cp{opacity:0.85;}
-.captured .cp.white{color:var(--white-piece); text-shadow:0 0 2px var(--white-outline);}
-.captured .cp.black{color:var(--black-piece); text-shadow:0 0 2px var(--black-outline);}
+.captured .cp.white{background:linear-gradient(160deg,#fffdf6 0%,#e7d9b3 55%,#b8975e 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 2px var(--white-outline), 0 1px 1px rgba(0,0,0,0.4);}
+.captured .cp.black{background:linear-gradient(160deg,#5a4a34 0%,#221709 55%,#000 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; text-shadow:0 0 2px var(--black-outline), 0 1px 1px rgba(0,0,0,0.5);}
 
 .turn-indicator{font-size:0.85rem; font-weight:700; margin:2px 0; text-align:center; min-height:1.2em;}
 .turn-indicator.white-turn{color:#f7e8c8;}
 .turn-indicator.black-turn{color:#9fc6ff;}
+
+.piece-info{display:none; align-items:center; gap:10px; width:100%; max-width:min(720px,94vw); margin:2px 0 8px;
+  padding:8px 14px; border-radius:12px; border:1px solid rgba(212,160,84,0.3);
+  background:linear-gradient(135deg, rgba(212,160,84,0.14), rgba(138,90,43,0.08));}
+.piece-info.show{display:flex;}
+.piece-info .pi-glyph{font-size:1.8rem; line-height:1; flex-shrink:0;}
+.piece-info .pi-text{display:flex; flex-direction:column; gap:1px;}
+.piece-info .pi-name{font-weight:800; font-size:0.9rem; color:var(--text);}
+.piece-info .pi-desc{font-size:0.72rem; color:var(--sub);}
 
 #board{
   display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
@@ -85,12 +94,16 @@ body::before{
 .cell.light{background:var(--board-light);}
 .cell.dark{background:var(--board-dark);}
 .cell.selected{background:rgba(127,217,127,0.55);}
-.cell.movable::after{content:''; position:absolute; width:24%; height:24%; border-radius:50%; background:rgba(108,172,228,0.7);}
-.cell.movable.has-piece::after{width:84%; height:84%; border-radius:8px; background:transparent; border:3px solid rgba(108,172,228,0.8); box-shadow:0 0 6px rgba(108,172,228,0.5);}
+.cell.movable::after{content:''; position:absolute; width:24%; height:24%; border-radius:50%; background:rgba(212,160,84,0.75);}
+.cell.movable.has-piece::after{width:84%; height:84%; border-radius:8px; background:transparent; border:3px solid rgba(212,160,84,0.85); box-shadow:0 0 6px rgba(212,160,84,0.55);}
 .cell.last-move{background:rgba(212,160,84,0.45);}
 .cell.in-check{background:rgba(220,60,50,0.55);}
-.piece.white{color:var(--white-piece); text-shadow:0 0 2px var(--white-outline), 0 0 1px var(--white-outline);}
-.piece.black{color:var(--black-piece); text-shadow:0 0 2px var(--black-outline), 0 0 1px var(--black-outline);}
+.piece.white{background:linear-gradient(160deg,#fffef9 0%,#efe2bf 45%,#c7a468 75%,#9a7638 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+  text-shadow:0 0 2px var(--white-outline), 0 0 1px var(--white-outline), 0 2px 1px rgba(0,0,0,0.35);
+  filter:drop-shadow(0 3px 2px rgba(0,0,0,0.45));}
+.piece.black{background:linear-gradient(160deg,#66543a 0%,#2a1c0e 45%,#120b04 75%,#000 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+  text-shadow:0 0 2px var(--black-outline), 0 0 1px var(--black-outline), 0 2px 1px rgba(0,0,0,0.5);
+  filter:drop-shadow(0 3px 2px rgba(0,0,0,0.45));}
 .piece{line-height:1;}
 
 .msg-area{min-height:1.4em; font-size:0.8rem; color:var(--accent); text-align:center; margin-top:8px;}
@@ -114,7 +127,7 @@ body::before{
   <a class="home-link" href="../">← アプリ一覧へ</a>
   <div class="app-title">♞ チェス</div>
   <div class="app-sub">駒を選んでタップで動かす</div>
-  <div class="app-version">v1.0.1</div>
+  <div class="app-version">v1.1.1</div>
 
   <!-- ホーム画面 -->
   <div id="home">
@@ -129,6 +142,7 @@ body::before{
       <button class="side-btn" data-diff="3">つよい</button>
     </div>
     <div class="mode-btn" id="btn-2p" style="margin-top:6px;">👥 2人対戦<span class="desc">同じ端末で交互に指す</span></div>
+    <div class="mode-btn" id="btn-study" style="margin-top:6px;">📖 勉強モード<span class="desc">駒を自由に動かして動き方を確認</span></div>
   </div>
 
   <!-- ゲーム画面 -->
@@ -140,6 +154,7 @@ body::before{
     </div>
     <div class="captured" id="captured-black"></div>
     <div class="turn-indicator" id="turn-indicator"></div>
+    <div class="piece-info" id="piece-info"></div>
     <div id="board"></div>
     <div class="captured" id="captured-white"></div>
     <div class="msg-area" id="msg-area"></div>
@@ -151,10 +166,10 @@ body::before{
   <div class="modal">
     <p>昇格する駒を選んでください</p>
     <div class="btn-row">
-      <button class="btn-yes promo-btn" data-p="Q">♕</button>
-      <button class="btn-yes promo-btn" data-p="R">♖</button>
-      <button class="btn-yes promo-btn" data-p="B">♗</button>
-      <button class="btn-yes promo-btn" data-p="N">♘</button>
+      <button class="btn-yes promo-btn" data-p="Q">♛</button>
+      <button class="btn-yes promo-btn" data-p="R">♜</button>
+      <button class="btn-yes promo-btn" data-p="B">♝</button>
+      <button class="btn-yes promo-btn" data-p="N">♞</button>
     </div>
   </div>
 </div>
@@ -588,12 +603,21 @@ function gameStatus(state){
    UI 状態管理
    ========================================================= */
 var GLYPH = {
-  w: { K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙' },
+  w: { K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟' },
   b: { K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟' }
 };
 
+var PIECE_INFO = {
+  K: { name:'キング', desc:'縦・横・斜めに1マス動ける。取られたら負けの一番大事な駒' },
+  Q: { name:'クイーン', desc:'縦・横・斜めに何マスでも動ける、一番強い駒' },
+  R: { name:'ルーク', desc:'縦・横に何マスでも動ける' },
+  B: { name:'ビショップ', desc:'斜めに何マスでも動ける' },
+  N: { name:'ナイト', desc:'アルファベットのLの形に跳ぶ。他の駒を飛び越えられる' },
+  P: { name:'ポーン', desc:'前に1マス(最初だけ2マスも可)。斜め前の敵の駒だけ取れる' }
+};
+
 var els = {};
-['home','game','board','captured-black','captured-white','turn-indicator','msg-area',
+['home','game','board','captured-black','captured-white','turn-indicator','piece-info','msg-area',
  'mode-label','promote-modal','result-modal','result-text','result-ok'
 ].forEach(function(id){ els[id.replace(/-([a-z])/g, function(_,c){return c.toUpperCase();})] = document.getElementById(id); });
 
@@ -621,11 +645,35 @@ function newGame(){
   app.gameOver = false;
   app.aiThinking = false;
   app.flipped = (app.mode === 'ai' && app.humanSide === 'b');
+  hidePieceInfo();
   render();
   maybeAiMove();
 }
 
 function setMsg(t){ els.msgArea.textContent = t || ''; }
+
+function showPieceInfo(p){
+  var info = PIECE_INFO[p.type];
+  els.pieceInfo.innerHTML = '';
+  var glyph = document.createElement('span');
+  glyph.className = 'pi-glyph piece ' + (p.owner === 'w' ? 'white' : 'black');
+  glyph.textContent = GLYPH[p.owner][p.type];
+  var text = document.createElement('div');
+  text.className = 'pi-text';
+  var name = document.createElement('div');
+  name.className = 'pi-name';
+  name.textContent = (p.owner === 'w' ? '白' : '黒') + 'の' + info.name;
+  var desc = document.createElement('div');
+  desc.className = 'pi-desc';
+  desc.textContent = info.desc;
+  text.appendChild(name); text.appendChild(desc);
+  els.pieceInfo.appendChild(glyph); els.pieceInfo.appendChild(text);
+  els.pieceInfo.classList.add('show');
+}
+function hidePieceInfo(){
+  els.pieceInfo.classList.remove('show');
+  els.pieceInfo.innerHTML = '';
+}
 
 function render(){
   renderBoard();
@@ -635,6 +683,11 @@ function render(){
 
 function renderTurn(){
   if (app.gameOver){ els.turnIndicator.textContent = ''; return; }
+  if (app.mode === 'study'){
+    els.turnIndicator.textContent = 'どちらの駒でもタップして動き方を確認できます';
+    els.turnIndicator.className = 'turn-indicator';
+    return;
+  }
   var who = app.state.turn === 'w' ? '白' : '黒';
   if (app.mode === 'ai'){
     who += (app.state.turn === app.humanSide) ? ' (あなた)' : ' (AI)';
@@ -706,8 +759,14 @@ function renderCapturedRow(container, capturedOwner){
 
 function isHumanTurn(){
   if (app.gameOver) return false;
-  if (app.mode === '2p') return true;
+  if (app.mode === '2p' || app.mode === 'study') return true;
   return app.state.turn === app.humanSide;
+}
+
+function canSelectPiece(p){
+  if (!p) return false;
+  if (app.mode === 'study') return true; // 勉強モードは手番を無視してどちらの駒も選べる
+  return p.owner === app.state.turn;
 }
 
 function onCellClick(e){
@@ -721,36 +780,45 @@ function onCellClick(e){
       performMove(target);
       return;
     }
-    if (p && p.owner === app.state.turn){
+    if (canSelectPiece(p)){
       selectSquare(r,c);
       return;
     }
     app.selected = null; app.legalTargets = [];
+    hidePieceInfo();
     render();
     return;
   }
 
-  if (p && p.owner === app.state.turn){
+  if (canSelectPiece(p)){
     selectSquare(r,c);
   }
 }
 
 function selectSquare(r,c){
   app.selected = { r:r, c:c };
-  var all = generateLegalMoves(app.state, app.state.turn);
   var targets = [];
-  all.forEach(function(m){
-    if (m.from[0] === r && m.from[1] === c){
-      var existing = targets.find(function(t){ return t.r === m.to[0] && t.c === m.to[1]; });
-      if (existing){
-        // 同じマスへ複数の昇格候補がある場合はまとめて保持
-        existing.moves.push(m);
-      } else {
-        targets.push({ r: m.to[0], c: m.to[1], moves: [m] });
+  if (app.mode === 'study'){
+    // 勉強モード: 手番・自玉の安全性を無視して、そのマスの駒の動き方をそのまま見せる
+    pseudoMovesFrom(app.state, r, c).forEach(function(m){
+      targets.push({ r: m.to[0], c: m.to[1], moves: [m] });
+    });
+  } else {
+    var all = generateLegalMoves(app.state, app.state.turn);
+    all.forEach(function(m){
+      if (m.from[0] === r && m.from[1] === c){
+        var existing = targets.find(function(t){ return t.r === m.to[0] && t.c === m.to[1]; });
+        if (existing){
+          // 同じマスへ複数の昇格候補がある場合はまとめて保持
+          existing.moves.push(m);
+        } else {
+          targets.push({ r: m.to[0], c: m.to[1], moves: [m] });
+        }
       }
-    }
-  });
+    });
+  }
   app.legalTargets = targets;
+  showPieceInfo(app.state.board[r][c]);
   render();
 }
 
@@ -777,7 +845,8 @@ function performMove(target){
 });
 
 function commitMove(m){
-  var owner = app.state.turn;
+  var mover = app.state.board[m.from[0]][m.from[1]];
+  var owner = mover ? mover.owner : app.state.turn; // 勉強モードは手番外の駒も動かせるため、実際の駒の持ち主を使う
   var captured = applyMove(app.state, m);
   if (captured){
     app.captured[owner].push(captured.type);
@@ -785,7 +854,9 @@ function commitMove(m){
   app.lastMove = { from: m.from, to: m.to };
   app.selected = null; app.legalTargets = [];
   setMsg('');
+  hidePieceInfo();
   render();
+  if (app.mode === 'study') return; // 勉強モードはチェックメイト判定・AI呼び出しをしない
   checkGameEnd();
   if (!app.gameOver) maybeAiMove();
 }
@@ -878,6 +949,12 @@ document.getElementById('btn-vs-ai').addEventListener('click', function(){
 document.getElementById('btn-2p').addEventListener('click', function(){
   app.mode = '2p';
   els.modeLabel.textContent = '2人対戦';
+  goGame();
+  newGame();
+});
+document.getElementById('btn-study').addEventListener('click', function(){
+  app.mode = 'study';
+  els.modeLabel.textContent = '📖 勉強モード';
   goGame();
   newGame();
 });

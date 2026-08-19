@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo has two distinct kinds of projects:
 
-1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, a single flat icon grid (no category sections).
+1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, a single flat icon grid (no category sections). Since 2026-08-18, all web app folders live under **`pwa/<name>/`** (e.g. `pwa/earth/`) — only the launcher `index.html` and top-level docs stay at the repo root. Native macOS/iOS tools are unaffected and remain at the repo root.
 2. **Native macOS/iOS tools** (`mynetworth/`, `myorganizer/`, `mygallery/`, `mydownloader/`, `mymusic/`, `mytube/`, `mygames/`, `mypass/`, `mymarkdown/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
@@ -90,7 +90,7 @@ mygallery and mymarkdown are not SPM packages — use `./build.sh` there (see th
 
 ### Web apps
 - **バージョン表示は必ず上げる。** ランチャーから開く各アプリのトップ画面（最初に出る画面）に `v1.0.0` 形式のバージョンを小さく出している。**そのアプリのファイルを変更したら、同じコミットで必ずバージョンを上げること**（軽微な修正 = パッチ、機能追加 = マイナー）。iPhone のホーム画面に登録した状態では「更新が届いたか」を確認する手段がこれしかないため、省略しない。置き場所は各アプリの `.app-version`（earth のみ固定表示の `#app-version`）:
-  - **表示位置は必ず画面の上部**（タイトル/サブタイトルのすぐ下。earth のみ右上に固定表示の `#app-version`）。下端に置くとスクロールしないと見えないため、下には戻さないこと: `earth/index.html`（右上固定）/ `shinkansen/index.html`（ヘッダー内）/ `tarot/index.html`（ヘッダー内）/ `tarot/quiz.html`（イントロのサブタイトル下）/ `kids-learning-app/index.html`（タイトル下）/ `pgquiz/index.html`・`awsquiz/index.html`（`.app-sub` の下）
+  - **表示位置は必ず画面の上部**（タイトル/サブタイトルのすぐ下。earth のみ右上に固定表示の `#app-version`）。下端に置くとスクロールしないと見えないため、下には戻さないこと（パスはいずれも `pwa/` 配下）: `earth/index.html`（右上固定）/ `shinkansen/index.html`（ヘッダー内）/ `tarot/index.html`（ヘッダー内）/ `tarot/quiz.html`（イントロのサブタイトル下）/ `kids-learning-app/index.html`（タイトル下）/ `pgquiz/index.html`・`awsquiz/index.html`（`.app-sub` の下）
   - kids-learning-app は cache-first の SW なので、バージョンを上げるときは `sw.js` の `CACHE_NAME` も一緒に上げる（上げないと iPhone に届かない）。
   - ルート `index.html`（ランチャー）にはバージョン番号ではなく**更新日時**を出す。ヘッダーのサブタイトル（旧「あそびたいアプリをえらんでね」）が `更新 YYYY-MM-DD HH:MM:SS`（秒まで。同じ日に何度も更新するので日付だけに戻さないこと）。**値は読み込み時に自動計算する** — 各アプリのリンク先を `HEAD`（`cache:'no-store'`）で引いた `Last-Modified` と、`document.lastModified`（index.html 自身）のうち**新しい方**を表示する。したがって通常は手で直す必要はない。HTML に直書きしてある時刻は `fetch` が使えないとき（`file://`・オフライン）のフォールバックなので、`index.html` を触ったついでに現在時刻（`date "+%Y-%m-%d %H:%M:%S"`）へ直しておくとよい。
   - この更新日時はタップできる（ルート `index.html` 末尾の `<script>`）。押すと `?t=<現在時刻>` を付けて読み込み直し、その状態のときだけ各アプリへのリンクにも同じ `t` を伝播させて、HTTP キャッシュを避けて最新を取りに行く。ホーム画面に登録した web アプリには「引っぱって更新」が無いための代替手段。**通常時にリンクへ `t` を付けてはいけない**（PWA のオフラインキャッシュを外してしまい、kids-learning-app がオフラインで動かなくなる）。
@@ -118,7 +118,7 @@ mygallery and mymarkdown are not SPM packages — use `./build.sh` there (see th
 
 ## Updating the Launcher
 
-Applies to **web apps only** — native macOS tools are never added to the launcher. When adding/removing a web app, update root `index.html`:
-1. Add an `<a class="app {name}">` entry to the single icon grid (category sections were removed — do not re-add them without asking).
+Applies to **web apps only** — native macOS tools are never added to the launcher. New web app folders go under `pwa/<name>/`. When adding/removing a web app, update root `index.html`:
+1. Add an `<a class="app {name}" href="pwa/{name}/">` entry to the single icon grid (category sections were removed — do not re-add them without asking).
 2. Add a `.app.{name} .icon-wrap` CSS rule with a gradient background and box-shadow.
 3. Set `data-added="YYYY-MM-DDTHH:MM:SS"`（追加した日時・ローカル時刻）on the `<a class="app">`. 末尾の `<script>` がこの日時を見て、**追加から24時間だけ** `.new-badge`（NEW）を動的に付ける。バッジを HTML に直書きしないこと（期限切れのものが一瞬表示されてしまう）。時刻を省いて日付だけ書いた場合は 00:00:00 とみなされる。
