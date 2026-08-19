@@ -44,17 +44,37 @@ body::before{
 .screen{display:none; width:100%; flex-direction:column; align-items:center;}
 .screen.active{display:flex;}
 
-/* ---- ホーム ---- */
-#home{gap:14px; padding-top:10px;}
-.game-btn{
-  width:100%; max-width:380px; padding:18px; border-radius:16px; border:1px solid rgba(242,193,78,0.25);
-  background:linear-gradient(135deg, rgba(242,193,78,0.14), rgba(224,169,46,0.07));
-  color:var(--text); font-size:1.05rem; font-weight:700; text-align:center;
-  cursor:pointer; transition:transform .12s;
+/* ---- ホーム(トップのランチャーと同じアイコングリッド) ---- */
+#home.active{display:grid; grid-template-columns:repeat(4, 1fr); gap:18px 12px; width:100%; max-width:480px; padding-top:10px;}
+.game{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  text-decoration:none; color:var(--text); cursor:pointer;
 }
-.game-btn:active{transform:scale(0.96);}
-.game-btn .desc{display:block; font-size:0.75rem; color:var(--sub); font-weight:400; margin-top:4px;}
-.notice{margin-top:20px; font-size:0.72rem; color:var(--sub); text-align:center; max-width:380px; line-height:1.6;}
+.game:active .icon-wrap{transform:scale(0.88);}
+.icon-wrap{
+  position:relative; width:72px; height:72px; border-radius:20px;
+  display:flex; align-items:center; justify-content:center; font-size:2.2rem;
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .15s;
+  overflow:hidden;
+}
+.icon-wrap::after{
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 55%);
+  border-radius:inherit; pointer-events:none;
+}
+.game.shinkei .icon-wrap{ background:linear-gradient(135deg,#3b0764,#9333ea); box-shadow:0 6px 20px rgba(147,51,234,0.45); }
+.game.baba    .icon-wrap{ background:linear-gradient(135deg,#1c1c1c,#c0392b); box-shadow:0 6px 20px rgba(192,57,43,0.4); }
+.game.speed   .icon-wrap{ background:linear-gradient(135deg,#b45309,#f59e0b); box-shadow:0 6px 20px rgba(245,158,11,0.45); }
+.game.daifugo .icon-wrap{ background:linear-gradient(135deg,#7a5a0f,#f2c14e); box-shadow:0 6px 20px rgba(242,193,78,0.45); }
+.game.sevens  .icon-wrap{ background:linear-gradient(135deg,#0f3d5c,#3b82f6); box-shadow:0 6px 20px rgba(59,130,246,0.4); }
+.game.tw      .icon-wrap{ background:linear-gradient(135deg,#0f5c33,#22c55e); box-shadow:0 6px 20px rgba(34,197,94,0.4); }
+.game.poker   .icon-wrap{ background:linear-gradient(135deg,#0f172a,#475569); box-shadow:0 6px 20px rgba(71,85,105,0.4); }
+.game.bj      .icon-wrap{ background:linear-gradient(135deg,#3b0a0a,#c0392b); box-shadow:0 6px 20px rgba(192,57,43,0.4); }
+.game-name{
+  font-size:0.7rem; font-weight:700; text-align:center; line-height:1.3;
+  color:rgba(234,245,236,0.8); max-width:76px; word-break:keep-all;
+}
+.notice{margin-top:26px; font-size:0.72rem; color:var(--sub); text-align:center; max-width:380px; line-height:1.6;}
 
 /* ---- セットアップ ---- */
 .setup-title{font-size:1.2rem; font-weight:800; margin:10px 0 16px; text-align:center;}
@@ -206,21 +226,45 @@ body::before{
 </head>
 <body>
 <div class="wrap">
-  <a class="home-link" href="../">← My Apps</a>
+  <a class="home-link" href="../../">← My Apps</a>
   <div class="app-title">🃏 トランプゲーム</div>
   <div class="app-sub">遊びたいゲームを選んでね</div>
-  <div class="app-version">v1.1.0</div>
+  <div class="app-version">v1.2.1</div>
 
   <!-- ===== ホーム ===== -->
   <div id="home" class="screen active">
-    <div class="game-btn" onclick="goSetup('shinkei')">🧠 神経衰弱<span class="desc">2枚めくってペアを揃えよう</span></div>
-    <div class="game-btn" onclick="goSetup('baba')">🃏 ババ抜き<span class="desc">ジョーカーを持たずに上がろう</span></div>
-    <div class="game-btn" onclick="goSetup('speed')">⚡ スピード<span class="desc">連続する数字を素早く出そう</span></div>
-    <div class="game-btn" onclick="goSetup('daifugo')">👑 大富豪<span class="desc">手札を早くなくそう</span></div>
-    <div class="game-btn" onclick="goSetup('sevens')">🔢 ７並べ<span class="desc">7から数字をつなげよう</span></div>
-    <div class="game-btn" onclick="goSetup('tw')">🎲 21<span class="desc">21に一番近づいた人が勝ち</span></div>
-    <div class="game-btn" onclick="goSetup('poker')">♠️ ポーカー<span class="desc">5枚交換して役を競おう</span></div>
-    <div class="game-btn" onclick="goSetup('bj')">🂡 ブラックジャック<span class="desc">ディーラーと21を競おう</span></div>
+    <div class="game shinkei" onclick="goSetup('shinkei')">
+      <div class="icon-wrap">🧠</div>
+      <div class="game-name">神経衰弱</div>
+    </div>
+    <div class="game baba" onclick="goSetup('baba')">
+      <div class="icon-wrap">🃏</div>
+      <div class="game-name">ババ抜き</div>
+    </div>
+    <div class="game speed" onclick="goSetup('speed')">
+      <div class="icon-wrap">⚡</div>
+      <div class="game-name">スピード</div>
+    </div>
+    <div class="game daifugo" onclick="goSetup('daifugo')">
+      <div class="icon-wrap">👑</div>
+      <div class="game-name">大富豪</div>
+    </div>
+    <div class="game sevens" onclick="goSetup('sevens')">
+      <div class="icon-wrap">🔢</div>
+      <div class="game-name">７並べ</div>
+    </div>
+    <div class="game tw" onclick="goSetup('tw')">
+      <div class="icon-wrap">🎲</div>
+      <div class="game-name">21</div>
+    </div>
+    <div class="game poker" onclick="goSetup('poker')">
+      <div class="icon-wrap">♠️</div>
+      <div class="game-name">ポーカー</div>
+    </div>
+    <div class="game bj" onclick="goSetup('bj')">
+      <div class="icon-wrap">🂡</div>
+      <div class="game-name">ブラック<br>ジャック</div>
+    </div>
   </div>
 
   <!-- ===== 神経衰弱: セットアップ ===== -->

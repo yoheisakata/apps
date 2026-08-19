@@ -1,6 +1,6 @@
 # CLAUDE.md (cardgames)
 
-Single self-contained `index.html` (inline CSS + JS), no build step — same convention as the other GitHub-Pages web apps in this repo. Unlike the board-game apps (`shogi/`, `othello/`, etc., one game per directory), this is a **multi-game launcher within one app**: a home screen lets the player pick from several card games, each with its own setup screen, game screen, and result screen (all `<div class="screen">` toggled via `goScreen`/`goSetup`/`goHome`).
+Single self-contained `index.html` (inline CSS + JS), no build step — same convention as the other GitHub-Pages web apps in this repo. Unlike the board-game apps (`boardgames/shogi/`, `boardgames/othello/`, etc., one game per directory), this is a **multi-game launcher within one app**: a home screen lets the player pick from several card games, each with its own setup screen, game screen, and result screen (all `<div class="screen">` toggled via `goScreen`/`goSetup`/`goHome`). Since 2026-08-18 the home screen (`#home`) is an icon grid matching the root launcher's look (`.game`/`.icon-wrap`/`.game-name`, 4-column grid, per-game gradient colors) instead of a stacked list of full-width buttons — the same visual treatment was applied to `boardgames/index.html`'s picker. `#home.active{display:grid;...}` uses the ID to win specificity over `.screen.active{display:flex}`; keep that ID-scoped selector if touching the screen-toggle CSS.
 
 ## Structure
 

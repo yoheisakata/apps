@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repo has two distinct kinds of projects:
 
-1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen, a single flat icon grid (no category sections). Since 2026-08-18, all web app folders live under **`pwa/<name>/`** (e.g. `pwa/earth/`) — only the launcher `index.html` and top-level docs stay at the repo root. Native macOS/iOS tools are unaffected and remain at the repo root.
+1. **Web apps** ("My Apps" — 旧アプリひろば) hosted on GitHub Pages — mobile-friendly, all-Japanese UI. The root `index.html` is the launcher/home screen. Category sections (each a `.section` with an icon `.grid`) were removed 2026-08-16 in favor of one flat grid, then reintroduced 2026-08-18 at the user's explicit request in a limited form: a single untitled main section holds everything, plus one titled "学習" section at the bottom (currently `pgquiz`/`awsquiz`) — do not add further section splits without asking. Since 2026-08-18, all web app folders live under **`pwa/<name>/`** (e.g. `pwa/earth/`) — only the launcher `index.html` and top-level docs stay at the repo root. Native macOS/iOS tools are unaffected and remain at the repo root.
 2. **Native macOS/iOS tools** (`mynetworth/`, `myorganizer/`, `mygallery/`, `mydownloader/`, `mymusic/`, `mytube/`, `mygames/`, `mypass/`, `mymarkdown/`, `kindle-transfer/`, `utilities/`) — personal-use local tools, built and run outside GitHub Pages, **not** referenced from the root `index.html`.
 
 When editing, check which category a folder belongs to before assuming GitHub-Pages-style conventions (single HTML file, no build) apply.
@@ -119,7 +119,7 @@ mygallery and mymarkdown are not SPM packages — use `./build.sh` there (see th
 ## Updating the Launcher
 
 Applies to **web apps only** — native macOS tools are never added to the launcher. New web app folders go under `pwa/<name>/`. When adding/removing a web app, update root `index.html`:
-1. Add an `<a class="app {name}" href="pwa/{name}/">` entry to the single icon grid (category sections were removed — do not re-add them without asking).
+1. Add an `<a class="app {name}" href="pwa/{name}/">` entry to a `.grid` — the main (untitled) section's grid for most apps, or the "学習" section's grid at the bottom if it's a study/quiz app (see above; don't add further section splits without asking).
 2. Add a `.app.{name} .icon-wrap` CSS rule with a gradient background and box-shadow.
 3. Set `data-added="YYYY-MM-DDTHH:MM:SS"`（追加した日時・ローカル時刻）on the `<a class="app">`. 末尾の `<script>` がこの日時を見て、**追加から24時間だけ** `.new-badge`（NEW）を動的に付ける。バッジを HTML に直書きしないこと（期限切れのものが一瞬表示されてしまう）。時刻を省いて日付だけ書いた場合は 00:00:00 とみなされる。
 

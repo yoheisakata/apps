@@ -18,7 +18,7 @@ import { createCountry } from "./views/country.js?v=27";
 import { createMatchModal } from "./views/matchmodal.js?v=28";
 
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = 45; // bump on every release; shown in the header.
+const APP_VERSION = 46; // bump on every release; shown in the header.
 
 // Show the app version in the header. Single source of truth: APP_VERSION.
 function showVersion() {
