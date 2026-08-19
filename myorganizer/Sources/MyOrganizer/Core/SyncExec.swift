@@ -36,7 +36,17 @@ enum SyncExec {
         let semaphore = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in semaphore.signal() }
 
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            // readabilityHandlerを設定済みのままpipeを放置するとファイルディスクリプタが
+            // 解放されない(ProcessRunner.runと同じ理由)。起動失敗のたびにリークし、
+            // 積み重なると後続の起動が未捕捉例外でクラッシュし得るため明示的に閉じる。
+            pipe.fileHandleForReading.readabilityHandler = nil
+            try? pipe.fileHandleForReading.close()
+            try? pipe.fileHandleForWriting.close()
+            throw error
+        }
         // 子プロセスに複製された後、親側が持つ書き込み端の複製は不要になる。ここで閉じずに
         // 放置すると、この関数を数千回呼ぶ処理(エンコード対象フォルダの一括ffprobeスキャン等)で
         // ファイルディスクリプタが線形に積み上がり、OSの上限に達した時点で以降すべての呼び出しが

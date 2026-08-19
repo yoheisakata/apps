@@ -52,6 +52,17 @@ final class ProcessRunner {
         do {
             try process.run()
         } catch {
+            // readabilityHandlerを設定済みのままpipeを放置するとファイルディスクリプタが
+            // 解放されない(GCDのディスパッチソースがFileHandleを生かし続けるため、ARCの
+            // dealloc任せでは閉じない)。起動失敗のたびにfd 4つがリークし、積み重なると
+            // 後続の起動が`posix_spawn`失敗経由の未捕捉例外でクラッシュし得るため、
+            // 成功パスと同様にここでも明示的に閉じる。
+            stdoutPipe.fileHandleForReading.readabilityHandler = nil
+            stderrPipe.fileHandleForReading.readabilityHandler = nil
+            try? stdoutPipe.fileHandleForReading.close()
+            try? stderrPipe.fileHandleForReading.close()
+            try? stdoutPipe.fileHandleForWriting.close()
+            try? stderrPipe.fileHandleForWriting.close()
             throw ProcessRunnerError.launchFailed(error.localizedDescription)
         }
         // 子プロセスに複製された後、親側が持つ書き込み端の複製は不要になる。SyncExec.runと
