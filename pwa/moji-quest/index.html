@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>もじくえすと</title>
+  <meta name="theme-color" content="#ffb703">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ホーム画面 -->
+  <div id="screen-home" class="screen active">
+    <a class="home-link" href="../../" aria-label="アプリいちらんへもどる">🏠</a>
+    <h1 class="app-title">🔤 もじくえすと 🔤</h1>
+    <div class="app-version">v1.0.0</div>
+    <div class="star-count" id="total-stars">⭐ 0</div>
+    <div class="menu">
+      <button class="big-btn hiragana-btn" data-action="hiragana">
+        <span class="btn-emoji">✏️</span>
+        <span class="btn-label">ひらがな</span>
+      </button>
+      <button class="big-btn typing-btn" data-action="typing">
+        <span class="btn-emoji">⌨️</span>
+        <span class="btn-label">タイピング</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- たしざん レベルえらび画面 -->
+  <div id="screen-math-levels" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <h2 class="screen-title">どのレベルを やる?</h2>
+    <div class="level-grid" id="level-grid"></div>
+  </div>
+
+  <!-- くく だんえらび画面 -->
+  <div id="screen-kuku-dan" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <h2 class="screen-title">なんのだんを やる?</h2>
+    <div class="row-grid" id="dan-grid"></div>
+  </div>
+
+  <!-- くく べんきょう画面 -->
+  <div id="screen-kuku-study" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <div class="progress" id="kuku-progress"></div>
+    <div class="kuku-card">
+      <div class="kuku-visual" id="kuku-visual"></div>
+      <div class="kuku-eq" id="kuku-eq"></div>
+      <div class="kuku-yomi" id="kuku-yomi"></div>
+      <button class="listen-btn" data-action="kuku-speak">🔊 もういちど きく</button>
+    </div>
+    <div class="kuku-nav">
+      <button class="nav-btn" id="kuku-prev-btn" data-action="kuku-prev">← まえ</button>
+      <button class="nav-btn" id="kuku-next-btn" data-action="kuku-next">つぎへ →</button>
+    </div>
+  </div>
+
+  <!-- タイピング レベルえらび画面 -->
+  <div id="screen-typing-levels" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <h2 class="screen-title">どっちを れんしゅうする?</h2>
+    <div class="menu">
+      <button class="big-btn math-btn" data-action="typing-chars">
+        <span class="btn-emoji">🔤</span>
+        <span class="btn-label">もじ ひとつ</span>
+      </button>
+      <button class="big-btn hiragana-btn" data-action="typing-words">
+        <span class="btn-emoji">🐱</span>
+        <span class="btn-label">ことば</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- タイピング画面 -->
+  <div id="screen-typing" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <div class="progress" id="typing-progress"></div>
+    <div class="typing-emoji" id="typing-emoji"></div>
+    <div class="typing-word" id="typing-word"></div>
+    <div class="typing-romaji" id="typing-romaji"></div>
+    <div class="keyboard" id="keyboard"></div>
+    <div class="feedback" id="typing-feedback"></div>
+  </div>
+
+  <!-- ひらがな 行えらび画面 -->
+  <div id="screen-rows" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <h2 class="screen-title">どの ぎょう を れんしゅうする?</h2>
+    <div class="row-grid" id="row-grid"></div>
+  </div>
+
+  <!-- なぞりがき画面 -->
+  <div id="screen-trace" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <div class="progress" id="trace-progress"></div>
+    <div class="trace-card">
+      <canvas id="trace-canvas" width="320" height="320"></canvas>
+      <div class="trace-buttons">
+        <button class="nav-btn" data-action="trace-speak">🔊 きく</button>
+        <button class="nav-btn" data-action="trace-clear">🧽 やりなおす</button>
+        <button class="nav-btn" data-action="trace-skip">つぎへ →</button>
+      </div>
+    </div>
+    <div class="feedback" id="trace-feedback"></div>
+  </div>
+
+  <!-- クイズ画面 -->
+  <div id="screen-quiz" class="screen">
+    <button class="back-btn" data-action="home">← もどる</button>
+    <div class="progress" id="progress"></div>
+    <div class="question-area" id="question-area"></div>
+    <div class="choices" id="choices"></div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+
+  <!-- お祝い画面 -->
+  <div id="screen-celebrate" class="screen">
+    <div class="celebrate">
+      <div class="celebrate-emoji">🎉</div>
+      <h2>よくできました!</h2>
+      <div class="earned-stars" id="earned-stars"></div>
+      <button class="big-btn" data-action="again">もういちど!</button>
+      <button class="big-btn home-btn" data-action="home">おうちに もどる</button>
+    </div>
+  </div>
+
+  <script src="hiragana-strokes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

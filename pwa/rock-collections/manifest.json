@@ -1,5 +1,5 @@
 {
-  "name": "いし＆こうぶつ図鑑",
+  "name": "いし図鑑",
   "short_name": "いしずかん",
   "description": "カメラでとった いし・こうぶつを AIで はんていして あつめる ずかんアプリ",
   "start_url": "./index.html",
