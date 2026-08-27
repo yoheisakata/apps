@@ -95,6 +95,15 @@ struct SidebarView: View {
                 SidebarRow(title: "最近再生した動画", icon: "clock.fill", isSelected: specialSelection == .recentlyPlayed) {
                     specialSelection = .recentlyPlayed
                 }
+
+                // 「コナンメインストーリー」チャンネル(2026-08-22追加、`Core/MainStoryDetector.swift`
+                // 参照) ― 前編・後編等、複数話にまたがって続く回だけを横断的に抽出する
+                // (当初「メインストーリー」という汎用の名前だったが、「conan専用の判定
+                // ヒューリスティックであることを名前でも分かるようにしたい」という要望を受けて
+                // 「コナンメインストーリー」に改名した)。
+                SidebarRow(title: "コナンメインストーリー", icon: "film.stack.fill", isSelected: specialSelection == .mainStory) {
+                    specialSelection = .mainStory
+                }
             }
 
             if hasAnySource {

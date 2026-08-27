@@ -12,6 +12,7 @@ enum Settings {
     private static let maxCacheBytesKey = "mytube.maxCacheBytes"
     private static let favoriteKeysKey = "mytube.favoriteKeys"
     private static let recentlyPlayedKeysKey = "mytube.recentlyPlayedKeys"
+    private static let manualEpisodeTagsKey = "mytube.manualEpisodeTags"
 
     /// 現在開いているローカルフォルダのパス一覧(複数可)。非サンドボックスアプリのため
     /// 素のパス文字列で十分(security-scoped bookmark は不要 — myorganizer 等の他アプリと同じ方針)。
@@ -116,5 +117,21 @@ enum Settings {
     static var recentlyPlayedKeys: [String] {
         get { UserDefaults.standard.stringArray(forKey: recentlyPlayedKeysKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: recentlyPlayedKeysKey) }
+    }
+
+    /// 動画ごとに手動で追加したタグ(`VideoItem.stableKey` → タグ名の集合、2026-08-22追加、
+    /// 「手動で既存または新規のタグをエピソードに追加できる?」という要望への対応)。
+    /// `Core/EpisodeTagStore.swift`が唯一の読み書き元。`ConanEpisodeTags`の自動判定
+    /// (タイトルのキーワードだけで決まる、保存の必要が無い)とは別に、これはユーザーが
+    /// 明示的に足した分だけを持つ。
+    static var manualEpisodeTags: [String: Set<String>] {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: manualEpisodeTagsKey) else { return [:] }
+            return (try? JSONDecoder().decode([String: Set<String>].self, from: data)) ?? [:]
+        }
+        set {
+            let data = try? JSONEncoder().encode(newValue)
+            UserDefaults.standard.set(data, forKey: manualEpisodeTagsKey)
+        }
     }
 }

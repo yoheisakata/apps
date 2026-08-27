@@ -15,12 +15,50 @@ struct HomeVideosView: View {
     let isScanning: Bool
     let viewMode: HomeViewMode
     let onSelect: (VideoItem) -> Void
+    /// 複数選択モード(2026-08-21追加、「複数選択もほしい」という要望への対応)。
+    /// `TopBarView`のトグルで`ContentView`が管理する。
+    @Binding var isSelectionMode: Bool
+    @Binding var selectedIDs: Set<VideoItem.ID>
+    /// ローカル動画を1本削除する処理(`ContentView`提供、ファイルをゴミ箱へ移動して
+    /// `localSources`から取り除く)。カード/行の右クリックメニュー・command+deleteから使う。
+    let onDeleteLocal: (VideoItem) async throws -> Void
+    /// 選択中の動画をまとめて削除する確認ダイアログを開く(実削除は`ContentView`側で行う ―
+    /// 削除後に`localSources`を書き換える必要があるため)。
+    let onRequestDeleteSelected: () -> Void
+    /// タグフィルター(2026-08-22追加)。「コナンメインストーリー」チャンネルのときだけ
+    /// `ContentView`が`true`+タグ一覧を渡す ― 他のチャンネル/フォルダ表示では出さない
+    /// (`ConanEpisodeTags`はconan以外のライブラリには基本マッチしないが、UIとしても
+    /// 無関係な場面でタグフィルターを出す意味が無いため)。
+    let showsTagFilter: Bool
+    let availableTags: [String]
+    @Binding var selectedTags: Set<String>
 
     // コンパクトに並べる(2026-08-05、「コンパクトに並べて」という要望に対応 ―
     // カードを小さく・間隔を詰めて1画面に入る枚数を増やす)。
     private let gridColumns = [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 12)]
 
+    /// 選択中のうち実際に削除できる(ローカルの)件数。リモート動画は`VideoCardView`/
+    /// `NameCell`側でそもそも選択トグルを無視するため、通常は`selectedIDs`全体と一致する。
+    private var selectedLocalCount: Int {
+        videos.filter { selectedIDs.contains($0.id) && !$0.isRemote }.count
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            if isSelectionMode {
+                selectionToolbar
+                Divider()
+            }
+            if showsTagFilter, !availableTags.isEmpty {
+                TagFilterRow(availableTags: availableTags, selectedTags: $selectedTags)
+                Divider()
+            }
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if isScanning {
             ScrollView {
                 EmptyStateView(
@@ -48,7 +86,15 @@ struct HomeVideosView: View {
         } else {
             switch viewMode {
             case .grid: ScrollView { gridBody }
-            case .hybrid: VideoTableView(videos: videos, onSelect: onSelect)
+            case .hybrid:
+                VideoTableView(
+                    videos: videos,
+                    onSelect: onSelect,
+                    isSelectionMode: isSelectionMode,
+                    selectedIDs: selectedIDs,
+                    onToggleSelect: toggleSelection,
+                    onDeleteLocal: onDeleteLocal
+                )
             }
         }
     }
@@ -56,12 +102,47 @@ struct HomeVideosView: View {
     private var gridBody: some View {
         LazyVGrid(columns: gridColumns, spacing: 16) {
             ForEach(videos) { video in
-                VideoCardView(video: video) { onSelect(video) }
+                VideoCardView(
+                    video: video,
+                    action: { onSelect(video) },
+                    isSelectionMode: isSelectionMode,
+                    isSelected: selectedIDs.contains(video.id),
+                    onToggleSelect: { toggleSelection(video) },
+                    onDeleteLocal: onDeleteLocal
+                )
             }
         }
         .padding(16)
     }
 
+    /// 選択モード中のツールバー ― 選択件数の表示、全解除、削除、選択モードの終了。
+    private var selectionToolbar: some View {
+        HStack(spacing: 12) {
+            Text(selectedIDs.isEmpty ? "動画を選択してください" : "\(selectedIDs.count)件選択中")
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("すべて解除") { selectedIDs.removeAll() }
+                .disabled(selectedIDs.isEmpty)
+            Button(role: .destructive, action: onRequestDeleteSelected) {
+                Label("削除(\(selectedLocalCount))", systemImage: "trash")
+            }
+            .disabled(selectedLocalCount == 0)
+            Button("完了") {
+                isSelectionMode = false
+                selectedIDs.removeAll()
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    private func toggleSelection(_ video: VideoItem) {
+        if selectedIDs.contains(video.id) {
+            selectedIDs.remove(video.id)
+        } else {
+            selectedIDs.insert(video.id)
+        }
+    }
 }
 
 private struct EmptyStateView: View {

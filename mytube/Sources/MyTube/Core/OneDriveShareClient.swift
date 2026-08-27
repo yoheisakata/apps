@@ -22,6 +22,15 @@ import Foundation
 /// 内部APIのため、**予告なく仕様変更・遮断される可能性がある**(公式サポート対象外)。
 /// また`@content.downloadUrl`の有効期限が短いため、フォルダ読み込みから1時間以上経ってからの
 /// 再生は失敗する可能性がある(既知の制限。再生直前に再取得するリトライは未実装)。
+///
+/// **全リクエストに`cachePolicy = .reloadIgnoringLocalCacheData`を付けている**(2026-08-20追加、
+/// 「タイトルが実際のファイル名と全く違う古い名前になる」というユーザー報告への対応 ―
+/// `URLSession.shared`は既定で`URLCache.shared`を使うため、`children`一覧取得のGETリクエストは
+/// 同じフォルダなら毎回同一URLになり、サーバーがキャッシュ可能なレスポンスを返していた場合、
+/// OneDrive側でファイルを追加・削除・リネームした後にサイドバーの🔄「再スキャン」を押しても、
+/// ネットワークへ問い合わせず`URLCache`に残っていた古いレスポンスがそのまま返っていた可能性が
+/// ある。再スキャンが名実ともに「最新を取り直す」操作になるよう、全リクエストでローカル
+/// キャッシュを無視するようにした。
 enum OneDriveShareClient {
     struct RemoteVideo {
         let downloadURL: URL
@@ -89,6 +98,7 @@ enum OneDriveShareClient {
     private static func mintToken() async throws -> String {
         var request = URLRequest(url: URL(string: "https://api-badgerp.svc.ms/v1.0/token")!)
         request.httpMethod = "POST"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json;odata=verbose", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("1141147648", forHTTPHeaderField: "AppId")
@@ -125,6 +135,7 @@ enum OneDriveShareClient {
 
         var request = URLRequest(url: components.url!)
         request.httpMethod = "POST"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         applyCommonHeaders(&request, token: token)
         request.setValue("autoredeem", forHTTPHeaderField: "Prefer")
         request.setValue("text/plain;charset=UTF-8", forHTTPHeaderField: "Content-Type")
@@ -198,6 +209,7 @@ enum OneDriveShareClient {
         while let current = nextURLString {
             var request = URLRequest(url: URL(string: current)!)
             request.httpMethod = "GET"
+            request.cachePolicy = .reloadIgnoringLocalCacheData
             applyCommonHeaders(&request, token: token)
 
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -238,6 +250,7 @@ enum OneDriveShareClient {
         components.queryItems = [URLQueryItem(name: "select", value: "*")]
         var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         applyCommonHeaders(&request, token: token)
 
         let (data, response) = try await URLSession.shared.data(for: request)

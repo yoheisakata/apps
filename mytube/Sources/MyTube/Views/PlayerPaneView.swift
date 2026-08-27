@@ -299,23 +299,30 @@ struct PlayerPaneView: View {
                 }
                 Spacer(minLength: 12)
                 HStack(spacing: 6) {
-                    Button(action: playPrevious) {
-                        Image(systemName: "chevron.left")
+                    // 以前は「前の動画」「次の動画」ボタンだったが、再生中にこれを押すと
+                    // 現在の動画が別の動画へ切り替わって止まってしまう(=ユーザーが
+                    // 「右を押すと止まっちゃう」と感じる挙動)ため、AVPlayerView標準コントロールの
+                    // gobackward.15/goforward.15と同じ「15秒戻る/進む」シークに変更した
+                    // (動画の切り替え自体は`upNextList`のクリックで行える)。
+                    Button {
+                        engine.seek(by: -15)
+                    } label: {
+                        Image(systemName: "gobackward.15")
                             .font(.caption)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(previousVideo == nil)
-                    .help("前の動画")
+                    .help("15秒戻る")
 
-                    Button(action: playNext) {
-                        Image(systemName: "chevron.right")
+                    Button {
+                        engine.seek(by: 15)
+                    } label: {
+                        Image(systemName: "goforward.15")
                             .font(.caption)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(nextVideo == nil)
-                    .help("次の動画")
+                    .help("15秒進む")
 
                     // ミニプレーヤー(常に最前面表示)ボタン(2026-08-14、「最前面ボタンは、
                     // 次の動画、前の動画のボタンの横にして」という要望への対応 ―
@@ -386,18 +393,6 @@ struct PlayerPaneView: View {
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    /// 現在の`video`より前の動画(キューに存在すれば)。
-    private var previousVideo: VideoItem? {
-        guard let index = queue.firstIndex(of: video), index > 0 else { return nil }
-        return queue[index - 1]
-    }
-
-    /// 現在の`video`より後ろの動画(キューに存在すれば)。
-    private var nextVideo: VideoItem? {
-        guard let index = queue.firstIndex(of: video), index + 1 < queue.count else { return nil }
-        return queue[index + 1]
-    }
-
     private func deleteLocalCopy() {
         Task {
             do {
@@ -406,16 +401,6 @@ struct PlayerPaneView: View {
                 deleteLocalCopyErrorMessage = error.localizedDescription
             }
         }
-    }
-
-    private func playPrevious() {
-        guard let previous = previousVideo else { return }
-        onSelect(previous)
-    }
-
-    private func playNext() {
-        guard let next = nextVideo else { return }
-        onSelect(next)
     }
 
     /// OneDriveはローカルにダウンロード済みならそちらを優先して再生し(`DownloadStore.playableURL`)、

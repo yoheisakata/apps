@@ -17,6 +17,19 @@ struct ContentView: View {
     /// 「お気に入り」「最近再生した動画」チャンネル(2026-08-14追加)の母集団。
     @ObservedObject private var favoritesStore = FavoritesStore.shared
     @ObservedObject private var recentlyPlayedStore = RecentlyPlayedStore.shared
+    /// タグ(自動判定+手動追加)フィルターの母集団(2026-08-22追加)。手動タグの追加・削除が
+    /// 「コナンメインストーリー」の絞り込み結果・タグ選択肢へ即座に反映されるよう購読する。
+    @ObservedObject private var episodeTagStore = EpisodeTagStore.shared
+    /// 「コナンメインストーリー」チャンネル(2026-08-22追加)の母集団 ―
+    /// `MainStoryDetector.keys(in:)`はO(n^2)のため、`SidebarView.localGroups`等と同じ理由で
+    /// `allVideos`が実際に変わった時だけ`rebuildMainStoryKeys()`で組み直しキャッシュする
+    /// (計算プロパティのまま`filteredVideos`から毎回呼ぶと、検索欄への入力のたびに
+    /// フルスキャンが走ってしまう)。
+    @State private var mainStoryKeys: Set<String> = []
+    /// 「コナンメインストーリー」チャンネルのタグフィルター(2026-08-22追加、「タグでも
+    /// フィルタをかけられるようにしたい」という要望への対応)。複数選択時はOR ―
+    /// `filteredVideos`参照。他のチャンネルへ切り替えたときは末尾の`onChange`でクリアする。
+    @State private var selectedMainStoryTags: Set<String> = []
     /// フォルダを切り替えても`selectedVideo`はここでは触らない(以前は
     /// `.onChange(of: selectedChannel)`で`selectedVideo = nil`にしてホーム画面へ強制的に
     /// 戻していたが、`WatchView.onDisappear`(当時の名称)が`engine.stop()`するため再生が
@@ -46,6 +59,13 @@ struct ContentView: View {
     @State private var isPlayerMinimized = false
     @State private var searchText = ""
     @State private var homeViewMode: HomeViewMode = Settings.homeViewMode
+    /// 複数選択モード(2026-08-21追加、「ローカルの場合ファイルを削除できる機能がほしい。
+    /// 複数選択もほしい」という要望への対応)。`TopBarView`のトグルと`HomeVideosView`の
+    /// ツールバーが読み書きする。
+    @State private var isSelectionMode = false
+    @State private var selectedVideoIDsForDeletion: Set<VideoItem.ID> = []
+    @State private var showsDeleteSelectedConfirmation = false
+    @State private var deleteSelectedErrorMessage: String?
     @State private var minLengthSecondsText = ""
     @State private var maxLengthSecondsText = ""
     /// `ThumbnailStore.durationCache`(NSCache)はメモリ逼迫時に破棄されうるため、フィルター中の
@@ -110,6 +130,15 @@ struct ContentView: View {
             let videosByKey = Dictionary(allVideos.map { ($0.stableKey, $0) }, uniquingKeysWith: { first, _ in first })
             videos = recentlyPlayedStore.orderedKeys.compactMap { videosByKey[$0] }
             keepsOrder = true
+        case .mainStory:
+            // コナンメインストーリー(2026-08-22追加)。並び順は末尾の固定ソート(ファイル名昇順、
+            // 話数の自然順ソートになる)に任せる。タグフィルター(2026-08-22追加)が
+            // 1つ以上選ばれていれば、選ばれたタグのいずれかにマッチする話だけにさらに絞り込む
+            // (OR ― `TagFilterRow`のドキュメント参照)。
+            videos = allVideos.filter { mainStoryKeys.contains($0.stableKey) }
+            if !selectedMainStoryTags.isEmpty {
+                videos = videos.filter { !selectedMainStoryTags.isDisjoint(with: Set(episodeTagStore.allTags(for: $0))) }
+            }
         case nil:
             if let selectedNode {
                 let sourceVideos = localSources.first(where: { $0.id == selectedNode.sourceID })?.videos
@@ -137,6 +166,21 @@ struct ContentView: View {
         // ソート機能は`VideoTableView`のヘッダークリックに一本化した ― グリッド自体にはヘッダーが
         // 無いため並び替え手段を持たない、ファイル名順という単純な既定挙動にしている)。
         return videos.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
+    /// 「コナンメインストーリー」チャンネルのタグフィルターUIに渡す、実在するタグだけの
+    /// 一覧(2026-08-22追加)。**タグフィルター適用前**の`mainStoryKeys`一覧から計算する ―
+    /// `filteredVideos`(タグフィルター適用後)から計算すると、タグを1つ選ぶたびに
+    /// 他のタグの選択肢がボタンごと消えてしまい、フィルターを組み合わせて広げる操作が
+    /// できなくなる。
+    private var mainStoryAvailableTags: [String] {
+        guard specialSelection == .mainStory else { return [] }
+        let mainStoryVideos = allVideos.filter { mainStoryKeys.contains($0.stableKey) }
+        let presentTags = Set(mainStoryVideos.flatMap { episodeTagStore.allTags(for: $0) })
+        // 定義済み9種を先に(自動判定`ConanEpisodeTags.allTags`の順)、手動タグの自由な
+        // 名前はあいうえお順で後ろに続ける(2026-08-22追加)。
+        let manualOnly = presentTags.subtracting(ConanEpisodeTags.allTags).sorted()
+        return ConanEpisodeTags.allTags.filter { presentTags.contains($0) } + manualOnly
     }
 
     /// `PlayerPaneView`の`queue`(右側の「再生可能な動画」リスト・オートプレイの母集団)専用
@@ -173,6 +217,8 @@ struct ContentView: View {
                     minLengthSecondsText: $minLengthSecondsText,
                     maxLengthSecondsText: $maxLengthSecondsText,
                     isMeasuringDurations: isMeasuringDurations,
+                    isSelectionMode: $isSelectionMode,
+                    isSelectionAvailable: selectedVideo == nil,
                     onChooseFolder: chooseFolder,
                     onOpenShareLink: {
                         shareLoadError = nil
@@ -244,7 +290,14 @@ struct ContentView: View {
                             onSelect: {
                                 selectedVideo = $0
                                 isPlayerMinimized = false
-                            }
+                            },
+                            isSelectionMode: $isSelectionMode,
+                            selectedIDs: $selectedVideoIDsForDeletion,
+                            onDeleteLocal: deleteLocalVideoFile,
+                            onRequestDeleteSelected: { showsDeleteSelectedConfirmation = true },
+                            showsTagFilter: specialSelection == .mainStory,
+                            availableTags: mainStoryAvailableTags,
+                            selectedTags: $selectedMainStoryTags
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -299,7 +352,10 @@ struct ContentView: View {
             restoreOpenSources()
             sharedLinkBookmarks = Settings.sharedLinkBookmarks
             youtubePlaylistBookmarks = Settings.youtubePlaylistBookmarks
+            rebuildMainStoryKeys()
         }
+        .onChange(of: localSources) { _ in rebuildMainStoryKeys() }
+        .onChange(of: remoteSources) { _ in rebuildMainStoryKeys() }
         .onChange(of: minLengthSecondsText) { _ in ensureDurationsLoaded() }
         .onChange(of: maxLengthSecondsText) { _ in ensureDurationsLoaded() }
         .onChange(of: homeViewMode) { newValue in Settings.homeViewMode = newValue }
@@ -321,9 +377,34 @@ struct ContentView: View {
             // フォルダツリーとお気に入り/最近再生は排他 ― どちらかを選んだらもう片方は
             // 自動的に外す(2026-08-14追加)。
             if newValue != nil { specialSelection = nil }
+            // 表示中の一覧が変わったら選択状態も持ち越さない(2026-08-21追加)。
+            selectedVideoIDsForDeletion.removeAll()
         }
         .onChange(of: specialSelection) { newValue in
             if newValue != nil { selectedNode = nil }
+            // タグフィルターは「コナンメインストーリー」チャンネル専用の状態なので、
+            // 離れたら選択をクリアする(2026-08-22追加 ― 戻ってきたときに前回の絞り込みが
+            // 無言で残っていると分かりにくいため)。
+            if newValue != .mainStory { selectedMainStoryTags.removeAll() }
+        }
+        .onChange(of: isSelectionMode) { newValue in
+            if !newValue { selectedVideoIDsForDeletion.removeAll() }
+        }
+        .confirmationDialog(
+            "選択した\(selectedVideoIDsForDeletion.count)件のファイルをゴミ箱に移動しますか?(元のファイルが削除されます)",
+            isPresented: $showsDeleteSelectedConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("ゴミ箱に移動", role: .destructive, action: deleteSelectedLocalVideos)
+            Button("キャンセル", role: .cancel) {}
+        }
+        .alert(
+            "削除できませんでした",
+            isPresented: Binding(get: { deleteSelectedErrorMessage != nil }, set: { if !$0 { deleteSelectedErrorMessage = nil } })
+        ) {
+            Button("OK") {}
+        } message: {
+            Text(deleteSelectedErrorMessage ?? "")
         }
         .sheet(isPresented: $showsShareLinkSheet) {
             OpenRemoteLinkSheet(
@@ -442,6 +523,54 @@ struct ContentView: View {
         }
     }
 
+    /// ローカル動画本体をゴミ箱へ移動する(2026-08-21追加、「ローカルの場合ファイルを削除
+    /// できる機能がほしい」という要望への対応 ― `Views/VideoActionsModifier.swift`の
+    /// `onDeleteLocal`から呼ばれる)。`FileManager.trashItem`はディスクI/Oを伴うため
+    /// `DownloadStore.deleteLocalCopy(for:)`と同じく`Task.detached`で行い、成功したら
+    /// `localSources`から取り除く(削除後もファイルがグリッドに残り続けないように)。
+    /// ハード削除はしない(リポジトリ規約通り、ゴミ箱経由なので復元可能)。
+    private func deleteLocalVideoFile(_ video: VideoItem) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try FileManager.default.trashItem(at: video.url, resultingItemURL: nil)
+        }.value
+        await MainActor.run {
+            removeVideoFromLocalSources(video)
+        }
+    }
+
+    /// 削除済みの`VideoItem`をそれが属していた`LocalSource.videos`から取り除く。
+    private func removeVideoFromLocalSources(_ video: VideoItem) {
+        guard let index = localSources.firstIndex(where: { source in
+            source.videos.contains(where: { $0.id == video.id })
+        }) else { return }
+        localSources[index].videos.removeAll { $0.id == video.id }
+    }
+
+    /// 複数選択モード(`HomeVideosView`のツールバー)からの一括削除。選択中のうちローカル
+    /// 動画だけを対象にする(リモート動画はそもそも`VideoCardView`/`NameCell`側で選択トグルを
+    /// 無視しているため、通常ここに紛れ込むことはない)。1件ずつ`FileManager.trashItem`する
+    /// ため、失敗した項目があっても成功した項目の削除は反映したまま、失敗分だけメッセージで
+    /// まとめて知らせる(全件を1つのトランザクションとして扱う必要はない操作のため)。
+    private func deleteSelectedLocalVideos() {
+        let targets = allVideos.filter { selectedVideoIDsForDeletion.contains($0.id) && !$0.isRemote }
+        guard !targets.isEmpty else { return }
+        Task {
+            var failures: [String] = []
+            for video in targets {
+                do {
+                    try await deleteLocalVideoFile(video)
+                } catch {
+                    failures.append("\(video.title): \(error.localizedDescription)")
+                }
+            }
+            selectedVideoIDsForDeletion.removeAll()
+            isSelectionMode = false
+            if !failures.isEmpty {
+                deleteSelectedErrorMessage = failures.joined(separator: "\n")
+            }
+        }
+    }
+
     private func closeLocalSource(_ source: LocalSource) {
         localSources.removeAll { $0.id == source.id }
         if selectedNode?.sourceID == source.id { selectedNode = nil }
@@ -497,7 +626,19 @@ struct ContentView: View {
             remoteSources[index].errorMessage = nil
             if !trimmedName.isEmpty { remoteSources[index].name = trimmedName }
         } else {
-            remoteSources.append(RemoteSource(id: trimmedURL, name: placeholderName, shareURL: trimmedURL, kind: kind, isLoading: true))
+            // 前回スキャン成功時の一覧(`RemoteListCache`)があれば、フレッシュな結果が返る
+            // までの間それを暫定表示する ― 新規追加(初回オープン時)だけが対象で、既に
+            // 開いているソースの再スキャン(上のifブランチ)では今表示中のものをそのまま
+            // 残せば十分なため触らない。
+            let cached = RemoteListCache.load(for: trimmedURL)
+            remoteSources.append(RemoteSource(
+                id: trimmedURL,
+                name: cached?.sourceName ?? placeholderName,
+                shareURL: trimmedURL,
+                kind: kind,
+                videos: cached?.videos ?? [],
+                isLoading: true
+            ))
         }
         selectedNode = nil
         showsShareLinkSheet = false
@@ -544,6 +685,12 @@ struct ContentView: View {
                     }
                     remoteSources[index].isLoading = false
                     DownloadStore.shared.primeStates(for: remoteSources[index].videos)
+                    // ディスクへのJSON書き出しはメインスレッドを塞がないよう`Task.detached`で
+                    // 行う(`ThumbnailStore`のディスクI/O方針と同じ)。
+                    let videosToCache = remoteSources[index].videos
+                    Task.detached(priority: .utility) {
+                        RemoteListCache.save(sourceName: resolvedName, videos: videosToCache, for: trimmedURL)
+                    }
                     if registerBookmarkOnSuccess {
                         let bookmark = SharedLinkBookmark(name: resolvedName, url: trimmedURL)
                         youtubePlaylistBookmarks.append(bookmark)
@@ -639,6 +786,12 @@ struct ContentView: View {
     private func deleteYouTubeBookmark(_ bookmark: SharedLinkBookmark) {
         youtubePlaylistBookmarks.removeAll { $0.id == bookmark.id }
         Settings.youtubePlaylistBookmarks = youtubePlaylistBookmarks
+    }
+
+    /// 「コナンメインストーリー」チャンネル(2026-08-22追加)の判定結果をキャッシュし直す。
+    /// `mainStoryKeys`のドキュメント参照。
+    private func rebuildMainStoryKeys() {
+        mainStoryKeys = MainStoryDetector.keys(in: allVideos)
     }
 
     /// 長さフィルターが有効な間、または長さ順ソートが選ばれている間(2026-08-14追加、

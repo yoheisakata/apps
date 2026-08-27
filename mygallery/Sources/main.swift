@@ -11,6 +11,8 @@ import ImageIO
 import CryptoKit
 import CoreImage
 import Vision
+import AVFoundation
+import AVKit
 
 // MARK: - Configuration
 
@@ -20,6 +22,12 @@ private let imageExtensions: Set<String> = [
     "tif", "tiff", "bmp", "jp2", "avif",
     "cr2", "cr3", "nef", "arw", "dng", "orf", "rw2", "raf",
 ]
+
+/// AVFoundation が確実に再生・フレーム抽出できるコンテナに絞る(mkv/webm 等は
+/// macOS 標準の AVFoundation では非対応のことが多いため含めない)。
+private let videoExtensions: Set<String> = ["mp4", "mov", "m4v"]
+
+private let browsableExtensions = imageExtensions.union(videoExtensions)
 
 private let defaultsRootKey = "rootPath"
 private let defaultsSortKey = "sortOrder"
@@ -59,6 +67,7 @@ struct PhotoItem: Equatable {
     let url: URL
     let mtime: Date
     let fileSize: Int64
+    var isVideo: Bool { videoExtensions.contains(url.pathExtension.lowercased()) }
     static func == (a: PhotoItem, b: PhotoItem) -> Bool { a.url == b.url }
 }
 
@@ -107,7 +116,7 @@ final class PhotoStore {
                 at: root, includingPropertiesForKeys: Array(keys),
                 options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
                 for case let u as URL in e {
-                    guard imageExtensions.contains(u.pathExtension.lowercased()) else { continue }
+                    guard browsableExtensions.contains(u.pathExtension.lowercased()) else { continue }
                     guard let rv = try? u.resourceValues(forKeys: keys), rv.isRegularFile == true
                     else { continue }
                     items.append(PhotoItem(url: u.standardizedFileURL,
@@ -285,6 +294,9 @@ final class ThumbnailLoader {
     }
 
     private static func generateCG(url: URL, maxPixel: CGFloat) -> CGImage? {
+        if videoExtensions.contains(url.pathExtension.lowercased()) {
+            return generateVideoCG(url: url, maxPixel: maxPixel)
+        }
         let srcOpts = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let src = CGImageSourceCreateWithURL(url as CFURL, srcOpts) else { return nil }
         let opts = [
@@ -294,6 +306,18 @@ final class ThumbnailLoader {
             kCGImageSourceThumbnailMaxPixelSize: maxPixel,
         ] as [CFString: Any] as CFDictionary
         return CGImageSourceCreateThumbnailAtIndex(src, 0, opts)
+    }
+
+    /// 動画は先頭付近(長さの10%、最大1秒)のフレームを代表画像として抜き出す。
+    private static func generateVideoCG(url: URL, maxPixel: CGFloat) -> CGImage? {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: maxPixel, height: maxPixel)
+        let duration = asset.duration.seconds
+        let seconds = duration.isFinite && duration > 0 ? min(1.0, duration * 0.1) : 0
+        let time = CMTime(seconds: seconds, preferredTimescale: 600)
+        return try? generator.copyCGImage(at: time, actualTime: nil)
     }
 
     // MARK: disk cache
@@ -456,6 +480,7 @@ final class PhotoCell: NSCollectionViewItem {
 
     private let fill = FillImageView(gravity: .resizeAspectFill)
     private let sizeLabel = NSTextField(labelWithString: "")
+    private let videoIcon = NSImageView()
     private var currentPath: String?
 
     override func loadView() {
@@ -475,9 +500,25 @@ final class PhotoCell: NSCollectionViewItem {
         sizeLabel.isHidden = true
         sizeLabel.translatesAutoresizingMaskIntoConstraints = false
         v.addSubview(sizeLabel)
+
+        videoIcon.image = NSImage(systemSymbolName: "play.circle.fill", accessibilityDescription: nil)
+        videoIcon.contentTintColor = .white
+        videoIcon.wantsLayer = true
+        videoIcon.layer?.shadowColor = NSColor.black.cgColor
+        videoIcon.layer?.shadowOpacity = 0.6
+        videoIcon.layer?.shadowRadius = 2
+        videoIcon.layer?.shadowOffset = .zero
+        videoIcon.isHidden = true
+        videoIcon.translatesAutoresizingMaskIntoConstraints = false
+        v.addSubview(videoIcon)
+
         NSLayoutConstraint.activate([
             sizeLabel.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -5),
             sizeLabel.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -5),
+            videoIcon.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 6),
+            videoIcon.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -6),
+            videoIcon.widthAnchor.constraint(equalToConstant: 20),
+            videoIcon.heightAnchor.constraint(equalToConstant: 20),
         ])
         view = v
     }
@@ -489,6 +530,7 @@ final class PhotoCell: NSCollectionViewItem {
         if let badgeText {
             sizeLabel.stringValue = "  \(badgeText)  "
         }
+        videoIcon.isHidden = !photo.isVideo
         if let img = ThumbnailLoader.shared.cached(photo.url) {
             fill.image = img
             return
@@ -506,6 +548,7 @@ final class PhotoCell: NSCollectionViewItem {
         fill.image = nil
         view.toolTip = nil
         sizeLabel.isHidden = true
+        videoIcon.isHidden = true
     }
 
     override var isSelected: Bool { didSet { updateBorder() } }
@@ -1021,8 +1064,15 @@ final class ViewerOverlay: NSView {
     var onStep: ((Int) -> Void)?
 
     private let imageView = FillImageView(gravity: .resizeAspect)
+    private let playerView: AVPlayerView = {
+        let v = AVPlayerView()
+        v.controlsStyle = .floating
+        v.showsFullScreenToggleButton = true
+        return v
+    }()
     private let infoLabel = NSTextField(labelWithString: "")
     private var currentPath: String?
+    private var currentIsVideo = false
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -1032,6 +1082,10 @@ final class ViewerOverlay: NSView {
         imageView.layer?.backgroundColor = NSColor.clear.cgColor
         imageView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(imageView)
+
+        playerView.translatesAutoresizingMaskIntoConstraints = false
+        playerView.isHidden = true
+        addSubview(playerView)
 
         infoLabel.textColor = .white
         infoLabel.font = .systemFont(ofSize: 12)
@@ -1047,6 +1101,10 @@ final class ViewerOverlay: NSView {
             imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
             imageView.topAnchor.constraint(equalTo: topAnchor),
             imageView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            playerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            playerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            playerView.topAnchor.constraint(equalTo: topAnchor),
+            playerView.bottomAnchor.constraint(equalTo: bottomAnchor),
             infoLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             infoLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
         ])
@@ -1056,25 +1114,47 @@ final class ViewerOverlay: NSView {
 
     func show(photo: PhotoItem, index: Int, total: Int) {
         currentPath = photo.url.path
+        currentIsVideo = photo.isVideo
         infoLabel.stringValue = "  \(photo.url.lastPathComponent) — \(index + 1) / \(total)  "
-        // まずグリッドのサムネイルを即表示し、裏で高解像度(最大 4096px)を読む
-        imageView.image = ThumbnailLoader.shared.cached(photo.url)
-        let url = photo.url
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let img = ThumbnailLoader.generate(url: url, maxPixel: 4096)
-            DispatchQueue.main.async {
-                guard let self = self, self.currentPath == url.path else { return }
-                if let img = img { self.imageView.image = img }
+        playerView.player?.pause()
+
+        if photo.isVideo {
+            imageView.isHidden = true
+            playerView.isHidden = false
+            let player = AVPlayer(url: photo.url)
+            playerView.player = player
+            player.play()
+        } else {
+            playerView.player = nil
+            playerView.isHidden = true
+            imageView.isHidden = false
+            // まずグリッドのサムネイルを即表示し、裏で高解像度(最大 4096px)を読む
+            imageView.image = ThumbnailLoader.shared.cached(photo.url)
+            let url = photo.url
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let img = ThumbnailLoader.generate(url: url, maxPixel: 4096)
+                DispatchQueue.main.async {
+                    guard let self = self, self.currentPath == url.path else { return }
+                    if let img = img { self.imageView.image = img }
+                }
             }
         }
     }
 
     override var acceptsFirstResponder: Bool { true }
 
+    /// ビューアがウインドウから外れた(閉じられた)ら、裏で音声が鳴り続けないよう再生を止める。
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        if superview == nil { playerView.player?.pause() }
+    }
+
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 53, 49:   // Esc / Space
+        case 53:   // Esc
             onClose?()
+        case 49:   // Space — 動画再生中は誤操作で閉じないよう無視(再生/一時停止はプレイヤーのコントロールで)
+            if !currentIsVideo { onClose?() }
         case 123, 126: // ← / ↑
             onStep?(-1)
         case 124, 125: // → / ↓
@@ -2889,7 +2969,12 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private func applyFilter(to base: [PhotoItem]) {
         filterGeneration += 1
         let gen = filterGeneration
-        let dateFiltered = currentFilter.dateRange.apply(to: base)
+        var dateFiltered = currentFilter.dateRange.apply(to: base)
+        // 人物/イラスト種類フィルターと画質順ソートは静止画専用(Vision解析・ブレ判定は
+        // 動画に適用できない)。これらが有効な間は動画をグリッドから除外する。
+        if currentFilter.personFilter != .all || currentFilter.illustrationFilter != .all || sortOrder.showsQuality {
+            dateFiltered = dateFiltered.filter { !$0.isVideo }
+        }
         applyPersonFilter(to: dateFiltered, gen: gen, baseCount: base.count)
     }
 
@@ -3130,6 +3215,10 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         var rotated: [PhotoItem] = []
         var failures: [String] = []
         for p in targets {
+            if p.isVideo {
+                failures.append("\(p.url.lastPathComponent) — 動画は回転に対応していません")
+                continue
+            }
             switch PhotoRotator.rotateClockwise(url: p.url) {
             case .success:
                 rotated.append(p)
@@ -3428,8 +3517,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
         let editMenu = NSMenu(title: "編集")
+        // カット/ペーストは、このアプリの他機能としては使わないが、標準セレクタ(cut:/paste:)の
+        // メニュー項目が無いと ⌘X/⌘V がテキストフィールド内でも一切効かない(Cocoa の仕様 —
+        // フィールドエディタ自身が処理できる操作でも、キー等価物としてメニューに登録されていないと
+        // ⌘キー入力がテキスト編集まで届かない)。フォーカスがテキストフィールドにある間は
+        // フィールドエディタが自動的にこれらを処理するため、実装(@objc メソッド)は不要。
+        editMenu.addItem(withTitle: "カット", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: "コピー",
                          action: #selector(MainWindowController.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "ペースト", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "すべてを選択",
                          action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = editMenu

@@ -163,6 +163,19 @@ final class PlayerEngine: ObservableObject {
         }
     }
 
+    /// 相対シーク(秒指定、負値で巻き戻し)。`AVPlayerView`標準コントロールの
+    /// gobackward.15/goforward.15ボタンと同じ挙動を、`PlayerPaneView`側の
+    /// 前後ボタン(15秒戻る/進むに変更済み)から呼べるようにするためのもの。
+    func seek(by seconds: Double) {
+        var targetSeconds = CMTimeGetSeconds(player.currentTime()) + seconds
+        if let duration = player.currentItem?.duration, duration.isNumeric {
+            targetSeconds = min(targetSeconds, CMTimeGetSeconds(duration))
+        }
+        targetSeconds = max(0, targetSeconds)
+        let target = CMTime(seconds: targetSeconds, preferredTimescale: 600)
+        player.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
     func stop() {
         player.pause()
         player.replaceCurrentItem(with: nil)

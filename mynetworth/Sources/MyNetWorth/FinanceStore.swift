@@ -54,7 +54,9 @@ final class FinanceStore: ObservableObject {
             .filter { !$0.isEmpty }
         guard !symbols.isEmpty else { return }
         async let fetchedQuotes = QuoteService.fetchAll(symbols: Array(symbols))
-        async let fetchedHistory = QuoteService.fetchAllHistory(symbols: Array(symbols))
+        // チャートの期間ピッカーが最大3年まで選べるよう、5年分をまとめて取得して
+        // クライアント側で期間を絞り込む(選択のたびに再取得しない)。
+        async let fetchedHistory = QuoteService.fetchAllHistory(symbols: Array(symbols), range: "5y")
         let q = await fetchedQuotes
         let h = await fetchedHistory
         if !q.isEmpty {

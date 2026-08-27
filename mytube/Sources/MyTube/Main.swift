@@ -1,6 +1,6 @@
 import SwiftUI
 
-let appVersion = "1.0.0"
+let appVersion = "1.6.0"
 
 @main
 struct MyTubeApp: App {

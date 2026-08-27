@@ -714,6 +714,39 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   (`OneDriveShareClient.scan`が返す`sourceName`)ではなく、ユーザーが登録時に付けた`name`を
   使う ― ユーザーが選ぶ手がかりは登録名の方であり、OneDrive側のフォルダ名(例えば共有元で
   後から改名されうる)と一致している保証がないため。
+  **全リクエストに`cachePolicy = .reloadIgnoringLocalCacheData`を付けている**
+  (2026-08-20追加、「タイトルが実際のファイル名と全く違う古い名前になる」というユーザー
+  報告への対応 ― `URLSession.shared`は既定で`URLCache.shared`を使うため、`children`
+  (フォルダ中身)取得のGETは同じフォルダなら毎回同一URLになり、サーバーがキャッシュ可能な
+  レスポンスを返していた場合、OneDrive側でファイルを追加・削除・リネームした後に🔄
+  「再スキャン」を押しても、ネットワークへ問い合わせずキャッシュに残っていた古い
+  レスポンスがそのまま返っていた可能性がある。トークン発行・共有解決のPOSTを含む全4
+  リクエストに付けて、再スキャンが名実ともに「最新を取り直す」操作になるようにした)。
+- **`Core/RemoteListCache.swift`**(2026-08-20追加、上記のキャッシュ無効化とセットで
+  対応 ― キャッシュを外した副作用として、起動のたびに`OneDriveShareClient.scan`/
+  `YouTubePlaylistClient.fetchPlaylist`の実ネットワーク往復(大きいフォルダだと数十秒)が
+  必ず発生するようになり、その間`SidebarView.sourceGroup`は動画0件のグループを見出し
+  ごと出さない仕様のため「起動直後、OneDriveのセクションが丸ごと表示されない」という
+  体感になっていた。「前回の一覧をキャッシュして再起動時にまず出し、裏で最新に
+  リフレッシュしては」という提案への対応): `ContentView.openRemote`が新規にソースを
+  開く(初回オープン)ときだけ使う、完全に別レイヤーのstale-while-revalidateキャッシュ。
+  `~/Library/Caches/MyTube/remote-list-cache/<SHA256(共有URL)>.json`
+  (`ThumbnailStore.cacheKey`と同じSHA256方式)に`sourceName`+`VideoItem`配列をJSONで
+  保存するだけの薄いenum。`openRemote`は`RemoteSource`を新規追加する際、まず
+  `RemoteListCache.load(for:)`があればそれを`videos`の初期値にして即座に表示し
+  (`isLoadingWithNothingToShow`は`allVideos.isEmpty`が条件なので、この時点で
+  `allVideos`が空でなくなり全画面ローディングにもならない)、その裏で今まで通り
+  `scan()`/`fetchPlaylist()`を必ず実行する。成功したら`remoteSources[index].videos`を
+  新しい結果で上書きするのと同時に(`Task.detached`でメインスレッド外から)
+  `RemoteListCache.save(...)`を呼び直し、次回起動用に更新する ― 古いデータが表示され
+  続けることはなく、スキャンにかかる数秒〜数十秒だけ前回の一覧が見える。**既に開いている
+  ソースの再スキャン(🔄ボタン、`openRemote`の`if`ブランチ)ではこのキャッシュを触らない**
+  (今表示中のものをそのまま残せば十分なため)。`VideoItem`/`RemoteKind`を`Codable`に
+  適合させたのはこのため(`Models.swift`)。OneDrive動画の`url`(`@content.downloadUrl`)は
+  署名付きURLで1時間程度で失効するため、キャッシュから復元した項目を新しいスキャン結果が
+  上書きする前にユーザーが再生しようとすると失敗しうるが、その場合は既存の
+  `PlayerEngine`の再生失敗検知+「再読み込み」ボタン(`Core/PlayerEngine.swift`の項参照)
+  がカバーする。
 - **`Core/ToolLocator.swift`**(2026-08-05追加) — `downloader/Sources/Downloader/
   ToolLocator.swift`をそのまま移植したもの(Homebrewの既知パス→ログインシェルの`which`の
   順で`yt-dlp`/`ffmpeg`を探索)。`Core/YouTubePlaylistClient.swift`のプレイリスト取得と
@@ -923,6 +956,47 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
     `isHovering`は常に`false`で渡す(`Table`の行のホバー状態を素直に拾えないため、
     command+deleteでの即時削除だけはこの形式では効かない ― 右クリック経由の削除は
     グリッド型と同じく使える)。
+    ※上記は2026-08-05時点の説明で古い ― 2026-08-14に「サイズ」列とヘッダークリックでの
+    ソート機能(`sortOrder`、`TopBarView`の「並び替え」メニューは撤去)が追加されている
+    (`Row`/`KeyPathComparator`、詳細は未反映)。
+  **「サイズ」列のソートは`VideoTableView`自身が全動画ぶんを先読みする**(2026-08-21修正、
+  「サイズのソートがおかしい」というユーザー報告への対応)。以前は`SizeCell`が可視セルだけを
+  個別に(セル内に閉じた`@State`で)`FileSizeStore.loadSize(for:)`を呼んでいたため、
+  値が届いても`VideoTableView`の`rows`(＝ソート結果)を再計算させる手段が無く、画面外で
+  まだ一度もセルが表示されていない動画は`fileSizeSortKey`が常に`.max`扱いのまま ―
+  ソートしてもほとんどの行が「サイズ不明」として束ねられ、ソート自体が効いていないように
+  見えていた。`VideoTableView`が`@State private var fileSizes: [VideoItem.ID: Int64]`を
+  持ち、`.task(id: videos)`(`videos`が変わるたびに自動キャンセル・再実行、ビューが
+  消えれば自動キャンセル)から`loadFileSizes()`を呼んで`withTaskGroup`で表示中の全動画ぶんを
+  並行して`FileSizeStore.shared.loadSize(for:)`し、結果を`fileSizes`へ書き戻す ―
+  この`@State`が更新されるたびに`body`が再評価され`rows`(`Row(video:fileSize:)`の
+  `fileSize`は`fileSizes[video.id]`由来)が正しい順序に更新される。`SizeCell`自体は
+  もう非同期取得を持たない純粋な表示コンポーネント(`fileSize: Int64?`を受け取るだけ)に
+  縮小した。大きいライブラリで一斉に大量のファイルI/Oが走らないよう、
+  `FileSizeStore`側に`ConcurrencyLimiter(limit: 8)`を追加してローカルファイルの
+  `resourceValues`呼び出しを絞っている。
+  **`fileSizes`への書き戻しは結果が届くたびではなく、揃うまでまとめて1回だけ行う**
+  (2026-08-21再修正、「ハイブリッドモードで、ソートしたあと、再生できない」という
+  ユーザー報告への対応 ― 上記の初回修正が生んだ副作用)。初回修正時は`for await`ループの
+  中で1件解決するたびに`fileSizes[id] = size`していたため、「サイズ」列でソート中は
+  届いた値のたびに`rows`が再計算されて`Table`の行が並び替わり続けた。特にサイズ列を
+  ソートした直後は多くの動画がまだ`.max`(未取得)扱いで一斉に結果が届く期間と重なりやすく、
+  そのタイミングでユーザーが行をクリックすると`Table`(`NSTableView`)側で行の入れ替え
+  (`reloadData`相当)が起きてクリックが正しい行の選択として成立せず、`selection`が
+  更新されないまま=再生が始まらない、という不具合になっていた。`loadFileSizes()`を
+  結果をローカル変数`collected`に集めてから`fileSizes.merge(_:uniquingKeysWith:)`で
+  1回だけ書き戻す形に変更し、この先読み1回につき`rows`の再計算・`Table`の再描画も1回に
+  抑えた(トレードオフ: 1件ずつサイズが埋まっていく体感は無くなり、先読みが完了するまで
+  対象のセルは「—」のまま)。**`@State`を先読みの書き戻し先に使う場合、複数件の非同期結果を
+  `for await`ループの中で1件ずつ即座に書き込むと、`Table`/`List`等の並び替えを伴うビューで
+  「ロード中は行が動き続けてクリックできない」症状を起こしうる ― ローカル変数に集めてから
+  まとめて1回で書き戻すこと。**「長さ」列(`DurationCell`)は今のところ
+  同種の不具合が報告されていない**ため未修正のまま(`ContentView.ensureDurationsLoaded()`が
+  長さフィルター有効時に全動画分を先読みし、その結果が`ContentView`の`@State`更新経由で
+  間接的に`VideoTableView`の再描画・再ソートを誘発するため、実用上は問題が顕在化しにくい)―
+  もし同じ症状(「長さでソートしても効かない」)が報告されたら、この「サイズ」列と同じ
+  パターン(`VideoTableView`自身が`@State`で先読みし、`DurationCell`を表示専用にする)で
+  直すこと。
   **共通のロジックは2つのファイルに切り出してある**(重複を避けるため):
   - **`Views/VideoThumbnailView.swift`**(+ `DownloadBadge`) — 16:9のサムネイル本体
     (長さバッジ・ダウンロード状態バッジ込み)。`width`が`nil`ならグリッドのセル幅いっぱいに
@@ -981,25 +1055,58 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
 ## 変更時の注意
 
 - サムネイル/動画一覧のスキャンは非破壊(読み取り専用)。移動・リネームを行う機能は
-  持たない(それが必要なら myorganizer の該当ペインを使う)。**削除まわりは2026-08-04時点で
-  以下の非対称な設計**(当初はローカル動画本体もアプリ内から直接ゴミ箱に移動できたが、
-  「ワンクリックで実ファイルが消えるのはリスクが高い」というユーザー判断で廃止した):
-  - **ローカル動画本体は直接削除できない**。`Views/VideoCardView.swift`の右クリック
-    メニューは「Finderで表示」(`NSWorkspace.shared.activateFileViewerSelecting`)のみを
-    提供し、実際の削除・移動等はFinder側に完全に委ねる。command+deleteショートカットの
-    ローカル削除も廃止済み。
-  - **リモート(OneDrive共有/YouTubeプレイリスト)動画は、`DownloadStore`のローカルコピーだけ**
-    削除できる(元のOneDrive上のファイル/YouTube上の動画には一切触れない)。`VideoCardView`の
-    右クリック
+  持たない(それが必要なら myorganizer の該当ペインを使う)。**削除まわりの設計**
+  (2026-08-04時点では「ワンクリックで実ファイルが消えるのはリスクが高い」というユーザー
+  判断でローカル動画本体の削除を一度廃止していたが、2026-08-21に「ローカルの場合ファイルを
+  削除できる機能がほしい。複数選択もほしい」という要望を受けて再度追加した ―
+  以前の「ローカル動画本体には絶対に直接削除ボタンを出さない」という方針は撤回済み):
+  - **ローカル動画本体も、確認ダイアログを挟んでゴミ箱へ移動できる**(2026-08-21再追加)。
+    `Views/VideoActionsModifier.swift`が`onDeleteLocal: ((VideoItem) async throws -> Void)?`
+    (`ContentView.deleteLocalVideoFile(_:)`が実体)を受け取り、右クリックの「ファイルを削除」
+    メニュー・ホバー中のcommand+delete(グリッド型のみ ― ハイブリッド型`Table`は行のホバー
+    状態を拾えないため右クリック経由のみ)の両方から呼ぶ。実処理は`FileManager.trashItem`
+    (ハード削除はしない、リポジトリ規約通り)を`Task.detached`で行った後、
+    `MainActor.run`で`localSources`から該当`VideoItem`を取り除く(削除後に一覧へ残り
+    続けないように ― `DownloadStore.deleteLocalCopy(for:)`と違い、ローカル動画は
+    `LocalSource.videos`という単一の真実の情報源しか持たないため、削除成功時は必ず
+    そこから除去する)。「Finderで表示」メニューは引き続き並存する。
+  - **複数選択モード**(2026-08-21追加、「複数選択もほしい」という要望への対応)。
+    `TopBarView`の「選択」ボタン(`ContentView.isSelectionMode`、動画再生中は無効)で
+    切り替える。オンの間、`VideoCardView`/`VideoTableView`の`NameCell`はタップ(グリッド)・
+    クリック(ハイブリッド)を再生ではなく`ContentView.selectedVideoIDsForDeletion`
+    (`Set<VideoItem.ID>`)へのトグルに差し替え、チェックマーク(グリッドは左上、
+    ハイブリッドは名前列の先頭)で選択状態を示す。**選択・削除できるのはローカル動画だけ**
+    ―リモート動画のカード/行は選択モード中`circle.dashed`アイコンを出すだけでタップに
+    反応しない(リモート動画のローカルコピー削除は既存の個別操作(下記)のまま)。
+    `HomeVideosView`が選択件数・「すべて解除」・「削除(ローカル件数)」・「完了」の
+    ツールバーをコンテンツの上に出す。「削除」は`ContentView`の確認ダイアログを開き、
+    確定後`deleteSelectedLocalVideos()`が対象を1件ずつ`deleteLocalVideoFile(_:)`へ渡す
+    (1件の失敗が他の成功を巻き込まないよう、全件処理してから失敗分だけメッセージで
+    まとめて通知する)。`VideoTableView`の`Table`標準選択(`selection: VideoItem.ID?`)は
+    選択モード中もそのまま流用しているが、`onChange`内で1件処理するたびに`nil`へ戻す
+    ことで同じ行への連続クリックを拾えるようにしている(値が変化しないと`onChange`が
+    発火しないSwiftUIの制約への対処)。
+    **チェックマーク自体は`Image`単体ではなく`Button`にする**(2026-08-21修正、
+    「選択モードでラジオボタンを押しても選択されない」というユーザー報告への対応)。
+    `VideoCardView`側は、非インタラクティブな`Image`をカード全体の`Button`の上に
+    `.overlay`で重ねているだけだと、アイコンの不透明な背景円がヒットテストの最前面を
+    占有してしまい、その領域をタップしても(アイコン自身にアクションが無いため)下の
+    `Button`にもタップが伝わらない「死んだタップ領域」になっていた
+    (`FavoriteButton`が兄弟`Button`として確実にタップを拾えているのと対照的)。
+    `NameCell`側もチェックマークを独立した`Button`にし、`Table`のネイティブ行選択に
+    頼らず直接`onToggleSelect(video)`を呼ぶようにした(行の他の部分をクリックした場合は
+    引き続き`Table`のネイティブ選択→`onChange`経由でトグルされる)。新しく選択操作用の
+    アイコン/オーバーレイを追加する場合は、必ず`Button`(または明示的なタップ
+    ジェスチャー)でラップし、非インタラクティブな`Image`だけを重ねないこと。
+  - **リモート(OneDrive共有/YouTubeプレイリスト)動画は、引き続き`DownloadStore`の
+    ローカルコピーだけ**削除できる(元のOneDrive上のファイル/YouTube上の動画には一切
+    触れない)。`VideoCardView`の右クリック
     「ローカルコピーを削除」(ダウンロード済みのときだけメニューに出す、確認ダイアログあり)
     とcommand+delete(ホバー中かつダウンロード済みのカードのみ、確認なしで即実行)、
     および`PlayerPaneView`の「ローカルに保存済み」横のゴミ箱ボタンの計3箇所。いずれも
-    `DownloadStore.deleteLocalCopy(for:)`(`FileManager.trashItem`でゴミ箱へ、リポジトリ
-    規約通りハード削除はしない)を呼ぶだけで、削除後も`VideoItem`自体は一覧に残る
-    (`ContentView`側で`allVideos`から取り除く処理は無い ― ローカル削除機能自体が
-    廃止されたため、対応する`deleteVideo(_:)`も削除済み)。新しく削除系の機能を
-    追加する場合は、「ローカル動画本体には絶対に直接削除ボタンを出さない」という
-    上記の方針を踏襲すること。
+    `DownloadStore.deleteLocalCopy(for:)`(`FileManager.trashItem`でゴミ箱へ)を呼ぶだけで、
+    削除後も`VideoItem`自体は一覧に残る(`remoteSources`側からは取り除かない ― ダウンロード
+    状態が`.notDownloaded`に戻るだけで、動画自体は共有元にまだ存在するため)。
 - 対応拡張子を増やす場合は `VideoScanner.videoExtensions` の1箇所を直すだけでよい
   (`OneDriveShareClient`も同じ集合を参照するため、ローカル/リモート両方に反映される)。
 - macOS 最低バージョンを上げる変更(`Package.swift`/`Info.plist` の `LSMinimumSystemVersion`)
@@ -1010,3 +1117,113 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   `DownloadStore.startYouTubeDownload`/`YouTubePlaylistClient.fetchPlaylist`が
   `.failed`/エラーを返すだけで、アプリ全体が落ちることはない。yt-dlpの引数
   (フォーマット文字列)を変える場合は`README.md`の画質に関する記述も更新する。
+- **`Core/MainStoryDetector.swift`**(2026-08-22追加、「conanの動画の中で、メインストーリーが
+  あったらそれだけを抽出したリストを作ってほしい」という要望への対応) ― サイドバー
+  「お気に入り」「最近再生した動画」と同じ並びに追加した3つ目の横断チャンネル
+  「コナンメインストーリー」(`SidebarView.swift`、`SpecialLibrarySelection.mainStory`、
+  `Models.swift`。当初「メインストーリー」という汎用の名前で追加したが、同日中に
+  「conan専用のヒューリスティックだと名前でも分かるようにしたい」という要望を受けて
+  「コナンメインストーリー」に改名した ― enumのcase名`mainStory`・型名
+  `MainStoryDetector`自体は変えていない)。「メインストーリー」の定義はユーザー確認済みで、
+  黒の組織編に限らず
+  **前編・後編/事件編・解決編のように複数話にまたがって1つの話が続く回すべて**。
+  公式のエピソードデータは一切持たず、`名探偵コナン - 0130 - 競技場無差別脅迫事件 -
+  前編.mp4`のような「番組名 - 話数 - タイトル[ - ラベル]」形式の**ファイル名の付け方だけ**
+  から連続話を検出する純粋関数(`MainStoryDetector.keys(in:)`)― conan専用のロジックでは
+  なく、同じ命名規則のファイルなら他のシリーズにも同様に働く。判定ルール・既知の限界は
+  同ファイル冒頭のコメントを参照。
+  `conan/tv`配下の実ファイル一覧(337本)に対して実際に走らせ、既知の連続話
+  (競技場無差別脅迫事件・黒の組織との再会・NYの事件・緋色シリーズ・17年前の真相 等)が
+  正しく含まれ、隣接話数だが無関係な単発回(0998/0999、1041/1042、1027/1028等)が
+  誤って連結されないことを確認済み。`ContentView`は`MainStoryDetector.keys(in:)`
+  (O(n²)、話数トークンを持つ動画どうしの総当たり)を`filteredVideos`から毎回呼ばず、
+  `mainStoryKeys`(`@State`)に`SidebarView.localGroups`等と同じ理由でキャッシュし、
+  `localSources`/`remoteSources`が実際に変わった時だけ`rebuildMainStoryKeys()`で
+  組み直す。
+  **「ウィキとか確認した?」というユーザーからの指摘を受けて実際にWikipedia/ファンサイトで
+  裏取りした**(2026-08-22): タイトルの先頭が3文字未満しか共通しない連続話は元々の
+  ルール1・2では検出できない既知の限界だったが、実例として疑わしかった2件(0578〜0581・
+  0705〜0706)を検索したところ**両方とも実在の連続話だった**ため、`Entry.
+  knownExceptionGroups`という手動の例外リストへ追加した(237/337本に増加)。ただし
+  **この2件は疑わしい候補を2つ拾って調べただけで、残り約104本の除外分すべてを
+  検証したわけではない**― 網羅的に検証するには各話の原作(コミックス)対応巻を突き合わせる
+  必要があり、まだ行っていない。今後この機能を触る際、追加の連続話が見つかったら
+  `knownExceptionGroups`に追記していく想定(検証済みの根拠をコメントに残すこと)。
+- **`Core/ConanEpisodeTags.swift`**(2026-08-22追加、「各エピソードで関連のある項目を
+  書いて(例、黒の組織、怪盗キッド、等)」という要望への対応) ― `MainStoryDetector`と同じ
+  「公式データは持たずタイトル文字列だけで判定する」方針の姉妹機能。`video.title`に
+  黒の組織/黒ずくめ・キッド・警察学校編・安室・京極真・工藤新一・工藤優作・灰原・平次と
+  いった固有名詞キーワードが含まれていれば、対応するタグ(黒の組織/怪盗キッド/警察学校編/
+  安室透/京極真/工藤新一/工藤優作/灰原哀/服部平次)を返す純粋関数`tags(for:)`。
+  `VideoCardView`(タイトル下)・`VideoTableView.NameCell`(タイトルの右、共通の
+  `Views/RelatedTagsRow.swift`)が`video.title`から都度計算して1個以上あるときだけ
+  カプセル型のチップで表示する ― 「コナンメインストーリー」チャンネルに限らず、タイトルが
+  マッチする動画ならどこに表示されていても出る(表示を絞り込むための追加の状態は持たせて
+  いない)。
+  **NFC正規化が必須**: macOSのファイル名はUnicode正規化形式D(NFD、濁点等を独立した
+  結合文字として分解した形)で保存されていることが多く`VideoItem.title`もそれを引き継ぐが、
+  ソースコード中のキーワード文字列リテラルは通常NFC(結合済み)のため、正規化せずに
+  `contains`で比較すると見た目が同じ文字列でも一致しないことがある(実際に`grep`で
+  「怪盗キッド」を含むファイル名が引っかからず、この不一致に気づいた)。両辺を
+  `precomposedStringWithCanonicalMapping`でNFCに揃えてから比較している ―
+  他の箇所でファイル名由来の文字列とソースコード中のリテラルを比較する場合も同じ注意が
+  要る。`conan/tv`の実ファイル一覧に対して実際に走らせ、337本中54本にタグが付き、
+  誤検出(無関係なキャラクターへの取り違え等)が無いことを確認済み。
+  **タグフィルター**(2026-08-22追加、「タグでもフィルタをかけられるようにしたい」という
+  要望への対応): `Views/RelatedTagsRow.swift`の`TagFilterRow`(押せる・選択状態を持つ
+  チップ、カード側の非インタラクティブな`RelatedTagsRow`とは別コンポーネント)を
+  `HomeVideosView`の`content`直前に条件付きで差し込む
+  (`showsTagFilter: specialSelection == .mainStory`のときだけ)。`ContentView`が
+  `selectedMainStoryTags`(`@State`)を持ち、`filteredVideos`の`.mainStory`ケースで
+  1つ以上選ばれていれば選択タグのいずれかにマッチする話だけへさらに絞り込む(OR ―
+  複数選んだ場合は「絞り込む」でなく「集める」動作)。フィルターUIに渡す選択肢一覧
+  (`ContentView.mainStoryAvailableTags`)は**タグフィルター適用前**の「コナン
+  メインストーリー」一覧から計算する ― 適用後の`filteredVideos`から計算すると、
+  1つタグを選ぶたびに他のタグの選択肢がボタンごと消え、フィルターを組み合わせて
+  広げる操作ができなくなるため。`specialSelection`が`.mainStory`以外に変わったら
+  `onChange(of: specialSelection)`で`selectedMainStoryTags`をクリアする(他チャンネルに
+  無言で絞り込みが残ると分かりにくいため)。
+- **`Core/EpisodeTagStore.swift`**(2026-08-22追加、「手動で既存または新規のタグを
+  エピソードに追加できる?」という要望への対応) ― `Core/FavoritesStore.swift`と同じ
+  「シングルトン+`@Published`+即座にUserDefaultsへ永続化」の設計。`ConanEpisodeTags`の
+  自動判定(タイトルのキーワードだけ、保存不要)を補い、`Settings.manualEpisodeTags`
+  (`[String: Set<String>]`、`VideoItem.stableKey`→タグ名の集合)に手動で追加した分だけを
+  持つ。**自動判定されたタグを取り消す(除外する)機能は無い** ― 要望が「追加」だったため、
+  まずは追加・削除(手動分のみ)にスコープを絞っている。`allTags(for:)`が自動判定+手動タグを
+  合わせた表示・フィルター用の一覧を返し、`VideoCardView`/`VideoTableView.NameCell`/
+  `ContentView`はすべて`ConanEpisodeTags.tags(for:)`を直接呼ばずこちらを経由するように
+  変更した(手動タグの追加・削除が即座に画面へ反映されるよう、いずれも`@ObservedObject`で
+  購読する)。
+  **UI**: `Views/EpisodeTagEditorView.swift`(シート) ― `VideoActionsModifier`の右クリック
+  メニューに追加した「タグを編集...」(ローカル/リモート問わず、ファイル操作を伴わない
+  メタデータのため常に出す)から開く。自動判定タグは削除不可のグレーのバッジ、手動タグは
+  ✕ボタン付きで削除可、既存のタグ(定義済み9種+他の動画で使われた自由なタグ名)は
+  タップで追加、テキストフィールドで全く新しい名前も作れる。タグチップの折り返しは
+  `HStack`が幅をはみ出すため、同ファイル内に`Layout`プロトコル(macOS 13+)で組んだ
+  最小限の`FlowLayout`を用意した。
+- **`Core/ConanMainStoryReference.swift`**(2026-08-22追加、「これを参考にして」という
+  要望への対応) ― ユーザーが直接提供した、黒の組織を中心とした「本筋」エピソードの
+  参照データ(話数(Int)→関連タグの配列、124件)。ユーザー自身が内容を確認した上で
+  「これはハードコードしちゃってOK」と明言したため、パースや検証を挟まずSwiftの
+  リテラル(`tagsByEpisode`)としてそのまま持つ ― 値の言い回し(「灰原哀初登場」のように
+  キャラクター名と出来事が1つの文字列に混ざっている等)もユーザー提供のまま変えていない。
+  **2つの箇所から参照する単一の信頼できるデータソース**:
+  1. `MainStoryDetector.keys(in:)`のルール0(2026-08-22拡張) ― このテーブルに載っている
+     話数は、タイトルのパターンに関わらず無条件で「コナンメインストーリー」に含める
+     (`Entry.knownExceptionGroups`と同じ位置づけだが、こちらは1件ずつ手動確認した
+     少数の例外ではなく、ユーザー提供の包括的なデータ)。`conan/tv`の実ファイル一覧に
+     対して実際に走らせ、237→241/337本に増えたことを確認済み(タイトルパターンだけでは
+     検出できなかった話数 ― 例: エピソード1「小さくなった名探偵」、129
+     「黒の組織から来た女」等の単発タイトルの話 ― がこのテーブル経由で新たに含まれる
+     ようになった)。
+  2. `Core/EpisodeTagStore.swift`の`allTags(for:)` ― `ConanEpisodeTags`のキーワード自動
+     判定の後に、この話数別テーブルのタグを合流させる(重複除去)。`ConanEpisodeTags`の
+     9種より遥かに多くの固有名詞(ベルモット/キール/FBI/赤井秀一/沖矢昴/世良真純/
+     ラム編/緋色シリーズ等)がタグとして使えるようになった。
+  **話数の特定は文字列一致ではなく数値一致**(`episodeRange(inTitle:)`が
+  `名探偵コナン - 0130 - ...`の`0130`部分だけをパースする) ― そのためテーブル内の
+  タイトル表記(ユーザーの手元の別ソース由来で、ライブラリの実際のファイル名と細部が
+  微妙に異なることがある、例: 578話の括弧内表記が「前兆」なのに実ファイルは
+  「オーメン」)は無視してよく、話数さえ合っていれば正しくタグ付けされる。
+  **`conan/tv`ライブラリに存在しない話数(124件中40件)も含めたまま残してある**
+  (今後エピソードが増えても調整不要にするため、意図的な設計)。

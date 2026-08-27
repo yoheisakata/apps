@@ -4,7 +4,7 @@ import Foundation
 /// (`nil`=ローカル)。サイドバーのグループ分け(`Views/SidebarView.swift`)、
 /// `DownloadStore`のダウンロード方式の分岐(OneDriveはHTTP直DL、YouTubeはyt-dlp)、
 /// UI文言の出し分けに使う。
-enum RemoteKind: Hashable {
+enum RemoteKind: Hashable, Codable {
     case oneDrive
     case youtube
 
@@ -17,7 +17,9 @@ enum RemoteKind: Hashable {
 }
 
 /// フォルダ配下でスキャンして見つかった1本の動画ファイル。
-struct VideoItem: Identifiable, Hashable {
+/// **`Codable`**(2026-08-20追加、`Core/RemoteListCache.swift`がディスクへ永続化するために
+/// 必要 ― 全プロパティが素直にCodable適合な型のため、素の`Codable`合成で足りる)。
+struct VideoItem: Identifiable, Hashable, Codable {
     /// ファイルパスをそのまま識別子にする(同じフォルダ内で重複しない)。
     var id: URL { url }
 
@@ -116,6 +118,8 @@ struct SidebarSelection: Hashable {
 enum SpecialLibrarySelection: Hashable {
     case favorites
     case recentlyPlayed
+    /// 「コナンメインストーリー」チャンネル(2026-08-22追加)。`Core/MainStoryDetector.swift`参照。
+    case mainStory
 }
 
 /// 現在開いている1つのOneDrive共有リンク/YouTubeプレイリスト(複数同時に開ける、2026-08-04〜)。

@@ -321,13 +321,14 @@ struct StocksCard: View {
     }
 }
 
-// 各銘柄の株価推移(過去3か月)。保有銘柄ごとにミニチャートを並べる。
+// 各銘柄の株価推移。保有銘柄ごとにミニチャートを並べる(期間は1か月〜3年で選択可)。
 struct StockHistoryCard: View {
     var groups: [Dashboard.HoldingGroup]
     var quotes: [String: QuoteService.Quote]
     var priceHistory: [String: [QuoteService.PricePoint]]
     @State private var selectedRange = "3mo"
-    private let ranges = [("1mo", "1か月"), ("3mo", "3か月"), ("6mo", "6か月"), ("1y", "1年")]
+    private let ranges = [("1mo", "1か月"), ("3mo", "3か月"), ("6mo", "6か月"),
+                           ("1y", "1年"), ("3y", "3年")]
 
     private var symbols: [(symbol: String, name: String, shares: Double)] {
         var seen = Set<String>()
@@ -342,6 +343,22 @@ struct StockHistoryCard: View {
         return result
     }
 
+    // 取得済みの全履歴(最大5年分)から選択期間だけを切り出す。
+    private func trimmed(_ points: [QuoteService.PricePoint]) -> [QuoteService.PricePoint] {
+        let months: Int
+        switch selectedRange {
+        case "1mo": months = 1
+        case "3mo": months = 3
+        case "6mo": months = 6
+        case "1y": months = 12
+        case "3y": months = 36
+        default: months = 3
+        }
+        guard let cutoff = Calendar.current.date(byAdding: .month, value: -months, to: Date())
+        else { return points }
+        return points.filter { $0.date >= cutoff }
+    }
+
     var body: some View {
         Card(title: "銘柄別 株価推移") {
             let syms = symbols
@@ -349,15 +366,27 @@ struct StockHistoryCard: View {
                 Text("株価履歴を取得中…")
                     .foregroundStyle(.secondary)
             } else {
+                Picker("期間", selection: $selectedRange) {
+                    ForEach(ranges, id: \.0) { r in
+                        Text(r.1).tag(r.0)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 360)
+                .padding(.bottom, 4)
+
                 let columns = [GridItem(.flexible(), spacing: 16),
                                GridItem(.flexible(), spacing: 16)]
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(syms, id: \.symbol) { s in
-                        if let points = priceHistory[s.symbol], points.count >= 2 {
-                            StockMiniChart(symbol: s.symbol, name: s.name,
-                                           shares: s.shares,
-                                           points: points,
-                                           currentPrice: quotes[s.symbol]?.price)
+                        if let all = priceHistory[s.symbol] {
+                            let points = trimmed(all)
+                            if points.count >= 2 {
+                                StockMiniChart(symbol: s.symbol, name: s.name,
+                                               shares: s.shares,
+                                               points: points,
+                                               currentPrice: quotes[s.symbol]?.price)
+                            }
                         }
                     }
                 }

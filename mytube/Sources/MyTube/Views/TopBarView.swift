@@ -7,6 +7,11 @@ struct TopBarView: View {
     @Binding var minLengthSecondsText: String
     @Binding var maxLengthSecondsText: String
     let isMeasuringDurations: Bool
+    /// 複数選択モードのトグル(2026-08-21追加、「複数選択もほしい」という要望への対応)。
+    /// ホーム画面(グリッド/ハイブリッド一覧)を表示しているときだけ意味を持つため、
+    /// 動画再生中は`ContentView`が`isSelectionAvailable: false`を渡してボタンを無効化する。
+    @Binding var isSelectionMode: Bool
+    let isSelectionAvailable: Bool
     let onChooseFolder: () -> Void
     let onOpenShareLink: () -> Void
     let onOpenYouTubePlaylist: () -> Void
@@ -89,6 +94,14 @@ struct TopBarView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(width: 130)
+
+            Button {
+                isSelectionMode.toggle()
+            } label: {
+                Label("選択", systemImage: isSelectionMode ? "checkmark.circle.fill" : "checkmark.circle")
+            }
+            .disabled(!isSelectionAvailable)
+            .help("複数選択して削除")
 
             Button {
                 showsLengthFilterPopover = true
