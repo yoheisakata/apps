@@ -62,6 +62,40 @@ h1{font-size:clamp(1.2rem,5.5vw,1.6rem);font-weight:900;
 .legend .sw{display:inline-flex;align-items:center;gap:5px;font-size:0.68rem;color:rgba(238,242,255,0.7);}
 .legend .sw i{width:12px;height:12px;border-radius:3px;display:inline-block;}
 
+.vlabel{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
+.vlabel:active{opacity:0.55;}
+.vtag{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+
+/* Venue info popup */
+#venue-overlay{
+  position:fixed;inset:0;z-index:50;display:none;
+  background:rgba(5,10,25,0.72);backdrop-filter:blur(3px);
+  align-items:flex-end;justify-content:center;
+}
+#venue-overlay.open{display:flex;}
+#venue-card{
+  width:100%;max-width:520px;
+  background:linear-gradient(160deg,#182a52,#101c3d);
+  border:1px solid rgba(255,209,102,0.25);
+  border-radius:20px 20px 0 0;
+  padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px));
+  box-shadow:0 -10px 40px rgba(0,0,0,0.5);
+  animation:slideup 0.2s ease-out;
+}
+@media (min-width:560px){
+  #venue-overlay{align-items:center;}
+  #venue-card{border-radius:20px;}
+}
+@keyframes slideup{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+#venue-card .vhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;}
+#venue-card h3{font-size:1.05rem;font-weight:900;color:#ffd166;}
+#venue-card .vdeck{font-size:0.72rem;color:#9fc2ff;font-weight:700;margin-bottom:10px;}
+#venue-card .vdesc{font-size:0.86rem;line-height:1.7;color:rgba(238,242,255,0.92);}
+#venue-card .vclose{
+  flex-shrink:0;width:30px;height:30px;border-radius:100px;border:none;
+  background:rgba(255,255,255,0.1);color:#eef2ff;font-size:1rem;line-height:1;
+}
+
 /* Forward / Midship / Aft ship map grid */
 .shipmap{border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);}
 .shipmap-header{display:grid;grid-template-columns:30px 1fr 1fr 1fr;gap:1px;background:rgba(255,255,255,0.08);}
@@ -95,7 +129,7 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 </div>
 
 <header>
-  <div class="app-version">v1.3.0</div>
+  <div class="app-version">v1.4.0</div>
   <h1>🚢 Disney Wish 船内ガイド</h1>
   <div class="subtitle">9/21〜9/25 の4泊で使う船内施設まとめ</div>
 </header>
@@ -110,6 +144,7 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 <div class="card">
   <h2>🗺️ 船内マップ（前方・中央・後方）</h2>
   <p class="note" style="margin-bottom:6px;">⚠️ 独自に描いた簡易イラストです。実際の船体形状・正確な間取りとは異なります。乗船後は必ずNavigatorアプリの公式マップで最終確認してください。</p>
+  <p class="note" style="margin-bottom:6px;">💡 施設名（点線の下線つき）をタップすると詳細が見られます。</p>
   <div class="scrollhint">→ 横にスクロールできます</div>
   <div class="diagram-scroll">
   <svg width="1400" height="650" viewBox="0 0 1400 650" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Disney Wish 側面イメージ図（独自作成の簡易図）">
@@ -123,18 +158,22 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 
     <!-- Deck 13 -->
     <rect x="560" y="140" width="740" height="35" rx="4" fill="#c9a4ff" opacity="0.85"/>
-    <text x="595" y="163" font-size="13" fill="#1a1030">🌊 Quiet Cove／Cove Bar・Cafe／AquaMouse</text>
+    <text class="vlabel" onclick="openVenue('quietcove')" x="595" y="163" font-size="13" fill="#1a1030">🏖 Quiet Cove</text>
+    <text class="vlabel" onclick="openVenue('cove')" x="790" y="163" font-size="13" fill="#1a1030">☕ Cove Bar/Cafe</text>
+    <text class="vlabel" onclick="openVenue('aquamouse')" x="1040" y="163" font-size="13" fill="#1a1030">🌊 AquaMouse</text>
 
     <!-- Deck 12 -->
     <rect x="420" y="175" width="860" height="35" rx="4" fill="#7fd9c7" opacity="0.85"/>
-    <text x="450" y="198" font-size="13" fill="#0f2b26">🏊 ファミリープール</text>
-    <text x="900" y="198" font-size="13" fill="#0f2b26">🍽 Palo・Enchanté／Hero Zone</text>
+    <text class="vlabel" onclick="openVenue('pool_12')" x="450" y="198" font-size="13" fill="#0f2b26">🏊 ファミリープール</text>
+    <text class="vlabel" onclick="openVenue('palo')" x="900" y="198" font-size="13" fill="#0f2b26">🥩 Palo</text>
+    <text class="vlabel" onclick="openVenue('enchante')" x="985" y="198" font-size="13" fill="#0f2b26">🍷 Enchanté</text>
+    <text class="vlabel" onclick="openVenue('herozone')" x="1110" y="198" font-size="13" fill="#0f2b26">🏀 Hero Zone</text>
 
     <!-- Deck 11 -->
     <rect x="320" y="210" width="970" height="35" rx="4" fill="#7fd9c7" opacity="0.85"/>
-    <text x="340" y="233" font-size="13" fill="#0f2b26">🌭 Festival of Foods</text>
-    <text x="640" y="233" font-size="13" fill="#0f2b26">🏊 ファミリープール</text>
-    <text x="1120" y="233" font-size="13" fill="#0f2b26">🍽 Marceline Market</text>
+    <text class="vlabel" onclick="openVenue('festival')" x="340" y="233" font-size="13" fill="#0f2b26">🌭 Festival of Foods</text>
+    <text class="vlabel" onclick="openVenue('pool_11')" x="640" y="233" font-size="13" fill="#0f2b26">🏊 ファミリープール</text>
+    <text class="vlabel" onclick="openVenue('marceline')" x="1120" y="233" font-size="13" fill="#0f2b26">🍽 Marceline Market</text>
 
     <!-- Deck 7-10 -->
     <rect x="220" y="245" width="1080" height="95" rx="4" fill="#a8b4d0" opacity="0.6"/>
@@ -142,28 +181,33 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 
     <!-- Deck 6 (here) -->
     <rect x="170" y="340" width="1135" height="35" rx="4" fill="#ffd166"/>
-    <text x="190" y="363" font-size="13" fill="#3a2500" font-weight="800">📍 6050号室（エレベーター・階段バンクのすぐ手前）</text>
+    <text class="vlabel" onclick="openVenue('room6050')" x="190" y="363" font-size="13" fill="#3a2500" font-weight="800">📍 6050号室（エレベーター・階段バンクのすぐ手前）</text>
 
     <!-- Deck 5 -->
     <rect x="140" y="375" width="1170" height="35" rx="4" fill="#9fc2ff" opacity="0.85"/>
-    <text x="160" y="398" font-size="13" fill="#0d1b3d">💆 Senses Spa</text>
-    <text x="620" y="398" font-size="13" fill="#0d1b3d">🛍 Mickey's Mainsail</text>
-    <text x="1010" y="398" font-size="13" fill="#0d1b3d">❄️ Arendelle／Edge</text>
+    <text class="vlabel" onclick="openVenue('spa')" x="160" y="398" font-size="13" fill="#0d1b3d">💆 Senses Spa</text>
+    <text class="vlabel" onclick="openVenue('mainsail')" x="620" y="398" font-size="13" fill="#0d1b3d">🛍 Mickey's Mainsail</text>
+    <text class="vlabel" onclick="openVenue('dining_arendelle')" x="1010" y="398" font-size="13" fill="#0d1b3d">❄️ Arendelle</text>
+    <text class="vlabel" onclick="openVenue('edge')" x="1150" y="398" font-size="13" fill="#0d1b3d">🎮 Edge</text>
 
     <!-- Deck 4 -->
     <rect x="110" y="410" width="1210" height="30" rx="4" fill="#9fc2ff" opacity="0.85"/>
-    <text x="130" y="431" font-size="13" fill="#0d1b3d">🎭 Theatre(バルコニー)</text>
-    <text x="620" y="431" font-size="13" fill="#0d1b3d">🦸 Worlds of Marvel／サロン類</text>
+    <text class="vlabel" onclick="openVenue('theatre')" x="130" y="431" font-size="13" fill="#0d1b3d">🎭 Theatre(バルコニー)</text>
+    <text class="vlabel" onclick="openVenue('dining_marvel')" x="620" y="431" font-size="13" fill="#0d1b3d">🦸 Worlds of Marvel</text>
+    <text class="vlabel" onclick="openVenue('salons_deck4')" x="900" y="431" font-size="13" fill="#0d1b3d">💇 サロン類</text>
 
     <!-- Deck 3 -->
     <rect x="90" y="440" width="1235" height="30" rx="4" fill="#ffb3c6" opacity="0.85"/>
-    <text x="110" y="461" font-size="13" fill="#3a1020">🎭 Theatre(メイン階)</text>
-    <text x="620" y="461" font-size="13" fill="#3a1020">🎉 Grand Hall／1923／大人バー</text>
+    <text class="vlabel" onclick="openVenue('theatre')" x="110" y="461" font-size="13" fill="#3a1020">🎭 Theatre(メイン階)</text>
+    <text class="vlabel" onclick="openVenue('grandhall')" x="620" y="461" font-size="13" fill="#3a1020">🎉 Grand Hall</text>
+    <text class="vlabel" onclick="openVenue('dining_1923')" x="780" y="461" font-size="13" fill="#3a1020">🍽 1923</text>
+    <text class="vlabel" onclick="openVenue('bars_deck3')" x="880" y="461" font-size="13" fill="#3a1020">🍸 大人バー</text>
 
     <!-- Deck 2 -->
     <rect x="70" y="470" width="1260" height="30" rx="4" fill="#ff9a9a" opacity="0.85"/>
-    <text x="110" y="491" font-size="13" fill="#3a1010">🎭 Theatre(入口)</text>
-    <text x="620" y="491" font-size="13" fill="#3a1010">🧒 Oceaneer Club／Nursery</text>
+    <text class="vlabel" onclick="openVenue('theatre')" x="110" y="491" font-size="13" fill="#3a1010">🎭 Theatre(入口)</text>
+    <text class="vlabel" onclick="openVenue('oceaneer')" x="620" y="491" font-size="13" fill="#3a1010">🧒 Oceaneer Club</text>
+    <text class="vlabel" onclick="openVenue('nursery')" x="840" y="491" font-size="13" fill="#3a1010">👶 Nursery</text>
 
     <!-- deck number gutter -->
     <g font-size="13" font-weight="900" fill="#eef2ff" text-anchor="middle">
@@ -205,19 +249,19 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
     <div class="shipmap-row"><div class="dn" style="--dc:#c9a4ff">13</div>
       <div class="zc empty">—</div>
       <div class="zc empty">屋外サンデッキ</div>
-      <div class="zc">AquaMouse／Quiet Cove（大人専用プール）／Cove Bar・Cove Cafe</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('aquamouse')">AquaMouse</span>／<span class="vtag" onclick="openVenue('quietcove')">Quiet Cove</span>（大人専用プール）／<span class="vtag" onclick="openVenue('cove')">Cove Bar・Cove Cafe</span></div>
     </div>
 
     <div class="shipmap-row"><div class="dn" style="--dc:#7fd9c7">12</div>
       <div class="zc empty">—</div>
-      <div class="zc">ファミリープール（Donald's・Goofy's）</div>
-      <div class="zc">Palo Steakhouse・Enchanté・The Rose／Hero Zone</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('pool_12')">ファミリープール（Donald's・Goofy's）</span></div>
+      <div class="zc"><span class="vtag" onclick="openVenue('palo')">Palo Steakhouse</span>・<span class="vtag" onclick="openVenue('enchante')">Enchanté</span>・<span class="vtag" onclick="openVenue('rose')">The Rose</span>／<span class="vtag" onclick="openVenue('herozone')">Hero Zone</span></div>
     </div>
 
     <div class="shipmap-row"><div class="dn" style="--dc:#7fd9c7">11</div>
-      <div class="zc">Festival of Foods（BBQ・タコス・ピザ等）</div>
-      <div class="zc">ファミリープール（Mickey's・Minnie's・Daisy's・Pluto's）</div>
-      <div class="zc">Marceline Market（ビュッフェ）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('festival')">Festival of Foods（BBQ・タコス・ピザ等）</span></div>
+      <div class="zc"><span class="vtag" onclick="openVenue('pool_11')">ファミリープール（Mickey's・Minnie's・Daisy's・Pluto's）</span></div>
+      <div class="zc"><span class="vtag" onclick="openVenue('marceline')">Marceline Market（ビュッフェ）</span></div>
     </div>
 
     <div class="shipmap-row"><div class="dn" style="--dc:#a8b4d0">7〜10</div>
@@ -226,31 +270,31 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 
     <div class="shipmap-row here"><div class="dn" style="--dc:#ffd166">6</div>
       <div class="zc empty">客室</div>
-      <div class="zc"><span class="me">📍6050号室</span>（エレベーター・階段バンクのすぐ手前）</div>
+      <div class="zc"><span class="me vtag" onclick="openVenue('room6050')">📍6050号室</span>（エレベーター・階段バンクのすぐ手前）</div>
       <div class="zc empty">客室</div>
     </div>
 
     <div class="shipmap-row"><div class="dn" style="--dc:#9fc2ff">5</div>
-      <div class="zc">Senses Spa（フォワード・ポート）</div>
-      <div class="zc">Mickey's Mainsail（ショップ）</div>
-      <div class="zc">Arendelle／Edge（11〜14歳）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('spa')">Senses Spa</span>（フォワード・ポート）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('mainsail')">Mickey's Mainsail</span>（ショップ）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('dining_arendelle')">Arendelle</span>／<span class="vtag" onclick="openVenue('edge')">Edge</span>（11〜14歳）</div>
     </div>
 
     <div class="shipmap-row"><div class="dn" style="--dc:#9fc2ff">4</div>
-      <div class="zc">Walt Disney Theatre（バルコニー階）</div>
-      <div class="zc">Worlds of Marvel／Bibbidi Bobbidi Boutique／Untangled Salon／Hooks Barbery</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('theatre')">Walt Disney Theatre</span>（バルコニー階）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('dining_marvel')">Worlds of Marvel</span>／<span class="vtag" onclick="openVenue('salons_deck4')">Bibbidi Bobbidi Boutique・Untangled Salon・Hooks Barbery</span></div>
       <div class="zc empty">—</div>
     </div>
 
     <div class="shipmap-row"><div class="dn" style="--dc:#ffb3c6">3</div>
-      <div class="zc">Walt Disney Theatre（メイン階）</div>
-      <div class="zc">Grand Hall／1923／The Bayou・Nightingale's・Star Wars: Hyperspace Lounge（夜のみ）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('theatre')">Walt Disney Theatre</span>（メイン階）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('grandhall')">Grand Hall</span>／<span class="vtag" onclick="openVenue('dining_1923')">1923</span>／<span class="vtag" onclick="openVenue('bars_deck3')">The Bayou・Nightingale's・Star Wars: Hyperspace Lounge</span>（夜のみ）</div>
       <div class="zc empty">—</div>
     </div>
 
     <div class="shipmap-row"><div class="dn" style="--dc:#ff9a9a">2</div>
-      <div class="zc">Walt Disney Theatre（エントランス階）</div>
-      <div class="zc">Oceaneer Club &amp; Lab／It's a Small World Nursery</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('theatre')">Walt Disney Theatre</span>（エントランス階）</div>
+      <div class="zc"><span class="vtag" onclick="openVenue('oceaneer')">Oceaneer Club &amp; Lab</span>／<span class="vtag" onclick="openVenue('nursery')">It's a Small World Nursery</span></div>
       <div class="zc empty">—</div>
     </div>
   </div>
@@ -350,5 +394,58 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 
 <footer>Sakata Family Disney Trip 2026 — 個人利用 / 情報は変更される場合があります</footer>
 </div>
+
+<div id="venue-overlay" onclick="if(event.target===this) closeVenue();">
+  <div id="venue-card">
+    <div class="vhead">
+      <h3 id="venue-name"></h3>
+      <button class="vclose" onclick="closeVenue()">✕</button>
+    </div>
+    <div class="vdeck" id="venue-deck"></div>
+    <div class="vdesc" id="venue-desc"></div>
+  </div>
+</div>
+
+<script>
+var VENUES = {
+  theatre: {icon:"🎭", name:"Walt Disney Theatre", deck:"Deck 2〜4・前方", desc:"ブロードウェイ品質のライブショー「Aladdin: A Musical Spectacular」を上演する3層吹き抜けの劇場。エントランスはDeck2、メインフロアはDeck3、バルコニー席はDeck4。"},
+  grandhall: {icon:"🎉", name:"Grand Hall", deck:"Deck 3・中央", desc:"乗船して最初に足を踏み入れるアトリウム。Deck3〜5から見下ろせる吹き抜けで、ウィッシングスターのステージがある。"},
+  bars_deck3: {icon:"🍸", name:"大人向けバー（The Bayou／Nightingale's／Star Wars: Hyperspace Lounge）", deck:"Deck 3・中央（夜のみ）", desc:"The Bayou（ニューオーリンズ風）、Nightingale's（シャンパンバー）、Star Wars: Hyperspace Lounge（窓の外に銀河が流れる演出のスターウォーズバー）の3つが並ぶ、夜のみ営業の大人向けエリア。"},
+  dining_1923: {icon:"🍽", name:"1923", deck:"Deck 3・中央／メインダイニング", desc:"ウォルト・ディズニー・カンパニー創業年にちなんだ名前。カリフォルニア料理。ローテーションダイニングの1つ。"},
+  dining_marvel: {icon:"🦸", name:"Worlds of Marvel", deck:"Deck 4・中央／メインダイニング", desc:"アベンジャーズのクアンタム・コアを使った科学実験を手伝う演出「Avengers Quantum Encounter」付き。ローテーションダイニングの1つ。"},
+  dining_arendelle: {icon:"❄️", name:"Arendelle: A Frozen Dining Adventure", deck:"Deck 5・後方／メインダイニング", desc:"アナとクリストフの婚約を祝う設定のディナーショー。北欧料理で、アナ雪ソングの生演奏あり。ローテーションダイニングの1つ。"},
+  salons_deck4: {icon:"💇", name:"Bibbidi Bobbidi Boutique／Untangled Salon／Hook's Barbery", deck:"Deck 4・中央", desc:"子供向けプリンセス変身サロン(Bibbidi Bobbidi Boutique)とヘアサロン(Untangled Salon)、大人専用の理容・グルーミング(Hook's Barbery)が集まるエリア。"},
+  mainsail: {icon:"🛍", name:"Mickey's Mainsail", deck:"Deck 5・中央", desc:"ディズニークルーズ限定グッズを扱うメインショップ。Disney Wish限定コレクションあり。"},
+  edge: {icon:"🎮", name:"Edge", deck:"Deck 5・後方", desc:"11〜14歳向けのたまり場。ニューヨーク風の内装で、高性能ゲーム機や交流イベントあり。"},
+  spa: {icon:"💆", name:"Senses Spa", deck:"Deck 5・前方", desc:"アイスラウンジ、大型ジャグジー、加熱セラミックラウンジャーなど。大人向けのリラクゼーション施設。"},
+  oceaneer: {icon:"🧒", name:"Oceaneer Club & Lab", deck:"Deck 2・中央（港側）", desc:"3〜10歳が対象＝Leoが利用できる。5つのテーマゾーン: Fairytale Hall(読書・工作)／Imagineering Lab(科学実験・VRコースター)／Marvel Superhero Academy／Mickey&Minnie's Captain's Deck(未就学児向け)／Star Wars: Cargo Bay。"},
+  nursery: {icon:"👶", name:"It's a Small World Nursery", deck:"Deck 2・中央", desc:"生後6ヶ月〜3歳が対象。有料（$9/時、2人目以降$8/時）。"},
+  festival: {icon:"🌭", name:"Festival of Foods", deck:"Deck 11・前方", desc:"Mickey's Smokestack Barbecue（BBQ）・Donald's Cantina（タコス）・Daisy's Pizza Pies（ピザ）・Goofy's Grill（バーガー）・Sweet Minnie's Ice Cream（食べ放題ソフトクリーム）の屋台が並ぶ。追加料金なし。"},
+  pool_11: {icon:"🏊", name:"ファミリープール（Deck 11）", deck:"Deck 11・中央", desc:"Mickey's・Minnie's・Daisy's・Pluto'sの各プールが段違いに配置。"},
+  marceline: {icon:"🍽", name:"Marceline Market", deck:"Deck 11・後方", desc:"朝食・昼食のビュッフェ。ウォルト・ディズニーが育った町の名前から。世界各地の料理から定番まで幅広く。"},
+  pool_12: {icon:"🏊", name:"ファミリープール（Deck 12）", deck:"Deck 12・中央", desc:"Donald's・Goofy'sの各プール。Trixie's Fallsという幼児向けの浅い噴水プールも同エリア。"},
+  palo: {icon:"🥩", name:"Palo Steakhouse", deck:"Deck 12・後方（大人専用・有料）", desc:"イタリアン＋ステーキハウス。The Roseラウンジを通って入る。事前予約推奨、子供不可。"},
+  enchante: {icon:"🍷", name:"Enchanté", deck:"Deck 12・後方（大人専用・有料）", desc:"ミシュランシェフArnaud Lallement監修のフレンチファインダイニング。船内で最も高級な選択肢。事前予約推奨、子供不可。"},
+  rose: {icon:"🌹", name:"The Rose", deck:"Deck 12・後方", desc:"Palo Steakhouse・Enchantéへ続くラウンジ。"},
+  herozone: {icon:"🏀", name:"Hero Zone", deck:"Deck 12・後方", desc:"2階建てのスポーツエリア。バスケットコート、エアホッケー、卓球、フーズボール。インクレディブル・テーマのインフレータブル障害物コースが出ることも。"},
+  aquamouse: {icon:"🌊", name:"AquaMouse", deck:"Deck 13・後方", desc:"ディズニー史上初の「アトラクション」を名乗る船上施設。760フィート(約230m)のチューブスライドを2分以上かけて滑る。身長制限42インチ(約107cm)以上。「Scuba Scramble」「Swiss Meltdown」の2種類のストーリー演出あり。"},
+  quietcove: {icon:"🏖", name:"Quiet Cove", deck:"Deck 13・後方（18歳以上限定）", desc:"大人専用のインフィニティプール＋バー＋ラウンジ。静かに過ごしたい時に。"},
+  cove: {icon:"☕", name:"Cove Bar・Cove Cafe", deck:"Deck 13・後方", desc:"Quiet Cove脇のバーとコーヒースタンド。"},
+  room6050: {icon:"📍", name:"6050号室（Deluxe Oceanview Verandah）", deck:"Deck 6・中央", desc:"カテゴリ05C、243平方フィート(ベランダ込み)、クイーンベッド＋ソファベッド。公式マップ確認済み: 6048と6052の間、エレベーター・階段バンクのすぐ手前で好立地。"}
+};
+
+function openVenue(key){
+  var v = VENUES[key];
+  if(!v) return;
+  document.getElementById('venue-name').textContent = v.icon + ' ' + v.name;
+  document.getElementById('venue-deck').textContent = v.deck;
+  document.getElementById('venue-desc').textContent = v.desc;
+  document.getElementById('venue-overlay').classList.add('open');
+}
+function closeVenue(){
+  document.getElementById('venue-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeVenue(); });
+</script>
 </body>
 </html>
