@@ -21,6 +21,14 @@ body{
 }
 .wrap{max-width:640px;margin:0 auto;}
 
+.nav{display:flex;justify-content:center;gap:8px;margin-bottom:14px;}
+.nav a{
+  font-size:0.72rem;font-weight:700;color:rgba(238,242,255,0.65);
+  text-decoration:none;padding:6px 14px;border-radius:100px;
+  border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);
+}
+.nav a.active{color:#ffd166;border-color:rgba(255,209,102,0.35);background:rgba(255,209,102,0.08);}
+
 header{text-align:center;padding:6px 0 16px;}
 .app-version{font-size:0.68rem;color:rgba(238,242,255,0.5);letter-spacing:0.03em;margin-bottom:6px;}
 h1{font-size:clamp(1.3rem,6vw,1.7rem);font-weight:900;
@@ -99,8 +107,13 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 <body>
 <div class="wrap">
 
+<div class="nav">
+  <a href="./" class="active">📋 旅程</a>
+  <a href="ship.html">🚢 船内ガイド</a>
+</div>
+
 <header>
-  <div class="app-version">v1.1.0</div>
+  <div class="app-version">v1.2.0</div>
   <h1>🏰 ディズニー家族旅行 2026</h1>
   <div class="subtitle">Sakata Family — 9/20〜9/28</div>
 </header>

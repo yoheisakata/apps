@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1b3d">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚢</text></svg>">
+<title>Disney Wish 船内ガイド</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;background:#0d1b3d;color:#eef2ff;font-family:'Hiragino Kaku Gothic Pro','Yu Gothic',sans-serif;}
+body{
+  background:
+    radial-gradient(ellipse at 20% -10%, rgba(255,209,102,0.12), transparent 55%),
+    radial-gradient(ellipse at 90% 10%, rgba(94,163,255,0.14), transparent 50%),
+    linear-gradient(180deg,#0a1530 0%,#0d1b3d 40%,#101d3f 100%);
+  min-height:100vh;
+  padding:14px 14px calc(40px + env(safe-area-inset-bottom,0px));
+}
+.wrap{max-width:640px;margin:0 auto;}
+
+.nav{display:flex;justify-content:center;gap:8px;margin-bottom:14px;}
+.nav a{
+  font-size:0.72rem;font-weight:700;color:rgba(238,242,255,0.65);
+  text-decoration:none;padding:6px 14px;border-radius:100px;
+  border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);
+}
+.nav a.active{color:#ffd166;border-color:rgba(255,209,102,0.35);background:rgba(255,209,102,0.08);}
+
+header{text-align:center;padding:6px 0 16px;}
+.app-version{font-size:0.68rem;color:rgba(238,242,255,0.5);letter-spacing:0.03em;margin-bottom:6px;}
+h1{font-size:clamp(1.2rem,5.5vw,1.6rem);font-weight:900;
+  background:linear-gradient(90deg,#ffd166,#fff3d6);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 30px rgba(255,209,102,0.25);
+}
+.subtitle{font-size:0.78rem;color:rgba(238,242,255,0.65);margin-top:4px;}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0;}
+.stat{background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:10px 4px;text-align:center;}
+.stat .n{font-size:1.15rem;font-weight:900;color:#ffd166;}
+.stat .l{font-size:0.62rem;color:rgba(238,242,255,0.6);margin-top:2px;}
+
+.card{
+  background:rgba(255,255,255,0.045);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:16px;padding:16px;margin-bottom:14px;
+  backdrop-filter:blur(6px);
+}
+.card h2{font-size:1rem;font-weight:800;color:#ffd166;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.card h3{font-size:0.85rem;font-weight:700;color:#9fc2ff;margin:12px 0 4px;}
+.card p, .card li{font-size:0.86rem;line-height:1.65;color:rgba(238,242,255,0.92);}
+.card .note{font-size:0.76rem;color:rgba(238,242,255,0.55);margin-top:8px;}
+
+/* Deck stack "map" */
+.deckstack{display:flex;flex-direction:column;gap:6px;}
+.deck{
+  display:flex;gap:10px;align-items:flex-start;
+  border-radius:12px;padding:10px 12px;
+  background:rgba(255,255,255,0.03);
+  border-left:4px solid var(--dc,#556);
+}
+.deck .num{
+  flex-shrink:0;width:34px;height:34px;border-radius:9px;
+  background:var(--dc,#556);color:#0d1b3d;font-weight:900;font-size:0.85rem;
+  display:flex;align-items:center;justify-content:center;
+}
+.deck .body{flex:1;min-width:0;}
+.deck .title{font-size:0.82rem;font-weight:800;color:#fff;margin-bottom:2px;}
+.deck .venues{font-size:0.74rem;color:rgba(238,242,255,0.7);line-height:1.5;}
+.deck.here{background:rgba(255,209,102,0.1);border-left-color:#ffd166;}
+.deck.here .num{background:#ffd166;}
+.deck.here .title::after{content:" 📍ここが私たちの部屋";color:#ffd166;font-weight:700;font-size:0.72rem;}
+
+.tag{display:inline-block;font-size:0.66rem;font-weight:700;padding:2px 8px;border-radius:100px;margin:2px 4px 2px 0;background:rgba(94,163,255,0.15);color:#9fc2ff;border:1px solid rgba(94,163,255,0.3);}
+.tag.age{background:rgba(255,154,154,0.12);color:#ff9a9a;border-color:rgba(255,154,154,0.3);}
+.tag.paid{background:rgba(255,209,102,0.12);color:#ffd166;border-color:rgba(255,209,102,0.3);}
+
+footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242,255,0.35);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="nav">
+  <a href="./">📋 旅程</a>
+  <a href="ship.html" class="active">🚢 船内ガイド</a>
+</div>
+
+<header>
+  <div class="app-version">v1.0.0</div>
+  <h1>🚢 Disney Wish 船内ガイド</h1>
+  <div class="subtitle">9/21〜9/25 の4泊で使う船内施設まとめ</div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="n">15</div><div class="l">デッキ数</div></div>
+  <div class="stat"><div class="n">9</div><div class="l">レストラン</div></div>
+  <div class="stat"><div class="n">12</div><div class="l">バー/ラウンジ</div></div>
+  <div class="stat"><div class="n">7</div><div class="l">プール/ジャグジー</div></div>
+</div>
+
+<div class="card">
+  <h2>🗺️ デッキ別ざっくりマップ</h2>
+  <p class="note" style="margin-bottom:10px;">正確な間取りは船内Navigatorアプリの公式マップで確認を。ここは「どのデッキに何があるか」のざっくり早見表。</p>
+  <div class="deckstack">
+    <div class="deck" style="--dc:#c9a4ff"><div class="num">13</div><div class="body"><div class="title">スパ・大人エリア・特別ダイニング</div><div class="venues">Senses Spa／Quiet Cove（大人専用インフィニティプール）／Cove Bar・Cove Cafe／Rose（ラウンジ）→ Palo Steakhouse・Enchanté</div></div></div>
+    <div class="deck" style="--dc:#7fd9c7"><div class="num">12</div><div class="body"><div class="title">プールデッキ・スポーツ</div><div class="venues">ファミリープール／Trixie's Falls（幼児用）／AquaMouse入口／Hero Zone（バスケ・卓球・エアホッケー）</div></div></div>
+    <div class="deck" style="--dc:#7fd9c7"><div class="num">11</div><div class="body"><div class="title">ビュッフェ・軽食</div><div class="venues">Marceline Market（朝食・昼食ビュッフェ）／Festival of Foods（BBQ・タコス・ピザ・バーガー・ソフトクリーム）／Wheezy's Freezies</div></div></div>
+    <div class="deck" style="--dc:#a8b4d0"><div class="num">7〜10</div><div class="body"><div class="title">客室デッキ</div><div class="venues">主に客室</div></div></div>
+    <div class="deck here" style="--dc:#ffd166"><div class="num">6</div><div class="body"><div class="title">客室デッキ</div><div class="venues">6050号室（Deluxe Oceanview Verandah, カテゴリ05C）／デッキ6はベランダ付き客室が最初に登場する階</div></div></div>
+    <div class="deck" style="--dc:#9fc2ff"><div class="num">5</div><div class="body"><div class="title">ダイニング・ショップ・Edge</div><div class="venues">Arendelle（メインダイニング）／Mickey's Mainsail（ショップ）／Edge（11〜14歳）／Shutters Portrait Studio</div></div></div>
+    <div class="deck" style="--dc:#9fc2ff"><div class="num">4</div><div class="body"><div class="title">ダイニング・サロン</div><div class="venues">Worlds of Marvel（メインダイニング）／Bibbidi Bobbidi Boutique／Untangled Salon／Hooks Barbery／Luna &amp; Luna Libations</div></div></div>
+    <div class="deck" style="--dc:#ffb3c6"><div class="num">3</div><div class="body"><div class="title">Grand Hall・大人バー</div><div class="venues">1923（メインダイニング）／The Bayou・Nightingale's・Star Wars: Hyperspace Lounge（夜のみ大人向け）</div></div></div>
+    <div class="deck" style="--dc:#ff9a9a"><div class="num">2</div><div class="body"><div class="title">キッズエリア</div><div class="venues">Oceaneer Club &amp; Lab（3〜10歳）／It's a Small World Nursery（生後6ヶ月〜3歳）</div></div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🍽️ メインダイニング（ローテーション）</h2>
+  <p>毎晩3つのレストランを順番に回る。担当サーバーも一緒に移動するので、同じスタッフに毎晩会える。</p>
+  <h3>1日目: 1923</h3>
+  <p>ウォルト・ディズニー・カンパニー創業年にちなんだ名前。カリフォルニア料理。</p>
+  <h3>2日目: Worlds of Marvel</h3>
+  <p>アベンジャーズのクアンタム・コアを使った科学実験を手伝う演出付き（Avengers Quantum Encounter）。</p>
+  <h3>3日目: Arendelle: A Frozen Dining Adventure</h3>
+  <p>アナ・クリストフの婚約を祝う設定。北欧料理。アナ雪ソングの生演奏あり。</p>
+  <p class="note">4泊クルーズなので4日目はこの3つのいずれかに戻るローテーション。</p>
+</div>
+
+<div class="card">
+  <h2>🍔 カジュアルダイニング（追加料金なし）</h2>
+  <h3>Marceline Market（Deck 11）</h3>
+  <p>朝食・昼食のビュッフェ。世界各地の料理から定番まで幅広く。</p>
+  <h3>Festival of Foods（プールデッキ付近）</h3>
+  <p><span class="tag">Mickey's Smokestack Barbecue</span><span class="tag">Donald's Cantina</span><span class="tag">Daisy's Pizza Pies</span><span class="tag">Goofy's Grill</span><span class="tag">Sweet Minnie's Ice Cream（食べ放題ソフトクリーム）</span></p>
+  <h3>Wheezy's Freezies</h3>
+  <p>スムージー・冷たいドリンクのスタンド。</p>
+</div>
+
+<div class="card">
+  <h2>⭐ 特別ダイニング（有料・要予約）</h2>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.85rem;padding:6px 0;"><span>Palo Steakhouse</span><span class="tag paid">大人専用・有料</span></div>
+  <p>Deck 13 aft。イタリアン＋ステーキハウス。</p>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.85rem;padding:6px 0;"><span>Enchanté</span><span class="tag paid">大人専用・有料</span></div>
+  <p>ミシュランシェフ Arnaud Lallement 監修のフレンチファインダイニング。船内で最も高級な選択肢。</p>
+  <p class="note">両方とも子供は不可、事前予約推奨（乗船後すぐか、事前のオンライン予約で埋まりやすい）。</p>
+</div>
+
+<div class="card">
+  <h2>🏊 プール・ウォーターアトラクション</h2>
+  <h3>AquaMouse</h3>
+  <p>ディズニー史上初の「アトラクション」を名乗る船上施設。760フィート（約230m）のチューブスライドを2分以上かけて滑る。身長制限 <b>42インチ（約107cm）</b> 以上。「Scuba Scramble」「Swiss Meltdown」の2種類のストーリー演出あり。</p>
+  <h3>ファミリープール（Deck 11〜12）</h3>
+  <p>大小6つのプールが段違いに配置。<b>Trixie's Falls</b> は水深15cm程度の幼児向け噴水プール（Leoの年齢なら大丈夫だが、下の子連れの他家族向け）。</p>
+  <h3>Quiet Cove（Deck 13・18歳以上限定）</h3>
+  <p>インフィニティプール＋バー＋ラウンジ。大人だけで静かに過ごしたい時に。</p>
+</div>
+
+<div class="card">
+  <h2>🧒 キッズ・ティーンクラブ</h2>
+  <h3>Oceaneer Club &amp; Lab（Deck 2）<span class="tag age">3〜10歳＝Leoが対象</span></h3>
+  <p>5つのテーマゾーン: <b>Fairytale Hall</b>（読書・工作・映画）／<b>Imagineering Lab</b>（科学実験・バーチャルジェットコースター）／<b>Marvel Superhero Academy</b>（ヒーロースーツ作り・バーチャルバトル）／<b>Mickey &amp; Minnie's Captain's Deck</b>（未就学児向け遊具）／<b>Star Wars: Cargo Bay</b>（スター・ウォーズ体験）。</p>
+  <h3>It's a Small World Nursery</h3>
+  <p><span class="tag age">生後6ヶ月〜3歳</span> 有料（$9/時、2人目以降$8/時）。</p>
+  <h3>Edge（Deck 5）</h3>
+  <p><span class="tag age">11〜14歳</span> ニューヨーク風の内装のたまり場。</p>
+  <h3>Vibe</h3>
+  <p><span class="tag age">14〜17歳</span> 専用サンデッキ付きラウンジ。ダンスパーティーや映画上映など。</p>
+</div>
+
+<div class="card">
+  <h2>🎭 エンターテインメント</h2>
+  <h3>Walt Disney Theatre</h3>
+  <p>ブロードウェイ品質のライブショー「<b>Aladdin: A Musical Spectacular</b>」を上演。</p>
+  <h3>Buena Vista Theatre</h3>
+  <p>映画上映（最新ディズニー/ピクサー作品など）。</p>
+  <h3>Hero Zone</h3>
+  <p>2階建てのスポーツエリア。バスケットコート、エアホッケー、卓球、フーズボール。インクレディブル・テーマのインフレータブル障害物コースが出ることも。</p>
+</div>
+
+<div class="card">
+  <h2>💆 スパ・サロン・ショップ</h2>
+  <h3>Senses Spa（Deck 13）</h3>
+  <p>アイスラウンジ、大型ジャグジー、加熱セラミックラウンジャーなど。</p>
+  <h3>Hook's Barbery（Deck 4）</h3>
+  <p>大人専用の理容・グルーミングサービス。</p>
+  <h3>Bibbidi Bobbidi Boutique / Untangled Salon（Deck 4）</h3>
+  <p>子供向けプリンセス変身・ヘアサロン。</p>
+  <h3>Mickey's Mainsail（Deck 5）</h3>
+  <p>ディズニークルーズ限定グッズを扱うメインショップ。Disney Wish限定コレクションあり。</p>
+</div>
+
+<footer>Sakata Family Disney Trip 2026 — 個人利用 / 情報は変更される場合があります</footer>
+</div>
+</body>
+</html>
