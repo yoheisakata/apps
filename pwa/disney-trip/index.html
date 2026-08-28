@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1b3d">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏰</text></svg>">
+<title>ディズニー家族旅行 2026</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;background:#0d1b3d;color:#eef2ff;font-family:'Hiragino Kaku Gothic Pro','Yu Gothic',sans-serif;}
+body{
+  background:
+    radial-gradient(ellipse at 20% -10%, rgba(255,209,102,0.12), transparent 55%),
+    radial-gradient(ellipse at 90% 10%, rgba(94,163,255,0.14), transparent 50%),
+    linear-gradient(180deg,#0a1530 0%,#0d1b3d 40%,#101d3f 100%);
+  min-height:100vh;
+  padding:14px 14px calc(40px + env(safe-area-inset-bottom,0px));
+}
+.wrap{max-width:640px;margin:0 auto;}
+
+header{text-align:center;padding:6px 0 16px;}
+.app-version{font-size:0.68rem;color:rgba(238,242,255,0.5);letter-spacing:0.03em;margin-bottom:6px;}
+h1{font-size:clamp(1.3rem,6vw,1.7rem);font-weight:900;
+  background:linear-gradient(90deg,#ffd166,#fff3d6);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 30px rgba(255,209,102,0.25);
+}
+.subtitle{font-size:0.78rem;color:rgba(238,242,255,0.65);margin-top:4px;}
+
+#countdown{
+  margin:16px 0;padding:16px;border-radius:18px;text-align:center;
+  background:linear-gradient(135deg,rgba(255,209,102,0.16),rgba(94,163,255,0.12));
+  border:1px solid rgba(255,209,102,0.3);
+}
+#countdown .num{font-size:2.4rem;font-weight:900;color:#ffd166;line-height:1;}
+#countdown .lbl{font-size:0.8rem;color:rgba(238,242,255,0.75);margin-top:4px;}
+
+.card{
+  background:rgba(255,255,255,0.045);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:16px;padding:16px;margin-bottom:14px;
+  backdrop-filter:blur(6px);
+}
+.card h2{font-size:1rem;font-weight:800;color:#ffd166;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.card h3{font-size:0.85rem;font-weight:700;color:#9fc2ff;margin:12px 0 6px;}
+.card p, .card li{font-size:0.86rem;line-height:1.65;color:rgba(238,242,255,0.92);}
+
+.row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08);font-size:0.85rem;}
+.row:last-child{border-bottom:none;}
+.row .k{color:rgba(238,242,255,0.6);flex-shrink:0;}
+.row .v{text-align:right;font-weight:600;}
+
+table{width:100%;border-collapse:collapse;font-size:0.78rem;}
+th,td{padding:7px 6px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.08);vertical-align:top;}
+th{color:#9fc2ff;font-weight:700;font-size:0.72rem;}
+td.stay{color:#ffd166;font-weight:700;white-space:nowrap;}
+
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.68rem;font-weight:700;background:rgba(94,163,255,0.18);color:#9fc2ff;border:1px solid rgba(94,163,255,0.35);}
+
+.tasklist{list-style:none;}
+.tasklist li{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.08);font-size:0.86rem;}
+.tasklist li:last-child{border-bottom:none;}
+.tasklist input[type=checkbox]{width:19px;height:19px;flex-shrink:0;margin-top:1px;accent-color:#ffd166;}
+.tasklist li.done label{text-decoration:line-through;color:rgba(238,242,255,0.4);}
+.tasklist .pr-high{color:#ff9a9a;font-size:0.68rem;font-weight:700;margin-left:6px;}
+.tasklist .pr-mid{color:#9fc2ff;font-size:0.68rem;font-weight:700;margin-left:6px;}
+
+.pack-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;}
+.pack-grid li{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:0.82rem;}
+.pack-grid input[type=checkbox]{width:17px;height:17px;flex-shrink:0;accent-color:#ffd166;}
+.pack-grid li.done label{text-decoration:line-through;color:rgba(238,242,255,0.4);}
+
+.lockbox{text-align:center;padding:10px 0;}
+.lockbox input[type=password]{
+  width:100%;max-width:260px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);
+  background:rgba(0,0,0,0.25);color:#fff;font-size:0.9rem;text-align:center;margin-bottom:10px;
+}
+.lockbox button{
+  padding:10px 20px;border-radius:10px;border:none;
+  background:linear-gradient(135deg,#ffd166,#ffb84d);color:#3a2500;font-weight:800;font-size:0.85rem;
+}
+.lockbox .err{color:#ff9a9a;font-size:0.78rem;margin-top:8px;}
+.secret-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,0.08);font-size:0.85rem;}
+.secret-row .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0.03em;font-weight:700;color:#ffd166;}
+.relock{display:block;margin:12px auto 0;background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(238,242,255,0.7);border-radius:8px;padding:6px 14px;font-size:0.72rem;}
+
+.tips li{margin-bottom:8px;padding-left:14px;position:relative;}
+.tips li::before{content:"✦";position:absolute;left:0;color:#ffd166;}
+
+.contact{display:flex;justify-content:space-between;padding:6px 0;font-size:0.85rem;}
+.contact a{color:#9fc2ff;font-weight:700;text-decoration:none;}
+
+footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242,255,0.35);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="app-version">v1.0.0</div>
+  <h1>🏰 ディズニー家族旅行 2026</h1>
+  <div class="subtitle">Sakata Family — 9/20〜9/28</div>
+</header>
+
+<div id="countdown">
+  <div class="num" id="cd-num">—</div>
+  <div class="lbl" id="cd-lbl">出発まで</div>
+</div>
+
+<div class="card">
+  <h2>✈️ 航空券</h2>
+  <div class="row"><span class="k">航空会社</span><span class="v">Alaska Airlines</span></div>
+  <div class="row"><span class="k">往路</span><span class="v">AS 420 / 9/20(日) SEA 15:23 → MCO 23:59</span></div>
+  <div class="row"><span class="k">座席（往路）</span><span class="v">23D, 23E, 23F</span></div>
+  <div class="row"><span class="k">復路</span><span class="v">AS 419 / 9/28(月) MCO 18:50 → SEA 22:00</span></div>
+  <div class="row"><span class="k">座席（復路）</span><span class="v">20D, 20E, 20F</span></div>
+  <div class="row"><span class="k">費用</span><span class="v">$1,670.40（3人往復）</span></div>
+</div>
+
+<div class="card">
+  <h2>🚢 Disney Cruise Line</h2>
+  <div class="row"><span class="k">船</span><span class="v">Disney Wish</span></div>
+  <div class="row"><span class="k">日程</span><span class="v">9/21(月)〜9/25(金) 4泊</span></div>
+  <div class="row"><span class="k">航路</span><span class="v">Port Canaveral→Nassau→Castaway Cay→At Sea→Port Canaveral</span></div>
+  <div class="row"><span class="k">部屋</span><span class="v">6050（Deluxe Oceanview Verandah, カテゴリ05C, Deck6）</span></div>
+  <div class="row"><span class="k">Boarding Group</span><span class="v">4</span></div>
+  <div class="row"><span class="k">ターミナル</span><span class="v">Port Canaveral #10</span></div>
+  <div class="row"><span class="k">住所</span><span class="v">9005 Charles M. Rowland Dr., FL 32920</span></div>
+  <div class="row"><span class="k">費用</span><span class="v">$3,434.11（MCO⇔港シャトル往復込み）</span></div>
+  <div class="row"><span class="k">シャトル</span><span class="v">予約不要・先着順</span></div>
+  <div class="row"><span class="k">オンラインチェックイン</span><span class="v"><span class="badge">完了</span></span></div>
+</div>
+
+<div class="card">
+  <h2>🔒 予約番号</h2>
+  <p style="margin-bottom:10px;color:rgba(238,242,255,0.6);">このページは公開されているため、confirmation number はパスワードなしでは見られないようにしています。</p>
+  <div id="lock-view" class="lockbox">
+    <input type="password" id="pw-input" placeholder="パスワード" autocomplete="off">
+    <br>
+    <button id="unlock-btn">解除</button>
+    <div class="err" id="pw-err" style="display:none;">パスワードが違います</div>
+  </div>
+  <div id="secret-view" style="display:none;">
+    <div class="secret-row"><span class="k">Alaska confirmation</span><span class="v" id="s-alaska"></span></div>
+    <div class="secret-row"><span class="k">Expedia itinerary #</span><span class="v" id="s-expedia"></span></div>
+    <div class="secret-row"><span class="k">クルーズ予約番号</span><span class="v" id="s-cruise"></span></div>
+    <div class="secret-row"><span class="k">ミッキーコールコード</span><span class="v" id="s-mickey"></span></div>
+    <button class="relock" id="relock-btn">🔒 再ロック</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🏨 ホテル</h2>
+  <h3>前泊：Homewood Suites Orlando Airport</h3>
+  <div class="row"><span class="k">日程</span><span class="v">9/20(日) 1泊</span></div>
+  <div class="row"><span class="k">CI / CO</span><span class="v">16:00 / 12:00</span></div>
+  <div class="row"><span class="k">費用</span><span class="v">$110.48</span></div>
+  <h3>WDW：Swan Reserve（Marriott Autograph）</h3>
+  <div class="row"><span class="k">日程</span><span class="v">9/25(金)〜9/28(月) 3泊</span></div>
+  <div class="row"><span class="k">CI / CO</span><span class="v">16:00 / 11:00</span></div>
+  <div class="row"><span class="k">部屋</span><span class="v">Traditional Room, King + Sofa bed</span></div>
+  <div class="row"><span class="k">費用</span><span class="v">$985.50（3泊合計）</span></div>
+  <div class="row"><span class="k">立地</span><span class="v">EPCOT 徒歩12分 / Hollywood Studios 徒歩22分 or ボート</span></div>
+  <div class="row"><span class="k">特典</span><span class="v">Early Entry・全パーク無料シャトル・60日前レストラン予約</span></div>
+</div>
+
+<div class="card">
+  <h2>📅 日程</h2>
+  <table>
+    <tr><th>日付</th><th>内容</th><th>宿泊</th></tr>
+    <tr><td>9/20(日)</td><td>SEA→MCO→Homewood Suites</td><td class="stay">MCO</td></tr>
+    <tr><td>9/21(月)</td><td>Disneyシャトル→Port Canaveral→乗船(15:00出航)</td><td class="stay">船</td></tr>
+    <tr><td>9/22(火)</td><td>Nassau寄港 9:30〜17:30</td><td class="stay">船</td></tr>
+    <tr><td>9/23(水)</td><td>Castaway Cay 8:30〜16:45</td><td class="stay">船</td></tr>
+    <tr><td>9/24(木)</td><td>終日航海</td><td class="stay">船</td></tr>
+    <tr><td>9/25(金)</td><td>下船7:30→Swan Reserve→Disney Springs→EPCOT夕方</td><td class="stay">WDW</td></tr>
+    <tr><td>9/26(土)</td><td>Animal Kingdom 終日</td><td class="stay">WDW</td></tr>
+    <tr><td>9/27(日)</td><td>Hollywood Studios 終日</td><td class="stay">WDW</td></tr>
+    <tr><td>9/28(月)</td><td>WDW午前→Uber→MCO 18:50→SEA 22:00</td><td class="stay">—</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>⚓ クルーズ寄港スケジュール</h2>
+  <table>
+    <tr><th>Day</th><th>寄港地</th><th>Ashore</th><th>Onboard</th></tr>
+    <tr><td>1</td><td>Port Canaveral</td><td>—</td><td>15:00</td></tr>
+    <tr><td>2</td><td>Nassau, Bahamas</td><td>9:30</td><td>17:30</td></tr>
+    <tr><td>3</td><td>Disney Castaway Cay</td><td>8:30</td><td>16:45</td></tr>
+    <tr><td>4</td><td>At Sea</td><td>—</td><td>—</td></tr>
+    <tr><td>5</td><td>Port Canaveral</td><td>7:30</td><td>—</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>💰 費用サマリー</h2>
+  <div class="row"><span class="k">航空券</span><span class="v">$1,670.40 ✅</span></div>
+  <div class="row"><span class="k">クルーズ+シャトル</span><span class="v">$3,434.11 ✅</span></div>
+  <div class="row"><span class="k">前泊ホテル</span><span class="v">$110.48 ✅</span></div>
+  <div class="row"><span class="k">WDWホテル</span><span class="v">$985.50 ✅</span></div>
+  <div class="row"><span class="k">交通費(Uber)</span><span class="v">$30</span></div>
+  <div class="row" style="border-top:1px solid rgba(255,255,255,0.15);padding-top:10px;margin-top:4px;"><span class="k">確定済み小計</span><span class="v" style="color:#ffd166;">$6,230.49</span></div>
+  <div class="row"><span class="k">WDWチケット(未購入)</span><span class="v">$700〜$900</span></div>
+  <div class="row"><span class="k">食事・お土産</span><span class="v">$400〜$600</span></div>
+  <div class="row"><span class="k">合計見込み</span><span class="v" style="color:#ffd166;">$7,360〜$7,760</span></div>
+</div>
+
+<div class="card">
+  <h2>🚌 交通プラン</h2>
+  <ul style="list-style:none;">
+    <li>9/20 MCO着(23:59) → ホテル無料シャトル → Homewood Suites</li>
+    <li>9/21 ホテル → MCO → Disneyシャトル(先着順) → Port Canaveral → 乗船（荷物はバスに預ける）</li>
+    <li>9/25 下船 → Disneyシャトル → Swan Reserveへ直送（荷物もバス搬送）</li>
+    <li>9/26-27 WDW内 → 徒歩／ボート／バス</li>
+    <li>9/28 WDW → Uber → MCO（約25分・$30）</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>✅ 残タスク</h2>
+  <ul class="tasklist" id="todo-list">
+    <li data-id="wdw-tickets"><input type="checkbox" id="t-wdw-tickets"><label for="t-wdw-tickets">WDWパークチケット購入（2〜3日分、Park Hopper検討）<span class="pr-high">高</span></label></li>
+    <li data-id="park-reservation"><input type="checkbox" id="t-park-reservation"><label for="t-park-reservation">WDW Park Reservation（チケット購入後）<span class="pr-high">高</span></label></li>
+    <li data-id="dining"><input type="checkbox" id="t-dining"><label for="t-dining">WDWレストラン予約（60日前=7/27から開始済み、人気店は要確認）<span class="pr-high">高</span></label></li>
+    <li data-id="navigator"><input type="checkbox" id="t-navigator"><label for="t-navigator">Navigatorアプリ ダウンロード＆ログイン<span class="pr-high">高</span></label></li>
+    <li data-id="cruise-activities"><input type="checkbox" id="t-cruise-activities"><label for="t-cruise-activities">クルーズアクティビティ予約（100日前から開始済み）<span class="pr-high">高</span></label></li>
+    <li data-id="passport" class="done"><input type="checkbox" id="t-passport" checked disabled><label for="t-passport">パスポート・グリーンカード有効期限確認（全員トラベル日程より十分先まで有効：確認済み）</label></li>
+    <li data-id="luggage"><input type="checkbox" id="t-luggage"><label for="t-luggage">ラゲッジタグ確認（郵送で届く）<span class="pr-mid">中</span></label></li>
+    <li data-id="gratuity"><input type="checkbox" id="t-gratuity"><label for="t-gratuity">Gratuity（チップ）前払い設定<span class="pr-mid">中</span></label></li>
+    <li data-id="insurance"><input type="checkbox" id="t-insurance"><label for="t-insurance">旅行保険（ハリケーンシーズン。CFARは予約直後の加入が条件のため対象外、標準の trip cancellation/interruption を検討）<span class="pr-mid">中</span></label></li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>🎒 持ち物</h2>
+  <ul class="pack-grid" id="pack-list">
+    <li data-id="passport"><input type="checkbox" id="p-passport"><label for="p-passport">パスポート＆グリーンカード</label></li>
+    <li data-id="swim"><input type="checkbox" id="p-swim"><label for="p-swim">水着（手荷物に！）</label></li>
+    <li data-id="costume"><input type="checkbox" id="p-costume"><label for="p-costume">仮装衣装</label></li>
+    <li data-id="formal"><input type="checkbox" id="p-formal"><label for="p-formal">正装</label></li>
+    <li data-id="pajama"><input type="checkbox" id="p-pajama"><label for="p-pajama">パジャマ</label></li>
+    <li data-id="hangbag"><input type="checkbox" id="p-hangbag"><label for="p-hangbag">マグネット付きハンギングバッグ</label></li>
+    <li data-id="laundry"><input type="checkbox" id="p-laundry"><label for="p-laundry">洗濯シート</label></li>
+    <li data-id="sunscreen"><input type="checkbox" id="p-sunscreen"><label for="p-sunscreen">日焼け止め・帽子</label></li>
+    <li data-id="insta360"><input type="checkbox" id="p-insta360"><label for="p-insta360">Insta360 Luna Ultra</label></li>
+    <li data-id="microsd"><input type="checkbox" id="p-microsd"><label for="p-microsd">microSD 256GB×2＋64GB予備</label></li>
+    <li data-id="reader"><input type="checkbox" id="p-reader"><label for="p-reader">USB-Cカードリーダー＋iPad＋SSD</label></li>
+    <li data-id="postcard"><input type="checkbox" id="p-postcard"><label for="p-postcard">Castaway Cay ハガキ用住所メモ</label></li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>💡 Tips</h2>
+  <ul class="tips" style="list-style:none;">
+    <li>早い時間にチェックインすべし → プールのスライダーが空いてる</li>
+    <li>預け荷物は夕方届く → 水着・着替えはキャリーオンに</li>
+    <li>ディナーは前半(6時〜)/後半(8時〜)選択。早い方がおすすめ</li>
+    <li>24時間レストランあり。プールサイドにピザ・サンドイッチ常時</li>
+    <li>ルームサービス無料 → ベランダ朝食おすすめ</li>
+    <li>WiFi $50/日（高い）。船内アプリのテキストは無料</li>
+    <li>キッズエリアは夜遅くまで営業。マジックバンドで子供追跡</li>
+    <li>下船前夜: 大きいスーツケースはドアの外に。キャリーオン1つ残す</li>
+    <li>正装の日＆パジャマナイトあり</li>
+    <li>Castaway Cay: 限定お土産＆限定スタンプの手紙</li>
+  </ul>
+  <h3>無料に含まれるもの</h3>
+  <p>食事全般（メインダイニング・ビュッフェ・ルームサービス・ソフトドリンク）／エンタメ（ショー・映画・パーティー・キャラグリ）／プール＆AquaMouseスライダー／キッズクラブ／Castaway Cay（ビーチ・シュノーケル・ランチ）／ジム</p>
+  <h3>有料</h3>
+  <p>アルコール $8〜18／WiFi $50/日／スパ $100〜300／写真パッケージ $150〜400／エクスカーション $30〜200+／ドリンクパッケージ $70〜90/日/人</p>
+</div>
+
+<div class="card">
+  <h2>📞 緊急連絡先</h2>
+  <div class="contact"><span class="k">ミッキーキャラクターコール</span><a href="tel:8002169076">(800) 216-9076</a></div>
+  <div class="contact"><span class="k">緊急連絡先（船上）</span><a href="tel:4075663640">(407) 566-3640</a></div>
+  <div class="contact"><span class="k">旅行遅延時</span><a href="tel:8003959374">(800) 395-9374</a></div>
+</div>
+
+<footer>Sakata Family Disney Trip 2026 — 個人利用</footer>
+</div>
+
+<script>
+// ---- Countdown ----
+(function(){
+  const depart = new Date("2026-09-20T15:23:00-07:00");
+  const numEl = document.getElementById('cd-num');
+  const lblEl = document.getElementById('cd-lbl');
+  function tick(){
+    const now = new Date();
+    const diffMs = depart - now;
+    if(diffMs <= 0){
+      numEl.textContent = "🎉";
+      lblEl.textContent = "旅行中 / 終了";
+      return;
+    }
+    const days = Math.floor(diffMs / 86400000);
+    numEl.textContent = days + "日";
+    lblEl.textContent = "出発まで";
+  }
+  tick();
+  setInterval(tick, 60000);
+})();
+
+// ---- Checklist persistence ----
+function bindChecklist(containerId, storageKey){
+  const key = storageKey;
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem(key) || "{}"); }catch(e){ saved = {}; }
+  const container = document.getElementById(containerId);
+  const items = container.querySelectorAll('li[data-id]');
+  items.forEach(li=>{
+    const id = li.dataset.id;
+    const cb = li.querySelector('input[type=checkbox]');
+    if(cb.disabled) return; // fixed/verified items
+    if(saved[id]) { cb.checked = true; li.classList.add('done'); }
+    cb.addEventListener('change', ()=>{
+      saved[id] = cb.checked;
+      li.classList.toggle('done', cb.checked);
+      try{ localStorage.setItem(key, JSON.stringify(saved)); }catch(e){}
+    });
+  });
+}
+bindChecklist('todo-list', 'disney-trip-todos');
+bindChecklist('pack-list', 'disney-trip-packing');
+
+// ---- Encrypted reservation numbers ----
+(function(){
+  const SALT_B64 = "JA8Loy7DROAWA4SqoTTUNA==";
+  const IV_B64 = "b9jMa81AXgbbPJVY";
+  const CT_B64 = "H9Fp27vx6zea+n1fT9tPdqE+i/vpz4WYDBlg8AeWzm5iXzVNmP/qgWl8hcPsRLLxjOFu/ShX38MUwSibHwIgApSNHddb8wgpp5/BG7RoOEHqQptn50XMGu8X8c/j1u2hgnA7wcAcqdHJ";
+  const ITERATIONS = 250000;
+
+  function b64ToBuf(b64){
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+    return arr.buffer;
+  }
+
+  async function decrypt(passphrase){
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), {name:"PBKDF2"}, false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey(
+      {name:"PBKDF2", salt: b64ToBuf(SALT_B64), iterations: ITERATIONS, hash:"SHA-256"},
+      keyMaterial,
+      {name:"AES-GCM", length:256},
+      false,
+      ["decrypt"]
+    );
+    const plainBuf = await crypto.subtle.decrypt({name:"AES-GCM", iv: b64ToBuf(IV_B64)}, key, b64ToBuf(CT_B64));
+    return JSON.parse(new TextDecoder().decode(plainBuf));
+  }
+
+  const lockView = document.getElementById('lock-view');
+  const secretView = document.getElementById('secret-view');
+  const pwInput = document.getElementById('pw-input');
+  const pwErr = document.getElementById('pw-err');
+
+  document.getElementById('unlock-btn').addEventListener('click', async ()=>{
+    pwErr.style.display = 'none';
+    try{
+      const data = await decrypt(pwInput.value);
+      document.getElementById('s-alaska').textContent = data.alaska;
+      document.getElementById('s-expedia').textContent = data.expedia;
+      document.getElementById('s-cruise').textContent = data.cruise;
+      document.getElementById('s-mickey').textContent = data.mickeyCall;
+      lockView.style.display = 'none';
+      secretView.style.display = 'block';
+    }catch(e){
+      pwErr.style.display = 'block';
+    }
+  });
+  pwInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') document.getElementById('unlock-btn').click(); });
+
+  document.getElementById('relock-btn').addEventListener('click', ()=>{
+    pwInput.value = '';
+    secretView.style.display = 'none';
+    lockView.style.display = 'block';
+  });
+})();
+</script>
+</body>
+</html>
