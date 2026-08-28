@@ -74,6 +74,23 @@ h1{font-size:clamp(1.2rem,5.5vw,1.6rem);font-weight:900;
 .deck.here .num{background:#ffd166;}
 .deck.here .title::after{content:" 📍ここが私たちの部屋";color:#ffd166;font-weight:700;font-size:0.72rem;}
 
+/* Forward / Midship / Aft ship map grid */
+.shipmap{border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);}
+.shipmap-header{display:grid;grid-template-columns:30px 1fr 1fr 1fr;gap:1px;background:rgba(255,255,255,0.08);}
+.shipmap-header div{background:#152244;padding:6px 4px;text-align:center;font-size:0.62rem;font-weight:800;color:#9fc2ff;}
+.shipmap-row{display:grid;grid-template-columns:30px 1fr 1fr 1fr;gap:1px;background:rgba(255,255,255,0.06);}
+.shipmap-row .dn{
+  background:var(--dc,#334);color:#0d1b3d;font-weight:900;font-size:0.72rem;
+  display:flex;align-items:center;justify-content:center;
+}
+.shipmap-row .zc{background:#111d3d;padding:6px 5px;font-size:0.63rem;line-height:1.45;color:rgba(238,242,255,0.85);}
+.shipmap-row .zc.empty{color:rgba(238,242,255,0.25);}
+.shipmap-row.here .zc{background:rgba(255,209,102,0.14);}
+.shipmap-row.here .dn{background:#ffd166;}
+.shipmap-row .zc .me{color:#ffd166;font-weight:800;}
+.scalebar{margin-top:12px;text-align:center;}
+.scalebar .bar{height:8px;border-radius:4px;background:linear-gradient(90deg,#9fc2ff,#ffd166);margin:8px 0 6px;}
+
 .tag{display:inline-block;font-size:0.66rem;font-weight:700;padding:2px 8px;border-radius:100px;margin:2px 4px 2px 0;background:rgba(94,163,255,0.15);color:#9fc2ff;border:1px solid rgba(94,163,255,0.3);}
 .tag.age{background:rgba(255,154,154,0.12);color:#ff9a9a;border-color:rgba(255,154,154,0.3);}
 .tag.paid{background:rgba(255,209,102,0.12);color:#ffd166;border-color:rgba(255,209,102,0.3);}
@@ -90,7 +107,7 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 </div>
 
 <header>
-  <div class="app-version">v1.1.0</div>
+  <div class="app-version">v1.2.0</div>
   <h1>🚢 Disney Wish 船内ガイド</h1>
   <div class="subtitle">9/21〜9/25 の4泊で使う船内施設まとめ</div>
 </header>
@@ -103,19 +120,80 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 </div>
 
 <div class="card">
-  <h2>🗺️ デッキ別ざっくりマップ</h2>
-  <p class="note" style="margin-bottom:10px;">正確な間取りは船内Navigatorアプリの公式マップで確認を。ここは「どのデッキに何があるか」のざっくり早見表。</p>
-  <div class="deckstack">
-    <div class="deck" style="--dc:#c9a4ff"><div class="num">13</div><div class="body"><div class="title">スパ・大人エリア・特別ダイニング</div><div class="venues">Senses Spa／Quiet Cove（大人専用インフィニティプール）／Cove Bar・Cove Cafe／Rose（ラウンジ）→ Palo Steakhouse・Enchanté</div></div></div>
-    <div class="deck" style="--dc:#7fd9c7"><div class="num">12</div><div class="body"><div class="title">プールデッキ・スポーツ</div><div class="venues">ファミリープール／Trixie's Falls（幼児用）／AquaMouse入口／Hero Zone（バスケ・卓球・エアホッケー）</div></div></div>
-    <div class="deck" style="--dc:#7fd9c7"><div class="num">11</div><div class="body"><div class="title">ビュッフェ・軽食</div><div class="venues">Marceline Market（朝食・昼食ビュッフェ）／Festival of Foods（BBQ・タコス・ピザ・バーガー・ソフトクリーム）／Wheezy's Freezies</div></div></div>
-    <div class="deck" style="--dc:#a8b4d0"><div class="num">7〜10</div><div class="body"><div class="title">客室デッキ</div><div class="venues">主に客室</div></div></div>
-    <div class="deck here" style="--dc:#ffd166"><div class="num">6</div><div class="body"><div class="title">客室デッキ</div><div class="venues">6050号室（Deluxe Oceanview Verandah, カテゴリ05C）／デッキ6はベランダ付き客室が最初に登場する階／公式マップ確認済み: 6048と6052の間、エレベーター・階段バンクのすぐ手前で好立地</div></div></div>
-    <div class="deck" style="--dc:#9fc2ff"><div class="num">5</div><div class="body"><div class="title">ダイニング・ショップ・Edge</div><div class="venues">Arendelle（メインダイニング）／Mickey's Mainsail（ショップ）／Edge（11〜14歳）／Shutters Portrait Studio</div></div></div>
-    <div class="deck" style="--dc:#9fc2ff"><div class="num">4</div><div class="body"><div class="title">ダイニング・サロン</div><div class="venues">Worlds of Marvel（メインダイニング）／Bibbidi Bobbidi Boutique／Untangled Salon／Hooks Barbery／Luna &amp; Luna Libations</div></div></div>
-    <div class="deck" style="--dc:#ffb3c6"><div class="num">3</div><div class="body"><div class="title">Grand Hall・大人バー</div><div class="venues">1923（メインダイニング）／The Bayou・Nightingale's・Star Wars: Hyperspace Lounge（夜のみ大人向け）</div></div></div>
-    <div class="deck" style="--dc:#ff9a9a"><div class="num">2</div><div class="body"><div class="title">キッズエリア</div><div class="venues">Oceaneer Club &amp; Lab（3〜10歳）／It's a Small World Nursery（生後6ヶ月〜3歳）</div></div></div>
+  <h2>🗺️ 船内マップ（前方・中央・後方）</h2>
+  <p class="note" style="margin-bottom:10px;">縦=デッキ（上ほど高層階）、横=船の前後位置。実際の間取りとは簡略化してあるので、細かい位置はNavigatorアプリの公式マップで確認を。</p>
+  <div class="shipmap">
+    <div class="shipmap-header"><div>#</div><div>⬅ 前方 Forward</div><div>中央 Midship</div><div>後方 Aft ➡</div></div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#c9a4ff">13</div>
+      <div class="zc empty">—</div>
+      <div class="zc empty">屋外サンデッキ</div>
+      <div class="zc">AquaMouse／Quiet Cove（大人専用プール）／Cove Bar・Cove Cafe</div>
+    </div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#7fd9c7">12</div>
+      <div class="zc empty">—</div>
+      <div class="zc">ファミリープール（Donald's・Goofy's）</div>
+      <div class="zc">Palo Steakhouse・Enchanté・The Rose／Hero Zone</div>
+    </div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#7fd9c7">11</div>
+      <div class="zc">Festival of Foods（BBQ・タコス・ピザ等）</div>
+      <div class="zc">ファミリープール（Mickey's・Minnie's・Daisy's・Pluto's）</div>
+      <div class="zc">Marceline Market（ビュッフェ）</div>
+    </div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#a8b4d0">7〜10</div>
+      <div class="zc" style="grid-column:2/5;">客室中心（前〜後まで各所に配置）</div>
+    </div>
+
+    <div class="shipmap-row here"><div class="dn" style="--dc:#ffd166">6</div>
+      <div class="zc empty">客室</div>
+      <div class="zc"><span class="me">📍6050号室</span>（エレベーター・階段バンクのすぐ手前）</div>
+      <div class="zc empty">客室</div>
+    </div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#9fc2ff">5</div>
+      <div class="zc">Senses Spa（フォワード・ポート）</div>
+      <div class="zc">Mickey's Mainsail（ショップ）</div>
+      <div class="zc">Arendelle／Edge（11〜14歳）</div>
+    </div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#9fc2ff">4</div>
+      <div class="zc">Walt Disney Theatre（バルコニー階）</div>
+      <div class="zc">Worlds of Marvel／Bibbidi Bobbidi Boutique／Untangled Salon／Hooks Barbery</div>
+      <div class="zc empty">—</div>
+    </div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#ffb3c6">3</div>
+      <div class="zc">Walt Disney Theatre（メイン階）</div>
+      <div class="zc">Grand Hall／1923／The Bayou・Nightingale's・Star Wars: Hyperspace Lounge（夜のみ）</div>
+      <div class="zc empty">—</div>
+    </div>
+
+    <div class="shipmap-row"><div class="dn" style="--dc:#ff9a9a">2</div>
+      <div class="zc">Walt Disney Theatre（エントランス階）</div>
+      <div class="zc">Oceaneer Club &amp; Lab／It's a Small World Nursery</div>
+      <div class="zc empty">—</div>
+    </div>
   </div>
+
+  <div class="scalebar">
+    <div class="bar"></div>
+    <p class="note">全長 341m（1,119ft）— 東京タワー(333m)を横に倒したくらい、サッカーコート(105m)なら3面強。端から端までまっすぐなら徒歩4〜5分の距離感だが、実際は階段・通路で迂回するので体感8〜10分。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🚶 客室(6050)からの距離感</h2>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.83rem;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08);"><span>Oceaneer Club（Deck 2）</span><span style="color:#ffd166;font-weight:700;">近い：エレベーター4フロア、ほぼ真下</span></div>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.83rem;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08);"><span>1923（Deck 3・中央）</span><span style="color:#ffd166;font-weight:700;">近い：3フロア、ほぼ真下</span></div>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.83rem;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08);"><span>Worlds of Marvel（Deck 4・中央）</span><span style="color:#ffd166;font-weight:700;">近い：2フロア、ほぼ真下</span></div>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.83rem;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08);"><span>Arendelle（Deck 5・後方）</span><span style="color:#9fc2ff;font-weight:700;">やや遠い：1フロア＋後方へ徒歩</span></div>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.83rem;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08);"><span>ファミリープール（Deck 11〜12・中央）</span><span style="color:#ffd166;font-weight:700;">近い：5〜6フロア、ほぼ真下</span></div>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.83rem;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08);"><span>Palo/Enchanté（Deck 12・後方）</span><span style="color:#9fc2ff;font-weight:700;">やや遠い：6フロア＋後方へ徒歩</span></div>
+  <div class="row" style="display:flex;justify-content:space-between;font-size:0.83rem;padding:6px 0;"><span>Walt Disney Theatre（Deck 2〜4・前方）</span><span style="color:#ff9a9a;font-weight:700;">遠め：前方まで船をほぼ縦断</span></div>
+  <p class="note">6050は中央（ミッドシップ）なので上下移動が中心のエレベーター旅がほとんど。前方の劇場と後方のPalo/Enchantéだけは船内を歩く距離が長め。</p>
 </div>
 
 <div class="card">
@@ -143,7 +221,7 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 <div class="card">
   <h2>⭐ 特別ダイニング（有料・要予約）</h2>
   <div class="row" style="display:flex;justify-content:space-between;font-size:0.85rem;padding:6px 0;"><span>Palo Steakhouse</span><span class="tag paid">大人専用・有料</span></div>
-  <p>Deck 13 aft。イタリアン＋ステーキハウス。</p>
+  <p>Deck 12 aft。イタリアン＋ステーキハウス。</p>
   <div class="row" style="display:flex;justify-content:space-between;font-size:0.85rem;padding:6px 0;"><span>Enchanté</span><span class="tag paid">大人専用・有料</span></div>
   <p>ミシュランシェフ Arnaud Lallement 監修のフレンチファインダイニング。船内で最も高級な選択肢。</p>
   <p class="note">両方とも子供は不可、事前予約推奨（乗船後すぐか、事前のオンライン予約で埋まりやすい）。</p>
@@ -155,7 +233,7 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
   <p>ディズニー史上初の「アトラクション」を名乗る船上施設。760フィート（約230m）のチューブスライドを2分以上かけて滑る。身長制限 <b>42インチ（約107cm）</b> 以上。「Scuba Scramble」「Swiss Meltdown」の2種類のストーリー演出あり。</p>
   <h3>ファミリープール（Deck 11〜12）</h3>
   <p>大小6つのプールが段違いに配置。<b>Trixie's Falls</b> は水深15cm程度の幼児向け噴水プール（Leoの年齢なら大丈夫だが、下の子連れの他家族向け）。</p>
-  <h3>Quiet Cove（Deck 13・18歳以上限定）</h3>
+  <h3>Quiet Cove（Deck 13・後方・18歳以上限定）</h3>
   <p>インフィニティプール＋バー＋ラウンジ。大人だけで静かに過ごしたい時に。</p>
 </div>
 
@@ -183,7 +261,7 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 
 <div class="card">
   <h2>💆 スパ・サロン・ショップ</h2>
-  <h3>Senses Spa（Deck 13）</h3>
+  <h3>Senses Spa（Deck 5・前方）</h3>
   <p>アイスラウンジ、大型ジャグジー、加熱セラミックラウンジャーなど。</p>
   <h3>Hook's Barbery（Deck 4）</h3>
   <p>大人専用の理容・グルーミングサービス。</p>
