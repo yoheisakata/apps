@@ -8,6 +8,18 @@ struct ContentView: View {
     private static let miniPlayerWidth: CGFloat = 260
     private static let miniPlayerHeight: CGFloat = miniPlayerWidth * 9 / 16
 
+    /// 常に登録済みにするOneDrive共有リンク(2026-08-28追加、mytube-ipad(`ContentView.
+    /// hardcodedBookmarks`)と同じ「ハードコード」の要望への対応 ― 毎回「+」から手でURLを
+    /// 貼り付けなくても、起動すれば最初からサイドバーにあるようにする)。URLの一致で判定する
+    /// ため、ユーザーが手動で削除しても次回起動時に復活する(常に存在する既定エントリとして
+    /// 扱う、意図通り)。URLはmytube-ipadと同じ値。
+    private static let hardcodedOneDriveBookmarks: [(name: String, url: String)] = [
+        (name: "コナン", url: "https://1drv.ms/f/c/22558ab42b6166a7/IgCnZmErtIpVIIAisXgGAAAAAePdAtiUUOTbuvD5eW1HrjM?e=7PLUIH"),
+        (name: "映画", url: "https://1drv.ms/f/c/6b83b2b7da86a08f/IgCPoIbat7KDIIBrBBEAAAAAAeirLHjJlkcimv4OevKejxA?e=Z2I0vf"),
+        (name: "アニメ", url: "https://1drv.ms/f/c/22558ab42b6166a7/IgCnZmErtIpVIIAiXAEAAAAAAR9-Rj8uJiqW61VBu8ZMCto?e=vmrYWU"),
+        (name: "ドラマ", url: "https://1drv.ms/f/c/22558ab42b6166a7/IgBnnolVejw3QpwuiiuYskleAUVk1jhTKS9G_zEtwKM_xNM?e=6USt5k"),
+    ]
+
     /// ローカルフォルダ・OneDrive共有リンクは複数同時に開ける(2026-08-04〜、「開いたものは
     /// 明示的に閉じるまでロードしたままにしたい」という要望に対応)。それぞれ独立した配列で
     /// 持ち、`allVideos`(下記)で合算する。`openFolder(_:)`/`openRemote(name:shareURL:)`は
@@ -26,10 +38,17 @@ struct ContentView: View {
     /// (計算プロパティのまま`filteredVideos`から毎回呼ぶと、検索欄への入力のたびに
     /// フルスキャンが走ってしまう)。
     @State private var mainStoryKeys: Set<String> = []
-    /// 「コナンメインストーリー」チャンネルのタグフィルター(2026-08-22追加、「タグでも
-    /// フィルタをかけられるようにしたい」という要望への対応)。複数選択時はOR ―
-    /// `filteredVideos`参照。他のチャンネルへ切り替えたときは末尾の`onChange`でクリアする。
-    @State private var selectedMainStoryTags: Set<String> = []
+    /// タグフィルター(2026-08-22追加、「タグでもフィルタをかけられるようにしたい」という
+    /// 要望への対応。2026-08-27、「コナンメインストーリー」限定から全チャンネル共通へ拡張 ―
+    /// 「タグフィルタができない」「ハイブリッドビューモードでタグフィルタしたい」という
+    /// 要望への対応。conanのタグを持つ動画が1件でもある一覧なら、フォルダ/お気に入り/
+    /// コナンメインストーリーのどれを見ていても使える。複数選択時はOR ―
+    /// `filteredVideos`参照。表示中の一覧を切り替えたときは末尾の`onChange`でクリアする。
+    @State private var selectedConanTags: Set<String> = []
+    /// 「タグなし」フィルター(2026-08-27追加、「タグなしをフィルタで一覧にしたい」という
+    /// 要望への対応)。`selectedConanTags`とは排他 ― `Views/RelatedTagsRow.swift`の
+    /// `TagFilterRow`ドキュメント参照。
+    @State private var showsConanUntaggedOnly = false
     /// フォルダを切り替えても`selectedVideo`はここでは触らない(以前は
     /// `.onChange(of: selectedChannel)`で`selectedVideo = nil`にしてホーム画面へ強制的に
     /// 戻していたが、`WatchView.onDisappear`(当時の名称)が`engine.stop()`するため再生が
@@ -110,44 +129,49 @@ struct ContentView: View {
         video.knownDurationSeconds ?? videoDurations[video.url]
     }
 
-    /// サイドバーでノードが選択されていれば、そのソースの動画だけを対象に`folderPath`の
-    /// 前方一致で絞り込む(祖先フォルダを選んだら配下も全部含む、explorerと同じ挙動)。
-    /// 未選択(`nil`)なら全ソース合算(`allVideos`)がそのまま対象。
-    private var filteredVideos: [VideoItem] {
-        var videos: [VideoItem]
-        // `keepsOrder`が`true`の間は末尾の固定ソート(ファイル名昇順)を適用しない ―
-        // 「最近再生した動画」(2026-08-14追加)は新しい順という意味のある順序を`videos`が
-        // 既に持っているため、上書きしない。
-        var keepsOrder = false
+    /// `specialSelection`/`selectedNode`から決まる、タグ・長さ・検索フィルター適用前の
+    /// 母集団(2026-08-27、タグフィルターを「コナンメインストーリー」限定から全チャンネル
+    /// 共通へ拡張する際に`filteredVideos`から切り出した ― `availableConanTags`
+    /// (タグフィルターの選択肢一覧)も同じ母集団を参照する必要があるため)。サイドバーで
+    /// ノードが選択されていれば、そのソースの動画だけを対象に`folderPath`の前方一致で
+    /// 絞り込む(祖先フォルダを選んだら配下も全部含む、explorerと同じ挙動)。未選択(`nil`)
+    /// かつ`specialSelection`も`nil`なら全ソース合算(`allVideos`)がそのまま対象。
+    private var baseSelectionVideos: [VideoItem] {
         switch specialSelection {
         case .favorites:
             // お気に入り(2026-08-14追加)。順序は末尾の固定ソート(ファイル名昇順)に任せる ―
             // 「最近再生した動画」と違って登録順・再生順に意味を持たせる要望ではないため。
-            videos = allVideos.filter { favoritesStore.isFavorite($0) }
+            return allVideos.filter { favoritesStore.isFavorite($0) }
         case .recentlyPlayed:
             // 最近再生した動画(2026-08-14追加)。`RecentlyPlayedStore.orderedKeys`
             // (新しい順のキー配列)の順に`VideoItem`を並べ直す。
             let videosByKey = Dictionary(allVideos.map { ($0.stableKey, $0) }, uniquingKeysWith: { first, _ in first })
-            videos = recentlyPlayedStore.orderedKeys.compactMap { videosByKey[$0] }
-            keepsOrder = true
+            return recentlyPlayedStore.orderedKeys.compactMap { videosByKey[$0] }
         case .mainStory:
-            // コナンメインストーリー(2026-08-22追加)。並び順は末尾の固定ソート(ファイル名昇順、
-            // 話数の自然順ソートになる)に任せる。タグフィルター(2026-08-22追加)が
-            // 1つ以上選ばれていれば、選ばれたタグのいずれかにマッチする話だけにさらに絞り込む
-            // (OR ― `TagFilterRow`のドキュメント参照)。
-            videos = allVideos.filter { mainStoryKeys.contains($0.stableKey) }
-            if !selectedMainStoryTags.isEmpty {
-                videos = videos.filter { !selectedMainStoryTags.isDisjoint(with: Set(episodeTagStore.allTags(for: $0))) }
-            }
+            // コナンメインストーリー(2026-08-22追加)。
+            return allVideos.filter { mainStoryKeys.contains($0.stableKey) }
         case nil:
             if let selectedNode {
                 let sourceVideos = localSources.first(where: { $0.id == selectedNode.sourceID })?.videos
                     ?? remoteSources.first(where: { $0.id == selectedNode.sourceID })?.videos
                     ?? []
-                videos = sourceVideos.filter { $0.folderPath.starts(with: selectedNode.folderPath) }
+                return sourceVideos.filter { $0.folderPath.starts(with: selectedNode.folderPath) }
             } else {
-                videos = allVideos
+                return allVideos
             }
+        }
+    }
+
+    /// `baseSelectionVideos`に、タグ・長さ・検索の各フィルターを順に適用したもの。
+    private var filteredVideos: [VideoItem] {
+        var videos = baseSelectionVideos
+        // タグフィルター(2026-08-22追加、2026-08-27に全チャンネル共通へ拡張 ―
+        // `availableConanTags`のドキュメント参照)。1つ以上選ばれていれば、選ばれたタグの
+        // いずれかにマッチする動画だけにさらに絞り込む(OR ― `TagFilterRow`のドキュメント参照)。
+        if showsConanUntaggedOnly {
+            videos = videos.filter { episodeTagStore.allTags(for: $0).isEmpty }
+        } else if !selectedConanTags.isEmpty {
+            videos = videos.filter { !selectedConanTags.isDisjoint(with: Set(episodeTagStore.allTags(for: $0))) }
         }
         if isLengthFilterActive {
             videos = videos.filter { video in
@@ -161,22 +185,27 @@ struct ContentView: View {
         if !trimmedQuery.isEmpty {
             videos = videos.filter { $0.title.localizedCaseInsensitiveContains(trimmedQuery) }
         }
-        guard !keepsOrder else { return videos }
+        // `keepsOrder`が`true`の間は末尾の固定ソート(ファイル名昇順)を適用しない ―
+        // 「最近再生した動画」(2026-08-14追加)は新しい順という意味のある順序を`videos`が
+        // 既に持っているため、上書きしない。
+        guard specialSelection != .recentlyPlayed else { return videos }
         // グリッド表示は常にタイトル昇順の固定順(2026-08-14、「並び替え」メニューは撤去し、
         // ソート機能は`VideoTableView`のヘッダークリックに一本化した ― グリッド自体にはヘッダーが
         // 無いため並び替え手段を持たない、ファイル名順という単純な既定挙動にしている)。
         return videos.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 
-    /// 「コナンメインストーリー」チャンネルのタグフィルターUIに渡す、実在するタグだけの
-    /// 一覧(2026-08-22追加)。**タグフィルター適用前**の`mainStoryKeys`一覧から計算する ―
+    /// タグフィルターUIに渡す、現在表示中の一覧に実在するタグだけの一覧(2026-08-22追加、
+    /// 2026-08-27に「コナンメインストーリー」限定から全チャンネル共通へ拡張 ―
+    /// 「タグフィルタができない」という報告への対応。conanのタグを持つ動画が1件でもある
+    /// 一覧なら、フォルダ/お気に入り/コナンメインストーリーのどれを
+    /// 見ていても表示する)。**タグフィルター適用前**の`baseSelectionVideos`から計算する ―
     /// `filteredVideos`(タグフィルター適用後)から計算すると、タグを1つ選ぶたびに
     /// 他のタグの選択肢がボタンごと消えてしまい、フィルターを組み合わせて広げる操作が
     /// できなくなる。
-    private var mainStoryAvailableTags: [String] {
-        guard specialSelection == .mainStory else { return [] }
-        let mainStoryVideos = allVideos.filter { mainStoryKeys.contains($0.stableKey) }
-        let presentTags = Set(mainStoryVideos.flatMap { episodeTagStore.allTags(for: $0) })
+    private var availableConanTags: [String] {
+        let presentTags = Set(baseSelectionVideos.flatMap { episodeTagStore.allTags(for: $0) })
+        guard !presentTags.isEmpty else { return [] }
         // 定義済み9種を先に(自動判定`ConanEpisodeTags.allTags`の順)、手動タグの自由な
         // 名前はあいうえお順で後ろに続ける(2026-08-22追加)。
         let manualOnly = presentTags.subtracting(ConanEpisodeTags.allTags).sorted()
@@ -295,9 +324,10 @@ struct ContentView: View {
                             selectedIDs: $selectedVideoIDsForDeletion,
                             onDeleteLocal: deleteLocalVideoFile,
                             onRequestDeleteSelected: { showsDeleteSelectedConfirmation = true },
-                            showsTagFilter: specialSelection == .mainStory,
-                            availableTags: mainStoryAvailableTags,
-                            selectedTags: $selectedMainStoryTags
+                            showsTagFilter: !availableConanTags.isEmpty,
+                            availableTags: availableConanTags,
+                            selectedTags: $selectedConanTags,
+                            showsUntaggedOnly: $showsConanUntaggedOnly
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -349,6 +379,7 @@ struct ContentView: View {
         }
         .background(WindowLevelAccessor(isFloatingOnTop: isMiniPlayerMode, onZoomButtonClicked: { isMiniPlayerMode = false }))
         .onAppear {
+            Self.ensureHardcodedOneDriveBookmarks()
             restoreOpenSources()
             sharedLinkBookmarks = Settings.sharedLinkBookmarks
             youtubePlaylistBookmarks = Settings.youtubePlaylistBookmarks
@@ -379,13 +410,20 @@ struct ContentView: View {
             if newValue != nil { specialSelection = nil }
             // 表示中の一覧が変わったら選択状態も持ち越さない(2026-08-21追加)。
             selectedVideoIDsForDeletion.removeAll()
+            // タグフィルターは表示中の一覧に紐づく状態なので、フォルダを切り替えたら選択を
+            // クリアする(2026-08-27、全チャンネル共通に拡張したことに伴い追加 ― 別のフォルダに
+            // 前回の絞り込みが無言で残っていると分かりにくいため)。
+            selectedConanTags.removeAll()
+            showsConanUntaggedOnly = false
         }
         .onChange(of: specialSelection) { newValue in
             if newValue != nil { selectedNode = nil }
-            // タグフィルターは「コナンメインストーリー」チャンネル専用の状態なので、
-            // 離れたら選択をクリアする(2026-08-22追加 ― 戻ってきたときに前回の絞り込みが
-            // 無言で残っていると分かりにくいため)。
-            if newValue != .mainStory { selectedMainStoryTags.removeAll() }
+            // タグフィルターは表示中の一覧に紐づく状態なので、チャンネルを切り替えたら
+            // 選択をクリアする(2026-08-22追加、2026-08-27に「コナンメインストーリーを
+            // 離れたら」から「チャンネルを切り替えたら常に」へ拡張 ― 全チャンネル共通で
+            // タグフィルターが使えるようになったため)。
+            selectedConanTags.removeAll()
+            showsConanUntaggedOnly = false
         }
         .onChange(of: isSelectionMode) { newValue in
             if !newValue { selectedVideoIDsForDeletion.removeAll() }
@@ -465,6 +503,20 @@ struct ContentView: View {
         }
         for link in Settings.openYouTubePlaylists where !seenYouTubeURLs.contains(link.url) {
             openRemote(name: link.name, shareURL: link.url, kind: .youtube)
+        }
+    }
+
+    /// `hardcodedOneDriveBookmarks`のうちまだ`Settings.sharedLinkBookmarks`に無いものだけを
+    /// 追加する(URLの一致で判定、`restoreOpenSources`より前に呼ぶ必要がある)。
+    private static func ensureHardcodedOneDriveBookmarks() {
+        var bookmarks = Settings.sharedLinkBookmarks
+        var didChange = false
+        for hardcoded in hardcodedOneDriveBookmarks where !bookmarks.contains(where: { $0.url == hardcoded.url }) {
+            bookmarks.append(SharedLinkBookmark(name: hardcoded.name, url: hardcoded.url))
+            didChange = true
+        }
+        if didChange {
+            Settings.sharedLinkBookmarks = bookmarks
         }
     }
 
@@ -650,7 +702,7 @@ struct ContentView: View {
                 let result: (sourceName: String, videos: [VideoItem])
                 switch kind {
                 case .oneDrive:
-                    result = try await OneDriveShareClient.scan(shareURL: trimmedURL)
+                    result = try await Self.scanOneDriveWithRetry(shareURL: trimmedURL)
                 case .youtube:
                     result = try await YouTubePlaylistClient.fetchPlaylist(url: trimmedURL)
                 }
@@ -741,6 +793,31 @@ struct ContentView: View {
                 selectedVideo = refreshed
             }
         }
+    }
+
+    /// 「The network connection was lost」・タイムアウトのような一時的なネットワークエラーだけ
+    /// 自動で1回リトライする(2026-08-28追加、「アニメ」共有リンク(サブフォルダの多い大きめの
+    /// ライブラリ)で「サブフォルダが出てこない」という報告への対応 ― `OneDriveShareClient.
+    /// walk`はフォルダを再帰的に辿るたびにOneDriveの内部APIへ逐次リクエストするため、フォルダ数が
+    /// 多いほど途中のどこかで一時的な接続断を踏む確率が上がる。`walk`は例外を投げると
+    /// `scanImpl`全体が失敗するため、深い階層のフォルダで接続が切れると「一覧はいったん
+    /// 取得できたが途中のサブフォルダの中身が空/未反映」ではなく「スキャンそのものが失敗し、
+    /// 直前にキャッシュ表示していた一覧のまま止まる」という形で症状が現れていた。mytube-ipad
+    /// (`ContentView.scanWithRetry`)で同じ症状に対して導入済みの1回リトライをMac版にも移植する。
+    /// 手動でのプルダウン/🔄再スキャンでの再試行をユーザーに毎回強いる代わりに、まずここで
+    /// 1回だけ自動再試行し、それでも失敗したら通常通り`errorMessage`へ表示する。
+    private static func scanOneDriveWithRetry(shareURL: String) async throws -> (sourceName: String, videos: [VideoItem]) {
+        do {
+            return try await OneDriveShareClient.scan(shareURL: shareURL)
+        } catch {
+            guard isTransientNetworkError(error) else { throw error }
+            return try await OneDriveShareClient.scan(shareURL: shareURL)
+        }
+    }
+
+    private static func isTransientNetworkError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        return urlError.code == .networkConnectionLost || urlError.code == .timedOut
     }
 
     private func closeRemoteSource(_ source: RemoteSource) {

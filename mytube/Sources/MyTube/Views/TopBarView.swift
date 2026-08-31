@@ -54,6 +54,7 @@ struct TopBarView: View {
                 }
             }
             .buttonStyle(.plain)
+            .focusable(false)
             .help("ホームに戻る")
 
             Spacer(minLength: 12)

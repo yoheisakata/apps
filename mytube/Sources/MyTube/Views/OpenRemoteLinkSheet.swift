@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// トップバーの「共有リンクを開く」/「YouTubeプレイリストを開く」ボタンから開くシート。
@@ -61,6 +62,15 @@ struct OpenRemoteLinkSheet: View {
                             .disabled(isLoading)
 
                             Button {
+                                copyURL(bookmark.url)
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("URLをコピー")
+
+                            Button {
                                 onDelete(bookmark)
                             } label: {
                                 Image(systemName: "trash")
@@ -85,10 +95,18 @@ struct OpenRemoteLinkSheet: View {
                     .textFieldStyle(.roundedBorder)
                     .disabled(isLoading)
             }
-            TextField(urlPlaceholder, text: $newURL)
-                .textFieldStyle(.roundedBorder)
+            HStack(spacing: 8) {
+                TextField(urlPlaceholder, text: $newURL)
+                    .textFieldStyle(.roundedBorder)
+                    .disabled(isLoading)
+                    .onSubmit(addAndLoad)
+
+                Button(action: pasteURL) {
+                    Image(systemName: "doc.on.clipboard")
+                }
                 .disabled(isLoading)
-                .onSubmit(addAndLoad)
+                .help("クリップボードから貼り付け")
+            }
 
             if let errorMessage {
                 Text(errorMessage)
@@ -122,5 +140,15 @@ struct OpenRemoteLinkSheet: View {
         onAddAndLoad(newName, newURL)
         newName = ""
         newURL = ""
+    }
+
+    private func pasteURL() {
+        guard let pasted = NSPasteboard.general.string(forType: .string) else { return }
+        newURL = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func copyURL(_ url: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url, forType: .string)
     }
 }

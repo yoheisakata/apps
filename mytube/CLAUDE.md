@@ -138,6 +138,15 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   `TopBarView.folderName`/`onManageSources`パラメータと`ContentView.sourceLabel`/
   `showsSourcesPopover`、`Views/OpenSourcesPopover.swift`自体を丸ごと削除済み。
   再度追加しないこと)。
+
+  **常時ハードコードされる4つのOneDriveブックマーク**(2026-08-28追加、
+  「ipad版のように、コナン、ドラマ、映画、アニメのリンクはハードコードして」という要望への
+  対応 ― `mytube-ipad`の`ContentView.hardcodedBookmarks`と同じ方式・同じURLをMac版にも
+  移植した)。`ContentView.hardcodedOneDriveBookmarks`(名前+URLの固定配列)を
+  `.onAppear`の`restoreOpenSources()`より前に`ensureHardcodedOneDriveBookmarks()`が
+  `Settings.sharedLinkBookmarks`へURLの一致で判定して不足分だけ追加する ― ユーザーが
+  サイドバーの✕で個別に閉じても、次回起動時には(常に存在する既定エントリとして)復活する
+  のがipad版と同じ「ハードコード」の意図。
   リモート動画の`channel`には登録名を`"\(name) / \(元のchannel)"`の形でプレフィックスする
   (ローカルの同名サブフォルダや、複数の共有リンクを同時に開いた際のチャンネル名衝突を
   避けるため ― `OneDriveShareClient`自体はプレフィックスを付けず、`ContentView.openRemote`側で
@@ -694,6 +703,15 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   ゆえ、フォルダ読み込みから時間が経ってからの再生は失敗しうる(既知の制限。再生直前の
   再取得は未実装)。`VideoItem.remoteID`(このアイテムID)が非nilの動画はローカルファイルと
   区別され、`ThumbnailStore.cacheKey`はURLではなくこのIDを使う(`@content.downloadUrl`は
+  **`ContentView.scanOneDriveWithRetry(shareURL:)`が一時的なネットワークエラー
+  (`URLError.networkConnectionLost`/`.timedOut`)だけ自動で1回リトライする**(2026-08-28追加、
+  「アニメ」共有リンク(サブフォルダの多い大きめのライブラリ)で「サブフォルダが出てこない」
+  という報告への対応。`walk`(下記)はフォルダを再帰的に辿るたびに内部APIへ逐次リクエストする
+  ため、フォルダ数が多いほど途中のどこかで一時的な接続断を踏む確率が上がり、深い階層で
+  失敗すると`scanImpl`全体が例外を投げて「サブフォルダの中身が反映されないまま」に見えていた
+  ― 詳しい調査ログは`walk`内の`Log.scan.debug`参照。`mytube-ipad`の
+  `ContentView.scanWithRetry`で同じ症状に先に導入済みの1回リトライをMac版にも移植した)。
+  それでも失敗したら通常通り`errorMessage`へ表示し、以降は手動の🔄再スキャンに委ねる。
   トークン再発行のたびにクエリ文字列だけ変わり、`.path`も全ファイル共通の
   `_layouts/15/download.aspx`にしかならずキャッシュキーに使えないため)。`VideoCardView`は
   `remoteID`が非nilの動画には共有元ファイルの直接削除メニューを出さない(共有元のファイルを
@@ -1172,17 +1190,35 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   **タグフィルター**(2026-08-22追加、「タグでもフィルタをかけられるようにしたい」という
   要望への対応): `Views/RelatedTagsRow.swift`の`TagFilterRow`(押せる・選択状態を持つ
   チップ、カード側の非インタラクティブな`RelatedTagsRow`とは別コンポーネント)を
-  `HomeVideosView`の`content`直前に条件付きで差し込む
-  (`showsTagFilter: specialSelection == .mainStory`のときだけ)。`ContentView`が
-  `selectedMainStoryTags`(`@State`)を持ち、`filteredVideos`の`.mainStory`ケースで
-  1つ以上選ばれていれば選択タグのいずれかにマッチする話だけへさらに絞り込む(OR ―
-  複数選んだ場合は「絞り込む」でなく「集める」動作)。フィルターUIに渡す選択肢一覧
-  (`ContentView.mainStoryAvailableTags`)は**タグフィルター適用前**の「コナン
-  メインストーリー」一覧から計算する ― 適用後の`filteredVideos`から計算すると、
-  1つタグを選ぶたびに他のタグの選択肢がボタンごと消え、フィルターを組み合わせて
-  広げる操作ができなくなるため。`specialSelection`が`.mainStory`以外に変わったら
-  `onChange(of: specialSelection)`で`selectedMainStoryTags`をクリアする(他チャンネルに
-  無言で絞り込みが残ると分かりにくいため)。
+  `HomeVideosView`の`content`直前に条件付きで差し込む。**当初は「コナンメインストーリー」
+  チャンネル専用**(`showsTagFilter: specialSelection == .mainStory`のときだけ)だったが、
+  2026-08-27に「タグフィルタができない」「ハイブリッドビューモードでタグフィルタしたい」
+  という要望を受け、**全チャンネル・両表示形式(グリッド/ハイブリッド)共通**へ拡張した
+  (`HomeVideosView`は`showsTagFilter`を`content`の`switch`より前で評価しているため、
+  この拡張前から実はグリッド/ハイブリッドどちらでも表示自体はできていた ― 実際に
+  効かなかったのは`showsTagFilter`の条件が「コナンメインストーリー」チャンネルにしか
+  真にならなかったことの方だった)。`ContentView`の`filteredVideos`を、フィルター適用前の
+  母集団を返す`baseSelectionVideos`(`specialSelection`/`selectedNode`ごとの元の
+  `switch`ロジックをそのまま切り出したもの)と、そこにタグ・長さ・検索フィルターを順に
+  適用する本体とに分離した。`selectedConanTags`(`@State`、旧`selectedMainStoryTags`から
+  改名)が1つ以上選ばれていれば、`baseSelectionVideos`を選択タグのいずれかにマッチする
+  動画だけへさらに絞り込む(OR ― 複数選んだ場合は「絞り込む」でなく「集める」動作)。
+  フィルターUIに渡す選択肢一覧(`ContentView.availableConanTags`、旧
+  `mainStoryAvailableTags`)は**タグフィルター適用前**の`baseSelectionVideos`
+  (現在選んでいるチャンネル/フォルダの一覧)から計算する ― 適用後の`filteredVideos`から
+  計算すると、1つタグを選ぶたびに他のタグの選択肢がボタンごと消え、フィルターを
+  組み合わせて広げる操作ができなくなるため。`showsTagFilter`は`!availableConanTags.isEmpty`
+  (conanのタグを持つ動画が1件でもあれば表示、フォルダ/お気に入り/コナンメインストーリーの
+  どれでも同じ条件)。`selectedNode`・`specialSelection`のどちらが
+  変わっても`onChange`で`selectedConanTags`/`showsConanUntaggedOnly`をクリアする
+  (別のフォルダ/チャンネルに前回の絞り込みが無言で残ると分かりにくいため ― 以前は
+  「`.mainStory`から離れたら」だけだったが、全チャンネル共通になったことに合わせて
+  「表示中の一覧が変わったら常に」へ広げた)。
+  **`Core/ConanContentKind.swift`(「コナンTV」/「コナン映画」チャンネル)は2026-08-27に
+  追加されたが、2026-08-28に「いらない」という要望を受けて撤去した** ― サイドバーの
+  `SidebarRow`2つ、`SpecialLibrarySelection.conanTV`/`.conanMovie`、
+  `ContentView.baseSelectionVideos`の対応する`switch`ケース、`Core/ConanContentKind.swift`
+  ファイル自体を削除済み。再度追加しないこと。
 - **`Core/EpisodeTagStore.swift`**(2026-08-22追加、「手動で既存または新規のタグを
   エピソードに追加できる?」という要望への対応) ― `Core/FavoritesStore.swift`と同じ
   「シングルトン+`@Published`+即座にUserDefaultsへ永続化」の設計。`ConanEpisodeTags`の

@@ -25,17 +25,20 @@ struct HomeVideosView: View {
     /// 選択中の動画をまとめて削除する確認ダイアログを開く(実削除は`ContentView`側で行う ―
     /// 削除後に`localSources`を書き換える必要があるため)。
     let onRequestDeleteSelected: () -> Void
-    /// タグフィルター(2026-08-22追加)。「コナンメインストーリー」チャンネルのときだけ
-    /// `ContentView`が`true`+タグ一覧を渡す ― 他のチャンネル/フォルダ表示では出さない
-    /// (`ConanEpisodeTags`はconan以外のライブラリには基本マッチしないが、UIとしても
-    /// 無関係な場面でタグフィルターを出す意味が無いため)。
+    /// タグフィルター(2026-08-22追加、2026-08-27に全チャンネル共通へ拡張)。`ContentView`が
+    /// 現在表示中の一覧にconanのタグを持つ動画が1件でもあるときだけ`true`+タグ一覧を渡す
+    /// (`ConanEpisodeTags`はconan以外のライブラリには基本マッチしないため、無関係な
+    /// フォルダでは自然にタグフィルターが出ない)。グリッド・ハイブリッドどちらの表示形式
+    /// でも`content`より前に描画するため、両方で使える。
     let showsTagFilter: Bool
     let availableTags: [String]
     @Binding var selectedTags: Set<String>
+    @Binding var showsUntaggedOnly: Bool
 
     // コンパクトに並べる(2026-08-05、「コンパクトに並べて」という要望に対応 ―
-    // カードを小さく・間隔を詰めて1画面に入る枚数を増やす)。
-    private let gridColumns = [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 12)]
+    // カードを小さく・間隔を詰めて1画面に入る枚数を増やす。2026-08-27、「サムネイル
+    // もう少しちいさくていい」という要望を受けてさらに一段階小さくした)。
+    private let gridColumns = [GridItem(.adaptive(minimum: 130, maximum: 165), spacing: 10)]
 
     /// 選択中のうち実際に削除できる(ローカルの)件数。リモート動画は`VideoCardView`/
     /// `NameCell`側でそもそも選択トグルを無視するため、通常は`selectedIDs`全体と一致する。
@@ -50,7 +53,7 @@ struct HomeVideosView: View {
                 Divider()
             }
             if showsTagFilter, !availableTags.isEmpty {
-                TagFilterRow(availableTags: availableTags, selectedTags: $selectedTags)
+                TagFilterRow(availableTags: availableTags, selectedTags: $selectedTags, showsUntaggedOnly: $showsUntaggedOnly)
                 Divider()
             }
             content
