@@ -1,10 +1,15 @@
 #!/usr/bin/env swift
-// 白背景に黒のシルエットでゲームコントローラーを描いたアイコンを生成する。
+// 白背景にファミコン実機の配色(グレー本体+黒十字キー+赤A/Bボタン)で
+// コントローラーを描いたアイコンを生成する。MyGames だけは意図的に
+// 「5アプリ単色シルエット統一」から外れた多色アイコン(2026-08-30の方針への例外、ユーザー指示)。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
 let bgWhite = NSColor.white
-let silhouetteBlack = NSColor.black // 黒 (自作アプリ共通)
+let bodyGray = NSColor(calibratedWhite: 0.86, alpha: 1) // 本体(ファミコン実機の生成り色を簡略化したグレー)
+let bodyOutline = NSColor.black // グレー本体を白背景から浮かせるための輪郭線
+let dpadBlack = NSColor.black // 十字キー
+let buttonRed = NSColor(calibratedRed: 0.702, green: 0.0, blue: 0.063, alpha: 1) // A/Bボタン(旧統一シルエット色 #B30010 を流用)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -26,71 +31,59 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     bgWhite.setFill()
     path.fill()
 
-    // Draw game controller as a black silhouette
+    // Draw a Famicom (ファミコン)-style controller in its real-life colors:
+    // a flat, straight-edged rectangular pad with no side grips — unlike a
+    // modern gamepad's contoured body — a black cross D-pad on the left, two
+    // round red buttons side by side on the right, and small black
+    // SELECT/START rects between.
     let g = ctx.cgContext
-    let silhouette = silhouetteBlack.cgColor
 
     let cx = s * 0.5
-    let cy = s * 0.545  // 本体+グリップ全体の重心が正方形の中央に来るよう補正
+    let cy = s * 0.5
 
-    // Controller body (rounded rectangle)
-    let bodyW = s * 0.52
-    let bodyH = s * 0.26
+    // Controller body — flat gray rectangle with a thin black outline
+    // (a white body would disappear against the white background)
+    let bodyW = s * 0.66
+    let bodyH = s * 0.24
     let bodyRect = CGRect(x: cx - bodyW / 2, y: cy - bodyH / 2, width: bodyW, height: bodyH)
-    let bodyRadius = bodyH * 0.4
+    let bodyRadius = bodyH * 0.12
     let bodyPath = CGPath(roundedRect: bodyRect, cornerWidth: bodyRadius, cornerHeight: bodyRadius, transform: nil)
-    g.setFillColor(silhouette)
+    g.setFillColor(bodyGray.cgColor)
     g.addPath(bodyPath)
     g.fillPath()
+    g.setStrokeColor(bodyOutline.cgColor)
+    g.setLineWidth(s * 0.008)
+    g.addPath(bodyPath)
+    g.strokePath()
 
-    // Left grip
-    let gripW = s * 0.12
-    let gripH = s * 0.18
-    let leftGripRect = CGRect(x: cx - bodyW / 2 - gripW * 0.15, y: cy - bodyH / 2 - gripH * 0.5, width: gripW, height: gripH)
-    let gripPath = CGPath(roundedRect: leftGripRect, cornerWidth: gripW * 0.4, cornerHeight: gripW * 0.4, transform: nil)
-    g.setFillColor(silhouette)
-    g.addPath(gripPath)
-    g.fillPath()
-
-    // Right grip
-    let rightGripRect = CGRect(x: cx + bodyW / 2 - gripW * 0.85, y: cy - bodyH / 2 - gripH * 0.5, width: gripW, height: gripH)
-    let gripPath2 = CGPath(roundedRect: rightGripRect, cornerWidth: gripW * 0.4, cornerHeight: gripW * 0.4, transform: nil)
-    g.addPath(gripPath2)
-    g.fillPath()
-
-    // D-pad (left side)
-    let dpadCx = cx - s * 0.13
-    let dpadCy = cy + s * 0.01
-    let dpadArm = s * 0.035
-    let dpadLen = s * 0.05
-    g.setFillColor(bgWhite.cgColor)
+    // D-pad (left side) — black cross
+    let dpadCx = cx - bodyW * 0.28
+    let dpadCy = cy
+    let dpadArm = s * 0.032
+    let dpadLen = s * 0.048
+    g.setFillColor(dpadBlack.cgColor)
     // Horizontal
     g.fill(CGRect(x: dpadCx - dpadLen, y: dpadCy - dpadArm / 2, width: dpadLen * 2, height: dpadArm))
     // Vertical
     g.fill(CGRect(x: dpadCx - dpadArm / 2, y: dpadCy - dpadLen, width: dpadArm, height: dpadLen * 2))
 
-    // Action buttons (right side) — A, B, X, Y diamond
-    let btnCx = cx + s * 0.13
-    let btnCy = cy + s * 0.01
-    let btnR = s * 0.025
-    let btnSpacing = s * 0.045
-    g.setFillColor(bgWhite.cgColor)
-    // Top (X)
-    g.fillEllipse(in: CGRect(x: btnCx - btnR, y: btnCy + btnSpacing - btnR, width: btnR * 2, height: btnR * 2))
-    // Bottom (B)
-    g.fillEllipse(in: CGRect(x: btnCx - btnR, y: btnCy - btnSpacing - btnR, width: btnR * 2, height: btnR * 2))
-    // Left (Y)
-    g.fillEllipse(in: CGRect(x: btnCx - btnSpacing - btnR, y: btnCy - btnR, width: btnR * 2, height: btnR * 2))
-    // Right (A)
-    g.fillEllipse(in: CGRect(x: btnCx + btnSpacing - btnR, y: btnCy - btnR, width: btnR * 2, height: btnR * 2))
+    // A / B buttons (right side) — round and red, side by side at the same height
+    let btnCy = cy
+    let btnR = s * 0.032
+    let btnGap = s * 0.045
+    let btnCxB = cx + bodyW * 0.19 // B (left)
+    let btnCxA = cx + bodyW * 0.19 + btnGap + btnR * 2 // A (right)
+    g.setFillColor(buttonRed.cgColor)
+    g.fillEllipse(in: CGRect(x: btnCxB - btnR, y: btnCy - btnR, width: btnR * 2, height: btnR * 2))
+    g.fillEllipse(in: CGRect(x: btnCxA - btnR, y: btnCy - btnR, width: btnR * 2, height: btnR * 2))
 
-    // Start/Select (small rounded rects in center)
-    let smallW = s * 0.035
-    let smallH = s * 0.015
-    let smallY = cy - s * 0.02
-    g.setFillColor(bgWhite.cgColor)
-    g.fill(CGRect(x: cx - smallW - s * 0.01, y: smallY, width: smallW, height: smallH))
-    g.fill(CGRect(x: cx + s * 0.01, y: smallY, width: smallW, height: smallH))
+    // SELECT / START — small black rects centered between the D-pad and buttons
+    let smallW = s * 0.05
+    let smallH = s * 0.014
+    let smallY = cy - smallH / 2
+    g.setFillColor(dpadBlack.cgColor)
+    g.fill(CGRect(x: cx - smallW - s * 0.012, y: smallY, width: smallW, height: smallH))
+    g.fill(CGRect(x: cx + s * 0.012, y: smallY, width: smallW, height: smallH))
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
