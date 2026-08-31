@@ -1,10 +1,10 @@
 #!/usr/bin/env swift
-// 白背景に濃い赤(任天堂レッド)のシルエットでゲームコントローラーを描いたアイコンを生成する。
+// 白背景に黒のシルエットでゲームコントローラーを描いたアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
 let bgWhite = NSColor.white
-let nintendoRed = NSColor(srgbRed: 0.70, green: 0.0, blue: 0.06, alpha: 1) // 黒みを足した濃い赤
+let silhouetteBlack = NSColor.black // 黒 (自作アプリ共通)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -26,9 +26,9 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     bgWhite.setFill()
     path.fill()
 
-    // Draw game controller as a dark red silhouette
+    // Draw game controller as a black silhouette
     let g = ctx.cgContext
-    let silhouette = nintendoRed.cgColor
+    let silhouette = silhouetteBlack.cgColor
 
     let cx = s * 0.5
     let cy = s * 0.545  // 本体+グリップ全体の重心が正方形の中央に来るよう補正

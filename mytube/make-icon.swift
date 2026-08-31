@@ -1,13 +1,13 @@
 #!/usr/bin/env swift
-// 白い角丸スクエアに濃い赤の再生ボタン(プレート)を描き、中央の三角形は背景色(白)で
+// 白い角丸スクエアに黒の再生ボタン(プレート)を描き、中央の三角形は背景色(白)で
 // くり抜いた macOS アプリアイコンを生成する。
-// mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒みのある濃い赤)は
-// mygames/mymusic/mygallery と共通(自作アプリでファミリー感を揃えている)。
+// mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒)は
+// mygames/mymusic/mygallery/myslideshow と共通(自作アプリでファミリー感を揃えている)。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
 let bgWhite = NSColor.white
-let silhouetteRed = NSColor(srgbRed: 0.70, green: 0.0, blue: 0.06, alpha: 1) // 黒みを足した濃い赤 (mygames と共通)
+let silhouetteBlack = NSColor.black // 黒 (mygames と共通)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -29,7 +29,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     bgWhite.setFill()
     path.fill()
 
-    // 中央に赤い角丸長方形(再生ボタンのプレート)。中の三角形は背景色(白)でくり抜く。
+    // 中央に黒い角丸長方形(再生ボタンのプレート)。中の三角形は背景色(白)でくり抜く。
     let plateW = rect.width * 0.62
     let plateH = rect.height * 0.44
     let plateRect = NSRect(x: rect.midX - plateW / 2, y: rect.midY - plateH / 2, width: plateW, height: plateH)
@@ -48,7 +48,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
 
     plate.append(tri)
     plate.windingRule = .evenOdd
-    silhouetteRed.setFill()
+    silhouetteBlack.setFill()
     plate.fill()
 
     NSGraphicsContext.restoreGraphicsState()

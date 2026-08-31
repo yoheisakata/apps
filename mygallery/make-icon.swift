@@ -1,14 +1,14 @@
 #!/usr/bin/env swift
-// 白背景に濃い赤の写真フレーム(SF Symbol "photo")のシルエットを描いたマスターアイコンを
-// 生成する。mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒みのある濃い赤)は
-// mygames/mytube/mymusic と共通(自作アプリでファミリー感を揃えている)。build.sh が
+// 白背景に黒の写真フレーム(SF Symbol "photo")のシルエットを描いたマスターアイコンを
+// 生成する。mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒)は
+// mygames/mytube/mymusic/myslideshow と共通(自作アプリでファミリー感を揃えている)。build.sh が
 // Resources/AppIcon.png から iconset/icns をビルド時に都度生成するので、
 // ここでは 1024x1024 の master PNG のみを出力する。
 //   実行: swift make-icon.swift   →  Resources/AppIcon.png を出力
 import AppKit
 
 let bgWhite = NSColor.white
-let silhouetteRed = NSColor(srgbRed: 0.70, green: 0.0, blue: 0.06, alpha: 1) // 黒みを足した濃い赤 (mygames と共通)
+let silhouetteBlack = NSColor.black // 黒 (mygames と共通)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -45,7 +45,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     cg.beginTransparencyLayer(auxiliaryInfo: nil)
     symbol.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
     cg.setBlendMode(.sourceIn)
-    cg.setFillColor(silhouetteRed.cgColor)
+    cg.setFillColor(silhouetteBlack.cgColor)
     cg.fill(CGRect(x: 0, y: 0, width: s, height: s))
     cg.endTransparencyLayer()
     cg.restoreGState()
