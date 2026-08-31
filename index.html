@@ -114,6 +114,7 @@ body::before {
 }
 
 /* Per-app gradient backgrounds */
+.app.disneytrip .icon-wrap { background: linear-gradient(135deg,#1a2f6b,#ffd166); box-shadow: 0 6px 20px rgba(255,209,102,0.4); }
 .app.earth     .icon-wrap { background: linear-gradient(135deg,#1e3a5f,#3b82f6); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
 .app.tarot     .icon-wrap { background: linear-gradient(135deg,#3b0764,#9333ea); box-shadow: 0 6px 20px rgba(147,51,234,0.45); }
 .app.quiz      .icon-wrap { background: linear-gradient(135deg,#4c1d95,#7c3aed); box-shadow: 0 6px 20px rgba(124,58,237,0.4); }
@@ -153,10 +154,22 @@ body::before {
   <h1>🎮 My Apps</h1>
   <!-- 更新日時: 読み込み時に「各アプリ / 自分自身の最終更新のうち新しい方」で上書きされる。
        ここの文字列は file:// やオフライン用のフォールバック -->
-  <button class="updated" id="updated">更新 2026-08-18 20:37:49<span class="reload-icon">↻</span></button>
+  <button class="updated" id="updated">更新 2026-08-31 00:13:39<span class="reload-icon">↻</span></button>
 </div>
 
 <!-- Apps -->
+<div class="section">
+  <div class="section-title">旅行</div>
+  <div class="grid">
+
+    <a class="app disneytrip" href="pwa/disney-trip/" data-added="2026-08-31T00:13:39">
+      <div class="icon-wrap">🏰</div>
+      <div class="app-name">ディズニー<br>旅行</div>
+    </a>
+
+  </div>
+</div>
+
 <div class="section">
   <div class="section-title">ゲーム</div>
   <div class="grid">
