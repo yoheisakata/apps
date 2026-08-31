@@ -1,0 +1,39 @@
+name: MyTubePad
+options:
+  bundleIdPrefix: com.yoheisakata
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+targets:
+  MyTubePad:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources/MyTubePad
+    info:
+      path: Sources/MyTubePad/Info.plist
+      properties:
+        CFBundleDisplayName: MyTube Pad
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortrait
+        UIRequiresFullScreen: true
+        # Picture in Picture中(アプリがバックグラウンドへ回った状態)も再生を継続するために
+        # 必要(2026-08-27追加、「最前面表示モード(PIP?)機能を追加してほしい」という要望への
+        # 対応)。`MyTubePadApp.init()`のAVAudioSession設定とセットで機能する。
+        UIBackgroundModes:
+          - audio
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yoheisakata.mytubepad
+        PRODUCT_NAME: MyTubePad
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "2"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
