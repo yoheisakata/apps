@@ -75,6 +75,8 @@ struct HomeView: View {
 
             GroupBox("スライドショー設定") {
                 VStack(alignment: .leading, spacing: 12) {
+                    Toggle("ランダム再生", isOn: $shuffleEnabled)
+
                     Picker("表示モード", selection: $playbackMode) {
                         ForEach(PlaybackMode.allCases) { mode in
                             Text(mode.label).tag(mode)
@@ -89,7 +91,6 @@ struct HomeView: View {
                             .monospacedDigit()
                             .frame(width: 40, alignment: .trailing)
                     }
-                    Toggle("順番をシャッフル", isOn: $shuffleEnabled)
                     HStack {
                         Text("時間制限")
                         Slider(value: timeLimitIndex, in: 0...Double(Self.timeLimitOptions.count - 1), step: 1)

@@ -1,6 +1,6 @@
 import SwiftUI
 
-let appVersion = "1.17.1"
+let appVersion = "1.17.7"
 
 @main
 struct MySlideshowApp: App {

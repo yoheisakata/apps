@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 
 // アプリのバージョン。リリース時はここだけ更新する(mytube-ipad/myslideshow(Mac版)と同じ方式)。
-let appVersion = "1.0.0"
+let appVersion = "1.0.4"
 
 @main
 struct MySlideshowPadApp: App {

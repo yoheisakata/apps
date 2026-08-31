@@ -69,6 +69,8 @@ struct HomeView: View {
 
                 GroupBox("スライドショー設定") {
                     VStack(alignment: .leading, spacing: 14) {
+                        Toggle("ランダム再生", isOn: $shuffleEnabled)
+
                         HStack {
                             Text("写真の表示時間")
                             Slider(value: $photoDuration, in: 3...15, step: 1)
@@ -76,7 +78,6 @@ struct HomeView: View {
                                 .monospacedDigit()
                                 .frame(width: 40, alignment: .trailing)
                         }
-                        Toggle("順番をシャッフル", isOn: $shuffleEnabled)
                         HStack {
                             Text("時間制限")
                             Slider(value: timeLimitIndex, in: 0...Double(Self.timeLimitOptions.count - 1), step: 1)

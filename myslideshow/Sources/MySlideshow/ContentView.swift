@@ -28,7 +28,7 @@ struct ContentView: View {
             name: "動画",
             url: "https://1drv.ms/f/c/6b83b2b7da86a08f/IgCnAW6bjrzaQ5MFMH8h-w3oAbOsSLkLLLzMzHoMxn_CWzo?e=YS9SKE",
             kindFilter: .video,
-            availableFolders: ["2020", "2021", "2022", "2023", "2024", "2025"]
+            availableFolders: ["2020", "2021", "2022", "2023", "2024", "2025", "2026"]
         ),
         HardcodedLink(
             name: "写真",

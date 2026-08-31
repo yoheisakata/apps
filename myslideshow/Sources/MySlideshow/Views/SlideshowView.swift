@@ -137,10 +137,10 @@ struct SlideshowView: View {
             HStack {
                 Spacer()
                 Text(Self.dateFormatter.string(from: date))
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
                     .background(.black.opacity(0.45), in: Capsule())
             }
         }
