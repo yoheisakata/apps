@@ -1,0 +1,5 @@
+.build/
+MySlideshow.app/
+AppIcon.icns
+AppIcon.iconset/
+.DS_Store
