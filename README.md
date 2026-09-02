@@ -61,11 +61,6 @@ Photos.app 風のローカルフォルダ・フォトギャラリー（Swift + A
 サムネイルグリッド／フルサイズビューア／重複検出（SHA-256〜dHash の4段階）／
 人物・種類・日付でのフィルター（Vision、オンデバイス）に対応。
 
-### 🎵 MyMusic — `mymusic/`
-iTunes/ミュージック.app 風の3ペイン構成（上部トランスポート＋ライブラリサイドバー＋曲リスト）の
-音楽プレーヤー。YouTube・Suno・MusicCreator.ai・MusicGPT などの曲リンクを貼り付けるほか、
-OneDrive の共有リンクを丸ごと取り込んでフォルダ単位で再生できる。ウィンドウを閉じても再生は続く。
-
 ### 📺 MyTube — `mytube/`
 フォルダ内の動画を YouTube 風の見た目で見る動画プレイヤー。ローカルフォルダ・OneDrive共有リンク・
 YouTubeプレイリストを同時に開いて1つのライブラリとして扱い、サムネイルグリッドから連続再生できる。
@@ -103,7 +98,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 | ちきゅう／新幹線／タロット／PostgreSQL強化書 | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | すうじくえすと／もじくえすと | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ 静的 JSON データ |
-| MyOrganizer／MyMusic／MyTube／MyGames／MyPass／MyNetWorth／MyDownloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
+| MyOrganizer／MyTube／MyGames／MyPass／MyNetWorth／MyDownloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
 | MyGallery | Swift + AppKit（単一ソースファイル、ローカルビルド、ad-hoc署名） |
 | kindle-transfer | Bash + adb |
 | utilities | Python 3 / Bash スクリプト |
@@ -115,7 +110,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 ## デプロイ
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
-- macOSネイティブアプリ（myorganizer / mygallery / mymusic / mytube / mygames / mypass / mynetworth / mydownloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
+- macOSネイティブアプリ（myorganizer / mygallery / mytube / mygames / mypass / mynetworth / mydownloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
 
 ## アプリの追加・削除
 

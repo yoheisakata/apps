@@ -2,7 +2,7 @@
 // 白い角丸スクエアに黒の再生ボタン(プレート)を描き、中央の三角形は背景色(白)で
 // くり抜いた macOS アプリアイコンを生成する。
 // mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒)は
-// mygames/mymusic/mygallery/myslideshow と共通(自作アプリでファミリー感を揃えている)。
+// mygames/mygallery/myslideshow と共通(自作アプリでファミリー感を揃えている)。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 

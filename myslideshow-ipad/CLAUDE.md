@@ -9,7 +9,7 @@ OneDrive共有リンク専用アプリなので、mytube-ipadのように「YouT
 
 ## リポジトリ内で2つ目のXcodeプロジェクト製アプリ
 
-他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mydownloader/mymusic/mytube/mygames/
+他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mydownloader/mytube/mygames/
 mypass/myslideshow)はすべてSwift Package Manager(`Package.swift` + `swift build`/
 `build_app.sh`)だが、mytube-ipadと同じ理由でこのアプリだけは**Xcodeプロジェクト**
 (`.xcodeproj`)が必要 ― iOS/iPadOS向けの`.app`はSPMのコマンドラインビルドだけでは

@@ -48,8 +48,7 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   `--newline` の進捗行をパースする。プレイリスト対応は下記参照。
 - **`ToolLocator`**(`ToolLocator.swift`): yt-dlp/ffmpeg の探索をこの1本で共有する。
   Homebrew の既知パス(`/opt/homebrew/bin`, `/usr/local/bin`)とログインシェルの両方を見る
-  (Finder 起動だと PATH が引き継がれないため)。mymusic にも同一内容のコピーがあり、
-  意図的に複製している(`mymusic/CLAUDE.md` 参照)。
+  (Finder 起動だと PATH が引き継がれないため)。
 
 ### YouTube プレイリストのダウンロード
 

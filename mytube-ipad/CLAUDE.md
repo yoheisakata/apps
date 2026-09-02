@@ -7,7 +7,7 @@ mytube(Mac版)の「iPadでも近いものを使いたい」という要望(2026
 
 ## リポジトリ内で唯一のXcodeプロジェクト製アプリ
 
-他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mydownloader/mymusic/mytube/mygames/
+他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mydownloader/mytube/mygames/
 mypass)はすべてSwift Package Manager(`Package.swift` + `swift build`/`build_app.sh`)だが、
 **このアプリだけはXcodeプロジェクト**(`.xcodeproj`)が必要 ― iOS/iPadOS向けの`.app`
 (実機にインストール可能な形)はSPMのコマンドラインビルドだけでは生成できず、Xcodeの
@@ -300,9 +300,9 @@ mytube(Mac版)のOneDrive関連コードを、必要な範囲だけ移植・簡�
   「アイコンがyoutubeっぽすぎる」という指摘を受けたため、「縦長のタブレット本体の
   シルエット(下端に白いホームボタンの丸)+中に白い再生三角形」というiPadらしい
   モチーフに変更した。②その後「形は戻して、シルエットは青にして」という要望を受け、
-  **形はMac版と同じ横長プレート+三角形に戻し、色を赤から青`#1B5E9E`(以前mymusic/
-  mytube/mygalleryが使っていた青系シルエットと同じ値、2026-08-12に全アプリ赤へ統一される
-  前の色)に変更した**(最終形、`silhouetteBlue`)― mytube-ipadだけ他の自作アプリと
+  **形はMac版と同じ横長プレート+三角形に戻し、色を赤から青`#1B5E9E`(以前mytube/
+  mygallery(と、当時存在したmymusic)が使っていた青系シルエットと同じ値、2026-08-12に
+  全アプリ赤へ統一される前の色)に変更した**(最終形、`silhouetteBlue`)― mytube-ipadだけ他の自作アプリと
   色を変えることで、Mac版の実機・Dock上でも見分けやすくする狙い。iOS向けの技術的な
   制約は2点: ①**角丸を自分で描かない** ― iOSはシステム側が自動で角丸マスクをかけるため、
   正方形いっぱいに白を塗るだけでよい(自前で角丸にすると二重角丸になる)。②**PNGに

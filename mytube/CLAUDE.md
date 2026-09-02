@@ -31,7 +31,7 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   Xcode プロジェクトなら「Link Binary With Libraries」に AVKit.framework を追加するのが
   定番の回避策だが、SPM の `executableTarget` には相当する GUI 設定が無いため、
   `linkerSettings` で同じことを明示的に行っている。
-- **通常の SwiftUI `App`/`WindowGroup` 構成**(downloader/mymusic と違いメニューバー常駐ではない)。
+- **通常の SwiftUI `App`/`WindowGroup` 構成**(downloader と違いメニューバー常駐ではない)。
   動画再生を裏で継続する必要がないため、ウィンドウを閉じればアプリごと終了してよい
   (myorganizer と同じ構成)。
 - **非サンドボックス**: `Package.swift` に entitlements は無く、`Settings.openLocalFolders` は
@@ -370,7 +370,7 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   `image: nil` を返すだけでクラッシュしない — `VideoCardView`/`VideoTableView` は
   プレースホルダー(`film` シンボル)を表示し、それでも再生自体は試みられる(AVPlayer 側の
   対応コーデック判定はサムネイル生成とは独立)。
-- **`Core/PlayerEngine.swift`** — `AVPlayer` の薄いラッパー。mymusic の
+- **`Core/PlayerEngine.swift`** — `AVPlayer` の薄いラッパー。旧mymusic(削除済み)の
   `PlayerEngine.swift` と同じ設計方針(再生キューの中身は一切知らず、1本の再生と
   `onFinished` コールバックだけを持つ)。`load(url:)` は同じ URL が既に再生中なら
   何もしない(`PlayerPaneView` の `onChange(of: video)` が同一動画で再入した場合の
@@ -793,7 +793,7 @@ swift build         # コンパイル確認のみ(GUI 起動・目視確認は�
   - **OneDrive**: 再生自体はダウンロード完了を待たず即座に始まる ―
     `@content.downloadUrl`への直接ストリーミングは変わらず、ダウンロードは並行して走るだけ。
     `URLSession.shared.downloadTask`(バックグラウンドセッションではない ― アプリを閉じれば
-    中断される。`downloader`/`mymusic`のような常駐設計ではなくウィンドウを閉じれば
+    中断される。`downloader`のような常駐設計ではなくウィンドウを閉じれば
     アプリごと終了する`mytube`の性質上、これで十分と判断)で、完了時に一時ファイルを
     `FileManager.moveItem`で保存先へ移動する。**ダウンロードは自動では始まらない**
     (2026-08-05、「OneDriveの場合はローカルに保存はトグルにする。デフォルトでは

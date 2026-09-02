@@ -3,8 +3,7 @@ import Combine
 import IOKit.pwr_mgt
 
 /// `AVPlayer` を薄くラップする。プレイリスト(次に何を再生するか)の中身は一切知らず、
-/// 再生中の1本が最後まで終わったら `onFinished` を呼ぶだけに留める
-/// (mymusic/Sources/MyMusic/PlayerEngine.swift と同じ設計方針)。
+/// 再生中の1本が最後まで終わったら `onFinished` を呼ぶだけに留める。
 @MainActor
 final class PlayerEngine: ObservableObject {
     let player = AVPlayer()
