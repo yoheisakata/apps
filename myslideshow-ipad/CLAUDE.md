@@ -7,10 +7,15 @@ OneDrive共有リンク専用アプリなので、mytube-ipadのように「YouT
 対象外にする」といった機能面のスコープ削減は不要だった。iPad版で削ったのは**macOSの
 ウィンドウ管理に依存する部分だけ**(下記参照)。
 
+**移植元のMac版(`myslideshow/`)は2026-09-02に廃止され、同等の機能は`mygallery/`に
+統合された**(`mygallery/CLAUDE.md`参照)。このiPad版はその対象外で、そのまま独立した
+アプリとして動作し続ける ― 以下の記述中「Mac版」への言及はすべて、廃止される前の
+`myslideshow/`を指す歴史的な記録として読むこと(移植元のファイルはもう存在しない)。
+
 ## リポジトリ内で2つ目のXcodeプロジェクト製アプリ
 
-他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mydownloader/mytube/mygames/
-mypass/myslideshow)はすべてSwift Package Manager(`Package.swift` + `swift build`/
+他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mytube/mygames/
+mypass)はすべてSwift Package Manager(`Package.swift` + `swift build`/
 `build_app.sh`)だが、mytube-ipadと同じ理由でこのアプリだけは**Xcodeプロジェクト**
 (`.xcodeproj`)が必要 ― iOS/iPadOS向けの`.app`はSPMのコマンドラインビルドだけでは
 生成できない。

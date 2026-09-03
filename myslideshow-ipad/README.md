@@ -1,7 +1,9 @@
 # MySlideshow Pad
 
-iPad用のスライドショーアプリ。**OneDriveの共有リンクだけ**を対象にした、myslideshow(Mac版)の
-縮小版です。ローカルフォルダには対応していません(そもそもMac版もOneDrive共有リンク専用)。
+iPad用のスライドショーアプリ。**OneDriveの共有リンクだけ**を対象にした、旧myslideshow(Mac版)の
+縮小版として作られました。ローカルフォルダには対応していません(そもそもMac版もOneDrive共有
+リンク専用)。**Mac版は2026-09-02に廃止され、同等の機能はMyGalleryに統合されています**
+(`mygallery/CLAUDE.md`参照)。このiPad版はその影響を受けず、そのまま独立して動作します。
 
 ## 使い方
 

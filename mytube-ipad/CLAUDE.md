@@ -7,7 +7,7 @@ mytube(Mac版)の「iPadでも近いものを使いたい」という要望(2026
 
 ## リポジトリ内で唯一のXcodeプロジェクト製アプリ
 
-他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mydownloader/mytube/mygames/
+他のSwiftUIネイティブアプリ(mynetworth/myorganizer/mytube/mygames/
 mypass)はすべてSwift Package Manager(`Package.swift` + `swift build`/`build_app.sh`)だが、
 **このアプリだけはXcodeプロジェクト**(`.xcodeproj`)が必要 ― iOS/iPadOS向けの`.app`
 (実機にインストール可能な形)はSPMのコマンドラインビルドだけでは生成できず、Xcodeの

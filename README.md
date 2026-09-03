@@ -52,14 +52,17 @@ SwiftUI / Swift Package Manager 製のローカル専用ツール群。ビルド
 ### 🗂️ MyOrganizer — `myorganizer/`
 写真・動画のバックアップ整理（日付フォルダへの振り分け、H.265再エンコード、rsync同期）、
 ファイル一括リネーム、キャッシュ掃除・不要アプリ削除、重複動画の検出、
-子ども動画のまとめ動画作成などをまとめたメディア管理アプリ。旧`cleanmac`／`renamer`／
-`omoide`アプリを統合済み。
+子ども動画のまとめ動画作成、YouTubeの動画・音声ダウンロード（`yt-dlp`/`ffmpeg`）などを
+まとめたメディア管理アプリ。旧`cleanmac`／`renamer`／`omoide`／`mydownloader`アプリを
+統合済み。
 
 ### 🖼️ MyGallery — `mygallery/`
-Photos.app 風のローカルフォルダ・フォトギャラリー（Swift + AppKit の単一ソース、依存なし）。
+Photos.app 風のローカルフォルダ・フォトギャラリー（Swift + AppKit、依存なし）。
 ライブラリへの取り込みをせず、指定したフォルダ配下を再帰スキャンして閲覧・整理する。
 サムネイルグリッド／フルサイズビューア／重複検出（SHA-256〜dHash の4段階）／
-人物・種類・日付でのフィルター（Vision、オンデバイス）に対応。
+人物・種類・日付でのフィルター（Vision、オンデバイス）に対応。サイドバーの
+「ローカル」/「OneDrive」切り替えでOneDrive共有リンクの写真・動画もストリーミング
+表示でき、自動連続再生のスライドショー機能も持つ（旧MySlideshowを統合）。
 
 ### 📺 MyTube — `mytube/`
 フォルダ内の動画を YouTube 風の見た目で見る動画プレイヤー。ローカルフォルダ・OneDrive共有リンク・
@@ -78,11 +81,6 @@ NES（ファミコン）／SNES（スーパーファミコン）のエミュレ�
 ### 💰 MyNetWorth — `mynetworth/`
 SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッカー（macOS 26+）。メイン／週／月／投資／固定収支／レシートの6タブ構成で、純資産の推移・支出アラート・保有銘柄（Yahoo Finance の現在株価で時価補正）・固定収支表（Markdown）・Schedule C 向けレシート管理（Vision OCR + オンデバイス LLM）まで1つのアプリにまとめている。`--fetch` オプションで launchd による毎朝の自動記録に対応。
 
-### ⬇️ MyDownloader — `mydownloader/`
-`yt-dlp` / `ffmpeg` を内部で呼び出して YouTube の動画・音声（単発／プレイリスト）を
-ダウンロードするアプリ。旧`youtube-dl-mac`を統合したもの。
-トレント機能（旧`torrent-dl-mac`由来の「Torrent」タブ）は 2026-08-12 に削除した。
-
 ### 📲 Kindle Fire → Mac 転送ツール — `kindle-transfer/`
 `adb` を使って Kindle Fire の SD カード・内部ストレージの中身を Mac にまるごとコピーする対話型 Terminalスクリプト。
 
@@ -98,8 +96,8 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 | ちきゅう／新幹線／タロット／PostgreSQL強化書 | 単一HTMLファイル（HTML / CSS / JavaScript、ビルド不要） |
 | すうじくえすと／もじくえすと | バニラ JS（複数ファイル）+ Service Worker（PWA・オフライン対応） |
 | ワールドカップ 2026 | バニラ JS（ES module）+ 静的 JSON データ |
-| MyOrganizer／MyTube／MyGames／MyPass／MyNetWorth／MyDownloader | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
-| MyGallery | Swift + AppKit（単一ソースファイル、ローカルビルド、ad-hoc署名） |
+| MyOrganizer／MyTube／MyGames／MyPass／MyNetWorth | SwiftUI + Swift Package Manager（ローカルビルド、ad-hoc署名） |
+| MyGallery | Swift + AppKit（複数ソースファイル、ローカルビルド、ad-hoc署名） |
 | kindle-transfer | Bash + adb |
 | utilities | Python 3 / Bash スクリプト |
 
@@ -110,7 +108,7 @@ SimpleFIN 経由で複数の銀行・証券口座を集約する資産トラッ�
 ## デプロイ
 
 `main` ブランチから GitHub Pages で自動公開されます（push すると反映）。対象はWebアプリのみです。
-- macOSネイティブアプリ（myorganizer / mygallery / mytube / mygames / mypass / mynetworth / mydownloader / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
+- macOSネイティブアプリ（myorganizer / mygallery / mytube / mygames / mypass / mynetworth / kindle-transfer）は GitHub Pages にはデプロイされません。各フォルダの `./install.sh`（mygallery のみ `./build.sh`）でローカルビルドし、`/Applications/MyApplications/` にインストールして使います。
 
 ## アプリの追加・削除
 
