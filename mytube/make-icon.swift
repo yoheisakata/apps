@@ -1,13 +1,14 @@
 #!/usr/bin/env swift
-// 白い角丸スクエアに黒の再生ボタン(プレート)を描き、中央の三角形は背景色(白)で
-// くり抜いた macOS アプリアイコンを生成する。
-// mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒)は
-// mygames/mygallery/myslideshow と共通(自作アプリでファミリー感を揃えている)。
+// MyPassと同じ紫グラデーション背景に、白の再生ボタン(プレート)を描き、中央の
+// 三角形は背景色(紫)でくり抜いた macOS アプリアイコンを生成する。MyTube だけは
+// 意図的に「白背景+黒シルエット」の統一から外れ、MyPass と背景色を揃えた
+// (2026-09-02、ユーザー指示)。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let bgWhite = NSColor.white
-let silhouetteBlack = NSColor.black // 黒 (mygames と共通)
+let purpleTop = NSColor(srgbRed: 0.55, green: 0.36, blue: 0.96, alpha: 1) // MyPassと同じ紫グラデーション
+let purpleBottom = NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1)
+let silhouetteWhite = NSColor.white // 白 (旧・黒シルエットから変更)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -26,10 +27,10 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    bgWhite.setFill()
-    path.fill()
+    let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
+    gradient.draw(in: path, angle: -90)
 
-    // 中央に黒い角丸長方形(再生ボタンのプレート)。中の三角形は背景色(白)でくり抜く。
+    // 中央に白い角丸長方形(再生ボタンのプレート)。中の三角形は背景色(紫)でくり抜く。
     let plateW = rect.width * 0.62
     let plateH = rect.height * 0.44
     let plateRect = NSRect(x: rect.midX - plateW / 2, y: rect.midY - plateH / 2, width: plateW, height: plateH)
@@ -48,7 +49,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
 
     plate.append(tri)
     plate.windingRule = .evenOdd
-    silhouetteBlack.setFill()
+    silhouetteWhite.setFill()
     plate.fill()
 
     NSGraphicsContext.restoreGraphicsState()
