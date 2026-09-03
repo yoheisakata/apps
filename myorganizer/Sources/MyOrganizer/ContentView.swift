@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SidebarItem: String, CaseIterable, Identifiable {
-    case rename, photos, videos, encode, misplacedFix, dateEstimate, sync, oneDriveSync, shortClips, cacheClean, storageAnalysis, appUninstall, videoDup, videoMaker, preflight
+    case rename, photos, videos, encode, misplacedFix, dateEstimate, sync, oneDriveSync, shortClips, cacheClean, storageAnalysis, appUninstall, videoDup, videoMaker, download, preflight
 
     var id: String { rawValue }
 
@@ -21,6 +21,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .appUninstall: return "アプリ削除"
         case .videoDup: return "動画重複"
         case .videoMaker: return "まとめ動画"
+        case .download: return "ダウンロード"
         case .preflight: return "依存チェック"
         }
     }
@@ -41,6 +42,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .appUninstall: return "trash"
         case .videoDup: return "film.stack"
         case .videoMaker: return "movieclapper"
+        case .download: return "arrow.down.circle"
         case .preflight: return "stethoscope"
         }
     }
@@ -49,7 +51,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 private let sidebarGroups: [(title: String, items: [SidebarItem])] = [
     ("画像系", [.photos, .misplacedFix, .dateEstimate]),
     ("動画系", [.videos, .encode, .shortClips, .videoDup, .videoMaker]),
-    ("その他", [.rename, .sync, .oneDriveSync, .cacheClean, .storageAnalysis, .appUninstall, .preflight]),
+    ("その他", [.rename, .sync, .oneDriveSync, .cacheClean, .storageAnalysis, .appUninstall, .download, .preflight]),
 ]
 
 struct ContentView: View {
@@ -57,7 +59,7 @@ struct ContentView: View {
     @StateObject private var jobRunner = JobRunner.shared
 
     private var missingDeps: [String] {
-        ["ffmpeg", "rsync"].filter { !ToolLocator.isAvailable($0) }
+        ["ffmpeg", "rsync", "yt-dlp"].filter { !ToolLocator.isAvailable($0) }
     }
 
     var body: some View {
@@ -102,6 +104,7 @@ struct ContentView: View {
                 case .appUninstall: AppUninstallerView()
                 case .videoDup: VideoDupView()
                 case .videoMaker: VideoMakerView()
+                case .download: DownloaderView()
                 case .preflight: PreflightView()
                 case .none: Text("左のメニューから選んでください")
                         .foregroundStyle(.secondary)

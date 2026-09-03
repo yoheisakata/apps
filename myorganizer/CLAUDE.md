@@ -2,9 +2,9 @@
 
 `utilities/` の写真・動画パイプライン用スクリプト6本のロジックをSwiftネイティブで
 再実装し、旧`renamer/`アプリの一括リネーム機能、旧`cleanmac/`アプリのキャッシュ掃除・
-アプリのアンインストール機能、旧`omoide/`アプリのまとめ動画作成機能も
-統合して、1つのGUIにまとめたmacOSアプリ。**SwiftUI + SPM** 構成。リポジトリ全体の
-規約はルートの `CLAUDE.md` を参照。
+アプリのアンインストール機能、旧`omoide/`アプリのまとめ動画作成機能、旧`mydownloader/`
+アプリのYouTubeダウンロード機能も統合して、1つのGUIにまとめたmacOSアプリ。
+**SwiftUI + SPM** 構成。リポジトリ全体の規約はルートの `CLAUDE.md` を参照。
 
 ## ビルド / デプロイ
 
@@ -38,6 +38,25 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
   dHash自体(`PerceptualHash`)・しきい値(`MatchLevel`)・`UnionFind`はもともと
   `SimilarityIndex`/`VideoDupFinder`が使うため元からCoreに独立していたので、
   重複写真の削除による影響はない。
+- 旧`mydownloader/`アプリ(YouTube動画・音声のダウンロード、`yt-dlp`/`ffmpeg`ラッパー)を
+  「ダウンロード」ペインとして移植し、`mydownloader/`ディレクトリ自体は削除済み
+  (2026-09-02)。ロジック(`YtDlpManager`)はほぼ無変更で
+  `ViewModels/DownloaderViewModel.swift`へ移植したが、次の2点は変更している。
+  ①シングルトン化(`.shared`) — `JobRunner.shared`と同じ理由で、サイドバーの選択を
+  切り替えるとdetailの`switch`が新しいView構造体を作り直すため、ペイン自身が
+  `@StateObject`で状態を持つ設計だとダウンロード中に他ペインへ切り替えただけで
+  進行中のダウンロード状態(進捗・ログ・`Process`参照)が失われてしまう
+  (mydownloaderは単一ウィンドウでこの問題自体が存在しなかった)。
+  ②独自実装だった`ToolLocator`(Homebrew既知パス3つ+ログインシェルの`command -v`)を
+  廃止し、既存の`Core/ToolLocator.swift`の`resolve`(キャッシュ+`NSLock`付き)に統一した。
+  `yt-dlp`/`ffmpeg`を同梱しない前提は引き継ぎ、「依存チェック」ペインにも`yt-dlp`の
+  項目を追加した。mydownloaderは「ウィンドウを閉じてもダウンロード継続」のために
+  `AppDelegate`+`NSApplication.shared.run()`直接呼び出し(SwiftUIの`WindowGroup`を
+  使わない構成)でDockアプリのライフサイクルを自前管理していたが、MyOrganizerは
+  元々`WindowGroup`1枚構成でこの問題設定自体が存在しない(アプリを終了しない限り
+  ウィンドウは開いたまま、サイドバーで別ペインへ切り替えるだけ)ため、この部分は
+  移植していない — 上記①のシングルトン化だけで「ペインを離れてもダウンロードは
+  裏で継続する」という実質的な要件は満たされる。
 - `ffmpeg` / `ffprobe` / `rsync` / `sips` / `mdls` は外部コマンドとしてそのまま呼ぶ
   （同梱しない）。`sips` / `mdls` はmacOS標準、`ffmpeg` / `ffprobe` / `rsync` は
   Homebrew前提（`Core/ToolLocator.swift` が `/opt/homebrew/bin` → `/usr/local/bin` →
@@ -52,10 +71,11 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
 
 - `Main.swift` — エントリポイント + `appVersion`。`WindowGroup`1本のみ(メイン画面)。
   実行状況・実行ログは別ウィンドウではなく各ペイン内に埋め込む方式(下記)。
-- `ContentView.swift` — `NavigationSplitView` のサイドバー。14ペインを「画像系」(写真整理/
-  誤配置修正/日付推定)・「動画系」(動画整理/エンコード/短い動画検索/動画重複)・「その他」
-  (リネーム/同期/クリーン/ストレージ分析/アプリ削除/依存チェック — 画像・動画どちらか
-  専用ではない汎用機能)の3セクション(`sidebarGroups`)にグルーピングして`List`の`Section`で表示する。
+- `ContentView.swift` — `NavigationSplitView` のサイドバー。15ペインを「画像系」(写真整理/
+  誤配置修正/日付推定)・「動画系」(動画整理/エンコード/短い動画検索/動画重複/まとめ動画)・
+  「その他」(リネーム/同期/OneDrive同期/クリーン/ストレージ分析/アプリ削除/ダウンロード/
+  依存チェック — 画像・動画どちらか専用ではない汎用機能)の3セクション(`sidebarGroups`)に
+  グルーピングして`List`の`Section`で表示する。
   選択(`selection: SidebarItem?`)はセクションをまたいで共通の1つの`Binding`。
 - `Core/`
   - `RenameEngine.swift` — 旧renamerのルールエンジン(状態を持たない純粋ロジック)。
@@ -813,6 +833,14 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
   `0...(pool.count-1)`の範囲を`count`等分した位置(`round(i * (pool.count-1) / (count-1))`)
   ごとに1本ずつ選ぶ ― 結果はファイル順(昇順)を保ったまま、フォルダ全体
   (先頭〜末尾)から均等にサンプリングされる。
+- `ViewModels/DownloaderViewModel.swift` + `Views/DownloaderView.swift` — 「ダウンロード」
+  ペイン(旧`mydownloader/`アプリの移植、上記「設計上の方針」参照)。他ペインの
+  `XxxViewModel`と違い`DownloaderViewModel`は`.shared`シングルトン(`JobRunner.shared`と
+  同じ理由)で、`DownloaderView`は`@StateObject`で受け取るのではなく
+  `@StateObject private var manager = DownloaderViewModel.shared`という形でこの
+  シングルトンを参照する(新規にインスタンス化しない)。`JobRunner`は使わず、
+  busy確認(他ジョブ実行中の警告)の対象にもしていない — ダウンロードは既存の
+  写真・動画ファイルを変更するジョブ群とは独立した処理のため。
 - `ViewModels/` / `Views/`(上記を除く) — ペインごとに1組。共通コンポーネントは
   `Views/JobLogSectionView.swift`(実行ボタンの下に置く実行ログセクション。`kind: JobKind`
   を受け取り、そのタブ自身のタイトル/詳細/進捗/中止ボタン + `LogConsoleView`のみを表示。

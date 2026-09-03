@@ -7,16 +7,23 @@ enum DownloadKind: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// 「ダウンロード」ペインの状態 + yt-dlp実行(旧MyDownloaderアプリからの移植)。
+/// アプリ全体で1つ(`.shared`)を使う ― サイドバー切り替えでビューが再生成されても
+/// ダウンロード中の状態(進捗・ログ・Process)を失わないようにするため
+/// (`JobRunner.shared`と同じ理由・同じパターン)。他ペインの`JobRunner`とは独立に動く
+/// (ダウンロードはファイル整理系のジョブと競合しないため、busy確認の対象外)。
 @MainActor
-final class YtDlpManager: ObservableObject {
+final class DownloaderViewModel: ObservableObject {
+    static let shared = DownloaderViewModel()
+    private init() {}
+
     @Published var isRunning = false
     @Published var progress: Double = 0          // 0...1(不明なときは負)
     @Published var statusLine = ""               // 進捗の1行サマリ
     @Published var log = ""                      // yt-dlp の生ログ
 
-    // ツールの場所(起動時に解決)
-    let ytdlpPath = ToolLocator.locate("yt-dlp")
-    let ffmpegPath = ToolLocator.locate("ffmpeg")
+    var ytdlpPath: String? { ToolLocator.resolve("yt-dlp") }
+    var ffmpegPath: String? { ToolLocator.resolve("ffmpeg") }
 
     var toolsReady: Bool { ytdlpPath != nil && ffmpegPath != nil }
 

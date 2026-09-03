@@ -17,6 +17,7 @@ struct PreflightView: View {
             ToolStatus(name: "ffmpeg", description: "動画のエンコード・コンテナ変換に必要", path: ToolLocator.resolve("ffmpeg"), installHint: "brew install ffmpeg"),
             ToolStatus(name: "ffprobe", description: "動画メタデータ・長さの取得に必要（ffmpegに同梱）", path: ToolLocator.resolve("ffprobe"), installHint: "brew install ffmpeg"),
             ToolStatus(name: "rsync", description: "同期機能に使用。Homebrew版は日本語ファイル名(NFD/NFC)対応が向上", path: ToolLocator.resolve("rsync"), installHint: "brew install rsync"),
+            ToolStatus(name: "yt-dlp", description: "ダウンロード機能(YouTube)に必要。仕様変更に追従するため定期的に`brew upgrade yt-dlp`推奨", path: ToolLocator.resolve("yt-dlp"), installHint: "brew install yt-dlp"),
             ToolStatus(name: "sips", description: "写真のEXIF取得・HEIC変換（macOS標準）", path: ToolLocator.resolve("sips"), installHint: nil),
             ToolStatus(name: "mdls", description: "コンテンツ作成日の取得（macOS標準）", path: ToolLocator.resolve("mdls"), installHint: nil),
         ]
