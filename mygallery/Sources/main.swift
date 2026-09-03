@@ -63,12 +63,49 @@ let sortMenuEntries: [(title: String, order: SortOrder)] = [
 
 // MARK: - Model
 
+/// 写真・動画の取得元。ローカルフォルダブラウズと OneDrive ブラウズは同時に混在せず、
+/// サイドバーのモード切替(`MainWindowController.isOneDriveMode`)で排他的に切り替わる。
+enum PhotoSource: Equatable {
+    case local
+    case oneDrive(linkID: String)
+}
+
 struct PhotoItem: Equatable {
+    /// ローカルファイルURL、またはOneDriveの署名付きダウンロードURL(`@content.downloadUrl`)。
+    /// どちらも `CGImageSourceCreateWithURL`/`AVPlayer` にそのまま渡せる。
     let url: URL
     let mtime: Date
     let fileSize: Int64
-    var isVideo: Bool { videoExtensions.contains(url.pathExtension.lowercased()) }
-    static func == (a: PhotoItem, b: PhotoItem) -> Bool { a.url == b.url }
+    let source: PhotoSource
+    /// OneDriveアイテムの安定識別子(`MediaItem.remoteID`)。ローカルは nil。
+    let remoteID: String?
+    /// OneDrive共有フォルダのルートから見た、このファイルを含むフォルダのパスコンポーネント。
+    /// ローカルは常に空。
+    let folderPath: [String]
+    /// **拡張子判定は呼び出し側(`PhotoStore.rescan`/OneDrive変換)が行い、結果をそのまま
+    /// 格納する** — ローカルの`videoExtensions`(mp4/mov/m4vのみ、AVFoundationが確実に
+    /// 再生・フレーム抽出できるコンテナに絞ってある)と、OneDrive側の`OneDriveMediaClient`
+    /// が対応する動画拡張子(mkv/webm等も含む、より広い)は範囲が異なるため、単一のグローバル
+    /// 拡張子セットで両方を判定することはできない。
+    let isVideo: Bool
+
+    init(url: URL, mtime: Date, fileSize: Int64, isVideo: Bool, source: PhotoSource = .local,
+         remoteID: String? = nil, folderPath: [String] = []) {
+        self.url = url
+        self.mtime = mtime
+        self.fileSize = fileSize
+        self.isVideo = isVideo
+        self.source = source
+        self.remoteID = remoteID
+        self.folderPath = folderPath
+    }
+
+    /// サムネイル/フルサイズキャッシュ・識別用の安定キー。OneDriveの署名付きURLは
+    /// 再スキャンのたびにクエリトークンが変わるため、`url.path`ではなく`remoteID`
+    /// (無ければ`url.path`、ローカルの場合)をキーにする。
+    var cacheKey: String { remoteID ?? url.path }
+
+    static func == (a: PhotoItem, b: PhotoItem) -> Bool { a.cacheKey == b.cacheKey }
 }
 
 /// サイドバーのフォルダツリー。NSOutlineView の item として使うので NSObject。
@@ -121,7 +158,8 @@ final class PhotoStore {
                     else { continue }
                     items.append(PhotoItem(url: u.standardizedFileURL,
                                            mtime: rv.contentModificationDate ?? .distantPast,
-                                           fileSize: Int64(rv.fileSize ?? 0)))
+                                           fileSize: Int64(rv.fileSize ?? 0),
+                                           isVideo: videoExtensions.contains(u.pathExtension.lowercased())))
                 }
             }
             DispatchQueue.main.async {
@@ -148,7 +186,8 @@ final class PhotoStore {
         else { return }
         photos[idx] = PhotoItem(url: photos[idx].url,
                                 mtime: rv.contentModificationDate ?? photos[idx].mtime,
-                                fileSize: Int64(rv.fileSize ?? Int(photos[idx].fileSize)))
+                                fileSize: Int64(rv.fileSize ?? Int(photos[idx].fileSize)),
+                                isVideo: photos[idx].isVideo)
     }
 
     /// サイドバーでチェックされたフォルダ群の写真の和集合。パスは常にルート配下の
@@ -251,28 +290,32 @@ final class ThumbnailLoader {
 
     private init() { cache.countLimit = 1500 }
 
-    func cached(_ url: URL) -> NSImage? {
-        cache.object(forKey: url.path as NSString)
+    func cached(_ item: PhotoItem) -> NSImage? {
+        cache.object(forKey: item.cacheKey as NSString)
     }
 
     /// ファイル内容を書き換えた後、メモリキャッシュの古いサムネイルを追い出す
     /// (ディスクキャッシュは mtime をキーに含むので新しい mtime で自動的に再生成される)。
-    func invalidate(_ url: URL) {
-        cache.removeObject(forKey: url.path as NSString)
+    func invalidate(_ item: PhotoItem) {
+        cache.removeObject(forKey: item.cacheKey as NSString)
     }
 
     /// mtime も鍵に含めるので、ファイルが更新されればディスクキャッシュは自動的に無効化される。
-    func request(_ url: URL, mtime: Date, completion: @escaping (URL, NSImage?) -> Void) {
-        let key = url.path
-        if let img = cache.object(forKey: key as NSString) { completion(url, img); return }
+    /// キャッシュキーは`item.cacheKey`(OneDriveはremoteID、ローカルはurl.path) — 実際の
+    /// フェッチ先である`item.url`(OneDriveの署名付きURLは再スキャンごとに変わる)とは別。
+    func request(_ item: PhotoItem, completion: @escaping (String, NSImage?) -> Void) {
+        let key = item.cacheKey
+        let url = item.url
+        let mtime = item.mtime
+        if let img = cache.object(forKey: key as NSString) { completion(key, img); return }
         if waiters[key] != nil {
-            waiters[key]!.append { completion(url, $0) }
+            waiters[key]!.append { completion(key, $0) }
             return
         }
-        waiters[key] = [{ completion(url, $0) }]
+        waiters[key] = [{ completion(key, $0) }]
         queue.addOperation { [weak self] in
             guard let self = self else { return }
-            let diskURL = ThumbnailLoader.diskCacheURL(for: url, mtime: mtime)
+            let diskURL = ThumbnailLoader.diskCacheURL(for: key, mtime: mtime)
             var img: NSImage?
             if let cg = ThumbnailLoader.loadDiskCG(diskURL) {
                 img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
@@ -322,8 +365,8 @@ final class ThumbnailLoader {
 
     // MARK: disk cache
 
-    private static func diskCacheURL(for url: URL, mtime: Date) -> URL {
-        let raw = "\(url.path)|\(mtime.timeIntervalSince1970)"
+    private static func diskCacheURL(for cacheKey: String, mtime: Date) -> URL {
+        let raw = "\(cacheKey)|\(mtime.timeIntervalSince1970)"
         let digest = SHA256.hash(data: Data(raw.utf8))
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         return diskCacheDir.appendingPathComponent(hex).appendingPathExtension("jpg")
@@ -524,20 +567,20 @@ final class PhotoCell: NSCollectionViewItem {
     }
 
     func configure(with photo: PhotoItem, badgeText: String?) {
-        currentPath = photo.url.path
+        currentPath = photo.cacheKey
         view.toolTip = photo.url.lastPathComponent
         sizeLabel.isHidden = (badgeText == nil)
         if let badgeText {
             sizeLabel.stringValue = "  \(badgeText)  "
         }
         videoIcon.isHidden = !photo.isVideo
-        if let img = ThumbnailLoader.shared.cached(photo.url) {
+        if let img = ThumbnailLoader.shared.cached(photo) {
             fill.image = img
             return
         }
         fill.image = nil
-        ThumbnailLoader.shared.request(photo.url, mtime: photo.mtime) { [weak self] url, img in
-            guard let self = self, self.currentPath == url.path else { return }
+        ThumbnailLoader.shared.request(photo) { [weak self] key, img in
+            guard let self = self, self.currentPath == key else { return }
             self.fill.image = img
         }
     }
@@ -1062,6 +1105,15 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 final class ViewerOverlay: NSView {
     var onClose: (() -> Void)?
     var onStep: ((Int) -> Void)?
+    /// スライドショー中(`SlideshowController`が`true`にする)。Spaceキーの意味が
+    /// 「写真を閉じる」から「一時停止/再開」に変わり、動画は`onVideoFinished`で
+    /// 自動的に次へ進めるようになる。
+    var slideshowMode = false
+    /// スライドショー中、動画が最後まで再生し終わったときに呼ばれる。
+    var onVideoFinished: (() -> Void)?
+    /// スライドショー中、Spaceキーが押されたときに呼ばれる(一時停止/再開は
+    /// `SlideshowController`が`pauseVideo()`/`resumeVideo()`経由で行う)。
+    var onTogglePause: (() -> Void)?
 
     private let imageView = FillImageView(gravity: .resizeAspect)
     private let playerView: AVPlayerView = {
@@ -1073,6 +1125,7 @@ final class ViewerOverlay: NSView {
     private let infoLabel = NSTextField(labelWithString: "")
     private var currentPath: String?
     private var currentIsVideo = false
+    private var videoEndObserver: NSObjectProtocol?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -1113,28 +1166,41 @@ final class ViewerOverlay: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func show(photo: PhotoItem, index: Int, total: Int) {
-        currentPath = photo.url.path
+        currentPath = photo.cacheKey
         currentIsVideo = photo.isVideo
         infoLabel.stringValue = "  \(photo.url.lastPathComponent) — \(index + 1) / \(total)  "
         playerView.player?.pause()
+        if let observer = videoEndObserver {
+            NotificationCenter.default.removeObserver(observer)
+            videoEndObserver = nil
+        }
 
         if photo.isVideo {
             imageView.isHidden = true
             playerView.isHidden = false
+            // スライドショー中は自前のコントロールバーだけを使い、AVKit標準の
+            // コントロールと二重に持たせない(通常の手動視聴では従来通り表示する)。
+            playerView.controlsStyle = slideshowMode ? .none : .floating
             let player = AVPlayer(url: photo.url)
             playerView.player = player
             player.play()
+            if slideshowMode, let item = player.currentItem {
+                videoEndObserver = NotificationCenter.default.addObserver(
+                    forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+                ) { [weak self] _ in self?.onVideoFinished?() }
+            }
         } else {
             playerView.player = nil
             playerView.isHidden = true
             imageView.isHidden = false
             // まずグリッドのサムネイルを即表示し、裏で高解像度(最大 4096px)を読む
-            imageView.image = ThumbnailLoader.shared.cached(photo.url)
+            imageView.image = ThumbnailLoader.shared.cached(photo)
             let url = photo.url
+            let key = photo.cacheKey
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let img = ThumbnailLoader.generate(url: url, maxPixel: 4096)
                 DispatchQueue.main.async {
-                    guard let self = self, self.currentPath == url.path else { return }
+                    guard let self = self, self.currentPath == key else { return }
                     if let img = img { self.imageView.image = img }
                 }
             }
@@ -1146,15 +1212,30 @@ final class ViewerOverlay: NSView {
     /// ビューアがウインドウから外れた(閉じられた)ら、裏で音声が鳴り続けないよう再生を止める。
     override func viewDidMoveToSuperview() {
         super.viewDidMoveToSuperview()
-        if superview == nil { playerView.player?.pause() }
+        if superview == nil {
+            playerView.player?.pause()
+            if let observer = videoEndObserver {
+                NotificationCenter.default.removeObserver(observer)
+                videoEndObserver = nil
+            }
+        }
     }
+
+    /// スライドショー中の一時停止/再開(`SlideshowController`から呼ばれる)。
+    func pauseVideo() { playerView.player?.pause() }
+    func resumeVideo() { playerView.player?.play() }
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
         case 53:   // Esc
             onClose?()
-        case 49:   // Space — 動画再生中は誤操作で閉じないよう無視(再生/一時停止はプレイヤーのコントロールで)
-            if !currentIsVideo { onClose?() }
+        case 49:   // Space — スライドショー中は一時停止/再開、通常時は動画は誤操作で
+                   // 閉じないよう無視(再生/一時停止はプレイヤーのコントロールで)。
+            if slideshowMode {
+                onTogglePause?()
+            } else if !currentIsVideo {
+                onClose?()
+            }
         case 123, 126: // ← / ↑
             onStep?(-1)
         case 124, 125: // → / ↓
@@ -1530,10 +1611,10 @@ final class DuplicateItemCard: NSView {
     func loadThumbnailIfNeeded() {
         guard !thumbnailRequested else { return }
         thumbnailRequested = true
-        if let cached = ThumbnailLoader.shared.cached(candidate.photo.item.url) {
+        if let cached = ThumbnailLoader.shared.cached(candidate.photo.item) {
             fill.image = cached
         } else {
-            ThumbnailLoader.shared.request(candidate.photo.item.url, mtime: candidate.photo.item.mtime) { [weak self] _, img in
+            ThumbnailLoader.shared.request(candidate.photo.item) { [weak self] _, img in
                 self?.fill.image = img
             }
         }
@@ -2825,17 +2906,134 @@ final class FilterPopoverViewController: NSViewController {
     }
 }
 
+/// ツールバーの「スライドショー」ボタンから開くポップオーバーの中身。
+/// ランダム再生・写真の表示秒数・時間制限・自動全画面のオン/オフを設定し、
+/// 「スライドショー開始」ボタンで実際に開始する(MySlideshowの`HomeView`の
+/// 「スライドショー設定」`GroupBox`と同じ項目、表示モードはこのアプリでは
+/// 全画面のみなのでピッカーは無い)。
+final class SlideshowSettingsPopoverViewController: NSViewController {
+    var onStart: (() -> Void)?
+
+    private let shuffleCheckbox = NSButton(checkboxWithTitle: "ランダム再生", target: nil, action: nil)
+    private let durationSlider = NSSlider(value: 6, minValue: 3, maxValue: 15, target: nil, action: nil)
+    private let durationLabel = NSTextField(labelWithString: "")
+    private let timeLimitSlider = NSSlider(value: 0, minValue: 0, maxValue: 12, target: nil, action: nil)
+    private let timeLimitLabel = NSTextField(labelWithString: "")
+    private let autoFullscreenCheckbox = NSButton(checkboxWithTitle: "自動的に全画面にする", target: nil, action: nil)
+
+    /// 5分刻み、末尾(index 12)が無制限。MySlideshowの`Settings.timeLimitMinutes`と
+    /// 同じ「スライダーの右端が無制限」という設計を踏襲。
+    private static let timeLimitOptions: [Int?] = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, nil]
+
+    override func loadView() {
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: 10))
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        shuffleCheckbox.target = self
+        shuffleCheckbox.action = #selector(settingChanged)
+        stack.addArrangedSubview(shuffleCheckbox)
+
+        let durationTitle = NSTextField(labelWithString: "表示秒数")
+        durationTitle.font = .systemFont(ofSize: 11)
+        let durationRow = NSStackView(views: [durationTitle, durationSlider, durationLabel])
+        durationRow.orientation = .horizontal
+        durationSlider.target = self
+        durationSlider.action = #selector(settingChanged)
+        durationSlider.isContinuous = true
+        durationSlider.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        durationLabel.font = .systemFont(ofSize: 11)
+        stack.addArrangedSubview(durationRow)
+
+        let timeLimitTitle = NSTextField(labelWithString: "時間制限")
+        timeLimitTitle.font = .systemFont(ofSize: 11)
+        let timeLimitRow = NSStackView(views: [timeLimitTitle, timeLimitSlider, timeLimitLabel])
+        timeLimitRow.orientation = .horizontal
+        timeLimitSlider.target = self
+        timeLimitSlider.action = #selector(settingChanged)
+        timeLimitSlider.numberOfTickMarks = Self.timeLimitOptions.count
+        timeLimitSlider.allowsTickMarkValuesOnly = true
+        timeLimitSlider.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        timeLimitLabel.font = .systemFont(ofSize: 11)
+        stack.addArrangedSubview(timeLimitRow)
+
+        autoFullscreenCheckbox.target = self
+        autoFullscreenCheckbox.action = #selector(settingChanged)
+        stack.addArrangedSubview(autoFullscreenCheckbox)
+
+        let startButton = NSButton(title: "スライドショー開始", target: self, action: #selector(startTapped))
+        startButton.bezelStyle = .rounded
+        stack.addArrangedSubview(startButton)
+
+        root.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 14),
+            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -14),
+            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -14),
+        ])
+        root.widthAnchor.constraint(greaterThanOrEqualToConstant: 300).isActive = true
+        view = root
+    }
+
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        loadFromSettings()
+    }
+
+    private func loadFromSettings() {
+        shuffleCheckbox.state = GallerySettings.slideshowShuffleEnabled ? .on : .off
+        durationSlider.doubleValue = GallerySettings.slideshowPhotoDurationSeconds
+        durationLabel.stringValue = "\(Int(durationSlider.doubleValue))秒"
+        timeLimitSlider.maxValue = Double(Self.timeLimitOptions.count - 1)
+        let idx = Self.timeLimitOptions.firstIndex { $0 == GallerySettings.slideshowTimeLimitMinutes }
+            ?? (Self.timeLimitOptions.count - 1)
+        timeLimitSlider.doubleValue = Double(idx)
+        timeLimitLabel.stringValue = Self.timeLimitOptions[idx].map { "\($0)分" } ?? "無制限"
+        autoFullscreenCheckbox.state = GallerySettings.slideshowAutoFullscreen ? .on : .off
+    }
+
+    @objc private func settingChanged() {
+        GallerySettings.slideshowShuffleEnabled = shuffleCheckbox.state == .on
+        let duration = durationSlider.doubleValue.rounded()
+        GallerySettings.slideshowPhotoDurationSeconds = duration
+        durationLabel.stringValue = "\(Int(duration))秒"
+        let idx = Int(timeLimitSlider.doubleValue.rounded())
+        let minutes = Self.timeLimitOptions[min(max(idx, 0), Self.timeLimitOptions.count - 1)]
+        GallerySettings.slideshowTimeLimitMinutes = minutes
+        timeLimitLabel.stringValue = minutes.map { "\($0)分" } ?? "無制限"
+        GallerySettings.slideshowAutoFullscreen = autoFullscreenCheckbox.state == .on
+    }
+
+    @objc private func startTapped() {
+        onStart?()
+    }
+}
+
 // MARK: - Main window controller
 
 final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuItemValidation {
     private let store = PhotoStore()
     private let sidebarVC = SidebarViewController()
+    private lazy var sidebarContainerVC = SidebarModeContainerViewController(localVC: sidebarVC)
     private let gridVC = GridViewController()
     private let splitVC = NSSplitViewController()
     private var viewer: ViewerOverlay?
     private var viewerIndex = 0
     private var slider: NSSlider!
     private var duplicatesWC: DuplicatesWindowController?
+
+    /// サイドバーが「OneDrive」モードのとき true。ローカル専用機能(回転・ゴミ箱・
+    /// 重複検出・Visionベースのフィルター・画質順ソート)はこの間すべて無効化する
+    /// (`validateMenuItem`参照)。
+    private var isOneDriveMode = false
+    private var oneDriveLoadGeneration = 0
+    private let slideshow = SlideshowController()
+    private var slideshowSettingsPopover: NSPopover?
+    private var slideshowSettingsVC: SlideshowSettingsPopoverViewController?
 
     private var sortOrder: SortOrder = .dateDesc {
         didSet {
@@ -2865,6 +3063,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private static let thumbSliderItemID = NSToolbarItem.Identifier("thumbSize")
     private static let sortItemID = NSToolbarItem.Identifier("sort")
     private static let filterItemID = NSToolbarItem.Identifier("filter")
+    private static let slideshowItemID = NSToolbarItem.Identifier("slideshow")
 
     convenience init() {
         let window = NSWindow(
@@ -2900,7 +3099,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     }
 
     private func setupSplitView() {
-        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarVC)
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarContainerVC)
         sidebarItem.minimumThickness = 170
         sidebarItem.maximumThickness = 340
         splitVC.addSplitViewItem(sidebarItem)
@@ -2925,6 +3124,24 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
 
         sidebarVC.onCheckedChanged = { [weak self] in self?.reloadGrid() }
 
+        sidebarContainerVC.onModeChanged = { [weak self] isOneDrive in
+            guard let self else { return }
+            self.isOneDriveMode = isOneDrive
+            self.closeViewer()
+            if isOneDrive {
+                self.gridVC.items = []
+                self.gridVC.setEmptyState("OneDriveのリンクを選んで「読み込み」を押してください")
+                self.window?.title = "OneDrive"
+            } else {
+                self.window?.title = self.store.rootURL?.lastPathComponent ?? "MyGallery"
+                self.reloadGrid()
+            }
+            self.updateSubtitle()
+        }
+        sidebarContainerVC.oneDriveVC.onLoadRequested = { [weak self] link, folders in
+            self?.loadOneDrive(link: link, folders: folders)
+        }
+
         gridVC.collectionView.onOpen = { [weak self] index in self?.openViewer(at: index) }
         gridVC.collectionView.onDropFolder = { [weak self] url in self?.setRoot(url) }
         gridVC.collectionView.onSelectionChanged = { [weak self] in self?.updateSubtitle() }
@@ -2945,6 +3162,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     // MARK: root / reload
 
     func setRoot(_ url: URL) {
+        sidebarContainerVC.switchToLocal()   // OneDriveモード中の⌘O等はローカルモードへ強制的に戻す
         closeViewer()
         window?.title = url.lastPathComponent
         gridVC.items = []
@@ -2957,7 +3175,60 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         reloadGrid()
     }
 
+    /// OneDriveリンクをスキャンして`gridVC.items`に読み込む(`OneDriveSidebarViewController
+    /// .onLoadRequested`から呼ばれる)。ローカルの`reloadGrid()`パイプライン(フィルター/
+    /// 画質順ソート)は一切通さない — OneDriveアイテムはVision解析対象外のため。
+    private func loadOneDrive(link: OneDriveLink, folders: Set<String>) {
+        closeViewer()
+        oneDriveLoadGeneration += 1
+        let gen = oneDriveLoadGeneration
+        window?.title = link.name
+        gridVC.items = []
+        gridVC.setEmptyState("読み込み中…")
+        sidebarContainerVC.oneDriveVC.setStatus("読み込み中…")
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let (_, items) = try await OneDriveMediaClient.scanWithRetry(
+                    shareURL: link.url, onlyTopLevelFolders: folders)
+                let filtered = items.filter { link.kindFilter == nil || $0.kind == link.kindFilter }
+                let photoItems = filtered
+                    .sorted {
+                        ($0.folderPath + [$0.name]).joined(separator: "/")
+                            .localizedStandardCompare(($1.folderPath + [$1.name]).joined(separator: "/")) == .orderedAscending
+                    }
+                    .map { media in
+                        PhotoItem(url: media.downloadURL,
+                                  mtime: media.modifiedDate ?? .distantPast,
+                                  fileSize: 0,
+                                  isVideo: media.kind == .video,
+                                  source: .oneDrive(linkID: link.id),
+                                  remoteID: media.remoteID,
+                                  folderPath: media.folderPath)
+                    }
+                await MainActor.run {
+                    guard self.oneDriveLoadGeneration == gen else { return }
+                    self.sidebarContainerVC.oneDriveVC.setStatus("")
+                    self.gridVC.items = photoItems
+                    self.gridVC.setEmptyState(photoItems.isEmpty ? "写真が見つかりません" : nil)
+                    self.updateSubtitle()
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.oneDriveLoadGeneration == gen else { return }
+                    self.sidebarContainerVC.oneDriveVC.setStatus("")
+                    self.gridVC.setEmptyState("読み込みに失敗しました")
+                    let a = NSAlert()
+                    a.messageText = "OneDriveから読み込めませんでした"
+                    a.informativeText = error.localizedDescription
+                    a.runModal()
+                }
+            }
+        }
+    }
+
     private func reloadGrid() {
+        guard !isOneDriveMode else { return }
         applyFilter(to: store.photos(checkedPaths: sidebarVC.checkedPaths, order: sortOrder))
     }
 
@@ -3146,6 +3417,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     }
 
     private func closeViewer() {
+        if slideshow.isRunning { slideshow.stop() }
         guard let v = viewer, v.superview != nil else { return }
         v.removeFromSuperview()
         gridVC.select(index: viewerIndex)
@@ -3228,7 +3500,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
 
         for p in rotated {
-            ThumbnailLoader.shared.invalidate(p.url)
+            ThumbnailLoader.shared.invalidate(p)
             store.refreshMtime(at: p.url.path)
         }
         if !rotated.isEmpty {
@@ -3289,7 +3561,28 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     @objc func changeSort(_ sender: NSMenuItem) {
         guard let order = SortOrder(rawValue: sender.tag) else { return }
         sortOrder = order
-        reloadGrid()
+        if isOneDriveMode {
+            resortOneDriveGrid()
+        } else {
+            reloadGrid()
+        }
+    }
+
+    /// OneDriveモード用の簡易な並び替え(`reloadGrid()`のフィルター/画質順ソート
+    /// パイプラインは通さない — Vision解析はローカル専用のため、名前順・新しい順・
+    /// 古い順だけ意味を持つ。`validateMenuItem`が画質順メニューをこのモードでは
+    /// 無効化しているのでここには来ない)。
+    private func resortOneDriveGrid() {
+        var items = gridVC.items
+        switch sortOrder {
+        case .dateDesc: items.sort { $0.mtime > $1.mtime }
+        case .dateAsc: items.sort { $0.mtime < $1.mtime }
+        case .name:
+            items.sort { $0.url.lastPathComponent.localizedStandardCompare($1.url.lastPathComponent) == .orderedAscending }
+        case .sizeDesc, .sizeAsc, .qualityDesc, .qualityAsc:
+            break   // OneDriveでは意味を持たない(サイズは常に0、画質はVision解析対象外)
+        }
+        gridVC.items = items
     }
 
     @objc func zoomIn(_ sender: Any?)  { setCellSize(gridVC.cellSize + 32) }
@@ -3321,16 +3614,28 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         switch menuItem.action {
         case #selector(revealInFinder(_:)), #selector(copy(_:)), #selector(trashSelection(_:)),
              #selector(rotateAndSave(_:)):
-            return !targetPhotos().isEmpty
+            // 回転・ゴミ箱・Finder表示・コピーはローカルファイル前提(OneDriveアイテムは
+            // リモートURLで、ローカルファイル操作が成立しない)。
+            return !isOneDriveMode && !targetPhotos().isEmpty
         case #selector(refresh(_:)), #selector(findDuplicates(_:)):
-            return store.rootURL != nil
+            // 再スキャン・重複検出もローカル専用(重複検出はSHA-256/dHashでローカル
+            // ファイルの内容を読む)。
+            return !isOneDriveMode && store.rootURL != nil
         case #selector(changeSort(_:)):
             menuItem.state = (menuItem.tag == sortOrder.rawValue) ? .on : .off
+            if isOneDriveMode {
+                // 画質順ソート(Vision解析)はOneDriveでは意味を持たないため無効化する。
+                // 名前順・日付順・サイズ順は許可(サイズは常に0だが害はない)。
+                guard let order = SortOrder(rawValue: menuItem.tag) else { return false }
+                return !order.showsQuality && !gridVC.items.isEmpty
+            }
             return store.rootURL != nil
         case #selector(zoomIn(_:)):
             return gridVC.cellSize < maxCellSize
         case #selector(zoomOut(_:)):
             return gridVC.cellSize > minCellSize
+        case #selector(startSlideshow(_:)):
+            return !gridVC.items.isEmpty
         default:
             return true
         }
@@ -3339,7 +3644,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     // MARK: toolbar
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, Self.sortItemID, Self.filterItemID, .flexibleSpace, Self.thumbSliderItemID]
+        [.toggleSidebar, Self.sortItemID, Self.filterItemID, Self.slideshowItemID,
+         .flexibleSpace, Self.thumbSliderItemID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -3382,6 +3688,18 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                 image: NSImage(systemSymbolName: "arrow.up.arrow.down.circle",
                                accessibilityDescription: "並び替え") ?? NSImage(),
                 target: self, action: #selector(toggleSortPopover(_:)))
+            button.bezelStyle = .texturedRounded
+            item.view = button
+            return item
+        }
+        if itemIdentifier == Self.slideshowItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "スライドショー"
+            item.paletteLabel = "スライドショー"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "play.rectangle",
+                               accessibilityDescription: "スライドショー") ?? NSImage(),
+                target: self, action: #selector(toggleSlideshowSettingsPopover(_:)))
             button.bezelStyle = .texturedRounded
             item.view = button
             return item
@@ -3432,6 +3750,43 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         pop.behavior = .transient
         pop.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
         filterPopover = pop
+    }
+
+    @objc private func toggleSlideshowSettingsPopover(_ sender: NSButton) {
+        if let pop = slideshowSettingsPopover, pop.isShown {
+            pop.performClose(nil)
+            return
+        }
+        let vc = slideshowSettingsVC ?? {
+            let vc = SlideshowSettingsPopoverViewController()
+            vc.onStart = { [weak self] in
+                self?.slideshowSettingsPopover?.performClose(nil)
+                self?.startSlideshow(nil)
+            }
+            slideshowSettingsVC = vc
+            return vc
+        }()
+        let pop = NSPopover()
+        pop.contentViewController = vc
+        pop.behavior = .transient
+        pop.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+        slideshowSettingsPopover = pop
+    }
+
+    /// スライドショーを開始する(ローカル・OneDriveどちらでブラウズ中でも、`gridVC.items`
+    /// に現在表示されているものをそのまま対象にする)。
+    @objc func startSlideshow(_ sender: Any?) {
+        guard !gridVC.items.isEmpty else { return }
+        let startIndex = viewerVisible ? viewerIndex
+            : (gridVC.collectionView.selectionIndexPaths.first?.item ?? 0)
+        openViewer(at: startIndex)
+        guard let v = viewer else { return }
+        slideshow.onIndexChanged = { [weak self] index in self?.viewerIndex = index }
+        slideshow.start(overlay: v, window: window, items: gridVC.items, startIndex: startIndex,
+                         shuffle: GallerySettings.slideshowShuffleEnabled,
+                         photoDuration: GallerySettings.slideshowPhotoDurationSeconds,
+                         timeLimitMinutes: GallerySettings.slideshowTimeLimitMinutes,
+                         autoFullscreen: GallerySettings.slideshowAutoFullscreen)
     }
 }
 
@@ -3546,6 +3901,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         sortItem.submenu = sortMenu
         viewMenu.addItem(sortItem)
+        viewMenu.addItem(NSMenuItem.separator())
+        viewMenu.addItem(withTitle: "スライドショー開始",
+                         action: #selector(MainWindowController.startSlideshow(_:)), keyEquivalent: "")
         viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "サムネイルを大きく",
                          action: #selector(MainWindowController.zoomIn(_:)), keyEquivalent: "+")

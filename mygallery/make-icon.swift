@@ -1,14 +1,15 @@
 #!/usr/bin/env swift
-// 白背景に黒の写真フレーム(SF Symbol "photo")のシルエットを描いたマスターアイコンを
-// 生成する。mygames と同じ「白背景 + 単色シルエット」構成で、シルエット色(黒)は
-// mygames/mytube/myslideshow と共通(自作アプリでファミリー感を揃えている)。build.sh が
-// Resources/AppIcon.png から iconset/icns をビルド時に都度生成するので、
-// ここでは 1024x1024 の master PNG のみを出力する。
+// MyPassと同じ紫グラデーション背景に、白の写真フレーム(SF Symbol "photo")の
+// シルエットを描いたマスターアイコンを生成する。MyGalleryはMyTubeと同じく
+// 2026-09-02に「白背景+黒シルエット」の統一から離脱し、MyPassと背景色を揃えた
+// (ユーザー指示)。build.sh が Resources/AppIcon.png から iconset/icns を
+// ビルド時に都度生成するので、ここでは 1024x1024 の master PNG のみを出力する。
 //   実行: swift make-icon.swift   →  Resources/AppIcon.png を出力
 import AppKit
 
-let bgWhite = NSColor.white
-let silhouetteBlack = NSColor.black // 黒 (mygames と共通)
+let purpleTop = NSColor(srgbRed: 0.55, green: 0.36, blue: 0.96, alpha: 1) // MyPassと同じ紫グラデーション
+let purpleBottom = NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1)
+let silhouetteWhite = NSColor.white // 白 (旧・黒シルエットから変更)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -27,10 +28,10 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    bgWhite.setFill()
-    path.fill()
+    let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
+    gradient.draw(in: path, angle: -90)
 
-    // 中央に赤い写真(山と太陽の入った額縁)アイコン(SF Symbol "photo")のシルエット
+    // 中央に白い写真(山と太陽の入った額縁)アイコン(SF Symbol "photo")のシルエット
     let glyphSize = s * 0.46
     let config = NSImage.SymbolConfiguration(pointSize: glyphSize, weight: .regular)
     guard let symbol = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)?
@@ -45,7 +46,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     cg.beginTransparencyLayer(auxiliaryInfo: nil)
     symbol.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
     cg.setBlendMode(.sourceIn)
-    cg.setFillColor(silhouetteBlack.cgColor)
+    cg.setFillColor(silhouetteWhite.cgColor)
     cg.fill(CGRect(x: 0, y: 0, width: s, height: s))
     cg.endTransparencyLayer()
     cg.restoreGState()

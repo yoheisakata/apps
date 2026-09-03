@@ -16,6 +16,9 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="$DIR/build/mygallery"
 SRC="$DIR/Sources/main.swift"
+ONEDRIVE_SRC="$DIR/Sources/OneDriveMediaClient.swift"
+ONEDRIVE_SIDEBAR_SRC="$DIR/Sources/OneDriveSidebarViewController.swift"
+SLIDESHOW_SRC="$DIR/Sources/SlideshowController.swift"
 APP="$DIR/build/MyGallery.app"
 INSTALL_DIR="/Applications/MyApplications"
 INSTALLED="${INSTALL_DIR}/MyGallery.app"
@@ -25,12 +28,14 @@ VERSION="$(tr -d ' \n' < "$DIR/VERSION" 2>/dev/null || echo 1.0)"
 build() {
   mkdir -p "$DIR/build"
   echo "Building mygallery…"
-  swiftc -O -framework AppKit -framework Vision -framework AVFoundation -framework AVKit -o "$BIN" "$SRC"
+  swiftc -O -framework AppKit -framework Vision -framework AVFoundation -framework AVKit \
+    -o "$BIN" "$SRC" "$ONEDRIVE_SRC" "$ONEDRIVE_SIDEBAR_SRC" "$SLIDESHOW_SRC"
   echo "Built $BIN"
 }
 
 needs_build() {
-  [ ! -x "$BIN" ] || [ "$SRC" -nt "$BIN" ]
+  [ ! -x "$BIN" ] || [ "$SRC" -nt "$BIN" ] || [ "$ONEDRIVE_SRC" -nt "$BIN" ] \
+    || [ "$ONEDRIVE_SIDEBAR_SRC" -nt "$BIN" ] || [ "$SLIDESHOW_SRC" -nt "$BIN" ]
 }
 
 # Build the .icns from the master Resources/AppIcon.png if one exists.
