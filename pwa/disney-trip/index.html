@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ディズニー旅行">
 <meta name="theme-color" content="#0d1b3d">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏰</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230d1b3d%22/><text y=%22.88em%22 x=%2210%22 font-size=%2270%22>🏰</text></svg>">
 <title>ディズニー家族旅行 2026</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -113,7 +116,7 @@ footer{text-align:center;padding:20px 0 6px;font-size:0.68rem;color:rgba(238,242
 </div>
 
 <header>
-  <div class="app-version">v1.3.0</div>
+  <div class="app-version">v1.4.0</div>
   <h1>🏰 ディズニー家族旅行 2026</h1>
   <div class="subtitle">Sakata Family — 9/20〜9/28</div>
 </header>
@@ -425,6 +428,11 @@ bindChecklist('pack-list', 'disney-trip-packing');
     lockView.style.display = 'block';
   });
 })();
+</script>
+<script>
+if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+  navigator.serviceWorker.register("sw.js").catch(function () { /* オフライン化はできなくても動く */ });
+}
 </script>
 </body>
 </html>
