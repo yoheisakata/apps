@@ -5,8 +5,7 @@ import os
 // クライアント。`myslideshow/Sources/MySlideshow/Core/OneDriveMediaClient.swift` から
 // ほぼそのまま移植したもの(認証フロー自体はさらに遡って mytube の
 // `Core/OneDriveShareClient.swift` に由来する、非公開の内部API依存で予告なく仕様変更・
-// 遮断される可能性がある点も同じ)。追加したのは `listTopLevelFolders(shareURL:)`
-// (MyGallery だけの新機能である「リンク追加時に年フォルダ候補を自動取得する」ため)。
+// 遮断される可能性がある点も同じ)。
 //
 // **移植時に絶対に落としてはいけない設計**(myslideshow/CLAUDE.md に記録された失敗の
 // 経緯を踏まえたもの):
@@ -42,12 +41,19 @@ struct MediaItem: Identifiable, Hashable {
     let folderPath: [String]
     let modifiedDate: Date?
     let kind: MediaKind
+    /// バイト単位のファイルサイズ。APIレスポンスに`size`が無い場合のみ0
+    /// (通常のOneDriveアイテムには必ず付いてくる)。
+    let size: Int64
+    /// OneDriveがサーバー側で生成済みの小さいサムネイル画像(`large`、写真・動画とも
+    /// 数百px程度のJPEG)のURL。あれば`ThumbnailLoader`はこちらを使う ― `downloadURL`
+    /// (元ファイルそのもの、数MB〜数十MB)を毎回グリッド用に丸ごとダウンロードする
+    /// 必要がなくなる(2026-09-07追加、詳細は`CLAUDE.md`参照)。取得できなかった場合
+    /// (APIがまだ生成していない等)は`nil`で、呼び出し側は`downloadURL`にフォールバック
+    /// する。
+    let thumbnailURL: URL?
 }
 
 enum OneDriveMediaClient {
-    /// 1階層目のサブフォルダを持たない(ルート直下に置かれた)写真・動画のフォルダラベル。
-    static let rootFolderLabel = "(ルート)"
-
     static let videoExtensions: Set<String> = [
         "mp4", "mov", "m4v", "avi", "mkv", "webm", "wmv", "flv", "mpg", "mpeg", "3gp",
     ]
@@ -55,149 +61,254 @@ enum OneDriveMediaClient {
         "jpg", "jpeg", "png", "heic", "heif", "gif", "bmp", "tiff", "tif", "webp",
     ]
 
-    /// フォルダ構造を全階層たどる(深さ制限なし)。**呼び出し側はこれを直接呼ばず、
-    /// `scanWithRetry(shareURL:)`経由で呼ぶこと** — 深いフォルダ階層(年/月/日等)を持つ
-    /// 大きいライブラリでは、フォルダ数のぶんだけ逐次HTTPリクエストが発生し、途中の
-    /// どこかで一時的な接続断を踏む確率が上がる。`walk`は例外を投げるとそこまでの結果ごと
-    /// 丸ごと捨てて呼び出し元へ伝播するため、リトライ無しで一度でも失敗するとスキャン全体が
-    /// 「何も出てこない」ように見える。
-    static func scan(shareURL: String) async throws -> (sourceName: String, items: [MediaItem]) {
-        let token = try await mintToken()
-        let root = try await resolveShare(shareURL: shareURL, token: token)
-        GalleryLog.oneDrive.notice("resolveShare: name=\(root.name, privacy: .public) isFolder=\(root.folder != nil) driveId=\(root.driveId, privacy: .public) itemId=\(root.itemId, privacy: .public)")
-
-        if root.folder == nil {
-            let item = try await fetchItem(driveId: root.driveId, itemId: root.itemId, token: token)
-            guard let media = makeMediaItem(item, pathComponents: []) else { return (root.name, []) }
-            return (root.name, [media])
-        }
-
-        let results = try await walk(driveId: root.driveId, itemId: root.itemId, pathComponents: [], token: token)
-        GalleryLog.oneDrive.notice("scan完了: \(root.name, privacy: .public) 総件数=\(results.count)")
-        return (root.name, results)
-    }
-
-    /// `scan(shareURL:)`を、一時的なネットワークエラー(`URLError.networkConnectionLost`/
-    /// `.timedOut`)だけ自動で1回リトライするラッパー。
-    static func scanWithRetry(shareURL: String) async throws -> (sourceName: String, items: [MediaItem]) {
-        do {
-            return try await scan(shareURL: shareURL)
-        } catch {
-            guard isTransientNetworkError(error) else { throw error }
-            GalleryLog.oneDrive.notice("scanWithRetry: 一時的なネットワークエラーのため再試行します: \(String(describing: error), privacy: .public)")
-            return try await scan(shareURL: shareURL)
-        }
-    }
-
     private static func isTransientNetworkError(_ error: Error) -> Bool {
         guard let urlError = error as? URLError else { return false }
         return urlError.code == .networkConnectionLost || urlError.code == .timedOut
     }
 
-    /// `scan(shareURL:)`と違い、**ルート直下のうち`topLevelFolders`に名前が一致する
-    /// フォルダだけ**を深く辿る(一致しないフォルダは中に入らず丸ごとスキップする)。
-    /// ルート直下に直接置かれたファイルは`topLevelFolders`によるフィルタの対象外として
-    /// 常に含める(`rootFolderLabel`が`topLevelFolders`に含まれているときだけ)。
-    static func scan(shareURL: String, onlyTopLevelFolders topLevelFolders: Set<String>) async throws -> (sourceName: String, items: [MediaItem]) {
-        let token = try await mintToken()
-        let root = try await resolveShare(shareURL: shareURL, token: token)
-        GalleryLog.oneDrive.notice("resolveShare(絞込): name=\(root.name, privacy: .public) isFolder=\(root.folder != nil) 対象フォルダ=\(topLevelFolders.sorted().joined(separator: ","), privacy: .public)")
+    // MARK: - フォルダ構造だけを先に取得する2段階ロード(2026-09-06追加、同日中に
+    // Year/Monthの2階層固定・トップフォルダごとのストリーミング表示へ改修)
+    //
+    // 以前は`scan(shareURL:onlyTopLevelFolders:)`が「選んだ年フォルダの中身(実際の
+    // 写真・動画)まで全部集め終わってから返す」1回のスキャンだった。ユーザー要望
+    // 「タブを開いたらまずディレクトリ(年/月)だけ先に表示し、チェックされている
+    // フォルダのサムネイルを後から適宜表示したい」に対応するため、フェーズ1
+    // (`scanFolderStructureStream` ― フォルダ階層だけを高速に取得)とフェーズ2
+    // (`scanLeafFolders` ― チェック済みの葉フォルダだけを個別に、取得できたものから
+    // 順に取得)の2段階に分割した(2026-09-06)。旧`scan`/`scanWithRetry`/`walk`/
+    // `fetchItem`はこの2段階に置き換わり、呼び出し側が無くなったため削除済み。
+    //
+    // 実際のライブラリはYear/Month/Dayの3階層(日付フォルダ)まで存在するが、
+    // フォルダツリーでの表示・チェックはYear/Monthの2階層までで十分、というユーザー
+    // 判断により、フェーズ1は**Monthより深くは辿らない**(サブフォルダの有無を
+    // 判定するための「1ページだけ覗く」往復リクエストも不要になった ― 常に
+    // Monthを葉として扱う)。Day以下に実際にぶら下がっているファイルはフェーズ2の
+    // `scanLeafFolderItems`がMonthフォルダ配下を再帰的に辿って回収する(下記参照)。
+    // フォルダ階層が浅くなった分フェーズ1自体も速くなったが、それでも年フォルダが
+    // 複数あると体感できる待ち時間が残るため、**年フォルダ1つ分の解決が終わるたびに
+    // `AsyncThrowingStream`で随時返す**(全年フォルダぶん揃うまで待たせない ―
+    // 「レイヤーごとに徐々に表示してほしい」というユーザー要望への対応)。
 
-        if root.folder == nil {
-            let item = try await fetchItem(driveId: root.driveId, itemId: root.itemId, token: token)
-            guard let media = makeMediaItem(item, pathComponents: []) else { return (root.name, []) }
-            return (root.name, [media])
+    /// スキャン結果から見つかったフォルダ1つ(まだ中の写真・動画は取得していない)。
+    /// `driveId`/`itemId`を持っているので、後から`scanLeafFolders`でこのフォルダだけを
+    /// 個別に(再スキャンせず)取得できる。
+    struct OneDriveFolderRef: Hashable {
+        let driveId: String
+        let itemId: String
+        let name: String
+        /// ルートから見たパスコンポーネント(例: ["2026", "09"])。
+        let pathComponents: [String]
+        var children: [OneDriveFolderRef]
+
+        static func == (a: OneDriveFolderRef, b: OneDriveFolderRef) -> Bool { a.itemId == b.itemId }
+        func hash(into hasher: inout Hasher) { hasher.combine(itemId) }
+    }
+
+    /// **フェーズ1**: フォルダ階層(Year/Monthの2階層のみ)を、年フォルダが1つ解決する
+    /// たびに随時返すストリーム。`sourceName`(ルート名)が最初のイベントとして届き、
+    /// 以降は年フォルダ1つぶんの`OneDriveFolderRef`(Monthの子を含む)が届いた順に流れる。
+    /// 呼び出し側(`MainWindowController.loadOneDriveFolderStructure`)は届いた年フォルダを
+    /// その都度サイドバーのツリーに追加していく。
+    static func scanFolderStructureStream(
+        shareURL: String, onlyTopLevelFolders topLevelFolders: Set<String>
+    ) -> AsyncThrowingStream<(sourceName: String, yearFolder: OneDriveFolderRef), Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let token = try await mintToken()
+                    let root = try await resolveShare(shareURL: shareURL, token: token)
+                    guard root.folder != nil else { continuation.finish(); return }
+
+                    var matchingFolders: [DriveItemChild] = []
+                    var nextURLString: String? = childrenURL(driveId: root.driveId, itemId: root.itemId)
+                    while let current = nextURLString {
+                        var request = URLRequest(url: URL(string: current)!)
+                        request.httpMethod = "GET"
+                        request.cachePolicy = .reloadIgnoringLocalCacheData
+                        applyCommonHeaders(&request, token: token)
+                        let (data, response) = try await URLSession.shared.data(for: request)
+                        try checkOK(response, data: data)
+                        let page = try decode(ChildrenResponse.self, from: data)
+                        for child in page.value where child.folder != nil {
+                            guard topLevelFolders.contains(child.name) else { continue }
+                            matchingFolders.append(child)
+                        }
+                        nextURLString = page.nextLink
+                    }
+
+                    try await withThrowingTaskGroup(of: OneDriveFolderRef.self) { group in
+                        for child in matchingFolders {
+                            group.addTask {
+                                try await walkYearFolderWithRetry(
+                                    driveId: root.driveId, itemId: child.id, name: child.name,
+                                    pathComponents: [child.name], token: token)
+                            }
+                        }
+                        for try await yearFolder in group {
+                            continuation.yield((root.name, yearFolder))
+                        }
+                    }
+                    GalleryLog.oneDrive.notice("scanFolderStructureStream完了: \(root.name, privacy: .public) トップフォルダ数=\(matchingFolders.count)")
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
         }
+    }
 
-        var rootLevelMedia: [MediaItem] = []
-        var matchingFolders: [DriveItemChild] = []
-        var nextURLString: String? = childrenURL(driveId: root.driveId, itemId: root.itemId)
+    /// 年フォルダ直下の1ページ目(Month相当のサブフォルダのみ)を取得する。**Monthより
+    /// 深くは辿らない**(Day以下があっても`children: []`のまま葉として扱う ―
+    /// 実ファイルの回収はフェーズ2の`scanLeafFolderItems`が担う)。
+    private static func walkYearFolder(
+        driveId: String, itemId: String, name: String, pathComponents: [String], token: String
+    ) async throws -> OneDriveFolderRef {
+        var months: [DriveItemChild] = []
+        var nextURLString: String? = childrenURL(driveId: driveId, itemId: itemId)
         while let current = nextURLString {
             var request = URLRequest(url: URL(string: current)!)
             request.httpMethod = "GET"
             request.cachePolicy = .reloadIgnoringLocalCacheData
             applyCommonHeaders(&request, token: token)
 
-            let (data, response) = try await URLSession.shared.data(for: request)
+            await concurrencyLimiter.acquire()
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await URLSession.shared.data(for: request)
+            } catch {
+                await concurrencyLimiter.release()
+                throw error
+            }
+            await concurrencyLimiter.release()
             try checkOK(response, data: data)
             let page = try decode(ChildrenResponse.self, from: data)
-
-            for child in page.value {
-                if child.folder != nil {
-                    guard topLevelFolders.contains(child.name) else { continue }
-                    matchingFolders.append(child)
-                } else if let media = makeMediaItem(child, pathComponents: []) {
-                    guard topLevelFolders.contains(Self.rootFolderLabel) else { continue }
-                    rootLevelMedia.append(media)
-                }
-            }
+            months += page.value.filter { $0.folder != nil }
             nextURLString = page.nextLink
         }
 
-        // 選んだフォルダどうしも並列に(下記`walk`のコメント参照、`ConcurrencyLimiter`が
-        // 全体の同時実行数を抑えるのでここで並列にしても実行数が際限なく増えることはない)。
-        var results = rootLevelMedia
-        if !matchingFolders.isEmpty {
-            let nested = try await withThrowingTaskGroup(of: [MediaItem].self) { group -> [MediaItem] in
-                for child in matchingFolders {
-                    group.addTask {
-                        try await walk(driveId: root.driveId, itemId: child.id, pathComponents: [child.name], token: token)
-                    }
-                }
-                var collected: [MediaItem] = []
-                for try await items in group { collected += items }
-                return collected
-            }
-            results += nested
+        let children = months.map { month in
+            OneDriveFolderRef(driveId: driveId, itemId: month.id, name: month.name,
+                               pathComponents: pathComponents + [month.name], children: [])
         }
-        GalleryLog.oneDrive.notice("scan完了(絞込): \(root.name, privacy: .public) 総件数=\(results.count)")
-        return (root.name, results)
+        return OneDriveFolderRef(driveId: driveId, itemId: itemId, name: name, pathComponents: pathComponents, children: children)
     }
 
-    /// `scan(shareURL:onlyTopLevelFolders:)`の一時的ネットワークエラー自動リトライ版。
-    static func scanWithRetry(shareURL: String, onlyTopLevelFolders topLevelFolders: Set<String>) async throws -> (sourceName: String, items: [MediaItem]) {
+    private static func walkYearFolderWithRetry(
+        driveId: String, itemId: String, name: String, pathComponents: [String], token: String
+    ) async throws -> OneDriveFolderRef {
         do {
-            return try await scan(shareURL: shareURL, onlyTopLevelFolders: topLevelFolders)
+            return try await walkYearFolder(driveId: driveId, itemId: itemId, name: name, pathComponents: pathComponents, token: token)
         } catch {
             guard isTransientNetworkError(error) else { throw error }
-            GalleryLog.oneDrive.notice("scanWithRetry(絞込): 一時的なネットワークエラーのため再試行します: \(String(describing: error), privacy: .public)")
-            return try await scan(shareURL: shareURL, onlyTopLevelFolders: topLevelFolders)
+            return try await walkYearFolder(driveId: driveId, itemId: itemId, name: name, pathComponents: pathComponents, token: token)
         }
     }
 
-    /// ルート直下1ページだけを浅く列挙し、フォルダ名の一覧を返す(MyGalleryだけの新機能 —
-    /// OneDriveリンク追加UIで、年フォルダ等の候補チェックボックスを自動取得するため。
-    /// MySlideshowは`HardcodedLink.availableFolders`が決め打ち配列だったのでこの関数は無い)。
-    /// ルート直下に直接置かれたファイルがあれば`rootFolderLabel`も候補に含める。
-    static func listTopLevelFolders(shareURL: String) async throws -> [String] {
-        let token = try await mintToken()
-        let root = try await resolveShare(shareURL: shareURL, token: token)
-        guard root.folder != nil else { return [] }
+    /// **フェーズ2**: フェーズ1で見つかった葉フォルダのうち、指定したものだけを並列に
+    /// (`ConcurrencyLimiter`で同時実行数を絞りつつ)取得し、**取得できたものから順に**
+    /// `AsyncThrowingStream`で返す ― 全フォルダぶん揃うまで待たせず、チェックボックスで
+    /// チェックされているフォルダのサムネイルを「適宜」順次表示できるようにするため。
+    ///
+    /// **`shareURL`を受け取って`resolveShare(shareURL:token:)`(`Prefer: autoredeem`)を
+    /// 呼ぶことが必須**(2026-09-06、実機で「フォルダ一覧は出るのにサムネイル取得の
+    /// 段になるとAccess deniedになる」不具合を確認して発覚)。フェーズ1
+    /// (`scanFolderStructureStream`)はmintTokenの直後に必ずresolveShareを呼んで
+    /// トークンを共有リンクに対して「redeem」してから使っているが、フェーズ2は
+    /// 独立してフレッシュな匿名トークンを`mintToken()`するだけで、そのトークンを
+    /// 一度もこの共有リンクに対してredeemしていなかった ― 未redeemのトークンで
+    /// `driveId`/`itemId`へ直接アクセスするとAPIがAccess deniedを返す。フェーズ1の
+    /// トークンをそのまま使い回さない(=フェーズ2独自にトークンを取り直す)設計は
+    /// 変えず、取り直したトークンを使う前に必ずこの共有リンクへredeemすること。
+    static func scanLeafFolders(shareURL: String, folders: [OneDriveFolderRef]) -> AsyncThrowingStream<(folder: OneDriveFolderRef, items: [MediaItem]), Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    guard !folders.isEmpty else {
+                        continuation.finish()
+                        return
+                    }
+                    let token = try await mintToken()
+                    _ = try await resolveShare(shareURL: shareURL, token: token)
+                    try await withThrowingTaskGroup(of: (OneDriveFolderRef, [MediaItem]).self) { group in
+                        for folder in folders {
+                            group.addTask {
+                                let items = try await scanLeafFolderItems(
+                                    driveId: folder.driveId, itemId: folder.itemId,
+                                    pathComponents: folder.pathComponents, token: token)
+                                return (folder, items)
+                            }
+                        }
+                        for try await (folder, items) in group {
+                            continuation.yield((folder, items))
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
 
-        var folders: [String] = []
-        var hasRootLevelFile = false
-        var nextURLString: String? = childrenURL(driveId: root.driveId, itemId: root.itemId)
+    /// 1つの葉フォルダ(Monthフォルダ)配下の写真・動画を取得する。フォルダツリーの
+    /// 表示・チェックはYear/Monthまでだが、実データはさらに下のDayフォルダに
+    /// 入っているため、**サブフォルダがあれば再帰的に辿って**回収する(2026-09-06、
+    /// Year/Month/Dayの3階層運用に合わせて再帰化 ― 以前はMonth直下にファイルが
+    /// 直接あるという前提で非再帰だったが、実際の運用はDayを挟むため直下だけ見ると
+    /// 常に0件になっていた)。見つかった項目は実際の深さに関わらず、呼び出し元の
+    /// Monthフォルダの`pathComponents`のまま`MediaItem.folderPath`に積む ―
+    /// フォルダツリー・チェックボックスの絞り込みはMonth単位までしか無いため、
+    /// Day単位の内訳をそのまま持たせても意味が無い(むしろ`filteredItems`の
+    /// プレフィックス一致判定やグリッドの並べ替えがMonth単位のグループ化を前提に
+    /// している ― 個々のファイルに実際のDayパスを持たせると整合しなくなる)。
+    private static func scanLeafFolderItems(
+        driveId: String, itemId: String, pathComponents: [String], token: String
+    ) async throws -> [MediaItem] {
+        var results: [MediaItem] = []
+        var subfolders: [DriveItemChild] = []
+        var nextURLString: String? = childrenURL(driveId: driveId, itemId: itemId, expandThumbnails: true)
         while let current = nextURLString {
-            var request = URLRequest(url: URL(string: current)!)
-            request.httpMethod = "GET"
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            applyCommonHeaders(&request, token: token)
-
-            let (data, response) = try await URLSession.shared.data(for: request)
+            await concurrencyLimiter.acquire()
+            let data: Data
+            let response: URLResponse
+            do {
+                var request = URLRequest(url: URL(string: current)!)
+                request.httpMethod = "GET"
+                request.cachePolicy = .reloadIgnoringLocalCacheData
+                applyCommonHeaders(&request, token: token)
+                (data, response) = try await URLSession.shared.data(for: request)
+            } catch {
+                await concurrencyLimiter.release()
+                throw error
+            }
+            await concurrencyLimiter.release()
             try checkOK(response, data: data)
             let page = try decode(ChildrenResponse.self, from: data)
-
             for child in page.value {
-                if child.folder != nil {
-                    folders.append(child.name)
-                } else if makeMediaItem(child, pathComponents: []) != nil {
-                    hasRootLevelFile = true
+                if let media = makeMediaItem(child, pathComponents: pathComponents) {
+                    results.append(media)
+                } else if child.folder != nil {
+                    subfolders.append(child)
                 }
             }
             nextURLString = page.nextLink
         }
-        if hasRootLevelFile { folders.append(Self.rootFolderLabel) }
-        return folders
+
+        guard !subfolders.isEmpty else { return results }
+        let nested = try await withThrowingTaskGroup(of: [MediaItem].self) { group -> [MediaItem] in
+            for sub in subfolders {
+                group.addTask {
+                    try await scanLeafFolderItems(driveId: driveId, itemId: sub.id, pathComponents: pathComponents, token: token)
+                }
+            }
+            var collected: [MediaItem] = []
+            for try await items in group { collected += items }
+            return collected
+        }
+        return results + nested
     }
 
     // MARK: - 1. 匿名トークン発行
@@ -285,10 +396,22 @@ enum OneDriveMediaClient {
         let lastModifiedDateTime: String?
         let folder: FolderFacet?
         let downloadURL: String?
+        let size: Int64?
+        /// `expand=thumbnails(select=large)`を付けたリクエストでのみ入る(付けなければ
+        /// 常に`nil`)。フェーズ1のフォルダ一覧取得ではサムネイルが要らないので付けず、
+        /// フェーズ2の`scanLeafFolderItems`(実ファイル一覧)でだけ付ける
+        /// (`childrenURL(driveId:itemId:expandThumbnails:)`参照)。
+        let thumbnails: [ThumbnailSet]?
         enum CodingKeys: String, CodingKey {
-            case id, name, lastModifiedDateTime, folder
+            case id, name, lastModifiedDateTime, folder, size, thumbnails
             case downloadURL = "@content.downloadUrl"
         }
+    }
+    private struct ThumbnailSet: Decodable {
+        let large: ThumbnailSize?
+    }
+    private struct ThumbnailSize: Decodable {
+        let url: String
     }
 
     private static func makeMediaItem(_ item: DriveItemChild, pathComponents: [String]) -> MediaItem? {
@@ -309,73 +432,16 @@ enum OneDriveMediaClient {
             return nil
         }
         let modifiedDate = item.lastModifiedDateTime.flatMap { ISO8601DateFormatter().date(from: $0) }
+        let thumbnailURL = item.thumbnails?.first?.large.flatMap { URL(string: $0.url) }
         return MediaItem(
             remoteID: item.id, downloadURL: downloadURL, name: item.name,
-            folderPath: pathComponents, modifiedDate: modifiedDate, kind: kind
+            folderPath: pathComponents, modifiedDate: modifiedDate, kind: kind, size: item.size ?? 0,
+            thumbnailURL: thumbnailURL
         )
     }
 
-    /// フォルダ1つぶんの中身を取得し、サブフォルダは`TaskGroup`で並列に`walk`する。
-    /// `ConcurrencyLimiter`で同時実行数を絞っているため、フォルダ数が多くてもリクエストが
-    /// 際限なく同時に飛ぶことはない(OneDrive側のレート制限を避けるため)。
-    private static func walk(
-        driveId: String, itemId: String, pathComponents: [String], token: String
-    ) async throws -> [MediaItem] {
-        var results: [MediaItem] = []
-        var subfolders: [DriveItemChild] = []
-        var nextURLString: String? = childrenURL(driveId: driveId, itemId: itemId)
-        while let current = nextURLString {
-            var request = URLRequest(url: URL(string: current)!)
-            request.httpMethod = "GET"
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            applyCommonHeaders(&request, token: token)
-
-            await concurrencyLimiter.acquire()
-            let data: Data
-            let response: URLResponse
-            do {
-                (data, response) = try await URLSession.shared.data(for: request)
-            } catch {
-                await concurrencyLimiter.release()
-                throw error
-            }
-            await concurrencyLimiter.release()
-            try checkOK(response, data: data)
-            let page = try decode(ChildrenResponse.self, from: data)
-
-            var mediaCount = 0
-            var skippedCount = 0
-            for child in page.value {
-                if child.folder != nil {
-                    subfolders.append(child)
-                } else if let media = makeMediaItem(child, pathComponents: pathComponents) {
-                    mediaCount += 1
-                    results.append(media)
-                } else {
-                    skippedCount += 1
-                }
-            }
-            let pathLabel = pathComponents.isEmpty ? "(ルート)" : pathComponents.joined(separator: "/")
-            GalleryLog.oneDrive.notice("walk[\(pathLabel, privacy: .public)]: children=\(page.value.count) folders=\(subfolders.count) media=\(mediaCount) skipped=\(skippedCount) hasNextLink=\(page.nextLink != nil)")
-            nextURLString = page.nextLink
-        }
-
-        guard !subfolders.isEmpty else { return results }
-        let nested = try await withThrowingTaskGroup(of: [MediaItem].self) { group -> [MediaItem] in
-            for child in subfolders {
-                group.addTask {
-                    try await walk(driveId: driveId, itemId: child.id, pathComponents: pathComponents + [child.name], token: token)
-                }
-            }
-            var collected: [MediaItem] = []
-            for try await items in group { collected += items }
-            return collected
-        }
-        results += nested
-        return results
-    }
-
-    /// `walk`の同時HTTPリクエスト数を絞るためのactorベースのセマフォ。
+    /// `walkYearFolder`/`scanLeafFolderItems`の同時HTTPリクエスト数を絞るための
+    /// actorベースのセマフォ。
     private actor ConcurrencyLimiter {
         private let limit: Int
         private var current = 0
@@ -402,23 +468,17 @@ enum OneDriveMediaClient {
 
     private static let concurrencyLimiter = ConcurrencyLimiter(limit: 8)
 
-    private static func fetchItem(driveId: String, itemId: String, token: String) async throws -> DriveItemChild {
-        var components = URLComponents(
-            string: "https://my.microsoftpersonalcontent.com/_api/v2.0/drives/\(driveId)/items/\(itemId)"
-        )!
-        components.queryItems = [URLQueryItem(name: "select", value: "*")]
-        var request = URLRequest(url: components.url!)
-        request.httpMethod = "GET"
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        applyCommonHeaders(&request, token: token)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try checkOK(response, data: data)
-        return try decode(DriveItemChild.self, from: data)
-    }
-
-    private static func childrenURL(driveId: String, itemId: String) -> String {
-        "https://my.microsoftpersonalcontent.com/_api/v2.0/drives/\(driveId)/items/\(itemId)/children?%24top=200&select=*"
+    /// `expandThumbnails: true`で`&expand=thumbnails(select=large)`を付ける ―
+    /// OneDriveがサーバー側で生成済みの小さいサムネイル(`large`、数百px)を同じ
+    /// 1リクエストで一緒に返してもらう。フェーズ2(`scanLeafFolderItems`、実ファイル
+    /// 一覧)でだけ付ける ― フェーズ1(`walkYearFolder`、フォルダ構造だけ)には不要な
+    /// 追加コストなので付けない。
+    private static func childrenURL(driveId: String, itemId: String, expandThumbnails: Bool = false) -> String {
+        var url = "https://my.microsoftpersonalcontent.com/_api/v2.0/drives/\(driveId)/items/\(itemId)/children?%24top=200&select=*"
+        if expandThumbnails {
+            url += "&expand=thumbnails(select=large)"
+        }
+        return url
     }
 
     // MARK: - 共通処理

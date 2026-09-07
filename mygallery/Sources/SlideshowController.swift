@@ -8,18 +8,30 @@ import AVFoundation
 // 移植していない ― MySlideshowで一度実装されたが2026-08-29に完全に撤去された機能で、
 // 現在のMySlideshowには存在しない。
 
-/// ファイル名から撮影日らしき`YYYYMMDD`パターンを拾う。MySlideshowの
-/// `Core/FilenameDateParser.swift`をそのまま移植したもの ― OneDriveの更新日時は
-/// アップロード/同期日時であって撮影日ではないことが多いため、ファイル名だけから
-/// 日付を推測する(`modifiedDate`へはフォールバックしない)。
+/// ファイル名から撮影日(・可能なら時刻も)らしき`YYYYMMDD[_HHMMSS]`パターンを拾う。
+/// MySlideshowの`Core/FilenameDateParser.swift`をそのまま移植したもの ― OneDriveの
+/// 更新日時はアップロード/同期日時であって撮影日ではないことが多いため、ファイル名
+/// だけから日付を推測する(`modifiedDate`へはフォールバックしない)。
 enum FilenameDateParser {
-    private static let regex = try! NSRegularExpression(
+    private static let dateOnlyRegex = try! NSRegularExpression(
         pattern: #"(?<![0-9])(19[0-9]{2}|20[0-9]{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12][0-9]|3[01])(?![0-9])"#
     )
 
+    /// 日付部分に続けて`HHMMSS`(区切り文字はあってもなくてもよい)まで拾えるかを
+    /// 試す拡張版。2026-09-07追加 ― 「デフォルトの並び順は日付時間順にしてほしい
+    /// (mtimeではなくファイル名の日付時刻で)」というユーザー要望への対応。
+    /// `2024_0101_191824.jpeg`のようなカメラ標準の命名(年月日_時分秒)を主なターゲット
+    /// にしている。時刻部分が見つからない/末尾に余分な数字が続いて誤爆しそうな場合は
+    /// (`(?![0-9])`の否定先読みでバックトラックし)自動的に日付だけの一致に後退する
+    /// ― 誤った時刻を拾うより「時刻なし」の方が安全という判断。
+    private static let dateTimeRegex = try! NSRegularExpression(
+        pattern: #"(?<![0-9])(19[0-9]{2}|20[0-9]{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12][0-9]|3[01])(?:[-_ ]?([01][0-9]|2[0-3])([0-5][0-9])([0-5][0-9]))?(?![0-9])"#
+    )
+
+    /// バッジ・動画情報表示用(日付のみ、時刻は捨てる)。既存の呼び出し元はそのまま。
     static func date(from fileName: String) -> Date? {
         let range = NSRange(fileName.startIndex..., in: fileName)
-        guard let match = regex.firstMatch(in: fileName, range: range),
+        guard let match = dateOnlyRegex.firstMatch(in: fileName, range: range),
             let yearRange = Range(match.range(at: 1), in: fileName),
             let monthRange = Range(match.range(at: 2), in: fileName),
             let dayRange = Range(match.range(at: 3), in: fileName),
@@ -32,6 +44,39 @@ enum FilenameDateParser {
         components.year = year
         components.month = month
         components.day = day
+        return Calendar(identifier: .gregorian).date(from: components)
+    }
+
+    /// 並び替え用(可能なら時刻まで含む)。時刻が拾えなければ0時0分0秒(日付のみと
+    /// 同じ精度)になる ― `date(from:)`と結果が食い違わないよう、こちらも失敗時は
+    /// `nil`を返し、呼び出し側(`PhotoItem.sortDate`)が`mtime`にフォールバックする。
+    static func dateTime(from fileName: String) -> Date? {
+        let range = NSRange(fileName.startIndex..., in: fileName)
+        guard let match = dateTimeRegex.firstMatch(in: fileName, range: range),
+            let yearRange = Range(match.range(at: 1), in: fileName),
+            let monthRange = Range(match.range(at: 2), in: fileName),
+            let dayRange = Range(match.range(at: 3), in: fileName),
+            let year = Int(fileName[yearRange]),
+            let month = Int(fileName[monthRange]),
+            let day = Int(fileName[dayRange])
+        else { return nil }
+
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        // グループ4〜6(時分秒)は時刻部分が一致しなかった場合`NSNotFound`のレンジになる
+        // ― `Range(_:in:)`が`nil`を返すので、その場合は0時0分0秒のまま。
+        if let hourRange = Range(match.range(at: 4), in: fileName),
+           let minuteRange = Range(match.range(at: 5), in: fileName),
+           let secondRange = Range(match.range(at: 6), in: fileName),
+           let hour = Int(fileName[hourRange]),
+           let minute = Int(fileName[minuteRange]),
+           let second = Int(fileName[secondRange]) {
+            components.hour = hour
+            components.minute = minute
+            components.second = second
+        }
         return Calendar(identifier: .gregorian).date(from: components)
     }
 }
@@ -106,7 +151,7 @@ final class SlideshowController: NSObject {
         guard let overlay, currentIndex >= 0, currentIndex < order.count else { return }
         let item = order[currentIndex]
         overlay.show(photo: item, index: currentIndex, total: order.count)
-        controlsView?.setDate(FilenameDateParser.date(from: item.url.lastPathComponent))
+        controlsView?.setDate(FilenameDateParser.date(from: item.name))
         controlsView?.updatePauseIcon(isPaused: isPaused)
         onIndexChanged?(currentIndex)
         scheduleAdvanceIfNeeded(for: item)

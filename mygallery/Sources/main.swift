@@ -32,6 +32,9 @@ private let browsableExtensions = imageExtensions.union(videoExtensions)
 private let defaultsRootKey = "rootPath"
 private let defaultsSortKey = "sortOrder"
 private let defaultsCellKey = "cellSize"
+private let defaultsDateBadgeKey = "showDateBadge"
+private let defaultsSizeBadgeKey = "showSizeBadge"
+private let defaultsAutoplayNextKey = "autoplayNextVideo"
 
 private let minCellSize: CGFloat = 96
 private let maxCellSize: CGFloat = 320
@@ -48,6 +51,10 @@ enum SortOrder: Int {
 
     var showsFileSize: Bool { self == .sizeDesc || self == .sizeAsc }
     var showsQuality: Bool { self == .qualityDesc || self == .qualityAsc }
+    /// 年月ごとのグリッド区切り線(`GridViewController.groupingEnabled`)は、この順序
+    /// のときだけ意味を持つ ― 名前順/サイズ順/画質順で並んでいるときに日付で
+    /// グルーピングしても表示順とグループが噛み合わないため(2026-09-07追加)。
+    var isDateOrder: Bool { self == .dateDesc || self == .dateAsc }
 }
 
 /// メニューとツールバーの並び替えボタン(ポップオーバー)の両方が参照する共通の並び順一覧。
@@ -88,9 +95,22 @@ struct PhotoItem: Equatable {
     /// が対応する動画拡張子(mkv/webm等も含む、より広い)は範囲が異なるため、単一のグローバル
     /// 拡張子セットで両方を判定することはできない。
     let isVideo: Bool
+    /// 元のファイル名。ローカルは`url.lastPathComponent`(実ファイルパスなので常に正しい)。
+    /// OneDriveは`url`が署名付きダウンロードURL(`@content.downloadUrl`)でファイル名を
+    /// 反映しないため、`MediaItem.name`(API応答の実ファイル名)を`init`で明示的に渡す
+    /// 必要がある(2026-09-07追加 ― ビューアの動画再生中にファイル名から日付を抽出して
+    /// 表示する`FilenameDateParser`が正しいファイル名を必要とするようになったのを機に、
+    /// それまで欠けていたOneDriveアイテムの元ファイル名の保持先として追加した)。
+    let name: String
+    /// OneDriveがサーバー側で生成済みの小さいサムネイル画像のURL(`MediaItem.thumbnailURL`
+    /// をそのまま保持、ローカルは常に`nil`)。`ThumbnailLoader`はこれがあればグリッド用
+    /// サムネイルの生成元として`url`(元ファイル、数MB〜数十MB)の代わりに使う ―
+    /// 数百px・数十KB程度のJPEGなので、フル画像を毎回ダウンロードせずに済む
+    /// (2026-09-07追加、詳細は`CLAUDE.md`参照)。
+    let thumbnailURL: URL?
 
     init(url: URL, mtime: Date, fileSize: Int64, isVideo: Bool, source: PhotoSource = .local,
-         remoteID: String? = nil, folderPath: [String] = []) {
+         remoteID: String? = nil, folderPath: [String] = [], name: String? = nil, thumbnailURL: URL? = nil) {
         self.url = url
         self.mtime = mtime
         self.fileSize = fileSize
@@ -98,12 +118,24 @@ struct PhotoItem: Equatable {
         self.source = source
         self.remoteID = remoteID
         self.folderPath = folderPath
+        self.name = name ?? url.lastPathComponent
+        self.thumbnailURL = thumbnailURL
     }
 
     /// サムネイル/フルサイズキャッシュ・識別用の安定キー。OneDriveの署名付きURLは
     /// 再スキャンのたびにクエリトークンが変わるため、`url.path`ではなく`remoteID`
     /// (無ければ`url.path`、ローカルの場合)をキーにする。
     var cacheKey: String { remoteID ?? url.path }
+
+    /// 「新しい順/古い順」で実際に使う日時。ファイル名から`FilenameDateParser`で
+    /// 撮影日時(`YYYYMMDD[_HHMMSS]`パターン)を拾えればそちらを、拾えなければ
+    /// `mtime`をそのまま使う(2026-09-07、ユーザー要望「デフォルトの並び順は
+    /// 日付時間順にしてほしい(mtimeではなくファイル名の日付時刻で)」への対応)。
+    /// `mtime`はOneDriveだとアップロード/同期日時であって撮影日時ではないことが
+    /// 多く、ローカルでもコピー・バックアップ経由で変わりうるため、ファイル名に
+    /// 埋め込まれた撮影日時の方が信頼できるという判断 ― サムネイルの月日バッジ・
+    /// 動画再生中の日付表示・スライドショーの日付ラベルと同じ考え方。
+    var sortDate: Date { FilenameDateParser.dateTime(from: name) ?? mtime }
 
     static func == (a: PhotoItem, b: PhotoItem) -> Bool { a.cacheKey == b.cacheKey }
 }
@@ -154,6 +186,15 @@ final class PhotoStore {
                 options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
                 for case let u as URL in e {
                     guard browsableExtensions.contains(u.pathExtension.lowercased()) else { continue }
+                    // "._IMG_0001.MOV"のようなAppleDoubleファイル(Finder経由のコピー/
+                    // 外部ボリューム同期時にmacOSが自動生成する隠しファイル)を明示的に
+                    // 除外する ― `.skipsHiddenFiles`はUF_HIDDENフラグベースで、
+                    // SMB/NAS/外部ボリューム等ではドットファイルにこのフラグが立たない
+                    // ことがあり取りこぼす(2026-09-07、実機でAppleDoubleの動画ファイルが
+                    // グリッドに表示される不具合を確認して発覚)。OneDriveの
+                    // `OneDriveMediaClient.makeMediaItem`側は元々同じ理由で名前ベースの
+                    // 明示チェックをしていたので、ローカル側もそれに合わせた。
+                    guard !u.lastPathComponent.hasPrefix(".") else { continue }
                     guard let rv = try? u.resourceValues(forKeys: keys), rv.isRegularFile == true
                     else { continue }
                     items.append(PhotoItem(url: u.standardizedFileURL,
@@ -206,9 +247,9 @@ final class PhotoStore {
         case .name:
             list.sort { $0.url.path.localizedStandardCompare($1.url.path) == .orderedAscending }
         case .dateDesc:
-            list.sort { $0.mtime > $1.mtime }
+            list.sort { $0.sortDate > $1.sortDate }
         case .dateAsc:
-            list.sort { $0.mtime < $1.mtime }
+            list.sort { $0.sortDate < $1.sortDate }
         case .sizeDesc:
             list.sort { $0.fileSize > $1.fileSize }
         case .sizeAsc:
@@ -305,8 +346,17 @@ final class ThumbnailLoader {
     /// フェッチ先である`item.url`(OneDriveの署名付きURLは再スキャンごとに変わる)とは別。
     func request(_ item: PhotoItem, completion: @escaping (String, NSImage?) -> Void) {
         let key = item.cacheKey
-        let url = item.url
         let mtime = item.mtime
+        // OneDriveがサーバー側で生成済みのサムネイル(`thumbnailURL`、数百px・数十KBの
+        // JPEG)があればそちらを使う ― 元ファイル(`item.url`、数MB〜数十MB)を毎回
+        // グリッド用に丸ごとダウンロードしなくて済む(2026-09-07、詳細は`CLAUDE.md`
+        // 参照)。サムネイルは動画でも常に静止画(ポスターフレーム)のJPEGとして返って
+        // くるため、`isVideo`もこのときは`false`扱いにして写真と同じ経路
+        // (`CGImageSourceCreateThumbnailAtIndex`)へ流す ― `AVAssetImageGenerator`で
+        // 動画そのものをストリーミングし直す必要が無くなる。取得できなかった場合
+        // (`thumbnailURL`が`nil`)は従来通り`item.url`から本来の方法で生成する。
+        let url = item.thumbnailURL ?? item.url
+        let isVideo = item.thumbnailURL == nil && item.isVideo
         if let img = cache.object(forKey: key as NSString) { completion(key, img); return }
         if waiters[key] != nil {
             waiters[key]!.append { completion(key, $0) }
@@ -320,7 +370,7 @@ final class ThumbnailLoader {
             if let cg = ThumbnailLoader.loadDiskCG(diskURL) {
                 img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
                 ThumbnailLoader.touch(diskURL)
-            } else if let cg = ThumbnailLoader.generateCG(url: url, maxPixel: ThumbnailLoader.gridMaxPixel) {
+            } else if let cg = ThumbnailLoader.generateCG(url: url, isVideo: isVideo, maxPixel: ThumbnailLoader.gridMaxPixel) {
                 img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
                 ThumbnailLoader.writeDiskCG(cg, to: diskURL)
             }
@@ -331,13 +381,18 @@ final class ThumbnailLoader {
         }
     }
 
-    static func generate(url: URL, maxPixel: CGFloat) -> NSImage? {
-        guard let cg = generateCG(url: url, maxPixel: maxPixel) else { return nil }
+    static func generate(url: URL, isVideo: Bool, maxPixel: CGFloat) -> NSImage? {
+        guard let cg = generateCG(url: url, isVideo: isVideo, maxPixel: maxPixel) else { return nil }
         return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 
-    private static func generateCG(url: URL, maxPixel: CGFloat) -> CGImage? {
-        if videoExtensions.contains(url.pathExtension.lowercased()) {
+    /// `isVideo`は呼び出し側(`PhotoItem.isVideo`)から渡す — `url.pathExtension`では
+    /// 判定しない。OneDriveアイテムの`url`は署名付きダウンロードURL(`@content.downloadUrl`)
+    /// で拡張子を含まないため、ローカルの`videoExtensions`判定はOneDriveの動画を
+    /// 「写真」経路(`CGImageSourceCreateThumbnailAtIndex`)に誤って流してしまい、
+    /// サムネイルが一切生成されなくなる。
+    private static func generateCG(url: URL, isVideo: Bool, maxPixel: CGFloat) -> CGImage? {
+        if isVideo {
             return generateVideoCG(url: url, maxPixel: maxPixel)
         }
         let srcOpts = [kCGImageSourceShouldCache: false] as CFDictionary
@@ -523,6 +578,11 @@ final class PhotoCell: NSCollectionViewItem {
 
     private let fill = FillImageView(gravity: .resizeAspectFill)
     private let sizeLabel = NSTextField(labelWithString: "")
+    /// 月日バッジ(2026-09-07、ファイルサイズ表示トグル追加に合わせて左上へ移動 ―
+    /// 「ファイルサイズと重ならないように」というユーザー要望への対応。ファイル
+    /// サイズ/画質バッジ(`sizeLabel`)は右下のまま、日付だけ独立して左上に置くことで
+    /// 両方を同時に表示できるようにした)。
+    private let dateLabel = NSTextField(labelWithString: "")
     private let videoIcon = NSImageView()
     private var currentPath: String?
 
@@ -544,6 +604,15 @@ final class PhotoCell: NSCollectionViewItem {
         sizeLabel.translatesAutoresizingMaskIntoConstraints = false
         v.addSubview(sizeLabel)
 
+        dateLabel.textColor = .white
+        dateLabel.font = .systemFont(ofSize: 11)
+        dateLabel.wantsLayer = true
+        dateLabel.layer?.backgroundColor = NSColor(white: 0, alpha: 0.55).cgColor
+        dateLabel.layer?.cornerRadius = 7
+        dateLabel.isHidden = true
+        dateLabel.translatesAutoresizingMaskIntoConstraints = false
+        v.addSubview(dateLabel)
+
         videoIcon.image = NSImage(systemSymbolName: "play.circle.fill", accessibilityDescription: nil)
         videoIcon.contentTintColor = .white
         videoIcon.wantsLayer = true
@@ -558,6 +627,8 @@ final class PhotoCell: NSCollectionViewItem {
         NSLayoutConstraint.activate([
             sizeLabel.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -5),
             sizeLabel.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -5),
+            dateLabel.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 5),
+            dateLabel.topAnchor.constraint(equalTo: v.topAnchor, constant: 5),
             videoIcon.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 6),
             videoIcon.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -6),
             videoIcon.widthAnchor.constraint(equalToConstant: 20),
@@ -566,12 +637,16 @@ final class PhotoCell: NSCollectionViewItem {
         view = v
     }
 
-    func configure(with photo: PhotoItem, badgeText: String?) {
+    func configure(with photo: PhotoItem, badgeText: String?, dateText: String?) {
         currentPath = photo.cacheKey
-        view.toolTip = photo.url.lastPathComponent
+        view.toolTip = photo.name
         sizeLabel.isHidden = (badgeText == nil)
         if let badgeText {
             sizeLabel.stringValue = "  \(badgeText)  "
+        }
+        dateLabel.isHidden = (dateText == nil)
+        if let dateText {
+            dateLabel.stringValue = "  \(dateText)  "
         }
         videoIcon.isHidden = !photo.isVideo
         if let img = ThumbnailLoader.shared.cached(photo) {
@@ -591,6 +666,7 @@ final class PhotoCell: NSCollectionViewItem {
         fill.image = nil
         view.toolTip = nil
         sizeLabel.isHidden = true
+        dateLabel.isHidden = true
         videoIcon.isHidden = true
     }
 
@@ -611,10 +687,20 @@ final class GridCollectionView: NSCollectionView {
     var onDropFolder: ((URL) -> Void)?
     var onSelectionChanged: (() -> Void)?
 
+    /// 年月グループのセクション分割(`GridViewController`の区切り線表示、2026-09-07)
+    /// があっても、このクラスのキーボード/クリックの選択ロジックは「`items`という
+    /// 1本のフラットな配列」を前提にしたまま保つ ― 実際の(セクション付き)
+    /// `IndexPath`との相互変換はこれらのクロージャに委ねる(`GridViewController
+    /// .loadView()`が注入する)。未設定時はセクション0前提のフォールバックになる。
+    var totalItemCount: (() -> Int)?
+    var indexPathForFlatIndex: ((Int) -> IndexPath)?
+    var flatIndexForIndexPath: ((IndexPath) -> Int)?
+
     /// ⇧←/⇧→ 範囲選択の起点(anchor)と現在位置(focus)。直前に単独クリックした
-    /// アイテムや `resetKeyboardAnchor(to:)` の呼び出しで更新される。
-    private var keyboardAnchor: IndexPath?
-    private var keyboardFocus: IndexPath?
+    /// アイテムや `resetKeyboardAnchor(to:)` の呼び出しで更新される。`items`上の
+    /// フラットなインデックスで保持する(上記の理由)。
+    private var keyboardAnchor: Int?
+    private var keyboardFocus: Int?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -623,25 +709,29 @@ final class GridCollectionView: NSCollectionView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    private func flat(_ ip: IndexPath) -> Int { flatIndexForIndexPath?(ip) ?? ip.item }
+    private func indexPath(_ flat: Int) -> IndexPath { indexPathForFlatIndex?(flat) ?? IndexPath(item: flat, section: 0) }
+
     // ⌘クリック(個別トグル)とドラッグ開始は NSCollectionView 標準の mouseDown に任せる。
     // ただし⇧クリックの範囲選択は NSCollectionView が自前実装しないと効かないため、
     // ここで明示的に処理する(起点は直前の単独クリック、なければ現在の選択の先頭)。
     override func mouseDown(with event: NSEvent) {
         let pt = convert(event.locationInWindow, from: nil)
         let ip = indexPathForItem(at: pt)
+        let flatIdx = ip.map { flat($0) }
 
-        if event.clickCount == 2, let ip = ip {
-            onOpen?(ip.item)
+        if event.clickCount == 2, let flatIdx {
+            onOpen?(flatIdx)
             return
         }
 
-        if event.modifierFlags.contains(.shift), let ip = ip {
-            let anchor = keyboardAnchor ?? selectionIndexPaths.sorted().first ?? ip
+        if event.modifierFlags.contains(.shift), let flatIdx {
+            let anchor = keyboardAnchor ?? selectionIndexPaths.sorted().first.map { flat($0) } ?? flatIdx
             keyboardAnchor = anchor
-            keyboardFocus = ip
-            let lo = min(anchor.item, ip.item)
-            let hi = max(anchor.item, ip.item)
-            let range = Set((lo...hi).map { IndexPath(item: $0, section: 0) })
+            keyboardFocus = flatIdx
+            let lo = min(anchor, flatIdx)
+            let hi = max(anchor, flatIdx)
+            let range = Set((lo...hi).map { indexPath($0) })
             selectItems(at: range, scrollPosition: [])
             deselectItems(at: Set(selectionIndexPaths).subtracting(range))
             onSelectionChanged?()
@@ -649,7 +739,7 @@ final class GridCollectionView: NSCollectionView {
         }
 
         super.mouseDown(with: event)
-        guard let ip = ip else {
+        guard let flatIdx else {
             if event.modifierFlags.intersection([.shift, .command]).isEmpty {
                 keyboardAnchor = nil
                 keyboardFocus = nil
@@ -657,8 +747,8 @@ final class GridCollectionView: NSCollectionView {
             return
         }
         if event.modifierFlags.intersection([.shift, .command]).isEmpty {
-            keyboardAnchor = ip
-            keyboardFocus = ip
+            keyboardAnchor = flatIdx
+            keyboardFocus = flatIdx
         }
     }
 
@@ -666,7 +756,7 @@ final class GridCollectionView: NSCollectionView {
         switch event.keyCode {
         case 36, 49, 76:   // Return / Space / Enter → ビューアを開く
             if let ip = selectionIndexPaths.sorted().first {
-                onOpen?(ip.item)
+                onOpen?(flat(ip))
             } else {
                 super.keyDown(with: event)
             }
@@ -684,38 +774,37 @@ final class GridCollectionView: NSCollectionView {
     }
 
     /// フォルダ切替・ソート変更・トラッシュ後の再選択など、選択が外部要因で変わったときに
-    /// ⇧←/⇧→ 範囲選択の起点をリセットする。
-    func resetKeyboardAnchor(to indexPath: IndexPath?) {
-        keyboardAnchor = indexPath
-        keyboardFocus = indexPath
+    /// ⇧←/⇧→ 範囲選択の起点をリセットする。`flatIndex`は`items`上のインデックス。
+    func resetKeyboardAnchor(to flatIndex: Int?) {
+        keyboardAnchor = flatIndex
+        keyboardFocus = flatIndex
     }
 
     /// 直前に単独クリックした(または resetKeyboardAnchor で指定された)アイテムを起点に、
     /// 選択範囲を1件ずつ伸縮する(Finder のリスト表示と同じ操作感)。
     private func extendSelection(by delta: Int) {
-        let total = numberOfItems(inSection: 0)
+        let total = totalItemCount?() ?? numberOfItems(inSection: 0)
         guard total > 0 else { return }
-        let anchor = keyboardAnchor ?? selectionIndexPaths.sorted().first ?? IndexPath(item: 0, section: 0)
+        let anchor = keyboardAnchor ?? selectionIndexPaths.sorted().first.map { flat($0) } ?? 0
         keyboardAnchor = anchor
         let focus = keyboardFocus ?? anchor
-        let nextItem = max(0, min(total - 1, focus.item + delta))
-        let next = IndexPath(item: nextItem, section: 0)
-        keyboardFocus = next
+        let nextItem = max(0, min(total - 1, focus + delta))
+        keyboardFocus = nextItem
 
-        let lo = min(anchor.item, nextItem)
-        let hi = max(anchor.item, nextItem)
-        let range = Set((lo...hi).map { IndexPath(item: $0, section: 0) })
+        let lo = min(anchor, nextItem)
+        let hi = max(anchor, nextItem)
+        let range = Set((lo...hi).map { indexPath($0) })
         selectItems(at: range, scrollPosition: [])
         deselectItems(at: Set(selectionIndexPaths).subtracting(range))
-        scrollToItems(at: [next], scrollPosition: .nearestHorizontalEdge)
+        scrollToItems(at: [indexPath(nextItem)], scrollPosition: .nearestHorizontalEdge)
         onSelectionChanged?()
     }
 
     /// ⌘A ですべて選択する(NSCollectionView は selectAll(_:) を自前実装しないと効かないため)。
     override func selectAll(_ sender: Any?) {
-        let total = numberOfItems(inSection: 0)
+        let total = totalItemCount?() ?? numberOfItems(inSection: 0)
         guard total > 0 else { return }
-        selectItems(at: Set((0..<total).map { IndexPath(item: $0, section: 0) }), scrollPosition: [])
+        selectItems(at: Set((0..<total).map { indexPath($0) }), scrollPosition: [])
         onSelectionChanged?()
     }
 
@@ -804,10 +893,120 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
 
     var items: [PhotoItem] = [] {
         didSet {
+            recomputeGroups()
             collectionView.reloadData()
+            // 保険として可視セルも直接歩いて再構成する ― `refreshVisibleBadges()`の
+            // コメント参照(2026-09-07、OneDriveタブでのバッジ不具合対策)。OneDriveは
+            // フェーズ2のたびに`items`を何度も再代入するため、この経路(`items`が
+            // 変わるたび)が実際に問題を踏んでいた本命の箇所。
+            refreshVisibleBadges()
             collectionView.resetKeyboardAnchor(to: nil)
             collectionView.onSelectionChanged?()
         }
+    }
+
+    // MARK: - 年月グループ(グリッドの区切り線)
+
+    /// 「サムネイル一覧に年月ごとの区切り線を表示できないか」というユーザー要望への
+    /// 対応(2026-09-07)。`NSCollectionViewFlowLayout`のセクション機能を使う ―
+    /// セクションが変わると自動的に改行される(同じ行に前グループの残りが混ざらない)
+    /// ため、区切り線を各セクションのヘッダーとして描く。**キーボード操作・選択・
+    /// ドラッグ&ドロップ・ビューアの「次へ/前へ」は、このセクション分割の影響を
+    /// 一切受けない**よう設計した ― `items`(フラットな1本の配列)が唯一の真実の
+    /// 順序で、セクションは`items`から`recomputeGroups()`が導出する表示上の区切りに
+    /// すぎない。`MainWindowController`側(`viewerIndex`等)は`gridVC.items`を
+    /// そのままフラットなインデックスで扱い続けており、変更不要。`GridCollectionView`
+    /// のキーボード/クリック処理だけは実際の(セクション付き)`IndexPath`を扱う必要が
+    /// あるため、`flatIndex(for:)`/`indexPath(forFlatIndex:)`という相互変換を注入して
+    /// いる(下記`loadView()`のクロージャ配線を参照)。
+    private struct DateGroup {
+        let title: String
+        let items: [PhotoItem]
+    }
+
+    /// `sortOrder`が日付順(新しい順/古い順)のときだけ`true`にする
+    /// (`MainWindowController`が`sortOrder`のdidSetから設定する)。日付順以外では
+    /// グルーピングしても表示順と噛み合わないため、常に1グループ(見た目は従来通り
+    /// フラット、ヘッダーも出さない)に固定する。
+    var groupingEnabled = true {
+        didSet {
+            guard groupingEnabled != oldValue else { return }
+            recomputeGroups()
+            collectionView.reloadData()
+        }
+    }
+
+    private var groups: [DateGroup] = []
+
+    private static let groupTitleFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy年M月"
+        return f
+    }()
+
+    /// `items`(現在の表示順のまま)を年月の変わり目で連続run分割する。`sortDate`
+    /// (`PhotoItem.sortDate`、ファイル名優先の撮影日時)を使う ― 表示順に使っている
+    /// ソートキーと同じ基準でグルーピングしないと境界がずれる。
+    private func recomputeGroups() {
+        defer {
+            // ヘッダー(区切り線)の高さはグルーピング無効/1グループ以下のときは0にして
+            // 消す ― 名前順/サイズ順等では常にフラット表示(従来通り)に戻す。
+            layout.headerReferenceSize = (groupingEnabled && groups.count > 1)
+                ? NSSize(width: 0, height: 32) : .zero
+        }
+        guard groupingEnabled, !items.isEmpty else {
+            groups = items.isEmpty ? [] : [DateGroup(title: "", items: items)]
+            return
+        }
+        let cal = Calendar(identifier: .gregorian)
+        var result: [DateGroup] = []
+        var currentKey: DateComponents?
+        var currentItems: [PhotoItem] = []
+        for item in items {
+            let key = cal.dateComponents([.year, .month], from: item.sortDate)
+            if key != currentKey {
+                if let currentKey, !currentItems.isEmpty {
+                    result.append(DateGroup(title: Self.title(for: currentKey), items: currentItems))
+                }
+                currentKey = key
+                currentItems = [item]
+            } else {
+                currentItems.append(item)
+            }
+        }
+        if let currentKey, !currentItems.isEmpty {
+            result.append(DateGroup(title: Self.title(for: currentKey), items: currentItems))
+        }
+        groups = result
+    }
+
+    private static func title(for key: DateComponents) -> String {
+        guard let year = key.year, let month = key.month else { return "" }
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        comps.day = 1
+        guard let date = Calendar(identifier: .gregorian).date(from: comps) else { return "" }
+        return groupTitleFormatter.string(from: date)
+    }
+
+    /// (セクション, アイテム)の実際の`IndexPath` → `items`上のフラットなインデックス。
+    private func flatIndex(for indexPath: IndexPath) -> Int {
+        guard indexPath.section < groups.count else { return indexPath.item }
+        var idx = 0
+        for s in 0..<indexPath.section { idx += groups[s].items.count }
+        return idx + indexPath.item
+    }
+
+    /// `items`上のフラットなインデックス → 実際の(セクション, アイテム)`IndexPath`。
+    private func indexPath(forFlatIndex flat: Int) -> IndexPath {
+        var remaining = max(flat, 0)
+        for (s, g) in groups.enumerated() {
+            if remaining < g.items.count { return IndexPath(item: remaining, section: s) }
+            remaining -= g.items.count
+        }
+        let lastSection = max(groups.count - 1, 0)
+        return IndexPath(item: max((groups.last?.items.count ?? 1) - 1, 0), section: lastSection)
     }
 
     var cellSize: CGFloat = defaultCellSize {
@@ -817,18 +1016,76 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
         }
     }
 
+    /// 右下バッジ(サイズ/画質、排他 ― どちらか一方しか意味を持たないので1スロット)。
+    /// 月日バッジ(左上)は`showDateBadge`という別スロットで独立している
+    /// (2026-09-07、「ファイルサイズと月日が重ならないように」というユーザー要望で
+    /// 左上/右下の2スロットに分離した ― 以前は`.date`もこの同じenumの1ケースで
+    /// 右下バッジと排他だった)。
     enum ThumbnailBadge { case none, fileSize, quality }
 
     var thumbnailBadge: ThumbnailBadge = .none {
         didSet {
             guard thumbnailBadge != oldValue else { return }
             collectionView.reloadData()
+            refreshVisibleBadges()
+        }
+    }
+
+    /// 左上の月日バッジを表示するかどうか。右下の`thumbnailBadge`(サイズ/画質)とは
+    /// 独立に、`MainWindowController`が「月日を表示」トグルで制御する。
+    var showDateBadge = false {
+        didSet {
+            guard showDateBadge != oldValue else { return }
+            collectionView.reloadData()
+            refreshVisibleBadges()
+        }
+    }
+
+    /// `reloadData()`だけでは既存のインデックスパスに対応する画面上のセルが
+    /// 再構成されない(＝バッジの新しい状態が反映されない)ケースへの保険
+    /// (2026-09-07、「起動時、月日トグルはONなのに表示されない。手動でOFF→ONし
+    /// 直すと出る」というユーザー報告への対応)。OneDriveタブはフェーズ2のたびに
+    /// `items`を(既存の要素インデックスを保ったまま件数だけ増やして)何度も
+    /// 再代入するため、`reloadData()`が既存インデックスパスのセルビューを使い回して
+    /// `itemForRepresentedObjectAt`を呼び直さない――というAppKit側の挙動に
+    /// 遭遇した可能性がある(ローカルは1回の代入で完結するため症状が出なかったと
+    /// 推測)。原因の完全な特定はできていないが、`reloadData()`に加えて**現在画面に
+    /// 見えているセルを直接歩いて明示的に`configure`し直す**ことで、この経路に
+    /// 依存せず確実にバッジ状態を反映させる。
+    private func refreshVisibleBadges() {
+        for case let cell as PhotoCell in collectionView.visibleItems() {
+            guard let indexPath = collectionView.indexPath(for: cell),
+                  indexPath.section < groups.count, indexPath.item < groups[indexPath.section].items.count
+            else { continue }
+            configure(cell, at: indexPath)
         }
     }
 
     /// `.quality` バッジ表示時にスコアを取得するクロージャ(`MainWindowController`が
     /// `QualityCache.result(for:)` を渡す)。未解析なら nil。
     var qualityScoreProvider: ((PhotoItem) -> Double?)?
+
+    /// 月日バッジの表示形式。`"Jan 1"`のような英語の月名+日(2026-09-07、ユーザー要望
+    /// 「1/1じゃなくてJan 1みたいにして」への対応 ― 以前は`"M/d"`だった)。
+    /// システムのロケールがどうであれ英語表記になるよう`locale`を明示している
+    /// (このアプリ自体は全編日本語UIだが、日付バッジだけは意図的に英語表記)。
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "MMM d"
+        return f
+    }()
+
+    /// 月日バッジの表示文字列(2026-09-07追加、ユーザー要望「サムネに月日を表示
+    /// できる?」への対応)。`FilenameDateParser`(ファイル名から`YYYYMMDD`パターンを
+    /// 拾う、元は動画再生中の日付表示・スライドショー用)をまず試し、拾えなければ
+    /// `photo.mtime`にフォールバックする ― OneDriveの更新日時はアップロード/同期日時で
+    /// あって撮影日ではないことが多い(`FilenameDateParser`のコメント参照)ため、
+    /// ファイル名から取れるならそちらを優先する。
+    private static func monthDayText(for photo: PhotoItem) -> String {
+        let date = FilenameDateParser.date(from: photo.name) ?? photo.mtime
+        return monthDayFormatter.string(from: date)
+    }
 
     override func loadView() {
         let root = FolderDropView()
@@ -848,6 +1105,18 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
         collectionView.allowsEmptySelection = true
         collectionView.backgroundColors = [.clear]
         collectionView.register(PhotoCell.self, forItemWithIdentifier: PhotoCell.reuseID)
+        collectionView.register(DateSectionHeaderView.self,
+                                 forSupplementaryViewOfKind: NSCollectionView.elementKindSectionHeader,
+                                 withIdentifier: Self.headerID)
+        // キーボード/クリックの選択ロジックは`items`のフラットなインデックスで考えたい
+        // (年月グループのセクション分割はあくまで表示上の区切りのため) ― 実際の
+        // `IndexPath`との相互変換を`GridCollectionView`へ注入する(`recomputeGroups()`
+        // 直上のコメント参照)。
+        collectionView.totalItemCount = { [weak self] in self?.items.count ?? 0 }
+        collectionView.indexPathForFlatIndex = { [weak self] flat in
+            self?.indexPath(forFlatIndex: flat) ?? IndexPath(item: flat, section: 0)
+        }
+        collectionView.flatIndexForIndexPath = { [weak self] ip in self?.flatIndex(for: ip) ?? ip.item }
 
         scroll.documentView = collectionView
         scroll.hasVerticalScroller = true
@@ -883,30 +1152,53 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
     }
 
     var selectedItems: [PhotoItem] {
-        collectionView.selectionIndexPaths.sorted().compactMap {
-            $0.item < items.count ? items[$0.item] : nil
+        collectionView.selectionIndexPaths.sorted().compactMap { ip in
+            guard ip.section < groups.count, ip.item < groups[ip.section].items.count else { return nil }
+            return groups[ip.section].items[ip.item]
         }
     }
 
+    /// 現在選択されている先頭アイテムの`items`上のフラットなインデックス(無選択ならnil)。
+    /// `MainWindowController.startSlideshow`が選択範囲の先頭から始めるために使う ―
+    /// セクション分割(年月区切り線)の影響を受けないよう、実際の`IndexPath`ではなく
+    /// これを介する。
+    var firstSelectedIndex: Int? {
+        guard let ip = collectionView.selectionIndexPaths.sorted().first else { return nil }
+        return flatIndex(for: ip)
+    }
+
+    /// `index`は`items`(フラットな配列)上のインデックス ― 呼び出し元
+    /// (`MainWindowController`)はセクション分割を意識しない。
     func select(index: Int) {
         guard index >= 0, index < items.count else { return }
-        let ip = IndexPath(item: index, section: 0)
+        let ip = indexPath(forFlatIndex: index)
         collectionView.deselectAll(nil)
         collectionView.selectItems(at: [ip], scrollPosition: .nearestHorizontalEdge)
-        collectionView.resetKeyboardAnchor(to: ip)
+        collectionView.resetKeyboardAnchor(to: index)
         collectionView.onSelectionChanged?()
     }
 
     // MARK: data source
 
+    func numberOfSections(in cv: NSCollectionView) -> Int { groups.count }
+
     func collectionView(_ cv: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
-        items.count
+        guard section < groups.count else { return 0 }
+        return groups[section].items.count
     }
 
     func collectionView(_ cv: NSCollectionView,
                         itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
         let cell = cv.makeItem(withIdentifier: PhotoCell.reuseID, for: indexPath) as! PhotoCell
-        let photo = items[indexPath.item]
+        configure(cell, at: indexPath)
+        return cell
+    }
+
+    /// `itemForRepresentedObjectAt`と`refreshVisibleBadges`(上記)の両方から呼ぶ
+    /// 共通のバッジ計算+反映ロジック。
+    private func configure(_ cell: PhotoCell, at indexPath: IndexPath) {
+        guard indexPath.section < groups.count, indexPath.item < groups[indexPath.section].items.count else { return }
+        let photo = groups[indexPath.section].items[indexPath.item]
         let badgeText: String?
         switch thumbnailBadge {
         case .none: badgeText = nil
@@ -914,8 +1206,17 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
         case .quality:
             badgeText = qualityScoreProvider?(photo).map { String(format: "%.0f", $0) } ?? "…"
         }
-        cell.configure(with: photo, badgeText: badgeText)
-        return cell
+        let dateText = showDateBadge ? Self.monthDayText(for: photo) : nil
+        cell.configure(with: photo, badgeText: badgeText, dateText: dateText)
+    }
+
+    private static let headerID = NSUserInterfaceItemIdentifier("DateSectionHeader")
+
+    func collectionView(_ cv: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind,
+                        at indexPath: IndexPath) -> NSView {
+        let header = cv.makeSupplementaryView(ofKind: kind, withIdentifier: Self.headerID, for: indexPath) as! DateSectionHeaderView
+        header.setTitle(indexPath.section < groups.count ? groups[indexPath.section].title : "")
+        return header
     }
 
     // MARK: delegate
@@ -931,8 +1232,40 @@ final class GridViewController: NSViewController, NSCollectionViewDataSource, NS
     // 他アプリ(Finder / メール等)へのドラッグ
     func collectionView(_ cv: NSCollectionView,
                         pasteboardWriterForItemAt indexPath: IndexPath) -> NSPasteboardWriting? {
-        items[indexPath.item].url as NSURL
+        guard indexPath.section < groups.count, indexPath.item < groups[indexPath.section].items.count else { return nil }
+        return groups[indexPath.section].items[indexPath.item].url as NSURL
     }
+}
+
+/// 年月グループの見出し(セクションヘッダー) ― タイトルラベル+下端の水平線
+/// (`NSBox`の`.separator`)。「年、月ごとに水平線みたいなものを表示できない?」
+/// というユーザー要望への対応(2026-09-07)。
+final class DateSectionHeaderView: NSView {
+    private let label = NSTextField(labelWithString: "")
+    private let line = NSBox()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        label.font = .boldSystemFont(ofSize: 12)
+        label.textColor = .secondaryLabelColor
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        line.boxType = .separator
+        line.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(line)
+
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            line.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            line.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            line.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 4),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    func setTitle(_ text: String) { label.stringValue = text }
 }
 
 // MARK: - Sidebar
@@ -978,6 +1311,15 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
         scroll.documentView = outline
         view = scroll
+    }
+
+    /// カラム幅をサイドバーの実サイズへ追従させる ― `OneDriveSidebarViewController.swift`の
+    /// `NSOutlineView.syncSingleColumnWidthToBounds()`のコメント参照(そちらの年/月フォルダ
+    /// ツリーで実機確認して見つかった不具合の修正を、同じ`NSOutlineView`パターンのこちらにも
+    /// 予防的に適用してある)。
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        outline.syncSingleColumnWidthToBounds()
     }
 
     /// ツリーを差し替える。チェック状態は新しいツリーにも同じパスが残っていれば引き継ぎ、
@@ -1114,6 +1456,15 @@ final class ViewerOverlay: NSView {
     /// スライドショー中、Spaceキーが押されたときに呼ばれる(一時停止/再開は
     /// `SlideshowController`が`pauseVideo()`/`resumeVideo()`経由で行う)。
     var onTogglePause: (() -> Void)?
+    /// 通常視聴(スライドショーではない)中に動画の自動連続再生を有効にするか
+    /// (2026-09-07追加、ユーザー要望「次の動画に自動再生、トグルボタンを作って」への
+    /// 対応)。`MainWindowController`がツールバーのトグルボタンの状態を反映する。
+    var autoplayNext = false
+    /// `autoplayNext`が有効なとき、動画が最後まで再生し終わったら呼ばれる
+    /// (`onVideoFinished`はスライドショー専用のままにして役割を分けている ―
+    /// スライドショー側は一時停止状態やタイマーも絡むため、単純な「次へ進む」だけの
+    /// 通常視聴とは呼び出し元の扱いが異なる)。
+    var onAutoAdvance: (() -> Void)?
 
     private let imageView = FillImageView(gravity: .resizeAspect)
     private let playerView: AVPlayerView = {
@@ -1126,6 +1477,15 @@ final class ViewerOverlay: NSView {
     private var currentPath: String?
     private var currentIsVideo = false
     private var videoEndObserver: NSObjectProtocol?
+    /// 動画の再生失敗を検出するための監視(2026-09-07追加 ― 「サムネは取得できて
+    /// いるファイルが再生できないときがある」というユーザー要望への対応。それまでは
+    /// `AVPlayer`の失敗を一切拾っておらず、再生ボタンを押しても無音で何も起きない
+    /// ように見えていた)。`statusObservation`は`AVPlayerItem.status`が`.failed`に
+    /// なった場合(再生開始前に失敗、例: コーデック非対応・URL失効)、
+    /// `failedToPlayObserver`は`.AVPlayerItemFailedToPlayToEndTime`通知(再生開始後に
+    /// 失敗、例: ネットワーク切断)を拾う。
+    private var statusObservation: NSKeyValueObservation?
+    private var failedToPlayObserver: NSObjectProtocol?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -1165,15 +1525,36 @@ final class ViewerOverlay: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f
+    }()
+
     func show(photo: PhotoItem, index: Int, total: Int) {
         currentPath = photo.cacheKey
         currentIsVideo = photo.isVideo
-        infoLabel.stringValue = "  \(photo.url.lastPathComponent) — \(index + 1) / \(total)  "
+        // 動画再生中はファイル名から`FilenameDateParser`(元はスライドショー専用に
+        // 移植した`YYYYMMDD`パターン抽出)で撮影日らしき日付を拾って添える(2026-09-07、
+        // ユーザー要望「ファイル名から年月日を出して、動画再生時に表示したい」への対応)。
+        // 写真では出さない ― スライドショーの日付ラベルと役割が重複するため、通常視聴
+        // ビューアでは動画だけに絞った。`photo.name`(元ファイル名)を使う ―
+        // `photo.url`はOneDriveでは署名付きダウンロードURLでファイル名を反映しない。
+        var info = "  \(photo.name) — \(index + 1) / \(total)  "
+        if photo.isVideo, let date = FilenameDateParser.date(from: photo.name) {
+            info = "  \(photo.name) — \(index + 1) / \(total) — \(Self.dateFormatter.string(from: date))  "
+        }
+        infoLabel.stringValue = info
         playerView.player?.pause()
         if let observer = videoEndObserver {
             NotificationCenter.default.removeObserver(observer)
             videoEndObserver = nil
         }
+        if let observer = failedToPlayObserver {
+            NotificationCenter.default.removeObserver(observer)
+            failedToPlayObserver = nil
+        }
+        statusObservation = nil
 
         if photo.isVideo {
             imageView.isHidden = true
@@ -1184,10 +1565,32 @@ final class ViewerOverlay: NSView {
             let player = AVPlayer(url: photo.url)
             playerView.player = player
             player.play()
-            if slideshowMode, let item = player.currentItem {
-                videoEndObserver = NotificationCenter.default.addObserver(
-                    forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
-                ) { [weak self] _ in self?.onVideoFinished?() }
+            if let item = player.currentItem {
+                if slideshowMode {
+                    videoEndObserver = NotificationCenter.default.addObserver(
+                        forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+                    ) { [weak self] _ in self?.onVideoFinished?() }
+                } else if autoplayNext {
+                    videoEndObserver = NotificationCenter.default.addObserver(
+                        forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+                    ) { [weak self] _ in self?.onAutoAdvance?() }
+                }
+                let path = photo.cacheKey
+                let name = photo.name
+                statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+                    guard item.status == .failed else { return }
+                    DispatchQueue.main.async {
+                        guard let self, self.currentPath == path else { return }
+                        self.showPlaybackError(item.error, photoName: name)
+                    }
+                }
+                failedToPlayObserver = NotificationCenter.default.addObserver(
+                    forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main
+                ) { [weak self] note in
+                    guard let self, self.currentPath == path else { return }
+                    let error = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+                    self.showPlaybackError(error ?? item.error, photoName: name)
+                }
             }
         } else {
             playerView.player = nil
@@ -1198,12 +1601,46 @@ final class ViewerOverlay: NSView {
             let url = photo.url
             let key = photo.cacheKey
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                let img = ThumbnailLoader.generate(url: url, maxPixel: 4096)
+                let img = ThumbnailLoader.generate(url: url, isVideo: false, maxPixel: 4096)
                 DispatchQueue.main.async {
                     guard let self = self, self.currentPath == key else { return }
                     if let img = img { self.imageView.image = img }
                 }
             }
+        }
+    }
+
+    /// 動画の再生に失敗したときのエラー表示。`NSAlert`の本文はそのままでも選択できる
+    /// ことが多いが確実ではないため、「コピー」ボタンで確実にクリップボードへ
+    /// コピーできるようにしてある(2026-09-07、ユーザー要望「何のエラーが表示して
+    /// コピペできるようにしてほしい」への対応)。`NSError`の場合は`userInfo`から
+    /// 拾えるだけの詳細(ドメイン・コード・失敗理由)も併記する ― OneDriveの署名付き
+    /// URLの期限切れ、非対応コーデック等、原因の切り分けに役立つ情報はできるだけ残す。
+    private func showPlaybackError(_ error: Error?, photoName: String) {
+        var lines = ["ファイル: \(photoName)"]
+        if let error {
+            let ns = error as NSError
+            lines.append("エラー: \(ns.localizedDescription)")
+            lines.append("ドメイン: \(ns.domain) (\(ns.code))")
+            if let reason = ns.localizedFailureReason { lines.append("理由: \(reason)") }
+            if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? NSError {
+                lines.append("詳細: \(underlying.localizedDescription) [\(underlying.domain) \(underlying.code)]")
+            }
+        } else {
+            lines.append("エラー: (詳細情報なし)")
+        }
+        let text = lines.joined(separator: "\n")
+
+        let a = NSAlert()
+        a.alertStyle = .warning
+        a.messageText = "動画を再生できませんでした"
+        a.informativeText = text
+        a.addButton(withTitle: "コピー")
+        a.addButton(withTitle: "OK")
+        if a.runModal() == .alertFirstButtonReturn {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(text, forType: .string)
         }
     }
 
@@ -1218,6 +1655,11 @@ final class ViewerOverlay: NSView {
                 NotificationCenter.default.removeObserver(observer)
                 videoEndObserver = nil
             }
+            if let observer = failedToPlayObserver {
+                NotificationCenter.default.removeObserver(observer)
+                failedToPlayObserver = nil
+            }
+            statusObservation = nil
         }
     }
 
@@ -3026,11 +3468,17 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private var slider: NSSlider!
     private var duplicatesWC: DuplicatesWindowController?
 
-    /// サイドバーが「OneDrive」モードのとき true。ローカル専用機能(回転・ゴミ箱・
+    /// サイドバーが「動画(OD)」/「画像(OD)」タブのとき true。ローカル専用機能(回転・ゴミ箱・
     /// 重複検出・Visionベースのフィルター・画質順ソート)はこの間すべて無効化する
     /// (`validateMenuItem`参照)。
     private var isOneDriveMode = false
     private var oneDriveLoadGeneration = 0
+    /// 読み込み済みのOneDriveリンクの全件(年/月フォルダによる絞り込み前)を
+    /// `OneDriveLink.id`ごとにキャッシュする ― タブを切り替えるたびに毎回
+    /// ネットワークへスキャンし直さないため(セッション中は一度読み込めば使い回す)。
+    /// フォルダツリーのチェック状態が変わったときは、ここから再フィルタするだけで
+    /// `gridVC.items`を更新する。
+    private var oneDriveCache: [String: [PhotoItem]] = [:]
     private let slideshow = SlideshowController()
     private var slideshowSettingsPopover: NSPopover?
     private var slideshowSettingsVC: SlideshowSettingsPopoverViewController?
@@ -3038,7 +3486,63 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private var sortOrder: SortOrder = .dateDesc {
         didSet {
             UserDefaults.standard.set(sortOrder.rawValue, forKey: defaultsSortKey)
-            gridVC.thumbnailBadge = sortOrder.showsFileSize ? .fileSize : (sortOrder.showsQuality ? .quality : .none)
+            updateThumbnailBadge()
+            // 年月グリッド区切り線(2026-09-07)は日付順のときだけ意味を持つ。
+            gridVC.groupingEnabled = sortOrder.isDateOrder
+        }
+    }
+
+    /// サムネイル左上に月日バッジを表示するかどうか(2026-09-07追加、ユーザー要望
+    /// 「サムネに月日を表示できる?」「月日の表示はトグルにしたい」への対応)。
+    /// 右下のサイズ/画質バッジ(`gridVC.thumbnailBadge`、下記)とは別スロットなので、
+    /// 両方同時にオンにできる。
+    private var showDateBadge = false {
+        didSet {
+            UserDefaults.standard.set(showDateBadge, forKey: defaultsDateBadgeKey)
+            gridVC.showDateBadge = showDateBadge
+            dateBadgeButton?.state = showDateBadge ? .on : .off
+        }
+    }
+
+    /// サムネイル右下にファイルサイズバッジを表示するかどうか(2026-09-07追加、
+    /// ユーザー要望「ファイルサイズの表示トグルボタンもお願い」への対応)。
+    /// サイズ順で並び替えているときは、このトグルの状態に関わらず**強制的に**
+    /// 表示する(同ユーザー要望「サイズソートのときは、強制表示で」)―
+    /// `updateThumbnailBadge()`の`sortOrder.showsFileSize ||`がその強制分岐。
+    private var showSizeBadge = false {
+        didSet {
+            UserDefaults.standard.set(showSizeBadge, forKey: defaultsSizeBadgeKey)
+            updateThumbnailBadge()
+            sizeBadgeButton?.state = showSizeBadge ? .on : .off
+        }
+    }
+
+    /// 右下バッジ(サイズ/画質、排他 ― 1スロットなので優先順位で決める)。
+    /// 画質順ソート中は画質を最優先(画質順に切り替えた本来の目的なので、サイズ
+    /// トグルがオンでも画質を隠さない)。それ以外はサイズトグルがオン、または
+    /// サイズ順ソート中(強制表示)ならサイズを出す。
+    private func updateThumbnailBadge() {
+        if sortOrder.showsQuality {
+            gridVC.thumbnailBadge = .quality
+        } else if showSizeBadge || sortOrder.showsFileSize {
+            gridVC.thumbnailBadge = .fileSize
+        } else {
+            gridVC.thumbnailBadge = .none
+        }
+    }
+
+    /// 通常視聴ビューアで、動画が最後まで再生し終わったら自動的に次のアイテムへ
+    /// 進めるかどうか(2026-09-07追加、ユーザー要望「次の動画に自動再生、トグル
+    /// ボタンを作って」への対応)。スライドショーとは独立の機能(スライドショーは
+    /// 別途タイマー・一時停止状態を持つ専用モード) ― こちらは普段のブラウジング中に
+    /// 動画を連続再生したいだけの、もっと軽い機能という位置づけ。ローカル・OneDrive
+    /// どちらでも動く(`ViewerOverlay`自体がソースを意識しない作りなので制限する
+    /// 理由が無い)。
+    private var autoplayNextVideo = false {
+        didSet {
+            UserDefaults.standard.set(autoplayNextVideo, forKey: defaultsAutoplayNextKey)
+            viewer?.autoplayNext = autoplayNextVideo
+            autoplayNextButton?.state = autoplayNextVideo ? .on : .off
         }
     }
 
@@ -3064,6 +3568,16 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private static let sortItemID = NSToolbarItem.Identifier("sort")
     private static let filterItemID = NSToolbarItem.Identifier("filter")
     private static let slideshowItemID = NSToolbarItem.Identifier("slideshow")
+    private static let reloadItemID = NSToolbarItem.Identifier("reload")
+    private static let dateBadgeItemID = NSToolbarItem.Identifier("dateBadge")
+    private static let sizeBadgeItemID = NSToolbarItem.Identifier("sizeBadge")
+    private static let autoplayNextItemID = NSToolbarItem.Identifier("autoplayNext")
+    /// 月日/サイズ/動画自動再生バッジ・トグルのボタン(押されている/いないでそれぞれの
+    /// Boolを反映する`.pushOnPushOff`ボタン)。各Boolのdidsetから見た目を同期するために
+    /// 参照を保持する。
+    private weak var dateBadgeButton: NSButton?
+    private weak var sizeBadgeButton: NSButton?
+    private weak var autoplayNextButton: NSButton?
 
     convenience init() {
         let window = NSWindow(
@@ -3078,6 +3592,9 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         if let saved = SortOrder(rawValue: UserDefaults.standard.integer(forKey: defaultsSortKey)) {
             sortOrder = saved
         }
+        showDateBadge = UserDefaults.standard.bool(forKey: defaultsDateBadgeKey)
+        showSizeBadge = UserDefaults.standard.bool(forKey: defaultsSizeBadgeKey)
+        autoplayNextVideo = UserDefaults.standard.bool(forKey: defaultsAutoplayNextKey)
         let savedCell = UserDefaults.standard.double(forKey: defaultsCellKey)
         if savedCell >= Double(minCellSize), savedCell <= Double(maxCellSize) {
             gridVC.cellSize = CGFloat(savedCell)
@@ -3124,22 +3641,31 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
 
         sidebarVC.onCheckedChanged = { [weak self] in self?.reloadGrid() }
 
-        sidebarContainerVC.onModeChanged = { [weak self] isOneDrive in
+        sidebarContainerVC.onModeChanged = { [weak self] mode in
             guard let self else { return }
-            self.isOneDriveMode = isOneDrive
+            self.isOneDriveMode = mode != .local
             self.closeViewer()
-            if isOneDrive {
-                self.gridVC.items = []
-                self.gridVC.setEmptyState("OneDriveのリンクを選んで「読み込み」を押してください")
-                self.window?.title = "OneDrive"
-            } else {
+            switch mode {
+            case .local:
                 self.window?.title = self.store.rootURL?.lastPathComponent ?? "MyGallery"
                 self.reloadGrid()
+            case .video:
+                self.activateOneDriveTab(self.sidebarContainerVC.videoVC)
+            case .photo:
+                self.activateOneDriveTab(self.sidebarContainerVC.photoVC)
             }
             self.updateSubtitle()
         }
-        sidebarContainerVC.oneDriveVC.onLoadRequested = { [weak self] link, folders in
-            self?.loadOneDrive(link: link, folders: folders)
+        // 年/月フォルダのチェックが変わるたびに、すでに読み込み済みの分をローカル側で
+        // 絞り込み直しつつ、新しくチェックされて未取得のフォルダがあればフェーズ2で追加取得する
+        // (`oneDriveCheckedChanged`参照)。
+        sidebarContainerVC.videoVC.onCheckedChanged = { [weak self] in
+            guard let self else { return }
+            self.oneDriveCheckedChanged(self.sidebarContainerVC.videoVC)
+        }
+        sidebarContainerVC.photoVC.onCheckedChanged = { [weak self] in
+            guard let self else { return }
+            self.oneDriveCheckedChanged(self.sidebarContainerVC.photoVC)
         }
 
         gridVC.collectionView.onOpen = { [weak self] index in self?.openViewer(at: index) }
@@ -3175,49 +3701,123 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         reloadGrid()
     }
 
-    /// OneDriveリンクをスキャンして`gridVC.items`に読み込む(`OneDriveSidebarViewController
-    /// .onLoadRequested`から呼ばれる)。ローカルの`reloadGrid()`パイプライン(フィルター/
-    /// 画質順ソート)は一切通さない — OneDriveアイテムはVision解析対象外のため。
-    private func loadOneDrive(link: OneDriveLink, folders: Set<String>) {
+    /// 「動画(OD)」/「画像(OD)」タブに切り替わったときに呼ぶ。すでにこのセッションで
+    /// 読み込み済み(`oneDriveCache`にある)ならネットワークへは行かず、フォルダツリーの
+    /// 前回のチェック状態(`OneDriveFolderTreeViewController.setRoot`が
+    /// `GallerySettings.folderTreeSelections`から復元済み)でそのままグリッドへ反映する。
+    /// 未読み込みならここで初めてスキャンする ― タブを開いただけで自動的に読み込まれる、
+    /// という挙動(以前あった「リンクを選んで読み込みボタンを押す」手順は廃止した)。
+    private func activateOneDriveTab(_ vc: OneDriveFolderTreeViewController) {
+        window?.title = vc.link.name
+        if oneDriveCache[vc.link.id] != nil {
+            refreshOneDriveGrid(vc)
+            // 別タブへの切り替え中にこのタブのフェーズ2が世代カウンタで打ち切られていた
+            // 場合の「取りこぼし」を、戻ってきたタイミングで自己修復する ―
+            // `uncachedCheckedLeaves()`が空なら何もしない安全な呼び出し。
+            loadOneDriveLeaves(vc: vc, generation: oneDriveLoadGeneration)
+        } else {
+            loadOneDriveFolderStructure(vc: vc)
+        }
+    }
+
+    /// `vc`(ビデオ/写真タブ)が今まさにサイドバーに表示されているタブかどうか。
+    /// 2026-09-07に発覚した不具合の修正で追加: `oneDriveLoadGeneration`は「新しく
+    /// タブを開いてフェーズ1をやり直す」ときだけ増分される(意図的、上のコメント参照)
+    /// ため、**すでにキャッシュ済みのタブへ切り替えたとき**(`activateOneDriveTab`が
+    /// gen を増分せずそのまま`loadOneDriveLeaves`を呼ぶケース)は、直前まで表示していた
+    /// タブのフェーズ2がまだ実行中でも同じ世代番号のまま生き続ける。そのタスクが
+    /// 後から結果を届けたとき、`oneDriveLoadGeneration == gen`のガードだけでは
+    /// 「タブは切り替わったが世代は変わっていない」ケースを弾けず、非表示になった
+    /// はずのタブの写真で`gridVC.items`を上書きしてしまっていた(「動画タブを押した
+    /// のに写真タブの内容に戻る」という形で表面化した)。`refreshOneDriveGrid`が
+    /// 実際に`gridVC`(全タブ共有の1つのグリッド)へ書き込む直前に、`vc`が今も
+    /// アクティブなタブ本人かどうかを見て弾く。
+    private func isActiveOneDriveVC(_ vc: OneDriveFolderTreeViewController) -> Bool {
+        switch sidebarContainerVC.currentMode {
+        case .video: return vc === sidebarContainerVC.videoVC
+        case .photo: return vc === sidebarContainerVC.photoVC
+        case .local: return false
+        }
+    }
+
+    private func refreshOneDriveGrid(_ vc: OneDriveFolderTreeViewController?, allItems: [PhotoItem]? = nil) {
+        guard let vc, isActiveOneDriveVC(vc) else { return }
+        guard let items = allItems ?? oneDriveCache[vc.link.id] else { return }
+        // `sortOrder`(ローカルと共通のツールバー/メニューの並び替え設定)にそのまま
+        // 従う ― 以前は`folderPath`(月フォルダ単位でグループ化)→`mtime`という
+        // ハードコードされた順序で、ユーザーが選んだ`sortOrder`を無視していた
+        // (2026-09-07修正、詳細は`sortedForOneDrive(_:)`のコメント参照)。フェーズ2は
+        // フォルダが完了した順に届く(ネットワークの応答順であって日付順ではない)ため、
+        // 届くたびに並べ直す必要がある。
+        let filtered = sortedForOneDrive(vc.filteredItems(from: items))
+        gridVC.items = filtered
+        // `vc.link.name`は「ビデオ」/「写真」(`OneDriveLinks.video`/`.photo`の
+        // 表示名、サイドバーのタブ名と同じ) ― ビデオタブで「写真が見つかりません」と
+        // 出るのはおかしいというユーザー指摘への対応(2026-09-07)。
+        gridVC.setEmptyState(filtered.isEmpty ? "\(vc.link.name)が見つかりません" : nil)
+        updateSubtitle()
+    }
+
+    /// フェーズ1: フォルダ階層(年/月)だけを高速に取得してサイドバーのツリーへ即座に表示する
+    /// (中の写真・動画はまだ取得しない)。ユーザー要望「ディレクトリだけ先に取得して表示し、
+    /// チェックされているフォルダのサムネイルを後から適宜表示する」への対応。
+    /// 決め打ちの2リンクなのでスキャン対象は毎回`link.availableFolders`全件
+    /// (以前あった「読み込み前にどの年フォルダを対象にするか選ぶ」UIは廃止した)。
+    private func loadOneDriveFolderStructure(vc: OneDriveFolderTreeViewController) {
+        let link = vc.link
         closeViewer()
         oneDriveLoadGeneration += 1
         let gen = oneDriveLoadGeneration
-        window?.title = link.name
+        oneDriveCache[link.id] = []
         gridVC.items = []
-        gridVC.setEmptyState("読み込み中…")
-        sidebarContainerVC.oneDriveVC.setStatus("読み込み中…")
+        gridVC.setEmptyState("フォルダを確認中…")
+        vc.setStatus("フォルダを確認中…")
+        var started = false
         Task { [weak self] in
             guard let self else { return }
             do {
-                let (_, items) = try await OneDriveMediaClient.scanWithRetry(
-                    shareURL: link.url, onlyTopLevelFolders: folders)
-                let filtered = items.filter { link.kindFilter == nil || $0.kind == link.kindFilter }
-                let photoItems = filtered
-                    .sorted {
-                        ($0.folderPath + [$0.name]).joined(separator: "/")
-                            .localizedStandardCompare(($1.folderPath + [$1.name]).joined(separator: "/")) == .orderedAscending
+                let stream = OneDriveMediaClient.scanFolderStructureStream(
+                    shareURL: link.url, onlyTopLevelFolders: Set(link.availableFolders))
+                // 年フォルダが1つ解決するたびに随時サイドバーへ追加していく ―
+                // 「フォルダを確認中…」のまま全年フォルダぶん待たせず、レイヤーごとに
+                // 徐々に表示する(2026-09-06、ユーザー要望)。
+                for try await (rootName, yearFolder) in stream {
+                    await MainActor.run {
+                        guard self.oneDriveLoadGeneration == gen else { return }
+                        if !started {
+                            started = true
+                            vc.beginIncrementalLoad(rootName: rootName)
+                            // `vc`のサイドバー内部状態(上の`beginIncrementalLoad`)は
+                            // タブが非表示でも構築を続けてよいが、`gridVC`は全タブ共有
+                            // なので、今`vc`がアクティブなタブでなければ触らない
+                            // (`isActiveOneDriveVC`参照 ― 例えば写真タブの読み込みが
+                            // 終わる前に動画タブへ切り替えた場合、写真タブのこの続きが
+                            // 動画タブのグリッドを巻き込んで空表示に戻してしまうのを防ぐ)。
+                            if self.isActiveOneDriveVC(vc) { self.gridVC.setEmptyState(nil) }
+                        }
+                        vc.addTopLevelFolder(yearFolder)
                     }
-                    .map { media in
-                        PhotoItem(url: media.downloadURL,
-                                  mtime: media.modifiedDate ?? .distantPast,
-                                  fileSize: 0,
-                                  isVideo: media.kind == .video,
-                                  source: .oneDrive(linkID: link.id),
-                                  remoteID: media.remoteID,
-                                  folderPath: media.folderPath)
-                    }
+                }
                 await MainActor.run {
                     guard self.oneDriveLoadGeneration == gen else { return }
-                    self.sidebarContainerVC.oneDriveVC.setStatus("")
-                    self.gridVC.items = photoItems
-                    self.gridVC.setEmptyState(photoItems.isEmpty ? "写真が見つかりません" : nil)
-                    self.updateSubtitle()
+                    if !started {
+                        // トップフォルダが1つも見つからなかった(空の共有フォルダ等)。
+                        vc.beginIncrementalLoad(rootName: link.name)
+                        if self.isActiveOneDriveVC(vc) { self.gridVC.setEmptyState(nil) }
+                    }
+                    vc.finishIncrementalLoad()
+                    // フェーズ2はここで1回だけ起動する ― 年フォルダが届くたびに都度
+                    // 呼ぶと、`uncachedCheckedLeaves()`は「取得中」を追跡していないため
+                    // 同じ葉フォルダに対して複数のフェーズ2タスクが並行して走り、
+                    // `oneDriveCache`に同じ写真が重複して積まれてしまう(2026-09-06、
+                    // レイヤーごとの随時表示を実装した際に踏みかけた不具合)。
+                    self.loadOneDriveLeaves(vc: vc, generation: gen)
                 }
             } catch {
                 await MainActor.run {
                     guard self.oneDriveLoadGeneration == gen else { return }
-                    self.sidebarContainerVC.oneDriveVC.setStatus("")
-                    self.gridVC.setEmptyState("読み込みに失敗しました")
+                    vc.setStatus("")
+                    if self.isActiveOneDriveVC(vc) { self.gridVC.setEmptyState("読み込みに失敗しました") }
                     let a = NSAlert()
                     a.messageText = "OneDriveから読み込めませんでした"
                     a.informativeText = error.localizedDescription
@@ -3225,6 +3825,74 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                 }
             }
         }
+    }
+
+    /// フェーズ2: フォルダツリーで現在チェックされている葉フォルダのうち、まだ取得して
+    /// いないものだけを並列に取得する。1フォルダぶん届くたびに`oneDriveCache`へ追加して
+    /// グリッドを再描画する(全フォルダぶん揃うまで待たせない ― 「サムネイルを適宜表示」)。
+    /// チェックボックスをトグルして新しく追加されたフォルダに対しても同じ関数を再利用する
+    /// (`oneDriveCheckedChanged`参照)。
+    private func loadOneDriveLeaves(vc: OneDriveFolderTreeViewController, generation gen: Int) {
+        let link = vc.link
+        let refs: [OneDriveMediaClient.OneDriveFolderRef] = vc.uncachedCheckedLeaves().compactMap { node in
+            guard let driveId = node.driveId, let itemId = node.itemId else { return nil }
+            return OneDriveMediaClient.OneDriveFolderRef(
+                driveId: driveId, itemId: itemId, name: node.name,
+                pathComponents: node.pathComponents, children: [])
+        }
+        guard !refs.isEmpty else {
+            vc.setStatus("")
+            refreshOneDriveGrid(vc)
+            return
+        }
+        vc.setStatus("読み込み中…")
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                for try await (folder, items) in OneDriveMediaClient.scanLeafFolders(shareURL: link.url, folders: refs) {
+                    guard self.oneDriveLoadGeneration == gen else { return }
+                    let filtered = items.filter { link.kindFilter == nil || $0.kind == link.kindFilter }
+                    let photoItems: [PhotoItem] = filtered.map { media in
+                        PhotoItem(url: media.downloadURL,
+                                  mtime: media.modifiedDate ?? .distantPast,
+                                  fileSize: media.size,
+                                  isVideo: media.kind == .video,
+                                  source: .oneDrive(linkID: link.id),
+                                  remoteID: media.remoteID,
+                                  folderPath: media.folderPath,
+                                  name: media.name,
+                                  thumbnailURL: media.thumbnailURL)
+                    }
+                    await MainActor.run {
+                        guard self.oneDriveLoadGeneration == gen else { return }
+                        self.oneDriveCache[link.id, default: []].append(contentsOf: photoItems)
+                        vc.recordLoadedItems(count: photoItems.count, at: folder.pathComponents)
+                        self.refreshOneDriveGrid(vc)
+                    }
+                }
+                await MainActor.run {
+                    guard self.oneDriveLoadGeneration == gen else { return }
+                    vc.setStatus("")
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.oneDriveLoadGeneration == gen else { return }
+                    vc.setStatus("")
+                    let a = NSAlert()
+                    a.messageText = "OneDriveから読み込めませんでした"
+                    a.informativeText = error.localizedDescription
+                    a.runModal()
+                }
+            }
+        }
+    }
+
+    /// フォルダツリーのチェック状態が変わるたびに呼ばれる。すでに取得済みの分はすぐ
+    /// フィルタし直して見せつつ、新しくチェックされて未取得のフォルダがあれば
+    /// フェーズ2を追加で走らせる(チェックした瞬間は「…」表示で、届き次第サムネイルが出る)。
+    private func oneDriveCheckedChanged(_ vc: OneDriveFolderTreeViewController) {
+        refreshOneDriveGrid(vc)
+        loadOneDriveLeaves(vc: vc, generation: oneDriveLoadGeneration)
     }
 
     private func reloadGrid() {
@@ -3386,8 +4054,14 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
         let n = gridVC.items.count
         let sel = gridVC.collectionView.selectionIndexPaths.count
-        let countText = currentFilter.isActive ? "\(n) / \(currentBaseCount) 枚" : "\(n) 枚"
-        window.subtitle = sel > 0 ? "\(countText)(\(sel) 枚選択)" : countText
+        // 単位: 「ビデオ」タブは`OneDriveLinks.video.kindFilter == .video`により
+        // 表示アイテムが常に動画のみなので「本」、それ以外(ローカル・「写真」タブ)は
+        // 従来通り「枚」(ローカルは写真・動画混在があり得るが、元々「枚」表記だった
+        // ものを崩さない)。2026-09-07、ユーザー指摘「ビデオタブで枚と表示されている」
+        // への対応。
+        let unit = sidebarContainerVC.currentMode == .video ? "本" : "枚"
+        let countText = currentFilter.isActive ? "\(n) / \(currentBaseCount) \(unit)" : "\(n) \(unit)"
+        window.subtitle = sel > 0 ? "\(countText)(\(sel) \(unit)選択)" : countText
     }
 
     // MARK: viewer
@@ -3400,6 +4074,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             v.autoresizingMask = [.width, .height]
             v.onClose = { [weak self] in self?.closeViewer() }
             v.onStep = { [weak self] d in self?.stepViewer(d) }
+            v.onAutoAdvance = { [weak self] in self?.stepViewer(1) }
+            v.autoplayNext = autoplayNextVideo
             viewer = v
         }
         viewerIndex = index
@@ -3439,7 +4115,22 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
     }
 
+    /// ローカルは全体再スキャン、OneDriveは現在表示中のタブ(ビデオ/写真)を
+    /// フェーズ1からやり直す(2026-09-07追加 ― 「ネットワーク切れでサムネが取得
+    /// されないときがある」というユーザー要望への対応)。`loadOneDriveFolderStructure`
+    /// は`oneDriveCache[link.id]`を空にしてから読み直すので、フォルダ一覧・
+    /// サムネイルどちらも取得し直しになる(一部のサムネイルだけが個別に欠けている
+    /// 場合は、フォルダ構成自体は変わっていないのでフェーズ1はすぐ終わり、
+    /// フェーズ2の再取得だけで直る)。
     @objc func refresh(_ sender: Any?) {
+        if isOneDriveMode {
+            switch sidebarContainerVC.currentMode {
+            case .video: loadOneDriveFolderStructure(vc: sidebarContainerVC.videoVC)
+            case .photo: loadOneDriveFolderStructure(vc: sidebarContainerVC.photoVC)
+            case .local: break
+            }
+            return
+        }
         guard store.rootURL != nil else { return }
         closeViewer()
         store.rescan()
@@ -3568,21 +4259,73 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
     }
 
+    /// サムネイルの月日バッジ(左上)のオン/オフ(ローカル・OneDriveどちらでも使える
+    /// ― `PhotoItem.name`/`mtime`はどちらのソースでも入っているので、サイズ順・
+    /// 画質順のようにOneDriveで無効化する理由が無い)。`showDateBadge`のdidSetが
+    /// `gridVC.showDateBadge`を更新し、そのdidSetが`reloadData()`するので、
+    /// ここでは値を反転するだけでよい。
+    @objc func toggleDateBadge(_ sender: Any?) {
+        showDateBadge.toggle()
+    }
+
+    /// サムネイルのファイルサイズバッジ(右下)のオン/オフ(2026-09-07追加)。
+    /// ローカル・OneDriveどちらでも使える(`PhotoItem.fileSize`は両ソースとも
+    /// 実値が入っている)。
+    @objc func toggleSizeBadge(_ sender: Any?) {
+        showSizeBadge.toggle()
+    }
+
+    /// 通常視聴ビューアでの動画自動連続再生のオン/オフ(2026-09-07追加)。
+    @objc func toggleAutoplayNext(_ sender: Any?) {
+        autoplayNextVideo.toggle()
+    }
+
     /// OneDriveモード用の簡易な並び替え(`reloadGrid()`のフィルター/画質順ソート
-    /// パイプラインは通さない — Vision解析はローカル専用のため、名前順・新しい順・
-    /// 古い順だけ意味を持つ。`validateMenuItem`が画質順メニューをこのモードでは
-    /// 無効化しているのでここには来ない)。
-    private func resortOneDriveGrid() {
-        var items = gridVC.items
+    /// パイプラインは通さない — Vision解析はローカル専用のため、画質順だけ意味を
+    /// 持たない。`validateMenuItem`が画質順メニューをこのモードでは無効化している
+    /// のでここには来ない)。サイズ順はOneDriveの`children`レスポンスに含まれる
+    /// `size`をそのまま`PhotoItem.fileSize`へ渡しているので、ローカルと同じ意味で使える
+    /// (2026-09-07、以前はOneDriveアイテムの`fileSize`を常に0にしていたため未対応だった)。
+    /// `refreshOneDriveGrid`(フェーズ2のたびに呼ばれる)とロジックを共通化してある
+    /// ― 以前は別々に実装されていて、フェーズ2の再描画が`resortOneDriveGrid`で
+    /// 選んだ並び順を上書きしてしまう不具合があった(下記参照)。
+    private func sortedForOneDrive(_ items: [PhotoItem]) -> [PhotoItem] {
         switch sortOrder {
-        case .dateDesc: items.sort { $0.mtime > $1.mtime }
-        case .dateAsc: items.sort { $0.mtime < $1.mtime }
+        case .dateDesc: return items.sorted { $0.sortDate > $1.sortDate }
+        case .dateAsc: return items.sorted { $0.sortDate < $1.sortDate }
         case .name:
-            items.sort { $0.url.lastPathComponent.localizedStandardCompare($1.url.lastPathComponent) == .orderedAscending }
-        case .sizeDesc, .sizeAsc, .qualityDesc, .qualityAsc:
-            break   // OneDriveでは意味を持たない(サイズは常に0、画質はVision解析対象外)
+            // `photo.name`(元ファイル名)を使う ― OneDriveの`url`は署名付き
+            // ダウンロードURLでファイル名を反映しないため、以前は`url.lastPathComponent`
+            // でソートしており実質意味を持たない順序になっていた(2026-09-07修正、
+            // `PhotoItem.name`追加を機に発覚)。
+            return items.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        case .sizeDesc: return items.sorted { $0.fileSize > $1.fileSize }
+        case .sizeAsc: return items.sorted { $0.fileSize < $1.fileSize }
+        case .qualityDesc, .qualityAsc:
+            // 画質順はVision解析(ローカル専用)が前提のため、OneDriveでは意味を持たない
+            // (`validateMenuItem`がこのモードでは選べなくしている ― 万一来ても
+            // 元の順序のまま返す、安全なフォールバック)。
+            return items
         }
-        gridVC.items = items
+    }
+
+    /// ユーザーが並び替えを変更した直後に呼ぶ(ツールバー/メニューどちらの並び替え
+    /// UIからも)。**現在キャッシュ済みの全件から絞り込み直す**(`refreshOneDriveGrid`
+    /// と同じ経路) ― 以前は`gridVC.items`(今表示中の配列)をその場でin-place
+    /// ソートするだけの別実装だったが、その直後にフェーズ2の続きが届いて
+    /// `refreshOneDriveGrid`が呼ばれると、そちらが独自の(`sortOrder`を無視した)
+    /// 順序で`gridVC.items`を丸ごと上書きしてしまい、選んだばかりの並び替えが
+    /// 元に戻る不具合があった(2026-09-07修正 ― ユーザー要望「再生モードで次/前に
+    /// 行けるようにしたい、その時にソートされた並び順で」の裏で見つかった)。
+    private func resortOneDriveGrid() {
+        let vc: OneDriveFolderTreeViewController?
+        switch sidebarContainerVC.currentMode {
+        case .video: vc = sidebarContainerVC.videoVC
+        case .photo: vc = sidebarContainerVC.photoVC
+        case .local: vc = nil
+        }
+        guard let vc else { return }
+        refreshOneDriveGrid(vc)
     }
 
     @objc func zoomIn(_ sender: Any?)  { setCellSize(gridVC.cellSize + 32) }
@@ -3617,19 +4360,31 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             // 回転・ゴミ箱・Finder表示・コピーはローカルファイル前提(OneDriveアイテムは
             // リモートURLで、ローカルファイル操作が成立しない)。
             return !isOneDriveMode && !targetPhotos().isEmpty
-        case #selector(refresh(_:)), #selector(findDuplicates(_:)):
-            // 再スキャン・重複検出もローカル専用(重複検出はSHA-256/dHashでローカル
-            // ファイルの内容を読む)。
+        case #selector(refresh(_:)):
+            // 再読み込みはローカル・OneDriveどちらでも使える(OneDriveはネットワーク
+            // 切れでサムネイルが欠けたときの再取得用、2026-09-07)。
+            return isOneDriveMode || store.rootURL != nil
+        case #selector(findDuplicates(_:)):
+            // 重複検出はローカル専用(SHA-256/dHashでローカルファイルの内容を読む)。
             return !isOneDriveMode && store.rootURL != nil
         case #selector(changeSort(_:)):
             menuItem.state = (menuItem.tag == sortOrder.rawValue) ? .on : .off
             if isOneDriveMode {
                 // 画質順ソート(Vision解析)はOneDriveでは意味を持たないため無効化する。
-                // 名前順・日付順・サイズ順は許可(サイズは常に0だが害はない)。
+                // 名前順・日付順・サイズ順は許可(サイズはAPIレスポンスの実値を使う)。
                 guard let order = SortOrder(rawValue: menuItem.tag) else { return false }
                 return !order.showsQuality && !gridVC.items.isEmpty
             }
             return store.rootURL != nil
+        case #selector(toggleDateBadge(_:)):
+            menuItem.state = showDateBadge ? .on : .off
+            return true
+        case #selector(toggleSizeBadge(_:)):
+            menuItem.state = showSizeBadge ? .on : .off
+            return true
+        case #selector(toggleAutoplayNext(_:)):
+            menuItem.state = autoplayNextVideo ? .on : .off
+            return true
         case #selector(zoomIn(_:)):
             return gridVC.cellSize < maxCellSize
         case #selector(zoomOut(_:)):
@@ -3644,8 +4399,9 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     // MARK: toolbar
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, Self.sortItemID, Self.filterItemID, Self.slideshowItemID,
-         .flexibleSpace, Self.thumbSliderItemID]
+        [.toggleSidebar, Self.reloadItemID, Self.sortItemID, Self.filterItemID,
+         Self.dateBadgeItemID, Self.sizeBadgeItemID, Self.autoplayNextItemID,
+         Self.slideshowItemID, .flexibleSpace, Self.thumbSliderItemID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -3666,6 +4422,18 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             s.widthAnchor.constraint(equalToConstant: 140).isActive = true
             slider = s
             item.view = s
+            return item
+        }
+        if itemIdentifier == Self.reloadItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "再読み込み"
+            item.paletteLabel = "再読み込み"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "arrow.clockwise",
+                               accessibilityDescription: "再読み込み") ?? NSImage(),
+                target: self, action: #selector(refresh(_:)))
+            button.bezelStyle = .texturedRounded
+            item.view = button
             return item
         }
         if itemIdentifier == Self.filterItemID {
@@ -3689,6 +4457,57 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                                accessibilityDescription: "並び替え") ?? NSImage(),
                 target: self, action: #selector(toggleSortPopover(_:)))
             button.bezelStyle = .texturedRounded
+            item.view = button
+            return item
+        }
+        if itemIdentifier == Self.dateBadgeItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "月日を表示"
+            item.paletteLabel = "月日を表示"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "calendar",
+                               accessibilityDescription: "サムネイルに月日を表示") ?? NSImage(),
+                target: self, action: #selector(toggleDateBadge(_:)))
+            button.bezelStyle = .texturedRounded
+            // オン/オフが見た目で分かるトグルボタンにする(メニュー項目のチェックマークと
+            // 違い、押した状態が残るボタンが欲しいというユーザー要望への対応、
+            // 2026-09-07)。`.pushOnPushOff`はクリックのたびに`state`を`.on`/`.off`で
+            // 自動反転するが、ここでは`toggleDateBadge(_:)`側の`showDateBadge`が
+            // 真実の状態(source of truth)なので、ボタンの`state`はクリック直後の
+            // 自動反転に任せず`showDateBadge`のdidSetで毎回明示的に同期し直す。
+            button.setButtonType(.pushOnPushOff)
+            button.state = showDateBadge ? .on : .off
+            dateBadgeButton = button
+            item.view = button
+            return item
+        }
+        if itemIdentifier == Self.sizeBadgeItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "ファイルサイズを表示"
+            item.paletteLabel = "ファイルサイズを表示"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "scalemass",
+                               accessibilityDescription: "サムネイルにファイルサイズを表示") ?? NSImage(),
+                target: self, action: #selector(toggleSizeBadge(_:)))
+            button.bezelStyle = .texturedRounded
+            button.setButtonType(.pushOnPushOff)
+            button.state = showSizeBadge ? .on : .off
+            sizeBadgeButton = button
+            item.view = button
+            return item
+        }
+        if itemIdentifier == Self.autoplayNextItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "動画を自動再生"
+            item.paletteLabel = "動画を自動再生"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "forward.circle",
+                               accessibilityDescription: "動画再生後に次のアイテムへ自動的に進む") ?? NSImage(),
+                target: self, action: #selector(toggleAutoplayNext(_:)))
+            button.bezelStyle = .texturedRounded
+            button.setButtonType(.pushOnPushOff)
+            button.state = autoplayNextVideo ? .on : .off
+            autoplayNextButton = button
             item.view = button
             return item
         }
@@ -3717,7 +4536,16 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             vc.onSelect = { [weak self] order in
                 guard let self = self else { return }
                 self.sortOrder = order
-                self.reloadGrid()
+                // `reloadGrid()`はOneDriveタブ中はno-opのため(`isOneDriveMode`の間、
+                // ローカルの`PhotoStore`を再フィルタする経路を素通りさせている)、
+                // `changeSort(_:)`(メニュー経由の並び替え)と同じ分岐が必要 ―
+                // ここが分岐していなかったため、OneDriveタブでツールバーの並び替え
+                // ポップオーバーからサイズ順等を選んでも何も起きなかった(2026-09-07)。
+                if self.isOneDriveMode {
+                    self.resortOneDriveGrid()
+                } else {
+                    self.reloadGrid()
+                }
                 self.sortPopover?.performClose(nil)
             }
             sortPopoverVC = vc
@@ -3778,7 +4606,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     @objc func startSlideshow(_ sender: Any?) {
         guard !gridVC.items.isEmpty else { return }
         let startIndex = viewerVisible ? viewerIndex
-            : (gridVC.collectionView.selectionIndexPaths.first?.item ?? 0)
+            : (gridVC.firstSelectedIndex ?? 0)
         openViewer(at: startIndex)
         guard let v = viewer else { return }
         slideshow.onIndexChanged = { [weak self] index in self?.viewerIndex = index }
@@ -3901,6 +4729,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         sortItem.submenu = sortMenu
         viewMenu.addItem(sortItem)
+        viewMenu.addItem(withTitle: "サムネイルに月日を表示",
+                         action: #selector(MainWindowController.toggleDateBadge(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "サムネイルにファイルサイズを表示",
+                         action: #selector(MainWindowController.toggleSizeBadge(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "動画を自動再生",
+                         action: #selector(MainWindowController.toggleAutoplayNext(_:)), keyEquivalent: "")
         viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "スライドショー開始",
                          action: #selector(MainWindowController.startSlideshow(_:)), keyEquivalent: "")
