@@ -2,20 +2,24 @@ import SwiftUI
 
 /// フルスクリーンで写真・動画を自動連続再生する画面。写真は`Settings.photoDurationSeconds`
 /// 秒だけ表示して次へ進み、動画は最後まで再生してから次へ進む(操作不要でテレビのように
-/// 流しっぱなしにする)。myslideshow(Mac版)の同名ファイルから移植 ―
+/// 流しっぱなしにする)。myslideshow-ipadの同名ファイルから**ほぼ無変更**で移植した ―
+/// MyGallery Padでは、ホーム画面から直接ではなく`Views/GridView.swift`のツールバー
+/// ボタンから「現在グリッドに表示中のアイテム」を対象に起動する(myslideshow-ipadは
+/// ホーム画面の「スライドショー開始」ボタンから直接遷移する作りだったが、MyGallery Pad
+/// はまずブラウズ可能なグリッドを挟む ― `CLAUDE.md`のアーキテクチャ節参照)。
 ///
-/// - **ウィンドウモード(`playbackMode`)は無い**: iPadはWindowGroupが常にフルスクリーンで
-///   開くため、Mac版の`applyWindowModeIfNeeded()`/`restoreWindowModeIfNeeded()`
-///   (NSWindowを直接操作してウィンドウ内/全画面/PIPを出し分ける処理)は丸ごと不要になった。
+/// - **ウィンドウモードは無い**: iPadはWindowGroupが常にフルスクリーンで開くため、
+///   Mac版のような複数ウィンドウモードの出し分けは元から不要。
 /// - **操作はタップ+外部キーボード**: マウスの`onContinuousHover`はiPad単体では発火しない
-///   (トラックパッド/Apple Pencilのポインタ接続時のみ)ため、`onTapGesture`でも
-///   コントロールオーバーレイを表示できるようにした。キーボード操作はNSEventの代わりに
-///   SwiftUIネイティブの`.onKeyPress`(iOS 17+)を使う ― Magic Keyboard等の外部キーボードを
-///   接続したiPadでも、スペース/矢印/escでMac版と同じ操作ができる。
+///   ため、`onTapGesture`でもコントロールオーバーレイを表示できるようにしてある。
+///   キーボード操作はSwiftUIネイティブの`.onKeyPress`(iOS 17+)を使う。
 struct SlideshowView: View {
     let items: [MediaItem]
     /// スライドショー全体の time limit(分)。`nil`なら無制限。
     let timeLimitMinutes: Int?
+    /// 開始するインデックス(グリッドでタップした位置から始める ― myslideshow-ipadには
+    /// 無い、このアプリ独自の追加パラメータ。既定は0で常に先頭から始まる)。
+    var startIndex: Int = 0
     let onExit: () -> Void
 
     @State private var currentIndex = 0
@@ -51,7 +55,7 @@ struct SlideshowView: View {
                             .controlSize(.large)
                     }
                 case .video:
-                    NativeVideoPlayerView(player: engine.player)
+                    NativeVideoPlayerView(player: engine.player, showsControls: false)
                         .id(current.id)
                         .ignoresSafeArea()
                 }
@@ -78,6 +82,7 @@ struct SlideshowView: View {
         .onKeyPress(.rightArrow) { goNext(); return .handled }
         .onKeyPress(.escape) { exit(); return .handled }
         .onAppear {
+            currentIndex = items.indices.contains(startIndex) ? startIndex : 0
             setupEngineCallbacks()
             revealControls()
             loadCurrent()

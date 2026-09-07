@@ -1,16 +1,14 @@
 import Foundation
 
-/// UserDefaults キーの一元管理(myslideshow(Mac版)の`Core/Settings.swift`と同じ方針)。
-/// キーは`myslideshowpad.`プレフィックス(Mac版の`myslideshow.`と衝突しないよう、別アプリ
-/// なので当然だが明示)。**`playbackMode`はここには無い** ― ウィンドウ内/全画面/PIPは
-/// macOSのウィンドウ管理専用の概念で、iPadは常にフルスクリーンのため対応物が無い。
+/// UserDefaults キーの一元管理(myslideshow-ipad/mygallery Mac版の`Settings.swift`と
+/// 同じ方針)。キーは`mygalleryipad.`プレフィックス。
 enum Settings {
-    private static let photoDurationKey = "myslideshowpad.photoDurationSeconds"
-    private static let shuffleEnabledKey = "myslideshowpad.shuffleEnabled"
-    private static let timeLimitMinutesKey = "myslideshowpad.timeLimitMinutes"
-    private static let folderSelectionsKey = "myslideshowpad.folderSelections"
+    private static let photoDurationKey = "mygalleryipad.photoDurationSeconds"
+    private static let shuffleEnabledKey = "mygalleryipad.shuffleEnabled"
+    private static let timeLimitMinutesKey = "mygalleryipad.timeLimitMinutes"
+    private static let folderSelectionsKey = "mygalleryipad.folderSelections"
 
-    /// 写真1枚あたりの表示秒数。既定6秒。
+    /// 写真1枚あたりの表示秒数(スライドショー用)。既定6秒。
     static var photoDurationSeconds: Double {
         get {
             let value = UserDefaults.standard.double(forKey: photoDurationKey)
@@ -19,7 +17,7 @@ enum Settings {
         set { UserDefaults.standard.set(newValue, forKey: photoDurationKey) }
     }
 
-    /// 順番をシャッフルするか。既定はfalse(フォルダ順)。
+    /// スライドショーの順番をシャッフルするか。既定はfalse(フォルダ順)。
     static var shuffleEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: shuffleEnabledKey) }
         set { UserDefaults.standard.set(newValue, forKey: shuffleEnabledKey) }
@@ -34,9 +32,11 @@ enum Settings {
         set { UserDefaults.standard.set(newValue ?? 0, forKey: timeLimitMinutesKey) }
     }
 
-    /// リンクごとに選んだ、1階層目のサブフォルダ名(「年別」フォルダ等)の集合。
-    /// キーは`HardcodedLink.id`(＝URL文字列、ハードコードなので安定)。未保存(キー無し)は
-    /// 「全フォルダ対象」を意味する。
+    /// リンクごと(`HardcodedLink.id`がキー)の、年/月フォルダツリーで選んだパスの集合。
+    /// パスは`/`区切り文字列にエンコードする(年フォルダ自身は"2026"、月フォルダは
+    /// "2026/09")。mygallery(Mac版)の`GallerySettings.folderTreeSelections`と同じ
+    /// 発想 ― 「動画/写真タブを開いたら前回選んでいたものを自動で復元する」ため、
+    /// キー無しは「全フォルダ表示」を意味する。
     static var folderSelections: [String: Set<String>] {
         get {
             guard let data = UserDefaults.standard.data(forKey: folderSelectionsKey) else { return [:] }

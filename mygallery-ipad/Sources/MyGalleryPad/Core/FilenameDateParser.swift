@@ -1,7 +1,7 @@
 import Foundation
 
-/// ファイル名から撮影日らしき`YYYYMMDD`パターンを拾う。myslideshow(Mac版)の同名ファイルから
-/// 無変更で移植(pure Foundationのためプラットフォーム差異なし)。OneDriveの
+/// ファイル名から撮影日らしき`YYYYMMDD`パターンを拾う。myslideshow-ipad/mygallery(Mac版)の
+/// 同名ロジックから無変更で移植(pure Foundationのためプラットフォーム差異なし)。OneDriveの
 /// `lastModifiedDateTime`(`MediaItem.modifiedDate`)はアップロード/同期日時であって撮影日
 /// ではないことが多いため、`IMG_20230515_120033.jpg`のようなカメラ・スマホの標準的な
 /// 命名規則から、ファイル名だけで日付を推測する。

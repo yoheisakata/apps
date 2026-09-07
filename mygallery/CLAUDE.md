@@ -7,6 +7,15 @@ Photos.app 風のローカルフォルダ・フォトギャラリー。**SPM パ
 機能・キーボード操作の一覧は [README.md](README.md) を参照。ここでは実装上の設計判断と、
 今後変更するときに踏みやすい落とし穴を記録する。
 
+**iPad版 `mygallery-ipad/`(MyGallery Pad)が2026-09-07に追加された** ―
+OneDrive共有リンクのブラウズ専用の縮小版(ローカルフォルダ・Visionベースの
+画質順ソート・重複検出・回転・削除は対象外)。`Core/OneDriveMediaClient.swift`は
+このアプリの`Sources/OneDriveMediaClient.swift`から移植したもの(mytube-ipad/
+myslideshow-ipadと同様、pure Foundationのため無変更で動く)。**別コードベースで
+自動的には同期しない** ― OneDrive関連(認証フロー・スキャン性能)に手を入れたら
+`mygallery-ipad/CLAUDE.md`を見て同じ修正が必要か確認すること。詳細は
+`mygallery-ipad/CLAUDE.md`参照。
+
 ## ファイル構成(2026-09-02、OneDrive+スライドショー機能の統合で複数ファイルへ分割)
 
 それまで `Sources/main.swift` 一本(3583行)だった構成に、MySlideshow(廃止済み、下記)の
@@ -35,7 +44,8 @@ Photos.app 風のローカルフォルダ・フォトギャラリー。**SPM パ
 
 「MySlideshowの機能をMyGalleryに追加してほしい」というユーザー要望への対応。
 MySlideshow(Mac版、`myslideshow/`)はこの統合の完了後に**削除済み**
-(ルート`CLAUDE.md`参照)。`myslideshow-ipad/`は対象外でそのまま残っている。
+(ルート`CLAUDE.md`参照)。iPad版`myslideshow-ipad/`はこの統合とは無関係に
+2026-09-07にユーザーの明示的な依頼で削除された(ルート`CLAUDE.md`参照)。
 
 ### 移植した範囲・移植しなかった範囲
 

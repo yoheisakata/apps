@@ -1,5 +1,5 @@
 # xcodegen が project.yml から再生成する成果物。コミットしない。
-MySlideshowPad.xcodeproj/
+MyGalleryPad.xcodeproj/
 DerivedData/
 build/
 *.xcuserstate

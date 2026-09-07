@@ -1,4 +1,4 @@
-name: MySlideshowPad
+name: MyGalleryPad
 options:
   bundleIdPrefix: com.yoheisakata
   deploymentTarget:
@@ -7,16 +7,16 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
 targets:
-  MySlideshowPad:
+  MyGalleryPad:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: Sources/MySlideshowPad
+      - path: Sources/MyGalleryPad
     info:
-      path: Sources/MySlideshowPad/Info.plist
+      path: Sources/MyGalleryPad/Info.plist
       properties:
-        CFBundleDisplayName: MySlideshow Pad
+        CFBundleDisplayName: MyGallery Pad
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationLandscapeLeft
@@ -25,8 +25,8 @@ targets:
         UIRequiresFullScreen: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.yoheisakata.myslideshowpad
-        PRODUCT_NAME: MySlideshowPad
+        PRODUCT_BUNDLE_IDENTIFIER: com.yoheisakata.mygalleryipad
+        PRODUCT_NAME: MyGalleryPad
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "2"

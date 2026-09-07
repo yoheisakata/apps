@@ -2,8 +2,8 @@ import AVFoundation
 import Combine
 
 /// `AVPlayer`の薄いラッパー。再生キューの中身は一切知らず、1本の再生と`onFinished`/`onError`
-/// コールバックだけを持つ。myslideshow(Mac版)の同名ファイルから無変更で移植
-/// (pure AVFoundation+Combineのためプラットフォーム差異なし)。
+/// コールバックだけを持つ。myslideshow-ipad(元はmygallery Mac版のスライドショー機能)の
+/// 同名ファイルから無変更で移植(pure AVFoundation+Combineのためプラットフォーム差異なし)。
 @MainActor
 final class PlayerEngine: ObservableObject {
     let player = AVPlayer()
