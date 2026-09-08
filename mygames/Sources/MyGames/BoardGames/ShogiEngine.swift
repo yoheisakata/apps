@@ -12,6 +12,7 @@ enum Player: Int, Equatable, Codable {
     case gote = 1    // 後手(AI、上側)
 
     var opponent: Player { self == .sente ? .gote : .sente }
+    var name: String { self == .sente ? "先手" : "後手" }
 }
 
 enum PieceType: Int, CaseIterable, Equatable, Codable {

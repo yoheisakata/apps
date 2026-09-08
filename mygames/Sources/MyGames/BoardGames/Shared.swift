@@ -81,6 +81,15 @@ enum Difficulty: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 }
 
+// MARK: - 対戦相手(AI か、同じ画面での2人対戦か)
+
+enum OpponentMode: String, CaseIterable, Identifiable, Codable {
+    case ai    = "AI対戦"
+    case human = "2人対戦"
+
+    var id: String { rawValue }
+}
+
 // MARK: - セーブ(各ゲーム 3 スロット)
 
 struct SaveMeta: Codable {

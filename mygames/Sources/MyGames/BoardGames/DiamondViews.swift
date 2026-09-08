@@ -24,13 +24,13 @@ struct DiamondGameView: View {
         HStack(spacing: 20) {
             HStack(spacing: 6) {
                 Circle().fill(Color.red).frame(width: 18, height: 18)
-                Text("あなた(赤・下から上へ)").font(.callout.bold())
+                Text(game.opponentMode == .human ? "赤(下から上へ)" : "あなた(赤・下から上へ)").font(.callout.bold())
             }
             HStack(spacing: 6) {
                 Circle().fill(Color.yellow)
                     .overlay(Circle().stroke(Color.orange, lineWidth: 1))
                     .frame(width: 18, height: 18)
-                Text("相手(黄)").font(.callout.bold())
+                Text(game.opponentMode == .human ? "黄(上から下へ)" : "相手(黄)").font(.callout.bold())
             }
             Spacer()
             if game.aiThinking {
@@ -50,9 +50,9 @@ struct DiamondGameView: View {
             ZStack {
                 Color.black.opacity(0.3).ignoresSafeArea()
                 VStack(spacing: 14) {
-                    Text(isWin ? "勝ち!" : "負け")
+                    Text(game.opponentMode == .human ? "対局終了" : (isWin ? "勝ち!" : "負け"))
                         .font(.largeTitle.bold())
-                        .foregroundStyle(isWin ? Color.green : Color.red)
+                        .foregroundStyle(game.opponentMode == .human ? Color.primary : (isWin ? Color.green : Color.red))
                     Text(resultText).font(.callout).frame(maxWidth: 380)
                     HStack(spacing: 12) {
                         Button("もう一局") { game.newGame() }
@@ -175,9 +175,16 @@ struct DiamondSidebarView: View {
 
             GroupBox("対局") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("相手の強さ", selection: $game.aiLevel) {
-                        ForEach(Difficulty.allCases) { d in
-                            Text(d.rawValue).tag(d)
+                    Picker("対戦相手", selection: $game.opponentMode) {
+                        ForEach(OpponentMode.allCases) { m in
+                            Text(m.rawValue).tag(m)
+                        }
+                    }
+                    if game.opponentMode == .ai {
+                        Picker("相手の強さ", selection: $game.aiLevel) {
+                            ForEach(Difficulty.allCases) { d in
+                                Text(d.rawValue).tag(d)
+                            }
                         }
                     }
                     HStack {
@@ -185,8 +192,10 @@ struct DiamondSidebarView: View {
                             .buttonStyle(.borderedProminent)
                         Button("待った") { game.undo() }
                             .disabled(game.aiThinking)
-                        Button("ヒント") { game.showHint() }
-                            .disabled(!game.isHumanTurn)
+                        if game.opponentMode == .ai {
+                            Button("ヒント") { game.showHint() }
+                                .disabled(!game.isHumanTurn)
+                        }
                     }
                 }
                 .padding(4)

@@ -188,6 +188,17 @@ final class GomokuGameState: ObservableObject {
     @Published var message = "あなたが黒番です。縦・横・斜めのどれかに先に5つ並べたら勝ちです。"
     @Published var hintMove: Int?
     @Published var aiLevel: Difficulty = .easy
+    @Published var opponentMode: OpponentMode = .ai {
+        didSet {
+            guard opponentMode != oldValue else { return }
+            if opponentMode == .human {
+                moveToken += 1
+                aiThinking = false
+            } else if result == .ongoing, position.sideToMove != humanDisc {
+                scheduleAIMove()
+            }
+        }
+    }
 
     private var history: [GomokuPosition] = []
     private var moveToken = 0
@@ -195,7 +206,8 @@ final class GomokuGameState: ObservableObject {
     let humanDisc: Disc = .black
 
     var isHumanTurn: Bool {
-        result == .ongoing && !aiThinking && position.sideToMove == humanDisc
+        result == .ongoing && !aiThinking
+            && (opponentMode == .human || position.sideToMove == humanDisc)
     }
 
     func newGame() {
@@ -212,13 +224,14 @@ final class GomokuGameState: ObservableObject {
 
     func undo() {
         guard !aiThinking else { return }
+        let maxSteps = opponentMode == .human ? 1 : 2
         var steps = 0
-        while let prev = history.last, steps < 2 {
+        while let prev = history.last, steps < maxSteps {
             history.removeLast()
             if !moveList.isEmpty { moveList.removeLast() }
             position = prev
             steps += 1
-            if position.sideToMove == humanDisc { break }
+            if opponentMode == .human || position.sideToMove == humanDisc { break }
         }
         moveToken += 1
         lastMove = nil
@@ -229,10 +242,11 @@ final class GomokuGameState: ObservableObject {
 
     func tapCell(_ index: Int) {
         guard isHumanTurn, position.board[index] == nil else { return }
+        let mover = position.sideToMove
         apply(index)
         hintMove = nil
         if checkEnd(after: index) { return }
-        message = "相手の番です。"
+        message = opponentMode == .human ? "\(mover.opponent.name)の番です。" : "相手の番です。"
         scheduleAIMove()
     }
 
@@ -250,7 +264,9 @@ final class GomokuGameState: ObservableObject {
         // applying 後なので打った色は「今の手番の反対」
         let placed = position.sideToMove.opponent
         if position.lineLength(at: index, for: placed) >= 5 {
-            if placed == humanDisc {
+            if opponentMode == .human {
+                result = .humanWin("\(placed.name)が5つ並べて勝ちです!")
+            } else if placed == humanDisc {
                 result = .humanWin("5つ並びました!あなたの勝ちです。")
             } else {
                 result = .humanLose("相手に5つ並べられてしまいました。相手の「活三」は早めに止めましょう。")
@@ -265,7 +281,7 @@ final class GomokuGameState: ObservableObject {
     }
 
     private func scheduleAIMove() {
-        guard result == .ongoing, position.sideToMove != humanDisc else { return }
+        guard opponentMode == .ai, result == .ongoing, position.sideToMove != humanDisc else { return }
         aiThinking = true
         moveToken += 1
         let token = moveToken
@@ -287,7 +303,7 @@ final class GomokuGameState: ObservableObject {
     }
 
     func showHint() {
-        guard isHumanTurn else { return }
+        guard opponentMode == .ai, isHumanTurn else { return }
         let snapshot = position
         aiThinking = true
         Task.detached(priority: .userInitiated) {
@@ -317,6 +333,7 @@ struct GomokuSave: Codable {
     var moveList: [String]
     var aiLevel: Difficulty
     var lastMove: Int?
+    var opponentMode: OpponentMode?   // 旧セーブとの互換のためoptional(nilならAI対戦)
 }
 
 extension GomokuGameState {
@@ -326,7 +343,8 @@ extension GomokuGameState {
                    history: history,
                    moveList: moveList.map { $0.text },
                    aiLevel: aiLevel,
-                   lastMove: lastMove)
+                   lastMove: lastMove,
+                   opponentMode: opponentMode)
     }
 
     func restore(from save: GomokuSave) {
@@ -337,6 +355,7 @@ extension GomokuGameState {
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }
         aiLevel = save.aiLevel
         lastMove = save.lastMove
+        opponentMode = save.opponentMode ?? .ai
         hintMove = nil
         result = .ongoing
         message = "保存した局面から再開します(\(save.moveList.count)手目)。"

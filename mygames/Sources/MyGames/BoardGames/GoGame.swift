@@ -21,6 +21,17 @@ final class GoGameState: ObservableObject {
     @Published var hintMove: Int?
     @Published var aiLevel: Difficulty = .easy
     @Published var boardSize = 9        // 9 or 13(新規対局時に反映)
+    @Published var opponentMode: OpponentMode = .ai {
+        didSet {
+            guard opponentMode != oldValue else { return }
+            if opponentMode == .human {
+                moveToken += 1
+                aiThinking = false
+            } else if result == .ongoing, position.sideToMove != humanColor {
+                scheduleAIMove()
+            }
+        }
+    }
 
     let komi = 6.5
 
@@ -30,7 +41,8 @@ final class GoGameState: ObservableObject {
     let humanColor: Disc = .black
 
     var isHumanTurn: Bool {
-        result == .ongoing && !aiThinking && position.sideToMove == humanColor
+        result == .ongoing && !aiThinking
+            && (opponentMode == .human || position.sideToMove == humanColor)
     }
 
     func newGame() {
@@ -47,13 +59,14 @@ final class GoGameState: ObservableObject {
 
     func undo() {
         guard !aiThinking else { return }
+        let maxSteps = opponentMode == .human ? 1 : 2
         var steps = 0
-        while let prev = history.last, steps < 2 {
+        while let prev = history.last, steps < maxSteps {
             history.removeLast()
             if !moveList.isEmpty { moveList.removeLast() }
             position = prev
             steps += 1
-            if position.sideToMove == humanColor { break }
+            if opponentMode == .human || position.sideToMove == humanColor { break }
         }
         moveToken += 1
         lastMove = nil
@@ -66,29 +79,38 @@ final class GoGameState: ObservableObject {
 
     func tapPoint(_ index: Int) {
         guard isHumanTurn else { return }
+        let mover = position.sideToMove
         guard let (next, captured) = position.placing(at: index) else {
             message = "そこには打てません(自殺手、またはコウの直後です)。"
             return
         }
         history.append(position)
         moveList.append(KifuEntry(id: moveList.count + 1,
-                                  text: "黒 \(position.name(of: index))"))
+                                  text: "\(mover.name) \(position.name(of: index))"))
         position = next
         lastMove = index
         hintMove = nil
-        message = captured > 0 ? "\(captured)子(し)取りました!" : "相手の番です。"
+        if opponentMode == .human {
+            message = captured > 0 ? "\(captured)子(し)取りました!" : "\(mover.opponent.name)の番です。"
+        } else {
+            message = captured > 0 ? "\(captured)子(し)取りました!" : "相手の番です。"
+        }
         scheduleAIMove()
     }
 
     func humanPass() {
         guard isHumanTurn else { return }
+        let mover = position.sideToMove
         history.append(position)
-        moveList.append(KifuEntry(id: moveList.count + 1, text: "黒 パス"))
+        moveList.append(KifuEntry(id: moveList.count + 1, text: "\(mover.name) パス"))
         position = position.passing()
         lastMove = nil
         hintMove = nil
         if position.consecutivePasses >= 2 {
             finishGame()
+        } else if opponentMode == .human {
+            message = "パスしました。\(mover.opponent.name)の番です。両者パスすると終局して数え上げます。"
+            scheduleAIMove()
         } else {
             message = "パスしました。相手もパスすると終局して数え上げます。"
             scheduleAIMove()
@@ -97,9 +119,19 @@ final class GoGameState: ObservableObject {
 
     private func finishGame() {
         let s = position.score(komi: komi)
+        let detail = "\(s.detail)。"
+        if opponentMode == .human {
+            if s.black > s.white {
+                result = .humanWin("\(detail)黒の\(s.black - s.white)目勝ちです!")
+            } else if s.black < s.white {
+                result = .humanLose("\(detail)白の\(s.white - s.black)目勝ちです!")
+            } else {
+                result = .draw("\(detail)持碁(引き分け)です。")
+            }
+            return
+        }
         let mine = humanColor == .black ? s.black : s.white
         let theirs = humanColor == .black ? s.white : s.black
-        let detail = "\(s.detail)。"
         if mine > theirs {
             result = .humanWin("\(detail)\(mine - theirs)目勝ちです!")
         } else if mine < theirs {
@@ -112,7 +144,7 @@ final class GoGameState: ObservableObject {
     // MARK: - AI
 
     private func scheduleAIMove() {
-        guard result == .ongoing, position.sideToMove != humanColor else { return }
+        guard opponentMode == .ai, result == .ongoing, position.sideToMove != humanColor else { return }
         aiThinking = true
         moveToken += 1
         let token = moveToken
@@ -151,7 +183,7 @@ final class GoGameState: ObservableObject {
     }
 
     func showHint() {
-        guard isHumanTurn else { return }
+        guard opponentMode == .ai, isHumanTurn else { return }
         let snapshot = position
         aiThinking = true
         Task.detached(priority: .userInitiated) {
@@ -178,6 +210,7 @@ struct GoSave: Codable {
     var moveList: [String]
     var aiLevel: Difficulty
     var lastMove: Int?
+    var opponentMode: OpponentMode?   // 旧セーブとの互換のためoptional(nilならAI対戦)
 }
 
 extension GoGameState {
@@ -188,7 +221,8 @@ extension GoGameState {
                history: history,
                moveList: moveList.map { $0.text },
                aiLevel: aiLevel,
-               lastMove: lastMove)
+               lastMove: lastMove,
+               opponentMode: opponentMode)
     }
 
     func restore(from save: GoSave) {
@@ -200,6 +234,7 @@ extension GoGameState {
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }
         aiLevel = save.aiLevel
         lastMove = save.lastMove
+        opponentMode = save.opponentMode ?? .ai
         hintMove = nil
         result = .ongoing
         message = "保存した局面から再開します(\(save.moveList.count)手目)。"

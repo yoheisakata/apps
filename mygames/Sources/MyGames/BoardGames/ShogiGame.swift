@@ -40,6 +40,17 @@ final class ShogiGameState: ObservableObject {
     // 設定
     @Published var aiLevel: AILevel = .beginner
     @Published var handicap: Handicap = .even
+    @Published var opponentMode: OpponentMode = .ai {
+        didSet {
+            guard opponentMode != oldValue else { return }
+            if opponentMode == .human {
+                moveToken += 1
+                aiThinking = false
+            } else if result == .ongoing, position.sideToMove != humanPlayer {
+                scheduleAIMove()
+            }
+        }
+    }
 
     // 成り確認ダイアログ
     @Published var promotionChoice: (promote: Move, stay: Move)?
@@ -56,7 +67,8 @@ final class ShogiGameState: ObservableObject {
     }
 
     var isHumanTurn: Bool {
-        result == .ongoing && !aiThinking && position.sideToMove == humanPlayer
+        result == .ongoing && !aiThinking
+            && (opponentMode == .human || position.sideToMove == humanPlayer)
             && promotionChoice == nil
     }
 
@@ -85,14 +97,15 @@ final class ShogiGameState: ObservableObject {
     func undo() {
         guard result == .ongoing || !history.isEmpty else { return }
         guard !aiThinking else { return }
-        // 人間の手番に戻るまで巻き戻す(通常は 2 手 = 自分の手 + AI の手)
+        // 人間の手番に戻るまで巻き戻す(通常は 2 手 = 自分の手 + AI の手。2人対戦では1手)
+        let maxSteps = opponentMode == .human ? 1 : 2
         var steps = 0
-        while let prev = history.last, steps < 2 {
+        while let prev = history.last, steps < maxSteps {
             history.removeLast()
             if !kifu.isEmpty { kifu.removeLast() }
             position = prev
             steps += 1
-            if position.sideToMove == humanPlayer { break }
+            if opponentMode == .human || position.sideToMove == humanPlayer { break }
         }
         selection = .none
         legalTargets = []
@@ -113,7 +126,7 @@ final class ShogiGameState: ObservableObject {
             guidePiece = piece
         }
 
-        guard position.sideToMove == humanPlayer else { return }
+        guard opponentMode == .human || position.sideToMove == humanPlayer else { return }
 
         switch selection {
         case .board(let from):
@@ -140,7 +153,8 @@ final class ShogiGameState: ObservableObject {
 
     func tapHandPiece(_ type: PieceType) {
         guard isHumanTurn else { return }
-        guard position.handCount(humanPlayer, type) > 0 else { return }
+        let mover = position.sideToMove
+        guard position.handCount(mover, type) > 0 else { return }
         if case .hand(let current) = selection, current == type {
             clearSelection()
             return
@@ -148,15 +162,15 @@ final class ShogiGameState: ObservableObject {
         selection = .hand(type)
         let drops = position.legalDrops(of: type)
         legalTargets = Set(drops.map { $0.to })
-        guideText = PieceGuide.text(for: Piece(type: type, player: humanPlayer))
-        guidePiece = Piece(type: type, player: humanPlayer)
+        guideText = PieceGuide.text(for: Piece(type: type, player: mover))
+        guidePiece = Piece(type: type, player: mover)
         if drops.isEmpty {
             coachMessage = "その駒は今どこにも打てません。"
         }
     }
 
     private func trySelect(_ sq: Square) {
-        if let piece = position[sq], piece.player == humanPlayer {
+        if let piece = position[sq], piece.player == position.sideToMove {
             selection = .board(sq)
             legalTargets = Set(position.legalMoves(from: sq).map { $0.to })
             if legalTargets.isEmpty {
@@ -200,12 +214,17 @@ final class ShogiGameState: ObservableObject {
             warning = Coach.warning(for: move, before: position)
         }
 
+        let mover = position.sideToMove
         apply(move)
         clearSelection()
         hintMove = nil
 
         if let warning {
             coachMessage = "注意: \(warning)"
+        } else if opponentMode == .human {
+            coachMessage = position.isInCheck(mover.opponent)
+                ? "王手!\(mover.opponent.name)玉に迫っています。"
+                : "\(mover.opponent.name)の番です。"
         } else if position.isInCheck(humanPlayer.opponent) {
             coachMessage = "王手!相手玉に迫っています。"
         } else {
@@ -228,12 +247,17 @@ final class ShogiGameState: ObservableObject {
 
     private func checkGameEnd() {
         guard position.legalMoves().isEmpty else {
-            if position.isInCheck(position.sideToMove), position.sideToMove == humanPlayer {
+            let inCheckSide = position.sideToMove
+            if position.isInCheck(inCheckSide),
+               opponentMode == .human || inCheckSide == humanPlayer {
                 coachMessage = "王手をかけられています!玉を逃がすか、合駒するか、王手している駒を取りましょう。"
             }
             return
         }
-        if position.sideToMove == humanPlayer {
+        let loser = position.sideToMove
+        if opponentMode == .human {
+            result = .humanWin("詰み!\(loser.opponent.name)の勝ちです。")
+        } else if loser == humanPlayer {
             result = .humanLose("詰まされました。振り返りで敗因を確認しましょう。")
         } else {
             result = .humanWin("詰み!あなたの勝ちです。")
@@ -243,7 +267,7 @@ final class ShogiGameState: ObservableObject {
     // MARK: - AI
 
     private func scheduleAIMove() {
-        guard result == .ongoing, position.sideToMove != humanPlayer else { return }
+        guard opponentMode == .ai, result == .ongoing, position.sideToMove != humanPlayer else { return }
         aiThinking = true
         moveToken += 1
         let token = moveToken
@@ -277,7 +301,7 @@ final class ShogiGameState: ObservableObject {
     // MARK: - ヒント
 
     func showHint() {
-        guard isHumanTurn else { return }
+        guard opponentMode == .ai, isHumanTurn else { return }
         let snapshot = position
         aiThinking = true
         Task.detached(priority: .userInitiated) {
@@ -306,6 +330,7 @@ struct ShogiSave: Codable {
     var aiLevel: AILevel
     var learningMode: Bool
     var lastMove: Move?
+    var opponentMode: OpponentMode?   // 旧セーブとの互換のためoptional(nilならAI対戦)
 }
 
 extension ShogiGameState {
@@ -318,7 +343,8 @@ extension ShogiGameState {
                   handicap: handicap,
                   aiLevel: aiLevel,
                   learningMode: learningMode,
-                  lastMove: lastMove)
+                  lastMove: lastMove,
+                  opponentMode: opponentMode)
     }
 
     func restore(from save: ShogiSave) {
@@ -330,6 +356,7 @@ extension ShogiGameState {
         aiLevel = save.aiLevel
         learningMode = save.learningMode
         lastMove = save.lastMove
+        opponentMode = save.opponentMode ?? .ai
         selection = .none
         legalTargets = []
         hintMove = nil

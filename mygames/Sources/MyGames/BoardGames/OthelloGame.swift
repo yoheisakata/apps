@@ -20,6 +20,18 @@ final class OthelloGameState: ObservableObject {
     @Published var message = "あなたが黒番(先手)です。緑の印のマスに置けます。角(すみ)を取ると有利になります。"
     @Published var hintMove: Int?
     @Published var aiLevel: Difficulty = .easy
+    @Published var opponentMode: OpponentMode = .ai {
+        didSet {
+            guard opponentMode != oldValue else { return }
+            if opponentMode == .human {
+                // AI思考中に切り替えられた場合はキャンセルして人間の手番に渡す
+                moveToken += 1
+                aiThinking = false
+            } else if result == .ongoing, position.sideToMove != humanDisc {
+                scheduleAIMove()
+            }
+        }
+    }
 
     private var history: [OthelloPosition] = []
     private var moveToken = 0
@@ -27,12 +39,13 @@ final class OthelloGameState: ObservableObject {
     let humanDisc: Disc = .black
 
     var isHumanTurn: Bool {
-        result == .ongoing && !aiThinking && position.sideToMove == humanDisc
+        result == .ongoing && !aiThinking
+            && (opponentMode == .human || position.sideToMove == humanDisc)
     }
 
     var legalTargets: Set<Int> {
         guard isHumanTurn else { return [] }
-        return Set(position.legalMoves(for: humanDisc))
+        return Set(position.legalMoves(for: position.sideToMove))
     }
 
     func newGame() {
@@ -70,7 +83,7 @@ final class OthelloGameState: ObservableObject {
 
     func tapCell(_ index: Int) {
         guard isHumanTurn else { return }
-        guard !position.flips(at: index, for: humanDisc).isEmpty else { return }
+        guard !position.flips(at: index, for: position.sideToMove).isEmpty else { return }
         apply(index)
         hintMove = nil
         advanceTurn()
@@ -91,23 +104,39 @@ final class OthelloGameState: ObservableObject {
             finishGame()
             return
         }
+        var passed = false
         if position.legalMoves(for: position.sideToMove).isEmpty {
             // パス
             let passer = position.sideToMove
             position.sideToMove = passer.opponent
             message = "\(passer.name)は置ける場所がないのでパスです。"
+            passed = true
         }
-        if position.sideToMove != humanDisc {
+        if opponentMode == .human {
+            if !passed { message = "\(position.sideToMove.name)の番です。" }
+        } else if position.sideToMove != humanDisc {
             scheduleAIMove()
-        } else if !message.hasPrefix("白は") {
+        } else if !passed {
             message = "あなたの番です。"
         }
     }
 
     private func finishGame() {
+        let detail = "黒 \(position.count(.black)) - 白 \(position.count(.white))"
+        if opponentMode == .human {
+            let black = position.count(.black)
+            let white = position.count(.white)
+            if black > white {
+                result = .humanWin("\(detail) で黒の勝ちです!")
+            } else if black < white {
+                result = .humanLose("\(detail) で白の勝ちです!")
+            } else {
+                result = .draw("\(detail) の引き分けです。")
+            }
+            return
+        }
         let mine = position.count(humanDisc)
         let theirs = position.count(humanDisc.opponent)
-        let detail = "黒 \(position.count(.black)) - 白 \(position.count(.white))"
         if mine > theirs {
             result = .humanWin("\(detail) であなたの勝ちです!")
         } else if mine < theirs {
@@ -118,14 +147,14 @@ final class OthelloGameState: ObservableObject {
     }
 
     private func scheduleAIMove() {
-        guard result == .ongoing, position.sideToMove != humanDisc else { return }
+        guard opponentMode == .ai, result == .ongoing, position.sideToMove != humanDisc else { return }
         aiThinking = true
         moveToken += 1
         let token = moveToken
         let snapshot = position
         let ai = OthelloAI(level: aiLevel)
         Task.detached(priority: .userInitiated) {
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
             let move = ai.chooseMove(in: snapshot)
             await MainActor.run { self.finishAIMove(move, token: token) }
         }
@@ -144,7 +173,7 @@ final class OthelloGameState: ObservableObject {
     }
 
     func showHint() {
-        guard isHumanTurn else { return }
+        guard opponentMode == .ai, isHumanTurn else { return }
         let snapshot = position
         aiThinking = true
         Task.detached(priority: .userInitiated) {
@@ -171,6 +200,7 @@ struct OthelloSave: Codable {
     var moveList: [String]
     var aiLevel: Difficulty
     var lastMove: Int?
+    var opponentMode: OpponentMode?   // 旧セーブとの互換のためoptional(nilならAI対戦)
 }
 
 extension OthelloGameState {
@@ -181,7 +211,8 @@ extension OthelloGameState {
                     history: history,
                     moveList: moveList.map { $0.text },
                     aiLevel: aiLevel,
-                    lastMove: lastMove)
+                    lastMove: lastMove,
+                    opponentMode: opponentMode)
     }
 
     func restore(from save: OthelloSave) {
@@ -192,6 +223,7 @@ extension OthelloGameState {
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }
         aiLevel = save.aiLevel
         lastMove = save.lastMove
+        opponentMode = save.opponentMode ?? .ai
         hintMove = nil
         result = .ongoing
         message = "保存した局面から再開します(\(save.moveList.count)手目)。"

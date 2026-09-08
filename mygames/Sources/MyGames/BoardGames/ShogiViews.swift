@@ -64,9 +64,9 @@ struct ShogiGameView: View {
             ZStack {
                 Color.black.opacity(0.3).ignoresSafeArea()
                 VStack(spacing: 14) {
-                    Text(isWin ? "勝ち!" : "負け")
+                    Text(game.opponentMode == .human ? "対局終了" : (isWin ? "勝ち!" : "負け"))
                         .font(.largeTitle.bold())
-                        .foregroundStyle(isWin ? Color.green : Color.red)
+                        .foregroundStyle(game.opponentMode == .human ? Color.primary : (isWin ? Color.green : Color.red))
                     Text(text)
                         .font(.callout)
                     HStack(spacing: 12) {
@@ -253,7 +253,7 @@ struct ShogiHandView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(player == .sente ? "▲あなた" : "△相手")
+            Text(labelText)
                 .font(.callout.bold())
                 .frame(width: 74, alignment: .leading)
             ForEach(order, id: \.self) { type in
@@ -273,6 +273,16 @@ struct ShogiHandView: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(Theme.boardWood.opacity(0.4)))
     }
 
+    private var labelText: String {
+        if game.opponentMode == .human {
+            return player == .sente ? "▲先手" : "△後手"
+        }
+        return player == .sente ? "▲あなた" : "△相手"
+    }
+
+    /// このコマ台が今操作できるか(AI対戦では人間の手番のみ、2人対戦では手番側なら常に)
+    private var isMine: Bool { player == game.position.sideToMove }
+
     private func handPiece(type: PieceType, count: Int) -> some View {
         HStack(spacing: 1) {
             ShogiPieceView(piece: Piece(type: type, player: player), size: 38)
@@ -284,13 +294,13 @@ struct ShogiHandView: View {
         .background(selectionBackground(type))
         .contentShape(Rectangle())
         .onTapGesture {
-            if player == game.humanPlayer { game.tapHandPiece(type) }
+            if isMine { game.tapHandPiece(type) }
         }
     }
 
     @ViewBuilder
     private func selectionBackground(_ type: PieceType) -> some View {
-        if player == game.humanPlayer,
+        if isMine,
            case .hand(let sel) = game.selection, sel == type {
             RoundedRectangle(cornerRadius: 4).fill(Theme.selected)
         } else {
@@ -421,9 +431,16 @@ struct ShogiSidebarView: View {
                             Text(h.rawValue).tag(h)
                         }
                     }
-                    Picker("相手の強さ", selection: $game.aiLevel) {
-                        ForEach(AILevel.allCases) { l in
-                            Text(l.rawValue).tag(l)
+                    Picker("対戦相手", selection: $game.opponentMode) {
+                        ForEach(OpponentMode.allCases) { m in
+                            Text(m.rawValue).tag(m)
+                        }
+                    }
+                    if game.opponentMode == .ai {
+                        Picker("相手の強さ", selection: $game.aiLevel) {
+                            ForEach(AILevel.allCases) { l in
+                                Text(l.rawValue).tag(l)
+                            }
                         }
                     }
                     Toggle("学習モード(悪手の注意を表示)", isOn: $game.learningMode)
@@ -432,8 +449,10 @@ struct ShogiSidebarView: View {
                             .buttonStyle(.borderedProminent)
                         Button("待った") { game.undo() }
                             .disabled(game.aiThinking)
-                        Button("ヒント") { game.showHint() }
-                            .disabled(!game.isHumanTurn)
+                        if game.opponentMode == .ai {
+                            Button("ヒント") { game.showHint() }
+                                .disabled(!game.isHumanTurn)
+                        }
                     }
                 }
                 .padding(4)

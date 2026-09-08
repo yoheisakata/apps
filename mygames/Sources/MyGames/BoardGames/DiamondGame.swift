@@ -221,6 +221,17 @@ final class DiamondGameState: ObservableObject {
     @Published var message = "あなたが赤(下側)です。コマを選ぶと行けるマスが光ります。跳び越しは連続でできます。"
     @Published var hintMove: (from: DPoint, to: DPoint)?
     @Published var aiLevel: Difficulty = .easy
+    @Published var opponentMode: OpponentMode = .ai {
+        didSet {
+            guard opponentMode != oldValue else { return }
+            if opponentMode == .human {
+                moveToken += 1
+                aiThinking = false
+            } else if result == .ongoing, position.sideToMove != humanPlayer {
+                scheduleAIMove()
+            }
+        }
+    }
 
     private var history: [DiamondPosition] = []
     private var moveToken = 0
@@ -228,7 +239,8 @@ final class DiamondGameState: ObservableObject {
     let humanPlayer: DiamondPlayer = .south
 
     var isHumanTurn: Bool {
-        result == .ongoing && !aiThinking && position.sideToMove == humanPlayer
+        result == .ongoing && !aiThinking
+            && (opponentMode == .human || position.sideToMove == humanPlayer)
     }
 
     func newGame() {
@@ -247,13 +259,14 @@ final class DiamondGameState: ObservableObject {
 
     func undo() {
         guard !aiThinking else { return }
+        let maxSteps = opponentMode == .human ? 1 : 2
         var steps = 0
-        while let prev = history.last, steps < 2 {
+        while let prev = history.last, steps < maxSteps {
             history.removeLast()
             if !moveList.isEmpty { moveList.removeLast() }
             position = prev
             steps += 1
-            if position.sideToMove == humanPlayer { break }
+            if opponentMode == .human || position.sideToMove == humanPlayer { break }
         }
         moveToken += 1
         selected = nil
@@ -280,7 +293,7 @@ final class DiamondGameState: ObservableObject {
                 return
             }
         }
-        if position.occupant(p) == humanPlayer {
+        if position.occupant(p) == position.sideToMove {
             selected = p
             legalTargets = position.destinations(from: p)
             if legalTargets.isEmpty {
@@ -293,15 +306,20 @@ final class DiamondGameState: ObservableObject {
     }
 
     private func commitHumanMove(from: DPoint, to: DPoint) {
+        let mover = position.sideToMove
         apply(from: from, to: to)
         selected = nil
         legalTargets = []
         hintMove = nil
-        if position.hasWon(humanPlayer) {
-            result = .humanWin("全部のコマが向かい側に入りました。あなたの勝ちです!")
+        if position.hasWon(mover) {
+            if opponentMode == .human {
+                result = .humanWin("全部のコマが向かい側に入りました。\(mover.name)の勝ちです!")
+            } else {
+                result = .humanWin("全部のコマが向かい側に入りました。あなたの勝ちです!")
+            }
             return
         }
-        message = "相手の番です。"
+        message = opponentMode == .human ? "\(mover.opponent.name)の番です。" : "相手の番です。"
         scheduleAIMove()
     }
 
@@ -316,7 +334,7 @@ final class DiamondGameState: ObservableObject {
     }
 
     private func scheduleAIMove() {
-        guard result == .ongoing, position.sideToMove != humanPlayer else { return }
+        guard opponentMode == .ai, result == .ongoing, position.sideToMove != humanPlayer else { return }
         aiThinking = true
         moveToken += 1
         let token = moveToken
@@ -340,7 +358,7 @@ final class DiamondGameState: ObservableObject {
     }
 
     func showHint() {
-        guard isHumanTurn else { return }
+        guard opponentMode == .ai, isHumanTurn else { return }
         let snapshot = position
         aiThinking = true
         Task.detached(priority: .userInitiated) {
@@ -366,6 +384,7 @@ struct DiamondSave: Codable {
     var history: [DiamondPosition]
     var moveList: [String]
     var aiLevel: Difficulty
+    var opponentMode: OpponentMode?   // 旧セーブとの互換のためoptional(nilならAI対戦)
 }
 
 extension DiamondGameState {
@@ -374,7 +393,8 @@ extension DiamondGameState {
                     position: position,
                     history: history,
                     moveList: moveList.map { $0.text },
-                    aiLevel: aiLevel)
+                    aiLevel: aiLevel,
+                    opponentMode: opponentMode)
     }
 
     func restore(from save: DiamondSave) {
@@ -384,6 +404,7 @@ extension DiamondGameState {
         history = save.history
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }
         aiLevel = save.aiLevel
+        opponentMode = save.opponentMode ?? .ai
         selected = nil
         legalTargets = []
         lastMove = nil

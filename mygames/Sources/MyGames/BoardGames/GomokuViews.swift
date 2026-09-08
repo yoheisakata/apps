@@ -24,13 +24,13 @@ struct GomokuGameView: View {
         HStack(spacing: 20) {
             HStack(spacing: 6) {
                 Circle().fill(Color.black).frame(width: 18, height: 18)
-                Text("あなた(黒)").font(.callout.bold())
+                Text(game.opponentMode == .human ? "黒" : "あなた(黒)").font(.callout.bold())
             }
             HStack(spacing: 6) {
                 Circle().fill(Color.white)
                     .overlay(Circle().stroke(Color.gray, lineWidth: 1))
                     .frame(width: 18, height: 18)
-                Text("相手(白)").font(.callout.bold())
+                Text(game.opponentMode == .human ? "白" : "相手(白)").font(.callout.bold())
             }
             Spacer()
             if game.aiThinking {
@@ -71,6 +71,13 @@ struct GomokuGameView: View {
     }
 
     private var resultTitle: String {
+        if game.opponentMode == .human {
+            switch game.result {
+            case .draw: return "引き分け"
+            case .humanWin, .humanLose: return "対局終了"
+            case .ongoing: return ""
+            }
+        }
         switch game.result {
         case .humanWin: return "勝ち!"
         case .humanLose: return "負け"
@@ -80,6 +87,7 @@ struct GomokuGameView: View {
     }
 
     private var resultColor: Color {
+        if game.opponentMode == .human { return .primary }
         switch game.result {
         case .humanWin: return .green
         case .humanLose: return .red
@@ -178,9 +186,16 @@ struct GomokuSidebarView: View {
 
             GroupBox("対局") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("相手の強さ", selection: $game.aiLevel) {
-                        ForEach(Difficulty.allCases) { d in
-                            Text(d.rawValue).tag(d)
+                    Picker("対戦相手", selection: $game.opponentMode) {
+                        ForEach(OpponentMode.allCases) { m in
+                            Text(m.rawValue).tag(m)
+                        }
+                    }
+                    if game.opponentMode == .ai {
+                        Picker("相手の強さ", selection: $game.aiLevel) {
+                            ForEach(Difficulty.allCases) { d in
+                                Text(d.rawValue).tag(d)
+                            }
                         }
                     }
                     HStack {
@@ -188,8 +203,10 @@ struct GomokuSidebarView: View {
                             .buttonStyle(.borderedProminent)
                         Button("待った") { game.undo() }
                             .disabled(game.aiThinking)
-                        Button("ヒント") { game.showHint() }
-                            .disabled(!game.isHumanTurn)
+                        if game.opponentMode == .ai {
+                            Button("ヒント") { game.showHint() }
+                                .disabled(!game.isHumanTurn)
+                        }
                     }
                 }
                 .padding(4)

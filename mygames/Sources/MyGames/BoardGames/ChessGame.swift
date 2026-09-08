@@ -115,6 +115,17 @@ final class ChessGameState: ObservableObject {
     @Published var guideText = ""
     @Published var hintMove: ChessMove?
     @Published var aiLevel: Difficulty = .easy
+    @Published var opponentMode: OpponentMode = .ai {
+        didSet {
+            guard opponentMode != oldValue else { return }
+            if opponentMode == .human {
+                moveToken += 1
+                aiThinking = false
+            } else if result == .ongoing, position.sideToMove != humanColor {
+                scheduleAIMove()
+            }
+        }
+    }
     /// 昇格の選択待ち(from/to が確定していて、昇格先だけ選ぶ)
     @Published var promotionPending: (from: ChessSquare, to: ChessSquare)?
 
@@ -124,7 +135,8 @@ final class ChessGameState: ObservableObject {
     let humanColor: ChessColor = .white
 
     var isHumanTurn: Bool {
-        result == .ongoing && !aiThinking && position.sideToMove == humanColor
+        result == .ongoing && !aiThinking
+            && (opponentMode == .human || position.sideToMove == humanColor)
             && promotionPending == nil
     }
 
@@ -145,13 +157,14 @@ final class ChessGameState: ObservableObject {
 
     func undo() {
         guard !aiThinking else { return }
+        let maxSteps = opponentMode == .human ? 1 : 2
         var steps = 0
-        while let prev = history.last, steps < 2 {
+        while let prev = history.last, steps < maxSteps {
             history.removeLast()
             if !moveList.isEmpty { moveList.removeLast() }
             position = prev
             steps += 1
-            if position.sideToMove == humanColor { break }
+            if opponentMode == .human || position.sideToMove == humanColor { break }
         }
         moveToken += 1
         selected = nil
@@ -169,7 +182,7 @@ final class ChessGameState: ObservableObject {
         if let piece = position[sq] {
             guideText = ChessPieceGuide.text(for: piece)
         }
-        guard position.sideToMove == humanColor else { return }
+        guard opponentMode == .human || position.sideToMove == humanColor else { return }
 
         if let from = selected {
             if sq == from {
@@ -188,7 +201,7 @@ final class ChessGameState: ObservableObject {
                 return
             }
         }
-        if let piece = position[sq], piece.color == humanColor {
+        if let piece = position[sq], piece.color == position.sideToMove {
             selected = sq
             legalTargets = Set(position.legalMoves(from: sq).map { $0.to })
         } else {
@@ -204,11 +217,18 @@ final class ChessGameState: ObservableObject {
     }
 
     private func commitHumanMove(_ m: ChessMove) {
+        let mover = position.sideToMove
         apply(m)
         selected = nil
         legalTargets = []
         hintMove = nil
-        if position.isInCheck(humanColor.opponent) {
+        if opponentMode == .human {
+            if position.isInCheck(mover.opponent) {
+                message = "チェック!\(mover.opponent.name)のキングに迫っています。"
+            } else {
+                message = "\(mover.opponent.name)の番です。"
+            }
+        } else if position.isInCheck(humanColor.opponent) {
             message = "チェック!相手のキングに迫っています。"
         } else {
             message = "相手の番です。"
@@ -232,7 +252,10 @@ final class ChessGameState: ObservableObject {
         }
         guard position.legalMoves().isEmpty else { return }
         if position.isInCheck(position.sideToMove) {
-            if position.sideToMove == humanColor {
+            let loser = position.sideToMove
+            if opponentMode == .human {
+                result = .humanWin("チェックメイト!\(loser.opponent.name)の勝ちです。")
+            } else if loser == humanColor {
                 result = .humanLose("チェックメイト。負けてしまいました。")
             } else {
                 result = .humanWin("チェックメイト!あなたの勝ちです。")
@@ -243,7 +266,7 @@ final class ChessGameState: ObservableObject {
     }
 
     private func scheduleAIMove() {
-        guard result == .ongoing, position.sideToMove != humanColor else { return }
+        guard opponentMode == .ai, result == .ongoing, position.sideToMove != humanColor else { return }
         aiThinking = true
         moveToken += 1
         let token = moveToken
@@ -272,7 +295,7 @@ final class ChessGameState: ObservableObject {
     }
 
     func showHint() {
-        guard isHumanTurn else { return }
+        guard opponentMode == .ai, isHumanTurn else { return }
         let snapshot = position
         aiThinking = true
         Task.detached(priority: .userInitiated) {
@@ -296,6 +319,7 @@ struct ChessSave: Codable {
     var moveList: [String]
     var aiLevel: Difficulty
     var lastMove: ChessMove?
+    var opponentMode: OpponentMode?   // 旧セーブとの互換のためoptional(nilならAI対戦)
 }
 
 extension ChessGameState {
@@ -305,7 +329,8 @@ extension ChessGameState {
                   history: history,
                   moveList: moveList.map { $0.text },
                   aiLevel: aiLevel,
-                  lastMove: lastMove)
+                  lastMove: lastMove,
+                  opponentMode: opponentMode)
     }
 
     func restore(from save: ChessSave) {
@@ -316,6 +341,7 @@ extension ChessGameState {
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }
         aiLevel = save.aiLevel
         lastMove = save.lastMove
+        opponentMode = save.opponentMode ?? .ai
         selected = nil
         legalTargets = []
         hintMove = nil
