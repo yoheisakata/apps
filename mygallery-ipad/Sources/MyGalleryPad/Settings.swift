@@ -7,6 +7,9 @@ enum Settings {
     private static let shuffleEnabledKey = "mygalleryipad.shuffleEnabled"
     private static let timeLimitMinutesKey = "mygalleryipad.timeLimitMinutes"
     private static let folderSelectionsKey = "mygalleryipad.folderSelections"
+    private static let sortOrderKey = "mygalleryipad.sortOrder"
+    private static let showSizeBadgeKey = "mygalleryipad.showSizeBadge"
+    private static let showDateBadgeKey = "mygalleryipad.showDateBadge"
 
     /// 写真1枚あたりの表示秒数(スライドショー用)。既定6秒。
     static var photoDurationSeconds: Double {
@@ -46,5 +49,29 @@ enum Settings {
             let data = try? JSONEncoder().encode(newValue)
             UserDefaults.standard.set(data, forKey: folderSelectionsKey)
         }
+    }
+
+    /// グリッドの並び替え順(`Core/SortOrder.swift`)。既定は新しい順(`.dateDesc`、
+    /// mygallery Mac版の既定と同じ)。不正な値(未設定含む)は既定へフォールバックする。
+    static var sortOrder: SortOrder {
+        get {
+            let raw = UserDefaults.standard.object(forKey: sortOrderKey) as? Int
+            return raw.flatMap(SortOrder.init(rawValue:)) ?? .dateDesc
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: sortOrderKey) }
+    }
+
+    /// サムネイル右下のファイルサイズバッジ(mygallery Mac版の`showSizeBadge`と同じ)。
+    /// 既定はfalse。サイズ順ソート中は`SortOrder.showsFileSize`によりこのトグルの
+    /// 状態に関わらず強制表示される(`Views/GridView.swift`参照)。
+    static var showSizeBadge: Bool {
+        get { UserDefaults.standard.bool(forKey: showSizeBadgeKey) }
+        set { UserDefaults.standard.set(newValue, forKey: showSizeBadgeKey) }
+    }
+
+    /// サムネイル左上の月日バッジ(mygallery Mac版の`showDateBadge`と同じ)。既定はfalse。
+    static var showDateBadge: Bool {
+        get { UserDefaults.standard.bool(forKey: showDateBadgeKey) }
+        set { UserDefaults.standard.set(newValue, forKey: showDateBadgeKey) }
     }
 }
