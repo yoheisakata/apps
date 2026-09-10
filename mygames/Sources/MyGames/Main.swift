@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-let appVersion = "0.2.0"
+let appVersion = "0.3.0"
 
 /// ⌘Q やウィンドウを閉じたときの終了処理。エミュレーションタイマーを止めないまま
 /// プロセスが exit() に入ると、実行中の retro_run とレースしてクラッシュするため
@@ -21,28 +21,10 @@ struct MyGamesApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var emulator = EmulatorViewModel()
 
-    // 「ボードゲーム」タブ(旧 boardgames アプリ)の状態。ContentView 配下に自動伝播する
-    @StateObject private var boardRouter = Router()
-    @StateObject private var shogi = ShogiGameState()
-    @StateObject private var chess = ChessGameState()
-    @StateObject private var othello = OthelloGameState()
-    @StateObject private var go = GoGameState()
-    @StateObject private var diamond = DiamondGameState()
-    @StateObject private var gomoku = GomokuGameState()
-    @StateObject private var mahjong = MahjongGameState()
-
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(emulator)
-                .environmentObject(boardRouter)
-                .environmentObject(shogi)
-                .environmentObject(chess)
-                .environmentObject(othello)
-                .environmentObject(go)
-                .environmentObject(diamond)
-                .environmentObject(gomoku)
-                .environmentObject(mahjong)
         }
         .windowResizability(.contentMinSize)
         .commands {

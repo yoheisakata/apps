@@ -4,6 +4,8 @@
 
 macOS native emulator frontend using the libretro API. Loads NES/SNES emulation cores (.dylib) at runtime via `dlopen`/`dlsym`.
 
+> The「ボードゲーム」tab (7種の対戦ゲーム、旧 boardgames アプリを吸収したもの) was removed 2026-09-08 at the user's explicit request — this native app is now emulator-only again. `Sources/MyGames/BoardGames/`, the `Router`/`GameState` `@StateObject`s in `Main.swift`, and the `TopTab`/board-games tab-bar branch in `ContentView.swift` were all deleted; `Main.swift`'s `WindowGroup` now injects only `emulator`. `mygames-ipad/` is unaffected — it was already scoped to the ボードゲーム tab only (no ROM/emulator features), so it keeps its board-games code independently; the two no longer share this code at all. Do not re-add board games to this native app without asking.
+
 ## Architecture
 
 - **CLibretro** — SPM C target with `libretro.h` (API types/constants) and `shim.c`. `shim.c` provides the variadic `retro_log_printf_t` for `GET_LOG_INTERFACE` (Swift can't create variadic C fn pointers) — without it cores call a NULL log callback and SIGSEGV (e.g. nestopia on CPU JAM)
@@ -13,8 +15,6 @@ macOS native emulator frontend using the libretro API. Loads NES/SNES emulation 
 - **InputManager** — NSEvent keyboard monitors + GameController framework. Esc / ⌘W → stop (handled in the keyDown monitor, not menu shortcuts). Gamepad button bindings come from `ControllerConfig.shared.mapping` (re-read at each game start); dpad + left thumbstick are fixed to movement
 - **ControllerConfig** — controller connect/disconnect tracking + physical→virtual button mapping persisted in UserDefaults (`controllerMapping`); "press to assign" capture via profile-level `valueChangedHandler` (doesn't conflict with InputManager's per-button handlers). UI is the コントローラー tab (`ControllerSettingsView`)
 - **Rendering** — CGImage from frame buffer displayed via CALayer (no Metal shaders)
-- **BoardGames tab** — absorbed the former standalone `boardgames` app (将棋・チェス・オセロ・囲碁・五目並べ・麻雀・ダイヤモンドゲームの7種、SwiftUIネイティブ、AI対戦あり) as the「ボードゲーム」tab; do not re-add `boardgames` as a separate app. `Sources/MyGames/BoardGames/` is a straight file-move from the old `boardgames/Sources/` — its own module structure (7 independent `*Engine.swift`/`*Game.swift`/`*Views.swift` sets + shared `Shared.swift`) is unchanged, only `main.swift`'s `@main App`/`WindowGroup` wrapper was stripped and its `RootView` renamed to `BoardGamesRootView` (rendered from `ContentView`'s `.boardgames` tab case). The `Router` + 7 `GameState` `@StateObject`s live in `MyGamesApp` (`Main.swift`) and reach `BoardGamesRootView` via `environmentObject` propagation, same pattern as the emulator side. Saves are per-game JSON slots at `~/Library/Application Support/BoardGames/<game>/slotN.json` (unrelated to the `MyGames/` save directories below, no bundle-ID dependency so pre-merge saves carry over unchanged).
-  - **2人対戦モード (2026-09-07, ユーザー指示)** — 将棋・チェス・オセロ・囲碁・五目並べ・ダイヤモンドゲームの6種(麻雀を除く。4人前提のゲームなので1人プレイ vs AI×3のみ、2人対戦は追加していない)に、同じ画面で2人が交互に指す「2人対戦」モードを追加。`Shared.swift`の`OpponentMode`(`.ai`/`.human`)を各`*GameState`に`@Published var opponentMode`として追加し、`didSet`でモード切り替え時にAI思考中なら中断・AI番なら即座に着手させる。各ゲームの実装パターン: `isHumanTurn`を`opponentMode == .human || position.sideToMove == humanX`に一般化、駒/コマの選択可否チェックを固定の`humanColor`ではなく`position.sideToMove`ベースに変更、`scheduleAIMove()`の先頭に`guard opponentMode == .ai`を追加、勝敗・手番アナウンスのメッセージ文言を`opponentMode == .human`のときだけ「あなた/相手」ではなく実際の色・駒名(黒/白、先手/後手など)で組み立てるよう分岐、`undo()`は2人対戦時は1手のみ戻す(AI対戦時は自分の手+AI応手の2手)。ヒントボタンは2人対戦では非表示(一方だけAIの示す最善手を見られると不公平なため)。各`*Save`構造体に`var opponentMode: OpponentMode?`をoptionalで追加(既存セーブとの互換性のため、nilならAI対戦として復元)。**iPad版(`mygames-ipad/`)にも同じ変更を反映済み** — 変更したら両方に適用すること。
 
 ## Build
 
@@ -32,7 +32,6 @@ swift build                 # コンパイル確認のみ(GUI 起動・目視確
 - `Sources/MyGames/Core/` — LibretroCore, InputManager, EmulatorViewModel
 - `Sources/MyGames/Views/` — SwiftUI views
 - `Sources/MyGames/Audio/` — Audio engine
-- `Sources/MyGames/BoardGames/` — 「ボードゲーム」タブ(旧 boardgames アプリ、7種の対戦ゲーム)
 
 ## Runtime Directories
 
