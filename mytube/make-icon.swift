@@ -1,14 +1,26 @@
 #!/usr/bin/env swift
-// MyPassと同じ紫グラデーション背景に、白の再生ボタン(プレート)を描き、中央の
-// 三角形は背景色(紫)でくり抜いた macOS アプリアイコンを生成する。MyTube だけは
-// 意図的に「白背景+黒シルエット」の統一から外れ、MyPass と背景色を揃えた
-// (2026-09-02、ユーザー指示)。
+// 白背景+単色シルエットへ再度統一(2026-09-08、ユーザー指示: 前の多色シルエット
+// (紫グラデ+白三角形→濃いプレート+虹色グラデーション三角形)は「かっこよくない」
+// との評価で、「シルエットは一色にして、おしゃれなシルエットにして」と明示された)。
+// モチーフは角丸の再生三角形のみ(コーラル、単色)にした ― 候補として提示した
+// 「プレート+三角形」「円バッジ+三角形」より、この最もミニマルな案がユーザーに
+// 選ばれた。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let purpleTop = NSColor(srgbRed: 0.55, green: 0.36, blue: 0.96, alpha: 1) // MyPassと同じ紫グラデーション
-let purpleBottom = NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1)
-let silhouetteWhite = NSColor.white // 白 (旧・黒シルエットから変更)
+let bgWhite = NSColor.white
+let silhouetteCoral = NSColor(calibratedRed: 0.93, green: 0.29, blue: 0.35, alpha: 1)
+
+// Rounds each corner of a triangle by a fixed radius using CGPath's arc-to.
+func roundedTrianglePath(p1: CGPoint, p2: CGPoint, p3: CGPoint, radius: CGFloat) -> CGPath {
+    let path = CGMutablePath()
+    path.move(to: p1)
+    path.addArc(tangent1End: p2, tangent2End: p3, radius: radius)
+    path.addArc(tangent1End: p3, tangent2End: p1, radius: radius)
+    path.addArc(tangent1End: p1, tangent2End: p2, radius: radius)
+    path.closeSubpath()
+    return path
+}
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -23,34 +35,30 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
 
     let s = CGFloat(pixels)
     let inset = s * 0.08
-    let rect = NSRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
-    let radius = rect.width * 0.225
-    let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
+    let outerRect = NSRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
+    let outerRadius = outerRect.width * 0.225
+    let outerPath = NSBezierPath(roundedRect: outerRect, xRadius: outerRadius, yRadius: outerRadius)
 
-    let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
-    gradient.draw(in: path, angle: -90)
+    bgWhite.setFill()
+    outerPath.fill()
 
-    // 中央に白い角丸長方形(再生ボタンのプレート)。中の三角形は背景色(紫)でくり抜く。
-    let plateW = rect.width * 0.62
-    let plateH = rect.height * 0.44
-    let plateRect = NSRect(x: rect.midX - plateW / 2, y: rect.midY - plateH / 2, width: plateW, height: plateH)
-    let plateRadius = plateH * 0.28
-    let plate = NSBezierPath(roundedRect: plateRect, xRadius: plateRadius, yRadius: plateRadius)
+    // Just a single rounded-corner play triangle, no background plate/circle —
+    // the most minimal of the candidates, chosen over a plate- or badge-backed
+    // version.
+    let g = ctx.cgContext
+    let cx = s * 0.5
+    let cy = s * 0.5
+    let triW = s * 0.34
+    let triH = s * 0.40
+    let triCx = cx + triW * 0.12
+    let p1 = CGPoint(x: triCx - triW / 2, y: cy + triH / 2)
+    let p2 = CGPoint(x: triCx - triW / 2, y: cy - triH / 2)
+    let p3 = CGPoint(x: triCx + triW / 2, y: cy)
+    let path = roundedTrianglePath(p1: p1, p2: p2, p3: p3, radius: s * 0.028)
 
-    let triW = plateW * 0.34
-    let triH = plateH * 0.5
-    let cx = rect.midX + triW * 0.12
-    let cy = rect.midY
-    let tri = NSBezierPath()
-    tri.move(to: NSPoint(x: cx - triW / 2, y: cy + triH / 2))
-    tri.line(to: NSPoint(x: cx - triW / 2, y: cy - triH / 2))
-    tri.line(to: NSPoint(x: cx + triW / 2, y: cy))
-    tri.close()
-
-    plate.append(tri)
-    plate.windingRule = .evenOdd
-    silhouetteWhite.setFill()
-    plate.fill()
+    g.setFillColor(silhouetteCoral.cgColor)
+    g.addPath(path)
+    g.fillPath()
 
     NSGraphicsContext.restoreGraphicsState()
     return rep

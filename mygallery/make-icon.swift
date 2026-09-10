@@ -1,15 +1,18 @@
 #!/usr/bin/env swift
-// MyPassと同じ紫グラデーション背景に、白の写真フレーム(SF Symbol "photo")の
-// シルエットを描いたマスターアイコンを生成する。MyGalleryはMyTubeと同じく
-// 2026-09-02に「白背景+黒シルエット」の統一から離脱し、MyPassと背景色を揃えた
-// (ユーザー指示)。build.sh が Resources/AppIcon.png から iconset/icns を
-// ビルド時に都度生成するので、ここでは 1024x1024 の master PNG のみを出力する。
+// macOS Photos.app のアイコン(6枚の花びらが放射状に並ぶレインボー配色の
+// 花/風車モチーフ)に寄せたシルエットに変更(2026-09-08、ユーザー指示
+// 「シルエットは Mac の Photo アプリみたいにしてほしい」)。それまでの単色
+// カメラグリフ・6芒星バッジからの方針転換 ― このモチーフだけは単色ではなく、
+// 花びらごとに異なる色相のレインボー配色にする(Photos.appの実物がそうであるため)。
+// build.sh が Resources/AppIcon.png から iconset/icns をビルド時に都度生成するので、
+// ここでは 1024x1024 の master PNG のみを出力する。
 //   実行: swift make-icon.swift   →  Resources/AppIcon.png を出力
 import AppKit
 
-let purpleTop = NSColor(srgbRed: 0.55, green: 0.36, blue: 0.96, alpha: 1) // MyPassと同じ紫グラデーション
-let purpleBottom = NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1)
-let silhouetteWhite = NSColor.white // 白 (旧・黒シルエットから変更)
+let bgWhite = NSColor.white
+let petalSaturation: CGFloat = 0.75
+let petalBrightness: CGFloat = 0.92
+let petalHueOffset: CGFloat = 0.12 // 一番上の花びらが黄色寄りになるよう色相環を回転
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -24,32 +27,45 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
 
     let s = CGFloat(pixels)
     let inset = s * 0.08
-    let rect = NSRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
-    let radius = rect.width * 0.225
-    let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
+    let outerRect = NSRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
+    let outerRadius = outerRect.width * 0.225
+    let outerPath = NSBezierPath(roundedRect: outerRect, xRadius: outerRadius, yRadius: outerRadius)
 
-    let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
-    gradient.draw(in: path, angle: -90)
+    bgWhite.setFill()
+    outerPath.fill()
 
-    // 中央に白い写真(山と太陽の入った額縁)アイコン(SF Symbol "photo")のシルエット
-    let glyphSize = s * 0.46
-    let config = NSImage.SymbolConfiguration(pointSize: glyphSize, weight: .regular)
-    guard let symbol = NSImage(systemSymbolName: "photo", accessibilityDescription: nil)?
-        .withSymbolConfiguration(config) else {
-        fatalError("SF Symbol 'photo' not found")
+    // 6 rounded petals radiating from the center, each a different hue —
+    // built from a single symmetric petal path (two quadratic curves from a
+    // small base offset near center out to a tip) rotated 60° apart.
+    let g = ctx.cgContext
+    let cx = s * 0.5
+    let cy = s * 0.5
+    let petalCount = 6
+    let petalLength = outerRect.width * 0.293 // 300/1024 scaled to outerRect proportions
+    let petalWidth = outerRect.width * 0.254 // 260/1024
+    let baseInset = outerRect.width * 0.0195 // 20/1024
+
+    for i in 0..<petalCount {
+        let angle = CGFloat(i) * (2 * .pi / CGFloat(petalCount)) + .pi / 2
+        let hue = (CGFloat(i) / CGFloat(petalCount) + petalHueOffset).truncatingRemainder(dividingBy: 1.0)
+        let color = NSColor(calibratedHue: hue, saturation: petalSaturation, brightness: petalBrightness, alpha: 1)
+
+        let petalPath = CGMutablePath()
+        let base = CGPoint(x: baseInset, y: 0)
+        let tip = CGPoint(x: petalLength, y: 0)
+        petalPath.move(to: base)
+        petalPath.addQuadCurve(to: tip, control: CGPoint(x: petalLength * 0.42, y: petalWidth / 2))
+        petalPath.addQuadCurve(to: base, control: CGPoint(x: petalLength * 0.42, y: -petalWidth / 2))
+        petalPath.closeSubpath()
+
+        g.saveGState()
+        g.translateBy(x: cx, y: cy)
+        g.rotate(by: angle)
+        g.setFillColor(color.cgColor)
+        g.addPath(petalPath)
+        g.fillPath()
+        g.restoreGState()
     }
-    let symbolSize = symbol.size
-    let origin = NSPoint(x: (s - symbolSize.width) / 2, y: (s - symbolSize.height) / 2)
-
-    let cg = ctx.cgContext
-    cg.saveGState()
-    cg.beginTransparencyLayer(auxiliaryInfo: nil)
-    symbol.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
-    cg.setBlendMode(.sourceIn)
-    cg.setFillColor(silhouetteWhite.cgColor)
-    cg.fill(CGRect(x: 0, y: 0, width: s, height: s))
-    cg.endTransparencyLayer()
-    cg.restoreGState()
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
