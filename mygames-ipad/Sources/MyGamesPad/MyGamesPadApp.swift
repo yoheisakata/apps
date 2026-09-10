@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct MyGamesPadApp: App {
+    @UIApplicationDelegateAdaptor(OrientationAppDelegate.self) var appDelegate
     @StateObject private var router = Router()
     @StateObject private var shogi = ShogiGameState()
     @StateObject private var chess = ChessGameState()
@@ -9,7 +10,8 @@ struct MyGamesPadApp: App {
     @StateObject private var go = GoGameState()
     @StateObject private var diamond = DiamondGameState()
     @StateObject private var gomoku = GomokuGameState()
-    @StateObject private var mahjong = MahjongGameState()
+    @StateObject private var checkers = CheckersGameState()
+    @StateObject private var connectFour = ConnectFourGameState()
 
     var body: some Scene {
         WindowGroup {
@@ -21,7 +23,8 @@ struct MyGamesPadApp: App {
                 .environmentObject(go)
                 .environmentObject(diamond)
                 .environmentObject(gomoku)
-                .environmentObject(mahjong)
+                .environmentObject(checkers)
+                .environmentObject(connectFour)
         }
     }
 }

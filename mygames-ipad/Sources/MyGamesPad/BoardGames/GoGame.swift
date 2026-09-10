@@ -17,6 +17,8 @@ final class GoGameState: ObservableObject {
     @Published var moveList: [KifuEntry] = []
     @Published var result: GoResult = .ongoing
     @Published var aiThinking = false
+    /// スタートボタンを押して対局が始まったか(falseの間はセットアップ画面を出す)
+    @Published var hasStarted = false
     @Published var message = "あなたが黒番です。石で相手の石を囲むと取れます。まずは隅(すみ)の近くから打つのがコツです。"
     @Published var hintMove: Int?
     @Published var aiLevel: Difficulty = .easy
@@ -45,9 +47,18 @@ final class GoGameState: ObservableObject {
             && (opponentMode == .human || position.sideToMove == humanColor)
     }
 
+    /// セットアップ画面に戻る(盤面はそのまま。スタートを押すと newGame() が呼ばれる)
+    func goToSetup() {
+        hasStarted = false
+        #if os(iOS)
+        OrientationLock.apply(.all)
+        #endif
+    }
+
     func newGame() {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = GoPosition.initial(size: boardSize)
         lastMove = nil
         moveList = []
@@ -228,6 +239,7 @@ extension GoGameState {
     func restore(from save: GoSave) {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = save.position
         boardSize = save.position.size
         history = save.history

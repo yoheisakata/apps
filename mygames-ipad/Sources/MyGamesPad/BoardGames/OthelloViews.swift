@@ -7,17 +7,59 @@ struct OthelloGameView: View {
     @EnvironmentObject var router: Router
 
     var body: some View {
+        Group {
+            if !game.hasStarted {
+                OthelloSetupView()
+            } else if game.opponentMode == .human {
+                twoPlayerLayout
+            } else {
+                aiLayout
+            }
+        }
+        .background(Color(uiColor: .systemBackground))
+        .overlay { resultOverlay }
+    }
+
+    private var aiLayout: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 8) {
                 scoreBar
                 OthelloBoardView()
+                MoveRecordView(title: "記録", entries: game.moveList)
+                    .frame(maxHeight: .infinity)
             }
             OthelloSidebarView()
                 .frame(width: 300)
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
-        .overlay { resultOverlay }
+    }
+
+    /// 2人対戦: 設定・記録などは出さず、盤と「ゲーム終了」ボタンだけを
+    /// 縦向き・横向きどちらでも画面いっぱいに表示する(2026-09-09、ユーザー指示
+    /// 「ゲーム終了ボタンだけを表示。盤にかぶらない場所に表示」)。
+    private var twoPlayerLayout: some View {
+        GeometryReader { geo in
+            let topBarHeight: CGFloat = 44
+            let reserved: CGFloat = 54 + topBarHeight   // スコアバー+余白+盤の内側パディング+ゲーム終了バー
+            let heightBudget = max(24, (geo.size.height - reserved) / 8)
+            let widthBudget = max(24, (geo.size.width - 14) / 8)
+            let cell = min(heightBudget, widthBudget)
+
+            VStack(spacing: 8) {
+                HStack {
+                    Spacer()
+                    EndGameOverlayButton { game.goToSetup() }
+                }
+                .frame(height: topBarHeight)
+
+                Spacer(minLength: 0)
+                scoreBar
+                OthelloBoardView(cell: cell)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
     }
 
     private var scoreBar: some View {
@@ -107,11 +149,41 @@ struct OthelloGameView: View {
     }
 }
 
+// MARK: - セットアップ画面
+
+struct OthelloSetupView: View {
+    @EnvironmentObject var game: OthelloGameState
+    @State private var mode: OpponentMode = .ai
+
+    var body: some View {
+        GameSetupView(
+            title: "オセロ",
+            subtitle: "角(すみ)を取るのがコツ。定番のリバーシです。",
+            mode: $mode,
+            extraSettings: {
+                Picker("相手の強さ", selection: $game.aiLevel) {
+                    ForEach(Difficulty.allCases) { d in
+                        Text(d.rawValue).tag(d)
+                    }
+                }
+            },
+            onStart: {
+                game.opponentMode = mode
+                game.newGame()
+                #if os(iOS)
+                OrientationLock.apply(mode == .human ? .portrait : .landscape)
+                #endif
+            }
+        )
+        .onAppear { mode = game.opponentMode }
+    }
+}
+
 // MARK: - 盤
 
 struct OthelloBoardView: View {
     @EnvironmentObject var game: OthelloGameState
-    let cell: CGFloat = 60
+    var cell: CGFloat = 60
 
     var body: some View {
         let targets = game.legalTargets
@@ -239,30 +311,25 @@ struct OthelloSidebarView: View {
 
             GroupBox("対局") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("対戦相手", selection: $game.opponentMode) {
-                        ForEach(OpponentMode.allCases) { m in
-                            Text(m.rawValue).tag(m)
-                        }
-                    }
-                    if game.opponentMode == .ai {
-                        Picker("相手の強さ", selection: $game.aiLevel) {
-                            ForEach(Difficulty.allCases) { d in
-                                Text(d.rawValue).tag(d)
-                            }
-                        }
-                    }
-                    HStack {
-                        Button("新しい対局") { game.newGame() }
-                            .buttonStyle(.borderedProminent)
-                        Button("待った") { game.undo() }
-                            .disabled(game.aiThinking)
-                        if game.opponentMode == .ai {
-                            Button("ヒント") { game.showHint() }
-                                .disabled(!game.isHumanTurn)
-                        }
-                    }
+                    Text(game.opponentMode == .human ? "2人対戦" : "vs CPU(\(game.aiLevel.rawValue))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button { game.goToSetup() } label: { Label("設定を変える", systemImage: "slider.horizontal.3") }
+                        .buttonStyle(.borderedProminent)
                 }
                 .padding(4)
+            }
+
+            if game.opponentMode == .ai {
+                GroupBox("操作") {
+                    HStack {
+                        Button("待った") { game.undo() }
+                            .disabled(game.aiThinking)
+                        Button("ヒント") { game.showHint() }
+                            .disabled(!game.isHumanTurn)
+                    }
+                    .padding(4)
+                }
             }
 
             GroupBox("状況") {
@@ -278,28 +345,6 @@ struct OthelloSidebarView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(4)
-            }
-
-            GroupBox("記録") {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(game.moveList) { entry in
-                                Text("\(entry.id). \(entry.text)")
-                                    .font(.system(.callout, design: .monospaced))
-                                    .id(entry.id)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(4)
-                    }
-                    .frame(minHeight: 100, maxHeight: .infinity)
-                    .onChange(of: game.moveList.count) {
-                        if let last = game.moveList.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
             }
 
             SaveSlotsBox(game: .othello,

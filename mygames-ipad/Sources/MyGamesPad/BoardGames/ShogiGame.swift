@@ -29,6 +29,8 @@ final class ShogiGameState: ObservableObject {
     @Published var kifu: [KifuEntry] = []
     @Published var result: GameResult = .ongoing
     @Published var aiThinking = false
+    /// スタートボタンを押して対局が始まったか(falseの間はセットアップ画面を出す)
+    @Published var hasStarted = false
 
     // 学習サポート
     @Published var coachMessage: String = "駒をクリックすると動かせるマスが光ります。まずは一手指してみましょう。"
@@ -74,9 +76,18 @@ final class ShogiGameState: ObservableObject {
 
     // MARK: - 対局操作
 
+    /// セットアップ画面に戻る(盤面はそのまま。スタートを押すと newGame() が呼ばれる)
+    func goToSetup() {
+        hasStarted = false
+        #if os(iOS)
+        OrientationLock.apply(.all)
+        #endif
+    }
+
     func newGame() {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = Position.initial(handicap: handicap)
         selection = .none
         legalTargets = []
@@ -208,9 +219,9 @@ final class ShogiGameState: ObservableObject {
     }
 
     private func commitHumanMove(_ move: Move) {
-        // 学習モード: 指す前に悪手チェック
+        // 学習モード: 指す前に悪手チェック(2人対戦では不要 — ユーザー指示)
         var warning: String?
-        if learningMode {
+        if learningMode, opponentMode == .ai {
             warning = Coach.warning(for: move, before: position)
         }
 
@@ -349,6 +360,7 @@ extension ShogiGameState {
 
     func restore(from save: ShogiSave) {
         moveTokenBump()
+        hasStarted = true
         position = save.position
         history = save.history
         kifu = save.kifu.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }

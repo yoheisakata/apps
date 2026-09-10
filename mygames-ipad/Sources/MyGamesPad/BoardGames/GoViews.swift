@@ -7,17 +7,66 @@ struct GoGameView: View {
     @EnvironmentObject var router: Router
 
     var body: some View {
+        Group {
+            if !game.hasStarted {
+                GoSetupView()
+            } else if game.opponentMode == .human {
+                twoPlayerLayout
+            } else {
+                aiLayout
+            }
+        }
+        .background(Color(uiColor: .systemBackground))
+        .overlay { resultOverlay }
+    }
+
+    private var aiLayout: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 8) {
                 capturesBar
                 GoBoardView()
+                MoveRecordView(title: "記録", entries: game.moveList)
+                    .frame(maxHeight: .infinity)
             }
             GoSidebarView()
                 .frame(width: 300)
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
-        .overlay { resultOverlay }
+    }
+
+    /// 2人対戦: 設定・記録などは出さず、盤と「ゲーム終了」ボタンだけを
+    /// 縦向き・横向きどちらでも画面いっぱいに表示する(2026-09-09、ユーザー指示
+    /// 「ゲーム終了ボタンだけを表示。盤にかぶらない場所に表示」)。囲碁だけは
+    /// 「パス」を上部バーに残す — 設定ではなく、2回連続で終局する正式な着手の
+    /// 一つなので、2人対戦でも押せなくすると終局できなくなってしまうため。
+    private var twoPlayerLayout: some View {
+        GeometryReader { geo in
+            let topBarHeight: CGFloat = 44
+            let reserved: CGFloat = 38 + topBarHeight   // アゲハマ表示バー+余白+ゲーム終了バー
+            let n = game.position.size
+            // 盤の一辺 = spacing*(n-1) + margin*2、margin = spacing*0.7 なので
+            // 一辺 = spacing*(n+0.4)
+            let heightBudget = max(4, (geo.size.height - reserved) / (CGFloat(n) + 0.4))
+            let widthBudget = max(4, geo.size.width / (CGFloat(n) + 0.4))
+            let spacing = min(heightBudget, widthBudget)
+
+            VStack(spacing: 8) {
+                HStack {
+                    Button("パス(2回続くと終局)") { game.humanPass() }
+                        .disabled(!game.isHumanTurn)
+                    Spacer()
+                    EndGameOverlayButton { game.goToSetup() }
+                }
+                .frame(height: topBarHeight)
+
+                Spacer(minLength: 0)
+                capturesBar
+                GoBoardView(spacingOverride: spacing)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
     }
 
     private var capturesBar: some View {
@@ -105,12 +154,47 @@ struct GoGameView: View {
     }
 }
 
+// MARK: - セットアップ画面
+
+struct GoSetupView: View {
+    @EnvironmentObject var game: GoGameState
+    @State private var mode: OpponentMode = .ai
+
+    var body: some View {
+        GameSetupView(
+            title: "囲碁",
+            subtitle: "9路盤から始める囲碁。囲んで取って地を作ろう。",
+            mode: $mode,
+            extraSettings: {
+                Picker("盤の広さ", selection: $game.boardSize) {
+                    Text("9路盤(入門)").tag(9)
+                    Text("13路盤").tag(13)
+                }
+                Picker("相手の強さ", selection: $game.aiLevel) {
+                    ForEach(Difficulty.allCases) { d in
+                        Text(d.rawValue).tag(d)
+                    }
+                }
+            },
+            onStart: {
+                game.opponentMode = mode
+                game.newGame()
+                #if os(iOS)
+                OrientationLock.apply(mode == .human ? .portrait : .landscape)
+                #endif
+            }
+        )
+        .onAppear { mode = game.opponentMode }
+    }
+}
+
 // MARK: - 盤
 
 struct GoBoardView: View {
     @EnvironmentObject var game: GoGameState
 
-    private var spacing: CGFloat { game.position.size <= 9 ? 52 : 38 }
+    var spacingOverride: CGFloat? = nil
+    private var spacing: CGFloat { spacingOverride ?? (game.position.size <= 9 ? 52 : 38) }
     private var margin: CGFloat { spacing * 0.7 }
 
     var body: some View {
@@ -205,28 +289,21 @@ struct GoSidebarView: View {
 
             GroupBox("対局") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("盤の広さ", selection: $game.boardSize) {
-                        Text("9路盤(入門)").tag(9)
-                        Text("13路盤").tag(13)
-                    }
-                    Picker("対戦相手", selection: $game.opponentMode) {
-                        ForEach(OpponentMode.allCases) { m in
-                            Text(m.rawValue).tag(m)
-                        }
-                    }
+                    Text(game.opponentMode == .human ? "2人対戦・\(game.boardSize)路盤" : "vs CPU(\(game.aiLevel.rawValue))・\(game.boardSize)路盤")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button { game.goToSetup() } label: { Label("設定を変える", systemImage: "slider.horizontal.3") }
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(4)
+            }
+
+            GroupBox("操作") {
+                VStack(alignment: .leading, spacing: 8) {
                     if game.opponentMode == .ai {
-                        Picker("相手の強さ", selection: $game.aiLevel) {
-                            ForEach(Difficulty.allCases) { d in
-                                Text(d.rawValue).tag(d)
-                            }
-                        }
-                    }
-                    HStack {
-                        Button("新しい対局") { game.newGame() }
-                            .buttonStyle(.borderedProminent)
-                        Button("待った") { game.undo() }
-                            .disabled(game.aiThinking)
-                        if game.opponentMode == .ai {
+                        HStack {
+                            Button("待った") { game.undo() }
+                                .disabled(game.aiThinking)
                             Button("ヒント") { game.showHint() }
                                 .disabled(!game.isHumanTurn)
                         }
@@ -250,28 +327,6 @@ struct GoSidebarView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(4)
-            }
-
-            GroupBox("記録") {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(game.moveList) { entry in
-                                Text("\(entry.id). \(entry.text)")
-                                    .font(.system(.callout, design: .monospaced))
-                                    .id(entry.id)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(4)
-                    }
-                    .frame(minHeight: 80, maxHeight: .infinity)
-                    .onChange(of: game.moveList.count) {
-                        if let last = game.moveList.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
             }
 
             SaveSlotsBox(game: .go,

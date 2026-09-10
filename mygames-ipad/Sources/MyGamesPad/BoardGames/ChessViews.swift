@@ -7,15 +7,58 @@ struct ChessGameView: View {
     @EnvironmentObject var router: Router
 
     var body: some View {
+        Group {
+            if !game.hasStarted {
+                ChessSetupView()
+            } else if game.opponentMode == .human {
+                twoPlayerLayout
+            } else {
+                aiLayout
+            }
+        }
+        .background(Color(uiColor: .systemBackground))
+        .overlay { promotionOverlay }
+        .overlay { resultOverlay }
+    }
+
+    private var aiLayout: some View {
         HStack(alignment: .top, spacing: 16) {
-            ChessBoardView()
+            VStack(spacing: 8) {
+                ChessBoardView()
+                MoveRecordView(title: "棋譜", entries: game.moveList)
+                    .frame(maxHeight: .infinity)
+            }
             ChessSidebarView()
                 .frame(width: 300)
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
-        .overlay { promotionOverlay }
-        .overlay { resultOverlay }
+    }
+
+    /// 2人対戦: 設定・棋譜などは出さず、盤と「ゲーム終了」ボタンだけを
+    /// 縦向き・横向きどちらでも画面いっぱいに表示する(2026-09-09、ユーザー指示
+    /// 「ゲーム終了ボタンだけを表示。盤にかぶらない場所に表示」)。
+    private var twoPlayerLayout: some View {
+        GeometryReader { geo in
+            let topBarHeight: CGFloat = 44
+            let reserved: CGFloat = 44 + topBarHeight + 24   // 段・筋ラベル+思考中インジケーター+ゲーム終了バー+余白
+            let heightBudget = max(24, (geo.size.height - reserved) / 8)
+            let widthBudget = max(24, (geo.size.width - 16) / 8)
+            let cell = min(heightBudget, widthBudget)
+
+            VStack(spacing: 8) {
+                HStack {
+                    Spacer()
+                    EndGameOverlayButton { game.goToSetup() }
+                }
+                .frame(height: topBarHeight)
+
+                Spacer(minLength: 0)
+                ChessBoardView(cell: cell)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
     }
 
     @ViewBuilder
@@ -112,11 +155,41 @@ struct ChessGameView: View {
     }
 }
 
+// MARK: - セットアップ画面
+
+struct ChessSetupView: View {
+    @EnvironmentObject var game: ChessGameState
+    @State private var mode: OpponentMode = .ai
+
+    var body: some View {
+        GameSetupView(
+            title: "チェス",
+            subtitle: "キャスリング・アンパッサン対応のチェスです。",
+            mode: $mode,
+            extraSettings: {
+                Picker("相手の強さ", selection: $game.aiLevel) {
+                    ForEach(Difficulty.allCases) { d in
+                        Text(d.rawValue).tag(d)
+                    }
+                }
+            },
+            onStart: {
+                game.opponentMode = mode
+                game.newGame()
+                #if os(iOS)
+                OrientationLock.apply(mode == .human ? .portrait : .landscape)
+                #endif
+            }
+        )
+        .onAppear { mode = game.opponentMode }
+    }
+}
+
 // MARK: - 盤
 
 struct ChessBoardView: View {
     @EnvironmentObject var game: ChessGameState
-    let cell: CGFloat = 62
+    var cell: CGFloat = 62
 
     var body: some View {
         VStack(spacing: 2) {
@@ -237,30 +310,25 @@ struct ChessSidebarView: View {
 
             GroupBox("対局") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("対戦相手", selection: $game.opponentMode) {
-                        ForEach(OpponentMode.allCases) { m in
-                            Text(m.rawValue).tag(m)
-                        }
-                    }
-                    if game.opponentMode == .ai {
-                        Picker("相手の強さ", selection: $game.aiLevel) {
-                            ForEach(Difficulty.allCases) { d in
-                                Text(d.rawValue).tag(d)
-                            }
-                        }
-                    }
-                    HStack {
-                        Button("新しい対局") { game.newGame() }
-                            .buttonStyle(.borderedProminent)
-                        Button("待った") { game.undo() }
-                            .disabled(game.aiThinking)
-                        if game.opponentMode == .ai {
-                            Button("ヒント") { game.showHint() }
-                                .disabled(!game.isHumanTurn)
-                        }
-                    }
+                    Text(game.opponentMode == .human ? "2人対戦" : "vs CPU(\(game.aiLevel.rawValue))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button { game.goToSetup() } label: { Label("設定を変える", systemImage: "slider.horizontal.3") }
+                        .buttonStyle(.borderedProminent)
                 }
                 .padding(4)
+            }
+
+            if game.opponentMode == .ai {
+                GroupBox("操作") {
+                    HStack {
+                        Button("待った") { game.undo() }
+                            .disabled(game.aiThinking)
+                        Button("ヒント") { game.showHint() }
+                            .disabled(!game.isHumanTurn)
+                    }
+                    .padding(4)
+                }
             }
 
             GroupBox("状況") {
@@ -276,28 +344,6 @@ struct ChessSidebarView: View {
                     .foregroundStyle(game.guideText.isEmpty ? .secondary : .primary)
                     .frame(maxWidth: .infinity, minHeight: 50, alignment: .topLeading)
                     .padding(4)
-            }
-
-            GroupBox("棋譜") {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(game.moveList) { entry in
-                                Text("\(entry.id). \(entry.text)")
-                                    .font(.system(.callout, design: .monospaced))
-                                    .id(entry.id)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(4)
-                    }
-                    .frame(minHeight: 100, maxHeight: .infinity)
-                    .onChange(of: game.moveList.count) {
-                        if let last = game.moveList.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
             }
 
             SaveSlotsBox(game: .chess,

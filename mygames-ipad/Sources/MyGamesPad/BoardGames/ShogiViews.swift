@@ -12,19 +12,65 @@ struct ShogiGameView: View {
     @EnvironmentObject var router: Router
 
     var body: some View {
+        Group {
+            if !game.hasStarted {
+                ShogiSetupView()
+            } else if game.opponentMode == .human {
+                twoPlayerLayout
+            } else {
+                aiLayout
+            }
+        }
+        .background(Color(uiColor: .systemBackground))
+        .overlay { promotionOverlay }
+        .overlay { resultOverlay }
+    }
+
+    private var aiLayout: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 8) {
                 ShogiHandView(player: .gote)
                 ShogiBoardView()
                 ShogiHandView(player: .sente)
+                // 盤+持ち駒はサイドバーより低いぶん左下に大きな空きができるので、
+                // そこに棋譜を置いて埋める(2026-09-09、ユーザー指示)。
+                ShogiKifuView()
+                    .frame(maxHeight: .infinity)
             }
             ShogiSidebarView()
                 .frame(width: 300)
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
-        .overlay { promotionOverlay }
-        .overlay { resultOverlay }
+    }
+
+    /// 2人対戦: 設定・棋譜などは出さず、盤+持ち駒と「ゲーム終了」ボタンだけを
+    /// 縦向き・横向きどちらでも画面いっぱいに表示する(2026-09-09、ユーザー指示
+    /// 「ゲーム終了ボタンだけを表示。盤にかぶらない場所に表示」)。
+    private var twoPlayerLayout: some View {
+        GeometryReader { geo in
+            let handHeight: CGFloat = 52
+            let topBarHeight: CGFloat = 44
+            let reserved = handHeight * 2 + topBarHeight + 24
+            let heightBudget = max(24, (geo.size.height - reserved) / 9)
+            let widthBudget = max(24, (geo.size.width - 24) / 9)
+            let cell = min(heightBudget, widthBudget)
+
+            VStack(spacing: 8) {
+                HStack {
+                    Spacer()
+                    EndGameOverlayButton { game.goToSetup() }
+                }
+                .frame(height: topBarHeight)
+
+                Spacer(minLength: 0)
+                ShogiHandView(player: .gote, pieceSize: cell * 0.7, height: handHeight)
+                ShogiBoardView(cell: cell)
+                ShogiHandView(player: .sente, pieceSize: cell * 0.7, height: handHeight)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
     }
 
     @ViewBuilder
@@ -90,11 +136,46 @@ struct ShogiGameView: View {
     }
 }
 
+// MARK: - セットアップ画面
+
+struct ShogiSetupView: View {
+    @EnvironmentObject var game: ShogiGameState
+    @State private var mode: OpponentMode = .ai
+
+    var body: some View {
+        GameSetupView(
+            title: "将棋",
+            subtitle: "動けるマスのガイドとコーチ付きで学べる本格将棋です。",
+            mode: $mode,
+            extraSettings: {
+                Picker("手合", selection: $game.handicap) {
+                    ForEach(Handicap.allCases) { h in
+                        Text(h.rawValue).tag(h)
+                    }
+                }
+                Picker("相手の強さ", selection: $game.aiLevel) {
+                    ForEach(AILevel.allCases) { l in
+                        Text(l.rawValue).tag(l)
+                    }
+                }
+            },
+            onStart: {
+                game.opponentMode = mode
+                game.newGame()
+                #if os(iOS)
+                OrientationLock.apply(mode == .human ? .portrait : .landscape)
+                #endif
+            }
+        )
+        .onAppear { mode = game.opponentMode }
+    }
+}
+
 // MARK: - 盤
 
 struct ShogiBoardView: View {
     @EnvironmentObject var game: ShogiGameState
-    let cell: CGFloat = 54
+    var cell: CGFloat = 54
 
     var body: some View {
         VStack(spacing: 2) {
@@ -247,6 +328,8 @@ struct PentagonShape: Shape {
 struct ShogiHandView: View {
     @EnvironmentObject var game: ShogiGameState
     let player: Player
+    var pieceSize: CGFloat = 38
+    var height: CGFloat = 44
 
     private let order: [PieceType] = [.rook, .bishop, .gold, .silver, .knight, .lance, .pawn]
 
@@ -267,7 +350,7 @@ struct ShogiHandView: View {
                 Text("考え中…").font(.caption).foregroundStyle(.secondary)
             }
         }
-        .frame(height: 44)
+        .frame(height: height)
         .padding(.horizontal, 8)
         .background(RoundedRectangle(cornerRadius: 6).fill(Theme.boardWood.opacity(0.4)))
     }
@@ -284,7 +367,7 @@ struct ShogiHandView: View {
 
     private func handPiece(type: PieceType, count: Int) -> some View {
         HStack(spacing: 1) {
-            ShogiPieceView(piece: Piece(type: type, player: player), size: 38)
+            ShogiPieceView(piece: Piece(type: type, player: player), size: pieceSize)
             if count > 1 {
                 Text("\(count)").font(.caption.bold())
             }
@@ -425,36 +508,28 @@ struct ShogiSidebarView: View {
             // 対局設定
             GroupBox("対局") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("手合", selection: $game.handicap) {
-                        ForEach(Handicap.allCases) { h in
-                            Text(h.rawValue).tag(h)
-                        }
-                    }
-                    Picker("対戦相手", selection: $game.opponentMode) {
-                        ForEach(OpponentMode.allCases) { m in
-                            Text(m.rawValue).tag(m)
-                        }
-                    }
+                    Text(game.opponentMode == .human ? "2人対戦" : "vs CPU(\(game.aiLevel.rawValue)・\(game.handicap.rawValue))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     if game.opponentMode == .ai {
-                        Picker("相手の強さ", selection: $game.aiLevel) {
-                            ForEach(AILevel.allCases) { l in
-                                Text(l.rawValue).tag(l)
-                            }
-                        }
+                        Toggle("学習モード(悪手の注意を表示)", isOn: $game.learningMode)
                     }
-                    Toggle("学習モード(悪手の注意を表示)", isOn: $game.learningMode)
-                    HStack {
-                        Button("新しい対局") { game.newGame() }
-                            .buttonStyle(.borderedProminent)
-                        Button("待った") { game.undo() }
-                            .disabled(game.aiThinking)
-                        if game.opponentMode == .ai {
-                            Button("ヒント") { game.showHint() }
-                                .disabled(!game.isHumanTurn)
-                        }
-                    }
+                    Button { game.goToSetup() } label: { Label("設定を変える", systemImage: "slider.horizontal.3") }
+                        .buttonStyle(.borderedProminent)
                 }
                 .padding(4)
+            }
+
+            if game.opponentMode == .ai {
+                GroupBox("操作") {
+                    HStack {
+                        Button("待った") { game.undo() }
+                            .disabled(game.aiThinking)
+                        Button("ヒント") { game.showHint() }
+                            .disabled(!game.isHumanTurn)
+                    }
+                    .padding(4)
+                }
             }
 
             // コーチのメッセージ
@@ -479,29 +554,6 @@ struct ShogiSidebarView: View {
                 .padding(4)
             }
 
-            // 棋譜
-            GroupBox("棋譜") {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(game.kifu) { entry in
-                                Text("\(entry.id). \(entry.text)")
-                                    .font(.system(.callout, design: .monospaced))
-                                    .id(entry.id)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(4)
-                    }
-                    .frame(minHeight: 100, maxHeight: .infinity)
-                    .onChange(of: game.kifu.count) {
-                        if let last = game.kifu.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
-            }
-
             // 途中保存
             SaveSlotsBox(game: .shogi,
                          onSave: { slot in
@@ -515,6 +567,36 @@ struct ShogiSidebarView: View {
                          })
 
             Spacer()
+        }
+    }
+}
+
+/// 棋譜(指し手の記録)。vs CPU時は盤の下の空きスペースに、2人対戦時は
+/// サイドバーの流れの中に置く(呼び出し側でレイアウトを変える)。
+struct ShogiKifuView: View {
+    @EnvironmentObject var game: ShogiGameState
+
+    var body: some View {
+        GroupBox("棋譜") {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(game.kifu) { entry in
+                            Text("\(entry.id). \(entry.text)")
+                                .font(.system(.callout, design: .monospaced))
+                                .id(entry.id)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(4)
+                }
+                .frame(minHeight: 100, maxHeight: .infinity)
+                .onChange(of: game.kifu.count) {
+                    if let last = game.kifu.last {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+            }
         }
     }
 }

@@ -7,17 +7,60 @@ struct DiamondGameView: View {
     @EnvironmentObject var router: Router
 
     var body: some View {
+        Group {
+            if !game.hasStarted {
+                DiamondSetupView()
+            } else if game.opponentMode == .human {
+                twoPlayerLayout
+            } else {
+                aiLayout
+            }
+        }
+        .background(Color(uiColor: .systemBackground))
+        .overlay { resultOverlay }
+    }
+
+    private var aiLayout: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 8) {
                 statusBar
                 DiamondBoardView()
+                MoveRecordView(title: "記録", entries: game.moveList)
+                    .frame(maxHeight: .infinity)
             }
             DiamondSidebarView()
                 .frame(width: 300)
         }
         .padding(16)
-        .background(Color(uiColor: .systemBackground))
-        .overlay { resultOverlay }
+    }
+
+    /// 2人対戦: 設定・記録などは出さず、盤と「ゲーム終了」ボタンだけを
+    /// 縦向き・横向きどちらでも画面いっぱいに表示する(2026-09-09、ユーザー指示
+    /// 「ゲーム終了ボタンだけを表示。盤にかぶらない場所に表示」)。
+    private var twoPlayerLayout: some View {
+        GeometryReader { geo in
+            let topBarHeight: CGFloat = 44
+            let reserved: CGFloat = 38 + topBarHeight   // 状況バー+余白+ゲーム終了バー
+            // 標準サイズ(scale=1)での盤の幅564・高さ548から逆算してscaleを決める
+            let widthBudget = max(0.2, geo.size.width / 564)
+            let heightBudget = max(0.2, (geo.size.height - reserved) / 548)
+            let scale = min(widthBudget, heightBudget)
+
+            VStack(spacing: 8) {
+                HStack {
+                    Spacer()
+                    EndGameOverlayButton { game.goToSetup() }
+                }
+                .frame(height: topBarHeight)
+
+                Spacer(minLength: 0)
+                statusBar
+                DiamondBoardView(scale: scale)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
     }
 
     private var statusBar: some View {
@@ -83,14 +126,49 @@ struct DiamondGameView: View {
     }
 }
 
+// MARK: - セットアップ画面
+
+struct DiamondSetupView: View {
+    @EnvironmentObject var game: DiamondGameState
+    @State private var mode: OpponentMode = .ai
+
+    var body: some View {
+        GameSetupView(
+            title: "ダイヤモンドゲーム",
+            subtitle: "跳び越しの連鎖で向かい側を目指すレースゲームです。",
+            mode: $mode,
+            extraSettings: {
+                Picker("相手の強さ", selection: $game.aiLevel) {
+                    ForEach(Difficulty.allCases) { d in
+                        Text(d.rawValue).tag(d)
+                    }
+                }
+            },
+            onStart: {
+                game.opponentMode = mode
+                game.newGame()
+                #if os(iOS)
+                OrientationLock.apply(mode == .human ? .portrait : .landscape)
+                #endif
+            }
+        )
+        .onAppear { mode = game.opponentMode }
+    }
+}
+
 // MARK: - 盤
 
 struct DiamondBoardView: View {
     @EnvironmentObject var game: DiamondGameState
 
-    private let unitX: CGFloat = 16     // x が 1 増えるごとの横幅(隣接マスは x±2)
-    private let unitY: CGFloat = 31
-    private let margin: CGFloat = 26
+    /// 標準サイズ(unitX=16/unitY=31/margin=26/コマ27)に対する倍率。2人対戦の
+    /// フルスクリーンレイアウトで画面に合わせて盤全体を拡大縮小するために使う
+    /// (2026-09-09、ユーザー指示)。
+    var scale: CGFloat = 1.0
+    private var unitX: CGFloat { 16 * scale }     // x が 1 増えるごとの横幅(隣接マスは x±2)
+    private var unitY: CGFloat { 31 * scale }
+    private var margin: CGFloat { 26 * scale }
+    private var cellSize: CGFloat { 27 * scale }
 
     private var cells: [DPoint] {
         DiamondPosition.allCells.sorted { ($0.y, $0.x) < ($1.y, $1.x) }
@@ -103,7 +181,7 @@ struct DiamondBoardView: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Theme.boardWood.opacity(0.55))
             ForEach(cells, id: \.self) { p in
-                DiamondCellView(point: p, size: 27)
+                DiamondCellView(point: p, size: cellSize)
                     .position(screenPoint(p, width: width))
             }
         }
@@ -175,30 +253,25 @@ struct DiamondSidebarView: View {
 
             GroupBox("対局") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("対戦相手", selection: $game.opponentMode) {
-                        ForEach(OpponentMode.allCases) { m in
-                            Text(m.rawValue).tag(m)
-                        }
-                    }
-                    if game.opponentMode == .ai {
-                        Picker("相手の強さ", selection: $game.aiLevel) {
-                            ForEach(Difficulty.allCases) { d in
-                                Text(d.rawValue).tag(d)
-                            }
-                        }
-                    }
-                    HStack {
-                        Button("新しい対局") { game.newGame() }
-                            .buttonStyle(.borderedProminent)
-                        Button("待った") { game.undo() }
-                            .disabled(game.aiThinking)
-                        if game.opponentMode == .ai {
-                            Button("ヒント") { game.showHint() }
-                                .disabled(!game.isHumanTurn)
-                        }
-                    }
+                    Text(game.opponentMode == .human ? "2人対戦" : "vs CPU(\(game.aiLevel.rawValue))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button { game.goToSetup() } label: { Label("設定を変える", systemImage: "slider.horizontal.3") }
+                        .buttonStyle(.borderedProminent)
                 }
                 .padding(4)
+            }
+
+            if game.opponentMode == .ai {
+                GroupBox("操作") {
+                    HStack {
+                        Button("待った") { game.undo() }
+                            .disabled(game.aiThinking)
+                        Button("ヒント") { game.showHint() }
+                            .disabled(!game.isHumanTurn)
+                    }
+                    .padding(4)
+                }
             }
 
             GroupBox("状況") {
@@ -214,28 +287,6 @@ struct DiamondSidebarView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                     .padding(4)
-            }
-
-            GroupBox("記録") {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(game.moveList) { entry in
-                                Text("\(entry.id). \(entry.text)")
-                                    .font(.system(.callout, design: .monospaced))
-                                    .id(entry.id)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(4)
-                    }
-                    .frame(minHeight: 80, maxHeight: .infinity)
-                    .onChange(of: game.moveList.count) {
-                        if let last = game.moveList.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
-                }
             }
 
             SaveSlotsBox(game: .diamond,

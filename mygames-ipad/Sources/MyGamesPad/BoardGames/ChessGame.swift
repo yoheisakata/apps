@@ -111,6 +111,8 @@ final class ChessGameState: ObservableObject {
     @Published var moveList: [KifuEntry] = []
     @Published var result: ChessResult = .ongoing
     @Published var aiThinking = false
+    /// スタートボタンを押して対局が始まったか(falseの間はセットアップ画面を出す)
+    @Published var hasStarted = false
     @Published var message = "あなたが白番です。中央のポーン(e2 か d2)を突くのが定番の初手です。"
     @Published var guideText = ""
     @Published var hintMove: ChessMove?
@@ -140,9 +142,18 @@ final class ChessGameState: ObservableObject {
             && promotionPending == nil
     }
 
+    /// セットアップ画面に戻る(盤面はそのまま。スタートを押すと newGame() が呼ばれる)
+    func goToSetup() {
+        hasStarted = false
+        #if os(iOS)
+        OrientationLock.apply(.all)
+        #endif
+    }
+
     func newGame() {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = ChessPosition.initial()
         selected = nil
         legalTargets = []
@@ -336,6 +347,7 @@ extension ChessGameState {
     func restore(from save: ChessSave) {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = save.position
         history = save.history
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }

@@ -40,6 +40,9 @@ body::before{
   background:linear-gradient(135deg,#f7dd8f 0%,var(--accent) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;}
 .app-sub{color:var(--sub); font-size:0.85rem; text-align:center; margin-bottom:4px;}
 .app-version{color:var(--sub); opacity:0.55; font-size:0.65rem; letter-spacing:.06em; text-align:center; margin-bottom:16px;}
+.coin-badge{display:flex; align-items:center; justify-content:center; gap:6px; margin:0 auto 16px; padding:6px 16px;
+  width:fit-content; border-radius:999px; background:rgba(242,193,78,0.12); border:1px solid rgba(242,193,78,0.35);
+  font-size:0.95rem; font-weight:800; color:var(--accent);}
 
 .screen{display:none; width:100%; flex-direction:column; align-items:center;}
 .screen.active{display:flex;}
@@ -63,11 +66,8 @@ body::before{
   border-radius:inherit; pointer-events:none;
 }
 .game.shinkei .icon-wrap{ background:linear-gradient(135deg,#3b0764,#9333ea); box-shadow:0 6px 20px rgba(147,51,234,0.45); }
-.game.baba    .icon-wrap{ background:linear-gradient(135deg,#1c1c1c,#c0392b); box-shadow:0 6px 20px rgba(192,57,43,0.4); }
 .game.speed   .icon-wrap{ background:linear-gradient(135deg,#b45309,#f59e0b); box-shadow:0 6px 20px rgba(245,158,11,0.45); }
 .game.daifugo .icon-wrap{ background:linear-gradient(135deg,#7a5a0f,#f2c14e); box-shadow:0 6px 20px rgba(242,193,78,0.45); }
-.game.sevens  .icon-wrap{ background:linear-gradient(135deg,#0f3d5c,#3b82f6); box-shadow:0 6px 20px rgba(59,130,246,0.4); }
-.game.tw      .icon-wrap{ background:linear-gradient(135deg,#0f5c33,#22c55e); box-shadow:0 6px 20px rgba(34,197,94,0.4); }
 .game.poker   .icon-wrap{ background:linear-gradient(135deg,#0f172a,#475569); box-shadow:0 6px 20px rgba(71,85,105,0.4); }
 .game.bj      .icon-wrap{ background:linear-gradient(135deg,#3b0a0a,#c0392b); box-shadow:0 6px 20px rgba(192,57,43,0.4); }
 .game-name{
@@ -128,11 +128,11 @@ body::before{
 .card.sz-lg .c-suit.big{font-size:1.9em;}
 
 /* ---- 神経衰弱 ---- */
-#shinkei-grid{display:grid; grid-template-columns:repeat(auto-fill, 42px); gap:6px; justify-content:center; width:100%; max-width:640px; margin-bottom:14px;}
-.mem-card{width:42px; height:58px; border-radius:6px; cursor:pointer;
+#shinkei-grid{display:grid; grid-template-columns:repeat(auto-fill, 58px); gap:8px; justify-content:center; width:100%; max-width:760px; margin-bottom:14px;}
+.mem-card{width:58px; height:80px; border-radius:8px; cursor:pointer;
   background:repeating-linear-gradient(135deg, var(--back1) 0 6px, var(--back2) 6px 12px);
   border:2px solid rgba(255,255,255,0.5);
-  display:flex; align-items:center; justify-content:center; font-size:1.1em; font-weight:800;
+  display:flex; align-items:center; justify-content:center; font-size:1.4em; font-weight:800;
   color:var(--card-black); transition:transform .15s;
 }
 .mem-card.up{background:var(--card-bg); border-color:rgba(0,0,0,0.15);}
@@ -140,18 +140,8 @@ body::before{
 .mem-card.matched{opacity:0.28; cursor:default; background:var(--card-bg); border-color:transparent;}
 .mem-card.matched.red{color:var(--card-red);}
 
-/* ---- ババ抜き ---- */
-.baba-opponents{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; width:100%; margin-bottom:14px;}
-.baba-opp{display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.03);}
-.baba-opp.targetable{border:2px solid var(--accent); box-shadow:0 0 10px rgba(242,193,78,0.4);}
-.baba-opp .name{font-size:0.75rem; font-weight:700; color:var(--sub);}
-.baba-opp.targetable .name{color:var(--accent);}
-.baba-opp .hand-fan{display:flex;}
-.baba-opp .hand-fan .card{margin-left:-22px; cursor:default;}
-.baba-opp .hand-fan .card:first-child{margin-left:0;}
-.baba-opp.targetable .hand-fan .card{cursor:pointer;}
-.baba-opp.out{opacity:0.35;}
-.baba-my-hand{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; width:100%; max-width:640px; margin-top:10px;}
+/* ---- 結果リスト(ババ抜き用に作ったクラス名だが、大富豪/21/
+   ブラックジャックの結果画面も共有して使っている) ---- */
 .baba-result-list{display:flex; flex-direction:column; gap:6px; margin:14px 0; width:100%; max-width:320px;}
 .baba-result-row{display:flex; justify-content:space-between; padding:8px 14px; border-radius:10px; background:rgba(255,255,255,0.04); font-size:0.9rem;}
 .baba-result-row.loser{background:rgba(224,87,78,0.18); color:#ffb3ac; font-weight:800;}
@@ -163,7 +153,7 @@ body::before{
 .speed-pile .label{font-size:0.65rem; color:var(--sub);}
 .speed-side{display:flex; flex-direction:column; align-items:center; gap:6px; width:100%;}
 .speed-side .stock-row{display:flex; align-items:center; gap:10px;}
-.speed-hand{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; min-height:74px;}
+.speed-hand{display:flex; gap:6px; justify-content:center; flex-wrap:wrap; min-height:90px;}
 .speed-player-label{font-size:0.8rem; font-weight:700; color:var(--sub);}
 .speed-player-label.p2{order:-1;}
 .stuck-banner{font-size:0.75rem; color:var(--accent); font-weight:700; min-height:1.2em; text-align:center;}
@@ -185,30 +175,25 @@ body::before{
 
 /* ---- 大富豪 ---- */
 #daifugo-pile-count{font-size:0.7rem; color:var(--sub); text-align:center;}
+/* 場札を出した順に少し重ねて並べ、前のカードが少し見えるようにする
+   (2026-09-09、ユーザー指示) */
+#daifugo-pile{flex-wrap:nowrap; justify-content:flex-start; overflow-x:auto; padding:4px 6px;}
+#daifugo-pile .card{flex-shrink:0;}
+#daifugo-pile .card:not(:first-child){margin-left:-38px;}
 
-/* ---- 7並べ ---- */
-.sevens-board{display:flex; flex-direction:column; gap:5px; width:100%; max-width:720px; overflow-x:auto; margin-bottom:6px; padding-bottom:4px;}
-.sevens-row{display:flex; align-items:center; gap:3px;}
-.sevens-row .suit-label{width:20px; text-align:center; font-size:0.9rem; flex-shrink:0;}
-.sevens-slots{display:flex; gap:2px;}
-.sevens-slot{width:26px; height:36px; border-radius:4px; background:rgba(255,255,255,0.04); display:flex; align-items:center; justify-content:center;
-  font-size:0.55rem; color:var(--sub); flex-shrink:0;}
-.sevens-slot .card{width:26px; height:36px; border-radius:4px;}
-.sevens-slot .card .c-suit.big{font-size:0.8em;}
-.sevens-slot .card .c-rank{font-size:0.5em;}
-
-/* ---- 21 ---- */
-.tw-hand-block, .bj-hand-block{display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.03);}
-.tw-hand-block.current, .bj-hand-block.current{border:2px solid var(--accent); box-shadow:0 0 10px rgba(242,193,78,0.35);}
-.tw-total, .bj-total{font-size:0.8rem; color:var(--sub); font-weight:700;}
+/* ---- ブラックジャック(.tw-statusは21削除前からの共有クラス名) ---- */
+.bj-hand-block{display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px; border-radius:12px; background:rgba(255,255,255,0.03);}
+.bj-hand-block.current{border:2px solid var(--accent); box-shadow:0 0 10px rgba(242,193,78,0.35);}
+.bj-total{font-size:0.8rem; color:var(--sub); font-weight:700;}
 .tw-status{font-size:0.68rem; color:var(--accent);}
-.tw-players, .bj-area{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; width:100%; margin-bottom:10px;}
+.bj-area{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; width:100%; margin-bottom:10px;}
 
-/* ---- ポーカー ---- */
+/* ---- ポーカー(テキサスホールデム) ---- */
 .poker-hands{display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin:14px 0;}
 .poker-hand-block{display:flex; flex-direction:column; align-items:center; gap:6px;}
 .poker-hand-name{font-size:0.82rem; color:var(--accent); font-weight:800;}
-.poker-pass-card{padding:24px; border-radius:16px; background:rgba(255,255,255,0.05); text-align:center; font-size:0.95rem; font-weight:700; cursor:pointer; border:1px solid rgba(242,193,78,0.3);}
+.poker-pot{text-align:center; font-size:0.95rem; font-weight:800; color:var(--accent); margin-bottom:6px;}
+.poker-community{display:flex; gap:6px; justify-content:center; align-items:center; min-height:74px; margin-bottom:10px;}
 
 /* ---- ブラックジャック ---- */
 .bj-dealer{margin-bottom:6px;}
@@ -219,8 +204,8 @@ body::before{
 .result-actions{display:flex; gap:10px; margin-top:6px;}
 
 @media (max-width:420px){
-  #shinkei-grid{grid-template-columns:repeat(auto-fill, 36px);}
-  .mem-card{width:36px; height:50px; font-size:0.95em;}
+  #shinkei-grid{grid-template-columns:repeat(auto-fill, 48px);}
+  .mem-card{width:48px; height:66px; font-size:1.15em;}
 }
 </style>
 </head>
@@ -229,17 +214,14 @@ body::before{
   <a class="home-link" href="../../">← My Apps</a>
   <div class="app-title">🃏 トランプゲーム</div>
   <div class="app-sub">遊びたいゲームを選んでね</div>
-  <div class="app-version">v1.2.1</div>
+  <div class="app-version">v1.3.0</div>
+  <div class="coin-badge" id="coin-badge">🪙 <span id="coin-count">0</span></div>
 
   <!-- ===== ホーム ===== -->
   <div id="home" class="screen active">
     <div class="game shinkei" onclick="goSetup('shinkei')">
-      <div class="icon-wrap">🧠</div>
+      <div class="icon-wrap">🎴</div>
       <div class="game-name">神経衰弱</div>
-    </div>
-    <div class="game baba" onclick="goSetup('baba')">
-      <div class="icon-wrap">🃏</div>
-      <div class="game-name">ババ抜き</div>
     </div>
     <div class="game speed" onclick="goSetup('speed')">
       <div class="icon-wrap">⚡</div>
@@ -248,14 +230,6 @@ body::before{
     <div class="game daifugo" onclick="goSetup('daifugo')">
       <div class="icon-wrap">👑</div>
       <div class="game-name">大富豪</div>
-    </div>
-    <div class="game sevens" onclick="goSetup('sevens')">
-      <div class="icon-wrap">🔢</div>
-      <div class="game-name">７並べ</div>
-    </div>
-    <div class="game tw" onclick="goSetup('tw')">
-      <div class="icon-wrap">🎲</div>
-      <div class="game-name">21</div>
     </div>
     <div class="game poker" onclick="goSetup('poker')">
       <div class="icon-wrap">♠️</div>
@@ -270,22 +244,7 @@ body::before{
   <!-- ===== 神経衰弱: セットアップ ===== -->
   <div id="shinkei-setup" class="screen">
     <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
-    <div class="setup-title">🧠 神経衰弱</div>
-    <div class="setup-group">
-      <div class="setup-label">対戦相手</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="shinkeiSetupPick('mode','ai',this)">🤖 対AI対戦</div>
-        <div class="choice-btn" data-k="mode" data-v="2p" onclick="shinkeiSetupPick('mode','2p',this)">👥 2人対戦</div>
-      </div>
-    </div>
-    <div class="setup-group" id="shinkei-diff-group">
-      <div class="setup-label">CPUの記憶力</div>
-      <div class="choice-row">
-        <div class="choice-btn" data-k="diff" data-v="easy" onclick="shinkeiSetupPick('diff','easy',this)">かんたん</div>
-        <div class="choice-btn active" data-k="diff" data-v="normal" onclick="shinkeiSetupPick('diff','normal',this)">ふつう</div>
-        <div class="choice-btn" data-k="diff" data-v="hard" onclick="shinkeiSetupPick('diff','hard',this)">つよい</div>
-      </div>
-    </div>
+    <div class="setup-title">🎴 神経衰弱</div>
     <div class="setup-group">
       <div class="setup-label">カード枚数</div>
       <div class="choice-row">
@@ -317,64 +276,12 @@ body::before{
     </div>
   </div>
 
-  <!-- ===== ババ抜き: セットアップ ===== -->
-  <div id="baba-setup" class="screen">
-    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
-    <div class="setup-title">🃏 ババ抜き</div>
-    <div class="setup-group">
-      <div class="setup-label">対戦相手</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="babaSetupPick('mode','ai',this)">🤖 対AI対戦</div>
-        <div class="choice-btn" data-k="mode" data-v="2p" onclick="babaSetupPick('mode','2p',this)">👥 2人対戦</div>
-      </div>
-    </div>
-    <div class="setup-group" id="baba-cpu-group">
-      <div class="setup-label">CPUの人数</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="cpu" data-v="2" onclick="babaSetupPick('cpu','2',this)">CPU 2人</div>
-        <div class="choice-btn" data-k="cpu" data-v="3" onclick="babaSetupPick('cpu','3',this)">CPU 3人</div>
-      </div>
-    </div>
-    <button class="start-btn" onclick="startBaba()">ゲーム開始</button>
-  </div>
-
-  <!-- ===== ババ抜き: ゲーム ===== -->
-  <div id="baba-game" class="screen">
-    <div class="topbar"><span>ババ抜き</span><button onclick="quitBaba()">やめる</button></div>
-    <div class="turn-indicator" id="baba-turn"></div>
-    <div class="baba-opponents" id="baba-opponents"></div>
-    <div class="setup-label" style="margin-top:10px;">あなたの手札</div>
-    <div class="baba-my-hand" id="baba-my-hand"></div>
-  </div>
-
-  <!-- ===== ババ抜き: 結果 ===== -->
-  <div id="baba-result" class="screen">
-    <div class="result-title">🃏 ゲーム終了</div>
-    <div class="baba-result-list" id="baba-result-list"></div>
-    <div class="result-actions">
-      <button class="start-btn" onclick="goSetup('baba')">もう一度</button>
-      <button class="back-btn" onclick="goHome()">ホームへ</button>
-    </div>
-  </div>
-
   <!-- ===== スピード: セットアップ ===== -->
   <div id="speed-setup" class="screen">
     <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
     <div class="setup-title">⚡ スピード</div>
     <div class="setup-group">
-      <div class="setup-label">対戦相手</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="speedSetupPick('mode','ai',this)">🤖 対AI対戦</div>
-        <div class="choice-btn" data-k="mode" data-v="2p" onclick="speedSetupPick('mode','2p',this)">👥 2人対戦(同じ端末)</div>
-      </div>
-    </div>
-    <div class="setup-group" id="speed-diff-group">
-      <div class="setup-label">CPUの速さ</div>
-      <div class="choice-row">
-        <div class="choice-btn" data-k="diff" data-v="easy" onclick="speedSetupPick('diff','easy',this)">ゆっくり</div>
-        <div class="choice-btn active" data-k="diff" data-v="normal" onclick="speedSetupPick('diff','normal',this)">ふつう</div>
-        <div class="choice-btn" data-k="diff" data-v="hard" onclick="speedSetupPick('diff','hard',this)">はやい</div>
-      </div>
+      <div class="setup-label">2人対戦(同じ端末で向かい合って遊びます)</div>
     </div>
     <button class="start-btn" onclick="startSpeed()">ゲーム開始</button>
   </div>
@@ -414,13 +321,6 @@ body::before{
   <div id="daifugo-setup" class="screen">
     <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
     <div class="setup-title">👑 大富豪</div>
-    <div class="setup-group">
-      <div class="setup-label">対戦相手</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="daifugoSetupPick('mode','ai',this)">🤖 対AI対戦</div>
-        <div class="choice-btn" data-k="mode" data-v="2p" onclick="daifugoSetupPick('mode','2p',this)">👥 2人対戦</div>
-      </div>
-    </div>
     <div class="setup-group" id="daifugo-cpu-group">
       <div class="setup-label">CPUの人数</div>
       <div class="choice-row">
@@ -457,132 +357,39 @@ body::before{
     </div>
   </div>
 
-  <!-- ===== 7並べ: セットアップ ===== -->
-  <div id="sevens-setup" class="screen">
-    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
-    <div class="setup-title">🔢 ７並べ</div>
-    <div class="setup-group">
-      <div class="setup-label">対戦相手</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="sevensSetupPick('mode','ai',this)">🤖 対AI対戦</div>
-        <div class="choice-btn" data-k="mode" data-v="2p" onclick="sevensSetupPick('mode','2p',this)">👥 2人対戦</div>
-      </div>
-    </div>
-    <div class="setup-group" id="sevens-cpu-group">
-      <div class="setup-label">CPUの人数</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="cpu" data-v="2" onclick="sevensSetupPick('cpu','2',this)">CPU 2人</div>
-        <div class="choice-btn" data-k="cpu" data-v="3" onclick="sevensSetupPick('cpu','3',this)">CPU 3人</div>
-      </div>
-    </div>
-    <button class="start-btn" onclick="startSevens()">ゲーム開始</button>
-  </div>
 
-  <!-- ===== 7並べ: ゲーム ===== -->
-  <div id="sevens-game" class="screen">
-    <div class="topbar"><span>7並べ</span><button onclick="quitSevens()">やめる</button></div>
-    <div class="mini-players" id="sevens-players"></div>
-    <div class="turn-indicator" id="sevens-turn"></div>
-    <div class="sevens-board" id="sevens-board"></div>
-    <div class="msg-line" id="sevens-msg"></div>
-    <div class="setup-label" style="margin-top:6px;">あなたの手札</div>
-    <div class="hand-row" id="sevens-hand"></div>
-    <div class="action-row">
-      <button class="action-btn secondary" id="sevens-pass-btn" onclick="sevensPassHuman()">パス</button>
-    </div>
-  </div>
-
-  <!-- ===== 7並べ: 結果 ===== -->
-  <div id="sevens-result" class="screen">
-    <div class="result-title">🔢 ゲーム終了</div>
-    <div class="baba-result-list" id="sevens-result-list"></div>
-    <div class="result-actions">
-      <button class="start-btn" onclick="goSetup('sevens')">もう一度</button>
-      <button class="back-btn" onclick="goHome()">ホームへ</button>
-    </div>
-  </div>
-
-  <!-- ===== 21: セットアップ ===== -->
-  <div id="tw-setup" class="screen">
-    <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
-    <div class="setup-title">🎲 21</div>
-    <div class="setup-group">
-      <div class="setup-label">対戦相手</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="twSetupPick('mode','ai',this)">🤖 対AI対戦</div>
-        <div class="choice-btn" data-k="mode" data-v="2p" onclick="twSetupPick('mode','2p',this)">👥 2人対戦</div>
-      </div>
-    </div>
-    <div class="setup-group" id="tw-cpu-group">
-      <div class="setup-label">CPUの人数</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="cpu" data-v="2" onclick="twSetupPick('cpu','2',this)">CPU 2人</div>
-        <div class="choice-btn" data-k="cpu" data-v="3" onclick="twSetupPick('cpu','3',this)">CPU 3人</div>
-      </div>
-    </div>
-    <button class="start-btn" onclick="startTw()">ゲーム開始</button>
-  </div>
-
-  <!-- ===== 21: ゲーム ===== -->
-  <div id="tw-game" class="screen">
-    <div class="topbar"><span>21</span><button onclick="quitTw()">やめる</button></div>
-    <div class="turn-indicator" id="tw-turn"></div>
-    <div class="tw-players" id="tw-players"></div>
-    <div class="action-row">
-      <button class="action-btn" id="tw-hit-btn" onclick="twHit()">引く</button>
-      <button class="action-btn secondary" id="tw-stand-btn" onclick="twStand()">止める</button>
-    </div>
-  </div>
-
-  <!-- ===== 21: 結果 ===== -->
-  <div id="tw-result" class="screen">
-    <div class="result-title">🎲 ゲーム終了</div>
-    <div class="baba-result-list" id="tw-result-list"></div>
-    <div class="result-actions">
-      <button class="start-btn" onclick="goSetup('tw')">もう一度</button>
-      <button class="back-btn" onclick="goHome()">ホームへ</button>
-    </div>
-  </div>
 
   <!-- ===== ポーカー: セットアップ ===== -->
   <div id="poker-setup" class="screen">
     <button class="back-btn" onclick="goHome()">← ホームに戻る</button>
-    <div class="setup-title">♠️ ポーカー</div>
+    <div class="setup-title">♠️ テキサスホールデム</div>
     <div class="setup-group">
-      <div class="setup-label">対戦相手</div>
-      <div class="choice-row">
-        <div class="choice-btn active" data-k="mode" data-v="ai" onclick="pokerSetupPick('mode','ai',this)">🤖 対AI対戦</div>
-        <div class="choice-btn" data-k="mode" data-v="2p" onclick="pokerSetupPick('mode','2p',this)">👥 2人対戦(同じ端末)</div>
-      </div>
+      <div class="setup-label">CPU 3人と対戦します(あなたを含め4人)</div>
     </div>
     <button class="start-btn" onclick="startPoker()">ゲーム開始</button>
   </div>
 
   <!-- ===== ポーカー: ゲーム ===== -->
   <div id="poker-game" class="screen">
-    <div class="topbar"><span id="poker-mode-label"></span><button onclick="quitPoker()">やめる</button></div>
+    <div class="topbar"><span>テキサスホールデム</span><button onclick="quitPoker()">やめる</button></div>
+    <div class="mini-players" id="poker-players"></div>
+    <div class="poker-pot" id="poker-pot"></div>
+    <div class="poker-community" id="poker-community"></div>
     <div class="turn-indicator" id="poker-turn"></div>
-    <div id="poker-pass-area"></div>
-    <div class="hand-row" id="poker-hand"></div>
     <div class="msg-line" id="poker-msg"></div>
+    <div class="setup-label" style="margin-top:6px;">あなたの手札</div>
+    <div class="hand-row" id="poker-hand"></div>
     <div class="action-row">
-      <button class="action-btn" id="poker-draw-btn" onclick="pokerDrawClick()">交換する</button>
+      <button class="action-btn secondary" id="poker-fold-btn" onclick="pokerFold()">フォールド</button>
+      <button class="action-btn" id="poker-call-btn" onclick="pokerCheckOrCall()"></button>
+      <button class="action-btn" id="poker-raise-btn" onclick="pokerBetOrRaise()"></button>
     </div>
   </div>
 
   <!-- ===== ポーカー: 結果 ===== -->
   <div id="poker-result" class="screen">
     <div class="result-title" id="poker-result-title"></div>
-    <div class="poker-hands">
-      <div class="poker-hand-block">
-        <div class="poker-hand-name" id="poker-hand-0-label"></div>
-        <div class="hand-row" id="poker-hand-0-cards"></div>
-      </div>
-      <div class="poker-hand-block">
-        <div class="poker-hand-name" id="poker-hand-1-label"></div>
-        <div class="hand-row" id="poker-hand-1-cards"></div>
-      </div>
-    </div>
+    <div class="poker-hands" id="poker-result-hands"></div>
     <div class="result-actions">
       <button class="start-btn" onclick="goSetup('poker')">もう一度</button>
       <button class="back-btn" onclick="goHome()">ホームへ</button>
@@ -681,13 +488,34 @@ function stopAllLoops(){
   if(speedTimer){ clearInterval(speedTimer); speedTimer=null; }
 }
 
+/* ===================== コイン =====================
+   vs CPU対戦に勝つとコインが貯まる(2026-09-09、ユーザー指示「vs CPU の
+   ときは、勝ったらコインが10枚増えるようにしてほしい」)。2人対戦(人間同士)
+   の勝敗では増減しない。ホーム画面に常時表示、localStorageで端末に保存する
+   だけの簡易実装(何かに使う仕組みはまだ無い)。 */
+const COIN_KEY = 'cardgames_coins';
+let coins = 0;
+function loadCoins(){
+  try { coins = parseInt(localStorage.getItem(COIN_KEY), 10) || 0; } catch(e){ coins = 0; }
+  renderCoins();
+}
+function renderCoins(){
+  const el = document.getElementById('coin-count');
+  if(el) el.textContent = coins;
+}
+function addCoins(n){
+  coins += n;
+  try { localStorage.setItem(COIN_KEY, String(coins)); } catch(e){}
+  renderCoins();
+}
+loadCoins();
+
 /* ===================== 神経衰弱 ===================== */
-let shinkeiCfg = {mode:'ai', diff:'normal', size:'24'};
+let shinkeiCfg = {size:'24'};
 function shinkeiSetupPick(k,v,el){
   shinkeiCfg[k]=v;
   el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('shinkei-diff-group').style.display = (shinkeiCfg.mode==='ai') ? 'flex' : 'none';
 }
 
 let shinkei = null;
@@ -704,17 +532,13 @@ function startShinkei(){
     flipped: [],
     scores: [0,0],
     turn: 0,
-    mode: shinkeiCfg.mode,
-    difficulty: shinkeiCfg.diff,
-    cpuMemory: {},
     busy: false,
   };
-  document.getElementById('shinkei-mode-label').textContent = shinkei.mode==='ai' ? '対AI対戦' : '2人対戦';
+  document.getElementById('shinkei-mode-label').textContent = '2人対戦';
   goScreen('shinkei-game');
   shinkeiRender();
 }
 function shinkeiPlayerName(i){
-  if(shinkei.mode==='ai') return i===0 ? 'あなた' : 'CPU';
   return i===0 ? 'プレイヤー1' : 'プレイヤー2';
 }
 function shinkeiRender(){
@@ -734,15 +558,8 @@ function shinkeiRender(){
   document.getElementById('shinkei-score-1').classList.toggle('current', shinkei.turn===1);
   document.getElementById('shinkei-turn').textContent = shinkei.busy ? '' : `${shinkeiPlayerName(shinkei.turn)}の番`;
 }
-function shinkeiMemorize(i){
-  const c = shinkei.cards[i];
-  const recall = {easy:0.3, normal:0.55, hard:0.85}[shinkei.difficulty];
-  if(Math.random() < recall) shinkei.cpuMemory[c.id]=i;
-  else delete shinkei.cpuMemory[c.id];
-}
 function shinkeiFlip(i){
   if(!shinkei || shinkei.busy) return;
-  if(shinkei.mode==='ai' && shinkei.turn===1) return; // CPU番は手動操作不可
   shinkeiDoFlip(i);
 }
 function shinkeiDoFlip(i){
@@ -750,7 +567,6 @@ function shinkeiDoFlip(i){
   const c = shinkei.cards[i];
   if(c.matched || shinkei.flipped.includes(i)) return;
   shinkei.flipped.push(i);
-  shinkeiMemorize(i);
   shinkeiRender();
   if(shinkei.flipped.length===2){
     shinkei.busy = true;
@@ -767,209 +583,21 @@ function shinkeiResolve(){
   if(!match) shinkei.turn = 1-shinkei.turn;
   shinkeiRender();
   if(shinkei.cards.every(c=>c.matched)){ shinkeiEnd(); return; }
-  if(shinkei.mode==='ai' && shinkei.turn===1){
-    shinkei.busy = true;
-    setTimeout(cpuShinkeiTurn, 700);
-  }
-}
-function cpuShinkeiTurn(){
-  shinkei.busy=false;
-  const mem = shinkei.cpuMemory;
-  const known = Object.keys(mem).map(id=>({id, idx:mem[id]})).filter(m=>!shinkei.cards[m.idx].matched);
-  const byRank = {};
-  known.forEach(m=>{ const r=shinkei.cards[m.idx].rank; (byRank[r]=byRank[r]||[]).push(m.idx); });
-  let first, second;
-  let pairIdx=null;
-  for(const r in byRank){ if(byRank[r].length>=2){ pairIdx=byRank[r].slice(0,2); break; } }
-  const unmatched = shinkei.cards.map((c,i)=>i).filter(i=>!shinkei.cards[i].matched);
-  if(pairIdx){ [first,second]=pairIdx; }
-  else {
-    if(known.length>0 && Math.random()<0.5){ first = known[Math.floor(Math.random()*known.length)].idx; }
-    else { first = unmatched[Math.floor(Math.random()*unmatched.length)]; }
-    const remaining = unmatched.filter(x=>x!==first);
-    second = remaining[Math.floor(Math.random()*remaining.length)];
-  }
-  shinkeiDoFlip(first);
-  setTimeout(()=>shinkeiDoFlip(second), 550);
 }
 function shinkeiEnd(){
   const [s0,s1] = shinkei.scores;
-  let title, sub;
-  if(shinkei.mode==='ai'){
-    if(s0>s1){ title='🎉 あなたの勝ち!'; }
-    else if(s0<s1){ title='😢 CPUの勝ち'; }
-    else { title='引き分け'; }
-  } else {
-    if(s0>s1){ title='🎉 プレイヤー1の勝ち!'; }
-    else if(s0<s1){ title='🎉 プレイヤー2の勝ち!'; }
-    else { title='引き分け'; }
-  }
-  sub = `${shinkeiPlayerName(0)}: ${s0}組 / ${shinkeiPlayerName(1)}: ${s1}組`;
+  let title;
+  if(s0>s1){ title='🎉 プレイヤー1の勝ち!'; }
+  else if(s0<s1){ title='🎉 プレイヤー2の勝ち!'; }
+  else { title='引き分け'; }
+  const sub = `${shinkeiPlayerName(0)}: ${s0}組 / ${shinkeiPlayerName(1)}: ${s1}組`;
   document.getElementById('shinkei-result-title').textContent = title;
   document.getElementById('shinkei-result-sub').textContent = sub;
   goScreen('shinkei-result');
 }
 function quitShinkei(){ goSetup('shinkei'); }
 
-/* ===================== ババ抜き ===================== */
-let babaCfg = {mode:'ai', cpu:'2'};
-function babaSetupPick(k,v,el){
-  babaCfg[k]=v;
-  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('baba-cpu-group').style.display = (babaCfg.mode==='ai') ? 'flex' : 'none';
-}
-
-let baba = null;
-function removePairs(hand){
-  const byRank = {};
-  hand.forEach(c=>{ if(c.rank!=='JOKER'){ (byRank[c.rank]=byRank[c.rank]||[]).push(c); } });
-  const toRemove = new Set();
-  for(const r in byRank){
-    const list = byRank[r];
-    const pairCount = Math.floor(list.length/2)*2;
-    for(let i=0;i<pairCount;i++) toRemove.add(list[i].id);
-  }
-  if(toRemove.size===0) return hand;
-  return hand.filter(c=>!toRemove.has(c.id));
-}
-function startBaba(){
-  const numCpu = babaCfg.mode==='ai' ? parseInt(babaCfg.cpu,10) : 1;
-  const players = [];
-  players.push({id:0, name:'あなた', isHuman:true, hand:[]});
-  if(babaCfg.mode==='ai'){
-    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[]});
-  } else {
-    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[]});
-  }
-  const deck = shuffle(makeDeck(true));
-  deck.forEach((c,i)=>{ players[i % players.length].hand.push(c); });
-  players.forEach(p=>{ p.hand = removePairs(p.hand); });
-  baba = {
-    players,
-    seatOrder: players.map(p=>p.id),
-    currentId: 0,
-    finishedOrder: [],
-    waitingHuman: false,
-    targetId: null,
-  };
-  goScreen('baba-game');
-  babaRender();
-  setTimeout(babaTurn, 400);
-}
-function babaGetPlayer(id){ return baba.players.find(p=>p.id===id); }
-function babaNextActive(fromId){
-  const order = baba.seatOrder;
-  const idx = order.indexOf(fromId);
-  for(let step=1; step<=order.length; step++){
-    const cand = order[(idx+step)%order.length];
-    const p = babaGetPlayer(cand);
-    if(p.hand.length>0) return cand;
-  }
-  return null;
-}
-function babaRender(){
-  const oppWrap = document.getElementById('baba-opponents');
-  const myWrap = document.getElementById('baba-my-hand');
-  oppWrap.innerHTML='';
-  const human = babaGetPlayer(0);
-  baba.players.filter(p=>p.id!==0).forEach(p=>{
-    const div = document.createElement('div');
-    const isTarget = baba.waitingHuman && baba.targetId===p.id;
-    div.className = 'baba-opp' + (p.hand.length===0?' out':'') + (isTarget?' targetable':'');
-    const fan = document.createElement('div'); fan.className='hand-fan';
-    p.hand.forEach((c,idx)=>{
-      const cardEl = document.createElement('div');
-      cardEl.innerHTML = backHTML('sz-sm');
-      const inner = cardEl.firstElementChild;
-      if(isTarget){ inner.onclick = ()=> babaDraw(p.id, idx); }
-      fan.appendChild(inner);
-    });
-    div.innerHTML = `<div class="name">${p.name}${p.hand.length===0?' (上がり)':' ('+p.hand.length+'枚)'}</div>`;
-    div.appendChild(fan);
-    oppWrap.appendChild(div);
-  });
-  myWrap.innerHTML='';
-  if(human.hand.length===0){
-    myWrap.innerHTML = '<div style="color:var(--sub); font-size:0.85rem;">上がりました!</div>';
-  } else {
-    human.hand.forEach(c=>{ myWrap.innerHTML += cardHTML(c, 'sz-md'); });
-  }
-  let turnText = '';
-  if(baba.waitingHuman){
-    const targetName = babaGetPlayer(baba.targetId).name;
-    turnText = `あなたの番: ${targetName} のカードを1枚タップして引こう`;
-  } else {
-    const cur = babaGetPlayer(baba.currentId);
-    turnText = cur ? `${cur.name} の番です...` : '';
-  }
-  document.getElementById('baba-turn').textContent = turnText;
-}
-function babaTurn(){
-  if(!baba) return;
-  const current = babaGetPlayer(baba.currentId);
-  const targetId = babaNextActive(current.id);
-  if(targetId===null){ babaEnd(); return; }
-  baba.targetId = targetId;
-  if(current.isHuman){
-    baba.waitingHuman = true;
-    babaRender();
-  } else {
-    baba.waitingHuman = false;
-    babaRender();
-    const target = babaGetPlayer(targetId);
-    setTimeout(()=>{
-      const idx = Math.floor(Math.random()*target.hand.length);
-      babaDraw(targetId, idx);
-    }, 700);
-  }
-}
-function babaDraw(targetId, idx){
-  if(!baba) return;
-  const current = babaGetPlayer(baba.currentId);
-  const target = babaGetPlayer(targetId);
-  if(idx<0 || idx>=target.hand.length) return;
-  const [card] = target.hand.splice(idx,1);
-  current.hand.push(card);
-  current.hand = removePairs(current.hand);
-  baba.waitingHuman = false;
-  babaRender();
-  if(current.hand.length===0 && !baba.finishedOrder.includes(current.id)) baba.finishedOrder.push(current.id);
-  if(target.hand.length===0 && !baba.finishedOrder.includes(target.id)) baba.finishedOrder.push(target.id);
-  const remaining = baba.players.filter(p=>p.hand.length>0);
-  if(remaining.length<=1){
-    if(remaining.length===1 && !baba.finishedOrder.includes(remaining[0].id)) baba.finishedOrder.push(remaining[0].id);
-    babaEnd();
-    return;
-  }
-  baba.currentId = targetId;
-  setTimeout(babaTurn, 500);
-}
-function babaEnd(){
-  const list = document.getElementById('baba-result-list');
-  list.innerHTML='';
-  const loserId = baba.finishedOrder[baba.finishedOrder.length-1];
-  baba.finishedOrder.forEach((id,i)=>{
-    const p = babaGetPlayer(id);
-    const row = document.createElement('div');
-    const isLoser = id===loserId;
-    row.className = 'baba-result-row' + (isLoser?' loser':'');
-    row.innerHTML = `<span>${isLoser?'😭':'🎉'} ${p.name}</span><span>${isLoser?'負け(ジョーカー)':(i+1)+'位'}</span>`;
-    list.appendChild(row);
-  });
-  goScreen('baba-result');
-}
-function quitBaba(){ baba=null; goSetup('baba'); }
-
 /* ===================== スピード ===================== */
-let speedCfg = {mode:'ai', diff:'normal'};
-function speedSetupPick(k,v,el){
-  speedCfg[k]=v;
-  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('speed-diff-group').style.display = (speedCfg.mode==='ai') ? 'flex' : 'none';
-}
-
 let speed = null;
 let speedTimer = null;
 function startSpeed(){
@@ -979,8 +607,6 @@ function startSpeed(){
   const stock1 = deck.slice(0,25);
   const stock2 = deck.slice(25,50);
   speed = {
-    mode: speedCfg.mode,
-    diff: speedCfg.diff,
     center: [centerA, centerB],
     stock: [stock1, stock2],
     hand: [[],[]],
@@ -992,9 +618,9 @@ function startSpeed(){
   for(let p=0;p<2;p++){
     for(let k=0;k<5;k++){ if(speed.stock[p].length) speed.hand[p].push(speed.stock[p].shift()); }
   }
-  document.getElementById('speed-mode-label').textContent = speed.mode==='ai' ? '対AI対戦' : '2人対戦';
-  document.getElementById('speed-p1-label').textContent = speed.mode==='ai' ? 'あなた' : 'プレイヤー1';
-  document.getElementById('speed-p2-label').textContent = speed.mode==='ai' ? 'CPU' : 'プレイヤー2';
+  document.getElementById('speed-mode-label').textContent = '2人対戦';
+  document.getElementById('speed-p1-label').textContent = 'プレイヤー1';
+  document.getElementById('speed-p2-label').textContent = 'プレイヤー2';
   goScreen('speed-game');
   speedRender();
   speedTimer = setInterval(speedTick, 250);
@@ -1027,10 +653,7 @@ function speedCheckWin(){
     if(speed.hand[p].length===0 && speed.stock[p].length===0){
       speed.over=true;
       clearInterval(speedTimer); speedTimer=null;
-      const isAI = speed.mode==='ai';
-      let title;
-      if(isAI) title = p===0 ? '🎉 あなたの勝ち!' : '😢 CPUの勝ち';
-      else title = p===0 ? '🎉 プレイヤー1の勝ち!' : '🎉 プレイヤー2の勝ち!';
+      const title = p===0 ? '🎉 プレイヤー1の勝ち!' : '🎉 プレイヤー2の勝ち!';
       document.getElementById('speed-result-title').textContent = title;
       goScreen('speed-result');
       return;
@@ -1042,17 +665,6 @@ function speedHasMove(p){
 }
 function speedTick(){
   if(!speed || speed.over) return;
-  // CPU
-  if(speed.mode==='ai'){
-    const reactChance = {easy:0.5, normal:0.85, hard:1}[speed.diff];
-    if(Math.random() < reactChance){
-      for(let i=0;i<speed.hand[1].length;i++){
-        const c = speed.hand[1][i];
-        if(speedCanPlay(c, speed.center[0])){ speedPlay(1,i,0); return; }
-        if(speedCanPlay(c, speed.center[1])){ speedPlay(1,i,1); return; }
-      }
-    }
-  }
   // 行き詰まり検出
   if(!speedHasMove(0) && !speedHasMove(1)){
     if(speed.stuckSince===null) speed.stuckSince = Date.now();
@@ -1079,13 +691,11 @@ function speedResolveStuck(){
 }
 function speedSelect(p, idx){
   if(!speed || speed.over) return;
-  if(speed.mode==='ai' && p===1) return;
   speed.selected[p] = (speed.selected[p]===idx) ? null : idx;
   speedRender();
 }
 function speedTryPile(p, pileIdx){
   if(!speed || speed.over) return;
-  if(speed.mode==='ai' && p===1) return;
   const idx = speed.selected[p];
   if(idx===null || idx===undefined) return;
   speedPlay(p, idx, pileIdx);
@@ -1102,7 +712,7 @@ function speedRender(){
     speed.hand[p].forEach((c,idx)=>{
       const wrap = document.createElement('div');
       const canMove = speedCanPlay(c, speed.center[0]) || speedCanPlay(c, speed.center[1]);
-      wrap.innerHTML = cardHTML(c, 'sz-md', (speed.selected[p]===idx?'selected':'') + (canMove?'':' disabled'));
+      wrap.innerHTML = cardHTML(c, 'sz-lg', (speed.selected[p]===idx?'selected':'') + (canMove?'':' disabled'));
       const inner = wrap.firstElementChild;
       inner.onclick = ()=> speedSelect(p, idx);
       handWrap.appendChild(inner);
@@ -1120,24 +730,19 @@ function quitSpeed(){
 const DAIFUGO_ORDER = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
 function daifugoValue(rank){ return rank==='JOKER' ? 100 : DAIFUGO_ORDER.indexOf(rank); }
 
-let daifugoCfg = {mode:'ai', cpu:'2'};
+let daifugoCfg = {cpu:'2'};
 function daifugoSetupPick(k,v,el){
   daifugoCfg[k]=v;
   el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('daifugo-cpu-group').style.display = (daifugoCfg.mode==='ai') ? 'flex' : 'none';
 }
 
 let daifugo = null;
 function startDaifugo(){
-  const numCpu = daifugoCfg.mode==='ai' ? parseInt(daifugoCfg.cpu,10) : 1;
+  const numCpu = parseInt(daifugoCfg.cpu,10);
   const players = [];
   players.push({id:0, name:'あなた', isHuman:true, hand:[]});
-  if(daifugoCfg.mode==='ai'){
-    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[]});
-  } else {
-    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[]});
-  }
+  for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[]});
   const deck = shuffle(makeDeck(true));
   deck.forEach((c,i)=>{ players[i % players.length].hand.push(c); });
   players.forEach(p=>{ p.hand.sort((a,b)=> daifugoValue(a.rank)-daifugoValue(b.rank)); });
@@ -1149,6 +754,11 @@ function startDaifugo(){
     currentId: startId,
     lastPlayerId: startId,
     pile: [],
+    // pileはルール判定用(直前に出された組のみ)。pileStackは場に積まれた
+    // カードを全部保持する表示専用の履歴(2026-09-09、ユーザー指示「トランプを
+    // 置いたら、ずらして、前のトランプが少し見えるようにしてほしい」) —
+    // pileと同じタイミングでクリアする。
+    pileStack: [],
     requiredCount: null,
     passedIds: new Set(),
     finishedOrder: [],
@@ -1192,6 +802,7 @@ function daifugoResolvePlay(playerId, cards){
   const ids = cards.map(c=>c.id);
   p.hand = p.hand.filter(c=>!ids.includes(c.id));
   daifugo.pile = cards;
+  daifugo.pileStack = daifugo.pileStack.concat(cards);
   daifugo.requiredCount = cards.length;
   daifugo.lastPlayerId = playerId;
   daifugo.passedIds = new Set();
@@ -1206,6 +817,7 @@ function daifugoResolvePlay(playerId, cards){
   }
   if(isEight){
     daifugo.pile = [];
+    daifugo.pileStack = [];
     daifugo.requiredCount = null;
     daifugo.passedIds = new Set();
     if(p.hand.length>0){
@@ -1218,7 +830,7 @@ function daifugoResolvePlay(playerId, cards){
   } else {
     const nextId = daifugoNextTurnId(playerId);
     daifugo.currentId = (nextId===null) ? playerId : nextId;
-    if(nextId===null){ daifugo.pile=[]; daifugo.requiredCount=null; daifugo.passedIds=new Set(); }
+    if(nextId===null){ daifugo.pile=[]; daifugo.pileStack=[]; daifugo.requiredCount=null; daifugo.passedIds=new Set(); }
   }
   daifugoRender();
   setTimeout(daifugoTurn, 500);
@@ -1228,6 +840,7 @@ function daifugoResolvePass(playerId){
   const nextId = daifugoNextTurnId(playerId);
   if(nextId===null || nextId===daifugo.lastPlayerId){
     daifugo.pile = [];
+    daifugo.pileStack = [];
     daifugo.requiredCount = null;
     daifugo.passedIds = new Set();
     daifugo.currentId = daifugo.lastPlayerId;
@@ -1306,7 +919,7 @@ function daifugoRender(){
     return `<div class="${cls}">${p.name}<br>${p.hand.length===0?'上がり':p.hand.length+'枚'}</div>`;
   }).join('');
   document.getElementById('daifugo-pile-count').textContent = daifugo.requiredCount ? `(${daifugo.requiredCount}枚出し)` : '(フリー)';
-  document.getElementById('daifugo-pile').innerHTML = daifugo.pile.length ? daifugo.pile.map(c=>cardHTML(c,'sz-md')).join('') : '<span style="color:var(--sub); font-size:0.8rem;">まだありません</span>';
+  document.getElementById('daifugo-pile').innerHTML = daifugo.pileStack.length ? daifugo.pileStack.map(c=>cardHTML(c,'sz-md')).join('') : '<span style="color:var(--sub); font-size:0.8rem;">まだありません</span>';
   const human = daifugoGetPlayer(0);
   document.getElementById('daifugo-hand').innerHTML = human.hand.map(c=>{
     const sel = daifugo.selected.includes(c.id) ? 'selected' : '';
@@ -1322,6 +935,7 @@ function daifugoRender(){
 }
 function daifugoEnd(){
   daifugo.over = true;
+  if(daifugo.finishedOrder[0]===0) addCoins(10);
   const list = document.getElementById('daifugo-result-list');
   const loserId = daifugo.finishedOrder[daifugo.finishedOrder.length-1];
   const titles = ['👑 大富豪','😊 富豪','😐 平民','😢 貧民','😭 大貧民'];
@@ -1335,169 +949,7 @@ function daifugoEnd(){
 }
 function quitDaifugo(){ daifugo=null; goSetup('daifugo'); }
 
-/* ===================== 7並べ ===================== */
-let sevensCfg = {mode:'ai', cpu:'2'};
-function sevensSetupPick(k,v,el){
-  sevensCfg[k]=v;
-  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('sevens-cpu-group').style.display = (sevensCfg.mode==='ai') ? 'flex' : 'none';
-}
-
-let sevens = null;
-function startSevens(){
-  const numCpu = sevensCfg.mode==='ai' ? parseInt(sevensCfg.cpu,10) : 1;
-  const players = [];
-  players.push({id:0, name:'あなた', isHuman:true, hand:[]});
-  if(sevensCfg.mode==='ai'){
-    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[]});
-  } else {
-    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[]});
-  }
-  const deck = shuffle(makeDeck(false));
-  deck.forEach((c,i)=>{ players[i % players.length].hand.push(c); });
-  players.forEach(p=>{ p.hand.sort((a,b)=> (a.suit===b.suit ? rankValue(a.rank)-rankValue(b.rank) : SUITS.indexOf(a.suit)-SUITS.indexOf(b.suit))); });
-  let startId = 0;
-  for(const p of players){ if(p.hand.some(c=>c.rank==='7' && c.suit==='♠')){ startId=p.id; break; } }
-  sevens = {
-    players,
-    seatOrder: players.map(p=>p.id),
-    currentId: startId,
-    board: {},
-    finishedOrder: [],
-    waitingHuman: false,
-  };
-  goScreen('sevens-game');
-  sevensRender();
-  setTimeout(sevensTurn, 400);
-}
-function sevensGetPlayer(id){ return sevens.players.find(p=>p.id===id); }
-function sevensNextId(fromId){
-  const order = sevens.seatOrder;
-  const idx = order.indexOf(fromId);
-  for(let step=1; step<=order.length; step++){
-    const cand = order[(idx+step)%order.length];
-    if(sevensGetPlayer(cand).hand.length>0) return cand;
-  }
-  return null;
-}
-function sevensLegal(card){
-  if(card.rank==='7') return !sevens.board[card.suit] || (sevens.board[card.suit].min<=7 && sevens.board[card.suit].max>=7);
-  const b = sevens.board[card.suit];
-  if(!b) return false;
-  const v = rankValue(card.rank);
-  return v===b.max+1 || v===b.min-1;
-}
-function sevensPlaceCard(playerId, cardId){
-  const p = sevensGetPlayer(playerId);
-  const idx = p.hand.findIndex(c=>c.id===cardId);
-  if(idx<0) return false;
-  const card = p.hand[idx];
-  if(!sevensLegal(card)) return false;
-  p.hand.splice(idx,1);
-  const v = rankValue(card.rank);
-  if(!sevens.board[card.suit]) sevens.board[card.suit] = {min:v, max:v};
-  else { const b = sevens.board[card.suit]; b.min=Math.min(b.min,v); b.max=Math.max(b.max,v); }
-  if(p.hand.length===0 && !sevens.finishedOrder.includes(playerId)) sevens.finishedOrder.push(playerId);
-  return true;
-}
-function sevensAdvance(){
-  const remaining = sevens.players.filter(p=>p.hand.length>0);
-  if(remaining.length<=1){
-    if(remaining.length===1 && !sevens.finishedOrder.includes(remaining[0].id)) sevens.finishedOrder.push(remaining[0].id);
-    sevensRender();
-    sevensEnd();
-    return;
-  }
-  const nextId = sevensNextId(sevens.currentId);
-  sevens.currentId = nextId;
-  sevensRender();
-  setTimeout(sevensTurn, 500);
-}
-function sevensTurn(){
-  if(!sevens) return;
-  const current = sevensGetPlayer(sevens.currentId);
-  if(current.isHuman){
-    sevens.waitingHuman = true;
-    sevensRender();
-  } else {
-    sevens.waitingHuman = false;
-    sevensRender();
-    setTimeout(()=>sevensCpuMove(current), 700);
-  }
-}
-function sevensCpuMove(p){
-  if(!sevens) return;
-  const sevenCard = p.hand.find(c=>c.rank==='7' && sevensLegal(c));
-  const card = sevenCard || p.hand.find(c=>sevensLegal(c));
-  if(card){ sevensPlaceCard(p.id, card.id); }
-  sevensAdvance();
-}
-function sevensPlayHuman(cardId){
-  if(!sevens.waitingHuman) return;
-  const ok = sevensPlaceCard(0, cardId);
-  if(!ok){ document.getElementById('sevens-msg').textContent='そのカードは出せません'; return; }
-  document.getElementById('sevens-msg').textContent='';
-  sevens.waitingHuman = false;
-  sevensAdvance();
-}
-function sevensPassHuman(){
-  if(!sevens.waitingHuman) return;
-  document.getElementById('sevens-msg').textContent='';
-  sevens.waitingHuman = false;
-  sevensAdvance();
-}
-function sevensRender(){
-  const playersEl = document.getElementById('sevens-players');
-  playersEl.innerHTML = sevens.players.map(p=>{
-    const cls = 'mini-player' + (p.id===sevens.currentId?' current':'') + (p.hand.length===0?' out':'');
-    return `<div class="${cls}">${p.name}<br>${p.hand.length===0?'上がり':p.hand.length+'枚'}</div>`;
-  }).join('');
-  const boardEl = document.getElementById('sevens-board');
-  boardEl.innerHTML='';
-  SUITS.forEach(s=>{
-    const row = document.createElement('div'); row.className='sevens-row';
-    const label = document.createElement('div'); label.className='suit-label'; label.textContent=s;
-    if(SUIT_COLOR[s]==='red') label.style.color='var(--card-red)';
-    row.appendChild(label);
-    const slots = document.createElement('div'); slots.className='sevens-slots';
-    for(let v=1; v<=13; v++){
-      const rank = RANKS[v-1];
-      const b = sevens.board[s];
-      const placed = b && v>=b.min && v<=b.max;
-      const slot = document.createElement('div'); slot.className='sevens-slot';
-      if(placed){ slot.innerHTML = cardHTML({rank, suit:s, color:SUIT_COLOR[s]}, 'sz-sm'); }
-      else { slot.textContent = rank; }
-      slots.appendChild(slot);
-    }
-    row.appendChild(slots);
-    boardEl.appendChild(row);
-  });
-  const human = sevensGetPlayer(0);
-  document.getElementById('sevens-hand').innerHTML = human.hand.map(c=>{
-    const legal = sevens.waitingHuman && sevensLegal(c);
-    return cardHTML(c,'sz-md', legal ? '' : 'disabled').replace('class="card', `data-id="${c.id}" class="card`);
-  }).join('');
-  document.querySelectorAll('#sevens-hand .card').forEach(el=>{
-    el.onclick = ()=> sevensPlayHuman(parseInt(el.getAttribute('data-id'),10));
-  });
-  document.getElementById('sevens-pass-btn').disabled = !sevens.waitingHuman;
-  const cur = sevensGetPlayer(sevens.currentId);
-  document.getElementById('sevens-turn').textContent = sevens.waitingHuman ? 'あなたの番です(出せるカードがなければパス)' : (cur?`${cur.name} の番です...`:'');
-}
-function sevensEnd(){
-  const list = document.getElementById('sevens-result-list');
-  const loserId = sevens.finishedOrder[sevens.finishedOrder.length-1];
-  list.innerHTML = sevens.finishedOrder.map((id,i)=>{
-    const p = sevensGetPlayer(id);
-    const isLoser = id===loserId;
-    return `<div class="baba-result-row${isLoser?' loser':''}"><span>${isLoser?'😭':'🎉'} ${p.name}</span><span>${i+1}位</span></div>`;
-  }).join('');
-  goScreen('sevens-result');
-}
-function quitSevens(){ sevens=null; goSetup('sevens'); }
-
-/* ===================== 21 ===================== */
+// calcHandValueは21削除後もブラックジャックが使っている共有関数
 function calcHandValue(hand){
   let total=0, aces=0;
   hand.forEach(c=>{
@@ -1508,129 +960,7 @@ function calcHandValue(hand){
   while(total>21 && aces>0){ total-=10; aces--; }
   return total;
 }
-let twCfg = {mode:'ai', cpu:'2'};
-function twSetupPick(k,v,el){
-  twCfg[k]=v;
-  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('tw-cpu-group').style.display = (twCfg.mode==='ai') ? 'flex' : 'none';
-}
-let tw = null;
-function startTw(){
-  const numCpu = twCfg.mode==='ai' ? parseInt(twCfg.cpu,10) : 1;
-  const players = [];
-  players.push({id:0, name:'あなた', isHuman:true, hand:[], status:'playing'});
-  if(twCfg.mode==='ai'){
-    for(let i=1;i<=numCpu;i++) players.push({id:i, name:'CPU'+i, isHuman:false, hand:[], status:'playing'});
-  } else {
-    players.push({id:1, name:'プレイヤー2', isHuman:true, hand:[], status:'playing'});
-  }
-  const deck = shuffle(makeDeck(false));
-  players.forEach(p=>{ p.hand.push(deck.shift()); });
-  tw = { players, deck, seatOrder: players.map(p=>p.id), currentId: players[0].id, over:false };
-  goScreen('tw-game');
-  twRender();
-  setTimeout(twTurn, 400);
-}
-function twGetPlayer(id){ return tw.players.find(p=>p.id===id); }
-function twNextId(fromId){
-  const order = tw.seatOrder;
-  const idx = order.indexOf(fromId);
-  for(let step=1; step<=order.length; step++){
-    const cand = order[(idx+step)%order.length];
-    if(twGetPlayer(cand).status==='playing') return cand;
-  }
-  return null;
-}
-function twTurn(){
-  if(!tw || tw.over) return;
-  const current = twGetPlayer(tw.currentId);
-  if(current.isHuman){
-    twRender();
-  } else {
-    twRender();
-    setTimeout(()=>twCpuStep(current), 700);
-  }
-}
-function twCpuStep(p){
-  if(!tw || tw.over) return;
-  const total = calcHandValue(p.hand);
-  if(total<17 && tw.deck.length>0){
-    p.hand.push(tw.deck.shift());
-    const nt = calcHandValue(p.hand);
-    if(nt>21){ p.status='busted'; twAdvance(); return; }
-    twRender();
-    setTimeout(()=>twCpuStep(p), 700);
-  } else {
-    p.status='stood';
-    twAdvance();
-  }
-}
-function twHit(){
-  if(!tw || tw.over) return;
-  const p = twGetPlayer(tw.currentId);
-  if(!p.isHuman) return;
-  if(tw.deck.length===0) return;
-  p.hand.push(tw.deck.shift());
-  const total = calcHandValue(p.hand);
-  if(total>21){ p.status='busted'; twRender(); setTimeout(twAdvance, 600); }
-  else { twRender(); }
-}
-function twStand(){
-  if(!tw || tw.over) return;
-  const p = twGetPlayer(tw.currentId);
-  if(!p.isHuman) return;
-  p.status='stood';
-  twRender();
-  setTimeout(twAdvance, 300);
-}
-function twAdvance(){
-  const nextId = twNextId(tw.currentId);
-  if(nextId===null){ twEnd(); return; }
-  tw.currentId = nextId;
-  setTimeout(twTurn, 400);
-}
-function twRender(){
-  const playersEl = document.getElementById('tw-players');
-  playersEl.innerHTML = tw.players.map(p=>{
-    const total = calcHandValue(p.hand);
-    const statusLabel = p.status==='busted' ? 'バースト' : p.status==='stood' ? 'ストップ' : 'プレイ中';
-    const cls = 'tw-hand-block' + (p.id===tw.currentId && p.status==='playing' ? ' current' : '');
-    return `<div class="${cls}"><div>${p.name}</div><div class="hand-row">${p.hand.map(c=>cardHTML(c,'sz-sm')).join('')}</div><div class="tw-total">${total}</div><div class="tw-status">${statusLabel}</div></div>`;
-  }).join('');
-  const cur = twGetPlayer(tw.currentId);
-  document.getElementById('tw-turn').textContent = (cur && cur.isHuman && cur.status==='playing') ? 'あなたの番です' : (cur?`${cur.name} の番です...`:'');
-  const isMyTurn = cur && cur.isHuman && cur.status==='playing';
-  document.getElementById('tw-hit-btn').disabled = !isMyTurn;
-  document.getElementById('tw-stand-btn').disabled = !isMyTurn;
-}
-function twEnd(){
-  tw.over = true;
-  const alive = tw.players.filter(p=>p.status!=='busted');
-  let best = -1;
-  alive.forEach(p=>{ const t=calcHandValue(p.hand); if(t>best) best=t; });
-  const winners = alive.filter(p=>calcHandValue(p.hand)===best);
-  const list = document.getElementById('tw-result-list');
-  if(winners.length===0){
-    list.innerHTML = `<div class="baba-result-row loser"><span>😭 全員バースト</span><span>-</span></div>`;
-  } else {
-    const ranked = [...tw.players].sort((a,b)=>{
-      const av = a.status==='busted' ? -1 : calcHandValue(a.hand);
-      const bv = b.status==='busted' ? -1 : calcHandValue(b.hand);
-      return bv-av;
-    });
-    list.innerHTML = ranked.map(p=>{
-      const isWinner = winners.includes(p);
-      const t = calcHandValue(p.hand);
-      const label = p.status==='busted' ? 'バースト' : `${t}点`;
-      return `<div class="baba-result-row${p.status==='busted'?' loser':''}"><span>${isWinner?'🎉':''} ${p.name}</span><span>${label}</span></div>`;
-    }).join('');
-  }
-  goScreen('tw-result');
-}
-function quitTw(){ tw=null; goSetup('tw'); }
-
-/* ===================== ポーカー ===================== */
+/* ===================== ポーカー(テキサスホールデム) ===================== */
 function pokerCardValue(c){
   if(c.rank==='A') return 14;
   if(c.rank==='K') return 13;
@@ -1672,120 +1002,204 @@ function pokerCompare(a,b){
   }
   return 0;
 }
-function pokerCpuDiscardIdx(hand){
-  const info = hand.map((c,i)=>({i, v:pokerCardValue(c)}));
-  const counts={};
-  info.forEach(o=>counts[o.v]=(counts[o.v]||0)+1);
-  const suits = hand.map(c=>c.suit);
-  const isFlush = suits.every(s=>s===suits[0]);
-  const vals = info.map(o=>o.v).sort((a,b)=>b-a);
-  const uniq=[...new Set(vals)];
-  const isStraight = uniq.length===5 && (vals[0]-vals[4]===4);
-  if(isFlush || isStraight) return [];
-  return info.filter(o=> counts[o.v]===1 && o.v<12).map(o=>o.i);
+function pokerCombinations(arr, k){
+  const results = [];
+  function rec(start, combo){
+    if(combo.length===k){ results.push(combo.slice()); return; }
+    for(let i=start;i<arr.length;i++){ combo.push(arr[i]); rec(i+1, combo); combo.pop(); }
+  }
+  rec(0, []);
+  return results;
 }
-let pokerCfg = {mode:'ai'};
-function pokerSetupPick(k,v,el){
-  pokerCfg[k]=v;
-  el.parentNode.querySelectorAll('.choice-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
+// 手札2枚+場札(3〜5枚)から最も強い5枚の組み合わせを選ぶ
+function pokerBestHand(cards){
+  let best = null;
+  pokerCombinations(cards, 5).forEach(combo=>{
+    const ev = pokerEvaluate(combo);
+    if(!best || pokerCompare(ev, best.ev)>0) best = {ev, combo};
+  });
+  return best;
 }
+// プリフロップは手札2枚だけ、フロップ以降は場札込みの最強役でざっくり0〜1の強さを見積もる
+// (簡易実装なのでポットオッズ等は考慮しない)
+function pokerHandStrength(p){
+  if(poker.community.length===0){
+    const v = p.hole.map(pokerCardValue).sort((a,b)=>b-a);
+    let score = (v[0]+v[1])/28;
+    if(v[0]===v[1]) score += 0.25;
+    if(p.hole[0].suit===p.hole[1].suit) score += 0.05;
+    return Math.min(1, score);
+  }
+  return pokerBestHand(p.hole.concat(poker.community)).ev.rank / 8;
+}
+
+const POKER_START_CHIPS = 500;
+const POKER_ANTE = 10;
+const POKER_RAISE_CAP = 3; // 1ストリートあたりのベット/レイズ回数の上限(青天井にしないため)
 let poker = null;
 function startPoker(){
   const deck = shuffle(makeDeck(false));
+  const names = ['あなた','CPU1','CPU2','CPU3'];
+  const players = names.map((name,i)=>({
+    id:i, name, isHuman: i===0,
+    hole:[deck.shift(), deck.shift()],
+    chips: POKER_START_CHIPS,
+    bet:0, folded:false, allIn:false,
+  }));
+  let pot = 0;
+  players.forEach(p=>{ const a=Math.min(POKER_ANTE,p.chips); p.chips-=a; pot+=a; });
   poker = {
-    mode: pokerCfg.mode,
-    deck,
-    hand: [deck.splice(0,5), deck.splice(0,5)],
-    selected: [[],[]],
-    phase: 'p1',
+    players, deck, community:[], pot,
+    stage:'preflop', currentBet:0, raiseCount:0,
+    toAct: players.map(p=>p.id),
+    actingId: players[0].id,
+    over:false,
   };
-  document.getElementById('poker-mode-label').textContent = poker.mode==='ai' ? '対AI対戦' : '2人対戦';
   goScreen('poker-game');
   pokerRender();
+  pokerAdvance();
 }
-function pokerName(p){
-  if(poker.mode==='ai') return p===0 ? 'あなた' : 'CPU';
-  return p===0 ? 'プレイヤー1' : 'プレイヤー2';
+function pokerBetSize(){ return (poker.stage==='turn'||poker.stage==='river') ? 40 : 20; }
+function pokerLog(text){ document.getElementById('poker-msg').textContent = text; }
+function pokerApplyCheck(p){
+  pokerLog(`${p.name}: チェック`);
+  poker.toAct.shift();
+  pokerAdvance();
 }
-function pokerToggle(p, idx){
-  const expectPhase = p===0 ? 'p1' : 'p2';
-  if(poker.phase!==expectPhase) return;
-  if(poker.mode==='ai' && p===1) return;
-  const sel = poker.selected[p];
-  const at = sel.indexOf(idx);
-  if(at>=0) sel.splice(at,1); else sel.push(idx);
-  pokerRender();
+function pokerApplyCall(p){
+  const amt = Math.min(poker.currentBet - p.bet, p.chips);
+  p.chips -= amt; p.bet += amt; poker.pot += amt;
+  if(p.chips===0) p.allIn = true;
+  pokerLog(`${p.name}: コール(${amt})`);
+  poker.toAct.shift();
+  pokerAdvance();
 }
-function pokerDrawClick(){
-  if(poker.phase==='p1'){ pokerDraw(0); }
-  else if(poker.phase==='p2'){ pokerDraw(1); }
+function pokerApplyFold(p){
+  p.folded = true;
+  pokerLog(`${p.name}: フォールド`);
+  poker.toAct = poker.toAct.filter(id=>id!==p.id);
+  pokerAdvance();
 }
-function pokerDraw(p){
-  const sel = [...poker.selected[p]].sort((a,b)=>b-a);
-  sel.forEach(idx=> poker.hand[p].splice(idx,1));
-  while(poker.hand[p].length<5) poker.hand[p].push(poker.deck.shift());
-  poker.selected[p]=[];
-  if(p===0){
-    if(poker.mode==='ai'){
-      pokerCpuDraw();
-      pokerReveal();
-    } else {
-      poker.phase='pass2';
-      pokerRender();
-    }
+function pokerApplyRaise(p){
+  const isFirstBet = poker.currentBet===0;
+  const target = isFirstBet ? pokerBetSize() : poker.currentBet + pokerBetSize();
+  const amt = Math.min(target - p.bet, p.chips);
+  p.chips -= amt; p.bet += amt; poker.pot += amt;
+  if(p.chips===0) p.allIn = true;
+  poker.currentBet = Math.max(poker.currentBet, p.bet);
+  poker.raiseCount++;
+  pokerLog(`${p.name}: ${isFirstBet?'ベット':'レイズ'}(ポット${poker.pot})`);
+  poker.toAct = poker.players.filter(pl=>pl.id!==p.id && !pl.folded && !pl.allIn).map(pl=>pl.id);
+  pokerAdvance();
+}
+function pokerCpuAct(p){
+  const strength = pokerHandStrength(p);
+  const toCall = poker.currentBet - p.bet;
+  if(toCall>0){
+    if(strength<0.3 && Math.random()<0.65){ pokerApplyFold(p); return; }
+    if(strength>0.6 && poker.raiseCount<POKER_RAISE_CAP && Math.random()<0.45){ pokerApplyRaise(p); return; }
+    pokerApplyCall(p);
   } else {
-    pokerReveal();
+    if(strength>0.55 && poker.raiseCount<POKER_RAISE_CAP && Math.random()<0.4){ pokerApplyRaise(p); return; }
+    pokerApplyCheck(p);
   }
 }
-function pokerCpuDraw(){
-  const idxs = pokerCpuDiscardIdx(poker.hand[1]).sort((a,b)=>b-a);
-  idxs.forEach(idx=> poker.hand[1].splice(idx,1));
-  while(poker.hand[1].length<5) poker.hand[1].push(poker.deck.shift());
+function pokerCheckOrCall(){
+  if(!poker || poker.over || poker.actingId!==0) return;
+  const p = poker.players[0];
+  if(p.folded || p.allIn) return;
+  if(poker.currentBet - p.bet > 0) pokerApplyCall(p); else pokerApplyCheck(p);
 }
-function pokerStartP2(){
-  poker.phase='p2';
+function pokerBetOrRaise(){
+  if(!poker || poker.over || poker.actingId!==0) return;
+  const p = poker.players[0];
+  if(p.folded || p.allIn || poker.raiseCount>=POKER_RAISE_CAP) return;
+  pokerApplyRaise(p);
+}
+function pokerFold(){
+  if(!poker || poker.over || poker.actingId!==0) return;
+  const p = poker.players[0];
+  if(p.folded || p.allIn) return;
+  pokerApplyFold(p);
+}
+function pokerAdvance(){
+  if(!poker || poker.over) return;
+  const alive = poker.players.filter(p=>!p.folded);
+  if(alive.length===1){ pokerShowdown(true); return; }
+  if(poker.toAct.length===0){ pokerRender(); setTimeout(pokerNextStreet, 600); return; }
+  const id = poker.toAct[0];
+  const p = poker.players.find(pl=>pl.id===id);
+  if(p.folded || p.allIn){ poker.toAct.shift(); pokerAdvance(); return; }
+  poker.actingId = id;
   pokerRender();
+  if(!p.isHuman) setTimeout(()=>pokerCpuAct(p), 700);
+}
+function pokerNextStreet(){
+  if(!poker || poker.over) return;
+  poker.players.forEach(p=>{ p.bet=0; });
+  poker.currentBet = 0;
+  poker.raiseCount = 0;
+  if(poker.stage==='preflop'){ poker.community.push(poker.deck.shift(), poker.deck.shift(), poker.deck.shift()); poker.stage='flop'; }
+  else if(poker.stage==='flop'){ poker.community.push(poker.deck.shift()); poker.stage='turn'; }
+  else if(poker.stage==='turn'){ poker.community.push(poker.deck.shift()); poker.stage='river'; }
+  else { pokerShowdown(false); return; }
+  poker.toAct = poker.players.filter(p=>!p.folded && !p.allIn).map(p=>p.id);
+  pokerRender();
+  pokerAdvance();
 }
 function pokerRender(){
-  const passArea = document.getElementById('poker-pass-area');
-  const handWrap = document.getElementById('poker-hand');
-  const drawBtn = document.getElementById('poker-draw-btn');
-  const msg = document.getElementById('poker-msg');
-  msg.textContent='';
-  if(poker.phase==='pass2'){
-    passArea.innerHTML = `<div class="poker-pass-card" onclick="pokerStartP2()">交代: ${pokerName(1)}の番です<br><span style="font-size:0.75rem; color:var(--sub);">タップして手札を見る</span></div>`;
-    handWrap.innerHTML='';
-    drawBtn.style.display='none';
-    document.getElementById('poker-turn').textContent='';
-    return;
-  }
-  passArea.innerHTML='';
-  drawBtn.style.display='';
-  const p = poker.phase==='p1' ? 0 : 1;
-  document.getElementById('poker-turn').textContent = `${pokerName(p)}の番: 交換したいカードをタップして選び、「交換する」を押してください(0枚でもOK)`;
-  handWrap.innerHTML = poker.hand[p].map((c,idx)=>{
-    const sel = poker.selected[p].includes(idx) ? 'selected' : '';
-    return cardHTML(c,'sz-md',sel).replace('class="card', `data-idx="${idx}" data-p="${p}" class="card`);
+  document.getElementById('poker-players').innerHTML = poker.players.map(p=>{
+    const cls = 'mini-player' + (p.id===poker.actingId && !p.folded && !p.allIn && !poker.over ? ' current':'') + (p.folded?' out':'');
+    const status = p.folded ? 'フォールド' : (p.allIn ? 'オールイン' : `場に${p.bet}`);
+    return `<div class="${cls}">${p.name}<br>💰${p.chips}<br>${status}</div>`;
   }).join('');
-  document.querySelectorAll('#poker-hand .card').forEach(el=>{
-    el.onclick = ()=> pokerToggle(parseInt(el.getAttribute('data-p'),10), parseInt(el.getAttribute('data-idx'),10));
-  });
+  document.getElementById('poker-pot').textContent = `🪙 ポット: ${poker.pot}`;
+  document.getElementById('poker-community').innerHTML = poker.community.length
+    ? poker.community.map(c=>cardHTML(c,'sz-md')).join('')
+    : '<span style="color:var(--sub); font-size:0.8rem;">プリフロップ(場札はまだありません)</span>';
+  const human = poker.players[0];
+  document.getElementById('poker-hand').innerHTML = human.hole.map(c=>cardHTML(c,'sz-lg')).join('');
+  const isHumanTurn = !poker.over && poker.actingId===0 && !human.folded && !human.allIn;
+  const toCall = poker.currentBet - human.bet;
+  document.getElementById('poker-call-btn').textContent = toCall>0 ? `コール(${toCall})` : 'チェック';
+  document.getElementById('poker-raise-btn').textContent = poker.currentBet===0 ? `ベット(${pokerBetSize()})` : `レイズ(+${pokerBetSize()})`;
+  document.getElementById('poker-call-btn').disabled = !isHumanTurn;
+  document.getElementById('poker-fold-btn').disabled = !isHumanTurn;
+  document.getElementById('poker-raise-btn').disabled = !isHumanTurn || poker.raiseCount>=POKER_RAISE_CAP;
+  if(!poker.over){
+    const cur = poker.players.find(p=>p.id===poker.actingId);
+    document.getElementById('poker-turn').textContent = isHumanTurn ? 'あなたの番です' : (cur ? `${cur.name} の番です...` : '');
+  }
 }
-function pokerReveal(){
-  const e0 = pokerEvaluate(poker.hand[0]);
-  const e1 = pokerEvaluate(poker.hand[1]);
-  const cmp = pokerCompare(e0,e1);
-  const n0 = pokerName(0), n1 = pokerName(1);
-  let title;
-  if(cmp>0) title = `🎉 ${n0}の勝ち!`;
-  else if(cmp<0) title = `🎉 ${n1}の勝ち!`;
-  else title = '引き分け';
+function pokerShowdown(foldWin){
+  poker.over = true;
+  const contenders = poker.players.filter(p=>!p.folded);
+  const evals = contenders.map(p=> ({p, best: poker.community.length===5 ? pokerBestHand(p.hole.concat(poker.community)) : null}));
+  let winners;
+  if(foldWin || poker.community.length<5){
+    winners = [contenders[0]];
+  } else {
+    let bestEv = null;
+    evals.forEach(e=>{ if(!bestEv || pokerCompare(e.best.ev, bestEv)>0) bestEv = e.best.ev; });
+    winners = evals.filter(e=>pokerCompare(e.best.ev, bestEv)===0).map(e=>e.p);
+  }
+  const share = Math.floor(poker.pot / winners.length);
+  winners.forEach(w=> w.chips += share);
+  if(winners.some(w=>w.isHuman)) addCoins(10);
+  const title = winners.some(w=>w.isHuman)
+    ? '🎉 あなたの勝ち!'
+    : (foldWin ? `${winners[0].name}の勝ち(他は全員フォールド)` : `${winners.map(w=>w.name).join('・')}の勝ち!`);
   document.getElementById('poker-result-title').textContent = title;
-  document.getElementById('poker-hand-0-label').textContent = `${n0}: ${e0.name}`;
-  document.getElementById('poker-hand-1-label').textContent = `${n1}: ${e1.name}`;
-  document.getElementById('poker-hand-0-cards').innerHTML = poker.hand[0].map(c=>cardHTML(c,'sz-md')).join('');
-  document.getElementById('poker-hand-1-cards').innerHTML = poker.hand[1].map(c=>cardHTML(c,'sz-md')).join('');
+  document.getElementById('poker-result-hands').innerHTML = poker.players.map(p=>{
+    const isWinner = winners.includes(p);
+    const e = evals.find(x=>x.p===p);
+    const label = p.folded ? `${p.name}: フォールド` : `${p.name}${e && e.best ? ': '+e.best.ev.name : ''}`;
+    const cardsHtml = p.folded ? '' : p.hole.map(c=>cardHTML(c,'sz-md')).join('');
+    return `<div class="poker-hand-block">
+      <div class="poker-hand-name" style="${isWinner?'':'opacity:0.6;'}">${isWinner?'🏆 ':''}${label}${isWinner?` (+${share})`:''}</div>
+      <div class="hand-row">${cardsHtml}</div>
+    </div>`;
+  }).join('');
   goScreen('poker-result');
 }
 function quitPoker(){ poker=null; goSetup('poker'); }
@@ -1880,7 +1294,7 @@ function bjEnd(){
   const dTotal = calcHandValue(bj.dealer.hand);
   const dealerBusted = dTotal>21;
   const list = document.getElementById('bj-result-list');
-  list.innerHTML = bj.players.map(p=>{
+  const results = bj.players.map(p=>{
     const total = calcHandValue(p.hand);
     let result;
     if(p.status==='busted') result='負け(バースト)';
@@ -1888,6 +1302,14 @@ function bjEnd(){
     else if(total>dTotal) result='勝ち';
     else if(total<dTotal) result='負け';
     else result='引き分け';
+    return {p, total, result};
+  });
+  // ディーラーと1人で対戦(vs CPU相当)のときだけ、勝てばコインを増やす
+  if(bj.mode==='ai'){
+    const human = results.find(r=>r.p.id===0);
+    if(human && human.result.startsWith('勝ち')) addCoins(10);
+  }
+  list.innerHTML = results.map(({p,total,result})=>{
     const isWin = result.startsWith('勝ち');
     return `<div class="baba-result-row${result.startsWith('負け')?' loser':''}"><span>${isWin?'🎉':''} ${p.name}(${total})</span><span>${result}</span></div>`;
   }).join('') + `<div class="baba-result-row"><span>ディーラー</span><span>${dTotal}${dealerBusted?'(バースト)':''}</span></div>`;

@@ -185,6 +185,8 @@ final class GomokuGameState: ObservableObject {
     @Published var moveList: [KifuEntry] = []
     @Published var result: GomokuResult = .ongoing
     @Published var aiThinking = false
+    /// スタートボタンを押して対局が始まったか(falseの間はセットアップ画面を出す)
+    @Published var hasStarted = false
     @Published var message = "あなたが黒番です。縦・横・斜めのどれかに先に5つ並べたら勝ちです。"
     @Published var hintMove: Int?
     @Published var aiLevel: Difficulty = .easy
@@ -210,9 +212,18 @@ final class GomokuGameState: ObservableObject {
             && (opponentMode == .human || position.sideToMove == humanDisc)
     }
 
+    /// セットアップ画面に戻る(盤面はそのまま。スタートを押すと newGame() が呼ばれる)
+    func goToSetup() {
+        hasStarted = false
+        #if os(iOS)
+        OrientationLock.apply(.all)
+        #endif
+    }
+
     func newGame() {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = GomokuPosition.initial()
         lastMove = nil
         moveList = []
@@ -350,6 +361,7 @@ extension GomokuGameState {
     func restore(from save: GomokuSave) {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = save.position
         history = save.history
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }

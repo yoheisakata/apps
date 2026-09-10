@@ -17,6 +17,8 @@ final class OthelloGameState: ObservableObject {
     @Published var moveList: [KifuEntry] = []
     @Published var result: OthelloResult = .ongoing
     @Published var aiThinking = false
+    /// スタートボタンを押して対局が始まったか(falseの間はセットアップ画面を出す)
+    @Published var hasStarted = false
     @Published var message = "あなたが黒番(先手)です。緑の印のマスに置けます。角(すみ)を取ると有利になります。"
     @Published var hintMove: Int?
     @Published var aiLevel: Difficulty = .easy
@@ -48,9 +50,18 @@ final class OthelloGameState: ObservableObject {
         return Set(position.legalMoves(for: position.sideToMove))
     }
 
+    /// セットアップ画面に戻る(盤面はそのまま。スタートを押すと newGame() が呼ばれる)
+    func goToSetup() {
+        hasStarted = false
+        #if os(iOS)
+        OrientationLock.apply(.all)
+        #endif
+    }
+
     func newGame() {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = OthelloPosition.initial()
         lastMove = nil
         moveList = []
@@ -218,6 +229,7 @@ extension OthelloGameState {
     func restore(from save: OthelloSave) {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = save.position
         history = save.history
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }

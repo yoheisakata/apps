@@ -218,6 +218,8 @@ final class DiamondGameState: ObservableObject {
     @Published var moveList: [KifuEntry] = []
     @Published var result: DiamondResult = .ongoing
     @Published var aiThinking = false
+    /// スタートボタンを押して対局が始まったか(falseの間はセットアップ画面を出す)
+    @Published var hasStarted = false
     @Published var message = "あなたが赤(下側)です。コマを選ぶと行けるマスが光ります。跳び越しは連続でできます。"
     @Published var hintMove: (from: DPoint, to: DPoint)?
     @Published var aiLevel: Difficulty = .easy
@@ -243,9 +245,18 @@ final class DiamondGameState: ObservableObject {
             && (opponentMode == .human || position.sideToMove == humanPlayer)
     }
 
+    /// セットアップ画面に戻る(盤面はそのまま。スタートを押すと newGame() が呼ばれる)
+    func goToSetup() {
+        hasStarted = false
+        #if os(iOS)
+        OrientationLock.apply(.all)
+        #endif
+    }
+
     func newGame() {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = DiamondPosition.initial()
         selected = nil
         legalTargets = []
@@ -400,6 +411,7 @@ extension DiamondGameState {
     func restore(from save: DiamondSave) {
         moveToken += 1
         aiThinking = false
+        hasStarted = true
         position = save.position
         history = save.history
         moveList = save.moveList.enumerated().map { KifuEntry(id: $0.offset + 1, text: $0.element) }
