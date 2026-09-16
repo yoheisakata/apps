@@ -255,8 +255,14 @@ final class ReceiptStore: ObservableObject {
         }
     }
 
+    // 取り込み済みファイルの退避先フォルダ名。同じフォルダを指定し続けても再取り込み
+    // (重複チェックのやり直し)にならないよう、取り込んだファイルはここへ移動する。
+    private nonisolated static let importedSubfolder = "imported"
+
     // フォルダ内のレシートを(サブフォルダ含めて)まとめて取り込む。
     // 既に取り込み済みのファイル(内容が同一)はスキップする。
+    // 取り込み(または取り込み済みと判定)したファイルは、それぞれ元の階層の
+    // "imported" フォルダへ移動する(失敗したファイルは元の場所に残す)。
     func importFolder(_ folder: URL) {
         let files = Self.receiptFiles(in: folder)
         Task {
@@ -267,10 +273,14 @@ final class ReceiptStore: ObservableObject {
 
             var imported = 0, duplicates = 0, failed = 0
             for file in files {
-                switch await importOne(file) {
+                let result = await importOne(file)
+                switch result {
                 case .imported:  imported += 1
                 case .duplicate: duplicates += 1
                 case .failed:    failed += 1
+                }
+                if result != .failed {
+                    Self.moveToImported(file)
                 }
             }
             var parts = ["\(imported) 件を取り込みました"]
@@ -280,16 +290,41 @@ final class ReceiptStore: ObservableObject {
         }
     }
 
+    // 取り込み済みファイルを、元の場所と同じ階層に作った "imported" フォルダへ移動する。
+    // 同名ファイルが既にあれば連番を付けて衝突を避ける。
+    private nonisolated static func moveToImported(_ file: URL) {
+        let dir = file.deletingLastPathComponent().appendingPathComponent(importedSubfolder)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var dest = dir.appendingPathComponent(file.lastPathComponent)
+        if FileManager.default.fileExists(atPath: dest.path) {
+            let base = file.deletingPathExtension().lastPathComponent
+            let ext = file.pathExtension
+            var n = 2
+            repeat {
+                dest = dir.appendingPathComponent("\(base)-\(n).\(ext)")
+                n += 1
+            } while FileManager.default.fileExists(atPath: dest.path)
+        }
+        try? FileManager.default.moveItem(at: file, to: dest)
+    }
+
     // フォルダ内(サブフォルダ含む)の取り込み対象ファイルをファイル名順で返す。
+    // 過去に取り込み済みのファイルを退避した "imported" フォルダは対象外。
     private nonisolated static func receiptFiles(in folder: URL) -> [URL] {
         var files: [URL] = []
         if let enumerator = FileManager.default.enumerator(
             at: folder,
-            includingPropertiesForKeys: [.isRegularFileKey],
+            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
             options: [.skipsHiddenFiles]) {
-            for case let url as URL in enumerator
-            where allowedExtensions.contains(url.pathExtension.lowercased()) {
-                files.append(url)
+            for case let url as URL in enumerator {
+                if url.lastPathComponent == importedSubfolder,
+                   (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+                    enumerator.skipDescendants()
+                    continue
+                }
+                if allowedExtensions.contains(url.pathExtension.lowercased()) {
+                    files.append(url)
+                }
             }
         }
         return files.sorted { $0.lastPathComponent < $1.lastPathComponent }
