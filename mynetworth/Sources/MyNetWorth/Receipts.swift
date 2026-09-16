@@ -244,25 +244,36 @@ final class ReceiptStore: ObservableObject {
         // 並列に走らせると通知(notice)が上書き合戦になるため、順に取り込んで集約する。
         Task {
             var duplicates: [String] = []
+            var notReceipts: [String] = []
             for url in valid {
-                if await importOne(url) == .duplicate {
-                    duplicates.append(url.lastPathComponent)
+                switch await importOne(url) {
+                case .duplicate:  duplicates.append(url.lastPathComponent)
+                case .notReceipt: notReceipts.append(url.lastPathComponent)
+                default: break
                 }
             }
+            var parts: [String] = []
             if !duplicates.isEmpty {
-                notice = "取り込み済みのためスキップ: " + duplicates.joined(separator: ", ")
+                parts.append("取り込み済みのためスキップ: " + duplicates.joined(separator: ", "))
             }
+            if !notReceipts.isEmpty {
+                parts.append("レシートと判定できずスキップ: " + notReceipts.joined(separator: ", "))
+            }
+            if !parts.isEmpty { notice = parts.joined(separator: "\n") }
         }
     }
 
-    // 取り込み済みファイルの退避先フォルダ名。同じフォルダを指定し続けても再取り込み
-    // (重複チェックのやり直し)にならないよう、取り込んだファイルはここへ移動する。
+    // 取り込み済み/対象外ファイルの退避先フォルダ名。同じフォルダを指定し続けても
+    // 再取り込み(重複チェック・OCR のやり直し)にならないよう、処理済みファイルは
+    // それぞれの意味に応じたここへ移動する。
     private nonisolated static let importedSubfolder = "imported"
+    private nonisolated static let notReceiptSubfolder = "not_receipt"
 
     // フォルダ内のレシートを(サブフォルダ含めて)まとめて取り込む。
     // 既に取り込み済みのファイル(内容が同一)はスキップする。
-    // 取り込み(または取り込み済みと判定)したファイルは、それぞれ元の階層の
-    // "imported" フォルダへ移動する(失敗したファイルは元の場所に残す)。
+    // 取り込み(または取り込み済みと判定)したファイルは "imported" フォルダへ、
+    // レシートと判定できなかったファイルは "not_receipt" フォルダへ、それぞれ元の
+    // 階層に作って移動する(失敗したファイルだけは元の場所に残す)。
     func importFolder(_ folder: URL) {
         let files = Self.receiptFiles(in: folder)
         Task {
@@ -271,29 +282,33 @@ final class ReceiptStore: ObservableObject {
                 return
             }
 
-            var imported = 0, duplicates = 0, failed = 0
+            var imported = 0, duplicates = 0, notReceipts = 0, failed = 0
             for file in files {
                 let result = await importOne(file)
                 switch result {
-                case .imported:  imported += 1
-                case .duplicate: duplicates += 1
-                case .failed:    failed += 1
+                case .imported:   imported += 1
+                case .duplicate:  duplicates += 1
+                case .notReceipt: notReceipts += 1
+                case .failed:     failed += 1
                 }
-                if result != .failed {
-                    Self.moveToImported(file)
+                switch result {
+                case .imported, .duplicate: Self.moveTo(Self.importedSubfolder, file)
+                case .notReceipt:           Self.moveTo(Self.notReceiptSubfolder, file)
+                case .failed:               break
                 }
             }
             var parts = ["\(imported) 件を取り込みました"]
             if duplicates > 0 { parts.append("\(duplicates) 件は取り込み済みのためスキップ") }
+            if notReceipts > 0 { parts.append("\(notReceipts) 件はレシートと判定できずスキップ") }
             if failed > 0 { parts.append("\(failed) 件は失敗") }
             notice = "フォルダ取り込み完了: " + parts.joined(separator: "、")
         }
     }
 
-    // 取り込み済みファイルを、元の場所と同じ階層に作った "imported" フォルダへ移動する。
+    // 処理済みファイルを、元の場所と同じ階層に作った指定サブフォルダへ移動する。
     // 同名ファイルが既にあれば連番を付けて衝突を避ける。
-    private nonisolated static func moveToImported(_ file: URL) {
-        let dir = file.deletingLastPathComponent().appendingPathComponent(importedSubfolder)
+    private nonisolated static func moveTo(_ subfolder: String, _ file: URL) {
+        let dir = file.deletingLastPathComponent().appendingPathComponent(subfolder)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         var dest = dir.appendingPathComponent(file.lastPathComponent)
         if FileManager.default.fileExists(atPath: dest.path) {
@@ -309,15 +324,16 @@ final class ReceiptStore: ObservableObject {
     }
 
     // フォルダ内(サブフォルダ含む)の取り込み対象ファイルをファイル名順で返す。
-    // 過去に取り込み済みのファイルを退避した "imported" フォルダは対象外。
+    // 過去に処理済みのファイルを退避した "imported"/"not_receipt" フォルダは対象外。
     private nonisolated static func receiptFiles(in folder: URL) -> [URL] {
+        let skipFolders = [importedSubfolder, notReceiptSubfolder]
         var files: [URL] = []
         if let enumerator = FileManager.default.enumerator(
             at: folder,
             includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
             options: [.skipsHiddenFiles]) {
             for case let url as URL in enumerator {
-                if url.lastPathComponent == importedSubfolder,
+                if skipFolders.contains(url.lastPathComponent),
                    (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
                     enumerator.skipDescendants()
                     continue
@@ -429,7 +445,7 @@ final class ReceiptStore: ObservableObject {
         }
     }
 
-    enum ImportResult { case imported, duplicate, failed }
+    enum ImportResult { case imported, duplicate, notReceipt, failed }
 
     @discardableResult
     private func importOne(_ source: URL) async -> ImportResult {
@@ -445,6 +461,24 @@ final class ReceiptStore: ObservableObject {
         let hash = Self.sha256(data)
         if knownHashes.contains(hash) { return .duplicate }
         knownHashes.insert(hash)
+
+        // OCR・内容判定は元ファイルに対して行い、レシートらしくなければコピーせず
+        // 取り込みをやめる(ライオンの写真のような無関係な画像を残さないため)。
+        var ocrText = ""
+        var fields = ExtractedFields()
+        var ocrFailed = false
+        do {
+            ocrText = try await OCR.extractText(from: source)
+            fields = await Extractor.extract(from: ocrText)
+        } catch {
+            // OCR 自体が失敗した場合は内容を判定できないので、これまでどおり
+            // ひとまず取り込んで手動確認に委ねる(除外は誤爆リスクの方が大きい)。
+            ocrFailed = true
+        }
+        if !ocrFailed, !fields.looksLikeReceipt {
+            knownHashes.remove(hash)
+            return .notReceipt
+        }
 
         // 元画像を年フォルダにコピーして保全する(監査対応のため加工しない)。
         let year = Calendar.current.component(.year, from: Date())
@@ -465,18 +499,16 @@ final class ReceiptStore: ObservableObject {
         receipt.fileName = "\(relDir)/\(name)"
         receipt.fileHash = hash
 
-        do {
-            let text = try await OCR.extractText(from: dest)
-            receipt.ocrText = text
-            let fields = await Extractor.extract(from: text)
+        if ocrFailed {
+            lastError = "認識失敗: \(source.lastPathComponent)"
+            receipt.merchant = source.deletingPathExtension().lastPathComponent
+        } else {
+            receipt.ocrText = ocrText
             receipt.merchant = fields.merchant
             receipt.date = fields.date
             receipt.amount = fields.total
             receipt.category = fields.category
             receipt.items = fields.items
-        } catch {
-            lastError = "認識失敗: \(source.lastPathComponent) — \(error.localizedDescription)"
-            receipt.merchant = source.deletingPathExtension().lastPathComponent
         }
 
         receipts.insert(receipt, at: 0)
@@ -612,6 +644,8 @@ struct ExtractedFields {
     var category = ExpenseCategory.other
     // nil = 商品解析なし(AI が使えなかった)。[] = 解析したが商品行なし。
     var items: [ReceiptItem]?
+    // false ならレシート/領収書らしくないと判定(無関係な写真など)。取り込み対象外にする。
+    var looksLikeReceipt = true
 }
 
 enum Extractor {
@@ -619,6 +653,9 @@ enum Extractor {
     // 使えれば FoundationModels の結果で上書きする。
     static func extract(from text: String) async -> ExtractedFields {
         var fields = heuristics(text)
+        // ヒューリスティックの目安: OCR でほぼ文字が拾えていない(=写真等でテキストが
+        // ない)場合はレシートではない可能性が高い。AI が使えればそちらの判定を優先する。
+        fields.looksLikeReceipt = text.trimmingCharacters(in: .whitespacesAndNewlines).count >= 5
 
         #if canImport(FoundationModels)
         if case .available = SystemLanguageModel.default.availability,
@@ -633,6 +670,7 @@ enum Extractor {
                 .filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
                 .map { ReceiptItem(name: $0.name.trimmingCharacters(in: .whitespaces),
                                    price: $0.price) }
+            fields.looksLikeReceipt = ai.isReceipt
         }
         #endif
 
@@ -670,6 +708,13 @@ enum Extractor {
             by OCR, match them by order. Empty array if the receipt has no itemized lines.
             """)
         var items: [AIItem]
+        @Guide(description: """
+            True only if this OCR text is actually from a purchase receipt, invoice, \
+            or bill (has a merchant/payee, a purchase, and a total amount). False for \
+            anything else, e.g. a random photo, illustration, screenshot, or document \
+            unrelated to a purchase, or text too sparse/garbled to be a receipt.
+            """)
+        var isReceipt: Bool
     }
 
     @Generable
