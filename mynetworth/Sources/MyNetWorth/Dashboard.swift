@@ -240,6 +240,14 @@ struct Dashboard {
         return "💳"
     }
 
+    // SimpleFIN が cost basis を返さない口座向けの手動フォールバック(株あたり取得原価)。
+    // Schwab は SimpleFIN 経由では cost_basis が取れないため、ユーザーが Fidelity/Schwab の
+    // 明細エクスポート(Portfolio_Positions_Sep-16-2026.csv、AAPL 32株・Cost basis total
+    // $3,547.88)から手入力したおおよその値。あくまで概算(税額見積もり用)。
+    static let manualCostBasisPerShare: [String: [String: Double]] = [
+        "schwab": ["AAPL": 3547.88 / 32],
+    ]
+
     init(_ h: History) {
         for a in h.accounts {
             accountShort[a.id] = Self.shortName(a)
@@ -255,18 +263,25 @@ struct Dashboard {
         // どこの口座か分からないため)。
         let infoById = Dictionary(uniqueKeysWithValues: h.accounts.map { ($0.id, $0) })
         let allHoldingRows = h.holdings.filter { holdingsAccounts.contains($0.key) }
-            .flatMap { acct, list in
+            .flatMap { acct, list -> [HoldingRow] in
+                let org = infoById[acct]?.org.lowercased() ?? ""
                 let label = infoById[acct].map {
                     "\(Self.orgShort($0.org)) \(Self.cleanName($0.name))"
                 } ?? acct
+                let fallbackPerShare = Self.manualCostBasisPerShare
+                    .first { org.contains($0.key) }?.value
                 return list.filter { $0.marketValue != 0 }.map {
-                    HoldingRow(id: $0.id,
+                    var costBasis = $0.costBasis
+                    if costBasis == 0, let perShare = fallbackPerShare?[$0.symbol] {
+                        costBasis = perShare * $0.shares
+                    }
+                    return HoldingRow(id: $0.id,
                                account: label,
                                symbol: $0.symbol,
                                name: $0.name,
                                shares: $0.shares,
                                marketValue: $0.marketValue,
-                               costBasis: $0.costBasis)
+                               costBasis: costBasis)
                 }
             }
         // 口座ごとにまとめ、グループも銘柄も時価の大きい順に並べる。
