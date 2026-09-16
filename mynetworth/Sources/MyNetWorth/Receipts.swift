@@ -488,10 +488,18 @@ final class ReceiptStore: ObservableObject {
     // MARK: - 削除(元画像はゴミ箱へ)
 
     func delete(_ receipt: Receipt) {
-        try? FileManager.default.trashItem(at: receipt.fileURL, resultingItemURL: nil)
-        receipts.removeAll { $0.id == receipt.id }
-        // ハッシュも忘れて、削除後の再取り込みをスキップさせない。
-        if let hash = receipt.fileHash { knownHashes.remove(hash) }
+        delete(ids: [receipt.id])
+    }
+
+    // 複数選択からの一括削除。
+    func delete(ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        for receipt in receipts where ids.contains(receipt.id) {
+            try? FileManager.default.trashItem(at: receipt.fileURL, resultingItemURL: nil)
+            // ハッシュも忘れて、削除後の再取り込みをスキップさせない。
+            if let hash = receipt.fileHash { knownHashes.remove(hash) }
+        }
+        receipts.removeAll { ids.contains($0.id) }
         save()
     }
 

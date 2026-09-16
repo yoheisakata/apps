@@ -101,9 +101,10 @@ struct ReceiptsTab: View {
 struct ReceiptListView: View {
     @EnvironmentObject var store: ReceiptStore
     @Binding var showImporter: Bool
-    @State private var selection: UUID?
+    @State private var selection = Set<UUID>()
     @State private var yearFilter: Int?
     @State private var categoryFilter: ExpenseCategory?
+    @State private var showBulkDeleteConfirm = false
 
     private var years: [Int] {
         Array(Set(store.receipts.map(\.year))).sorted(by: >)
@@ -141,7 +142,7 @@ struct ReceiptListView: View {
                         else { return }
                         if let y = yearFilter, y != imported.year { yearFilter = nil }
                         if let c = categoryFilter, c != imported.category { categoryFilter = nil }
-                        selection = id
+                        selection = [id]
                         // フィルタ解除やリスト更新が反映された後の runloop でスクロールする。
                         DispatchQueue.main.async {
                             withAnimation {
@@ -154,7 +155,10 @@ struct ReceiptListView: View {
             .frame(minWidth: 300)
 
             Group {
-                if let index = store.receipts.firstIndex(where: { $0.id == selection }) {
+                if selection.count > 1 {
+                    multiSelectionPane
+                } else if let id = selection.first,
+                          let index = store.receipts.firstIndex(where: { $0.id == id }) {
                     ReceiptDetail(receipt: $store.receipts[index])
                 } else {
                     VStack(spacing: 12) {
@@ -169,6 +173,32 @@ struct ReceiptListView: View {
             }
             .frame(minWidth: 360)
         }
+        .confirmationDialog(
+            "選択した \(selection.count) 件を削除しますか？",
+            isPresented: $showBulkDeleteConfirm
+        ) {
+            Button("削除(元画像はゴミ箱へ)", role: .destructive) {
+                store.delete(ids: selection)
+                selection.removeAll()
+            }
+        } message: {
+            Text("記録を削除し、元画像はゴミ箱に移動します。")
+        }
+    }
+
+    // 複数選択時: 一覧の代わりに件数と一括削除ボタンを出す。
+    private var multiSelectionPane: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 44))
+                .foregroundStyle(.tertiary)
+            Text("\(selection.count) 件選択中")
+                .foregroundStyle(.secondary)
+            Button("選択したレシートを削除…", role: .destructive) {
+                showBulkDeleteConfirm = true
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var filterBar: some View {
@@ -190,6 +220,13 @@ struct ReceiptListView: View {
             .frame(maxWidth: 240)
 
             Spacer()
+            if selection.count > 1 {
+                Button(role: .destructive) {
+                    showBulkDeleteConfirm = true
+                } label: {
+                    Label("\(selection.count) 件を削除", systemImage: "trash")
+                }
+            }
             Text("\(filtered.count) 件")
                 .foregroundStyle(.secondary)
                 .font(.callout)
