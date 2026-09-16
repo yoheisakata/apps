@@ -963,6 +963,11 @@ struct HoldingsCard: View {
     var quotes: [String: QuoteService.Quote]
     var quotesUpdated: Date?
 
+    // 含み益にかかる税金の簡易見積もり用の一律税率。連邦の長期キャピタルゲイン税上限
+    // 20%相当を想定した保守的な概算(州税・短期税率・実際の所得水準は考慮しない)。
+    // 損失(含み損)には課税しない。
+    static let capitalGainsTaxRate = 0.20
+
     struct LiveRow: Identifiable {
         var id: String
         var symbol: String
@@ -972,6 +977,11 @@ struct HoldingsCard: View {
         var value: Double    // 時価(現在値があれば 株数×現在値、なければ SimpleFIN の同期値)
         var costBasis: Double
         var gain: Double { value - costBasis }
+        // 概算税額(含み益がある銘柄のみ。取得原価が不明(0)な銘柄は算出不可)。
+        var estimatedTax: Double {
+            costBasis > 0 && gain > 0 ? gain * HoldingsCard.capitalGainsTaxRate : 0
+        }
+        var afterTaxValue: Double { value - estimatedTax }
     }
     struct LiveGroup: Identifiable {
         var id: String { account }
@@ -980,6 +990,8 @@ struct HoldingsCard: View {
         var total: Double { rows.reduce(0) { $0 + $1.value } }
         var costBasis: Double { rows.reduce(0) { $0 + ($1.costBasis > 0 ? $1.costBasis : 0) } }
         var gain: Double { rows.reduce(0) { $0 + ($1.costBasis > 0 ? $1.gain : 0) } }
+        var estimatedTax: Double { rows.reduce(0) { $0 + $1.estimatedTax } }
+        var afterTaxValue: Double { total - estimatedTax }
     }
 
     private var liveGroups: [LiveGroup] {
@@ -1015,8 +1027,9 @@ struct HoldingsCard: View {
         let live = liveGroups
         let count = live.reduce(0) { $0 + $1.rows.count }
         let total = live.reduce(0) { $0 + $1.total }
+        let estimatedTax = live.reduce(0) { $0 + $1.estimatedTax }
         Card(title: "保有銘柄") {
-            HStack {
+            HStack(alignment: .top) {
                 Text("\(live.count)口座 / \(count)銘柄")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -1026,15 +1039,21 @@ struct HoldingsCard: View {
                         .font(.title3.bold())
                         .monospacedDigit()
                     Text("時価合計").font(.caption).foregroundStyle(.secondary)
+                    Text("概算税引後 \(usd(total - estimatedTax))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
-            Grid(alignment: .trailing, horizontalSpacing: 14, verticalSpacing: 7) {
+            Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 7) {
                 GridRow {
                     Text("銘柄").gridColumnAlignment(.leading)
                     Text("株数")
                     Text("現在値")
                     Text("時価")
                     Text("損益")
+                    Text("概算税額")
+                    Text("税引後")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -1056,6 +1075,17 @@ struct HoldingsCard: View {
                         } else {
                             Text("—").foregroundStyle(.secondary)
                         }
+                        if g.estimatedTax > 0 {
+                            Text(usd(g.estimatedTax))
+                                .font(.callout.bold())
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        } else {
+                            Text("—").foregroundStyle(.secondary)
+                        }
+                        Text(usd(g.afterTaxValue))
+                            .font(.callout.bold())
+                            .monospacedDigit()
                     }
                     ForEach(g.rows) { r in
                         GridRow {
@@ -1085,17 +1115,36 @@ struct HoldingsCard: View {
                             } else {
                                 Text("—").foregroundStyle(.secondary)
                             }
+                            if r.estimatedTax > 0 {
+                                Text(usd(r.estimatedTax))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            } else {
+                                Text("—").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Text(usd(r.afterTaxValue))
+                                .font(.caption)
+                                .monospacedDigit()
                         }
                     }
                 }
             }
+            let taxRatePct = HoldingsCard.capitalGainsTaxRate
+                .formatted(.percent.precision(.fractionLength(0)))
             if let t = quotesUpdated {
                 Text("※ 現在値は Yahoo Finance の株価(\(t.formatted(date: .omitted, time: .shortened)) 取得)。"
-                    + "時価・損益は 株数×現在値 で再計算し、現在値のない銘柄は SimpleFIN 同期時点の値です。")
+                    + "時価・損益は 株数×現在値 で再計算し、現在値のない銘柄は SimpleFIN 同期時点の値です。"
+                    + " 概算税額・税引後は含み益に一律\(taxRatePct)を掛けた簡易見積もり"
+                    + "(含み損には課税せず、取得原価が不明な銘柄は税額を出しません。実際の税率は所得水準・州・"
+                    + "保有期間により異なります)。")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else {
-                Text("※ 時価・損益は SimpleFIN の最終同期時点の値です(おおむね1日1回更新)。")
+                Text("※ 時価・損益は SimpleFIN の最終同期時点の値です(おおむね1日1回更新)。"
+                    + " 概算税額・税引後は含み益に一律\(taxRatePct)を掛けた簡易見積もり"
+                    + "(含み損には課税せず、取得原価が不明な銘柄は税額を出しません。実際の税率は所得水準・州・"
+                    + "保有期間により異なります)。")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
