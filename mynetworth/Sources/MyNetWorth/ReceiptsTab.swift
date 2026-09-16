@@ -378,23 +378,42 @@ struct ReceiptDetail: View {
     }
 
     // 購入商品の一覧。items が nil(未解析の旧データ)なら解析ボタンを出す。
+    // 各行の品名・価格はその場で編集でき、変更は receipt の onChange 経由で自動保存される。
     @ViewBuilder
     private var itemsSection: some View {
         Section("購入商品") {
             if let items = receipt.items, !items.isEmpty {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                ForEach(items.indices, id: \.self) { i in
                     HStack {
-                        Text(item.name)
-                        Spacer()
-                        Text(item.price, format: .currency(code: "USD"))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                        TextField("品名", text: Binding(
+                            get: { receipt.items?[i].name ?? "" },
+                            set: { receipt.items?[i].name = $0 }
+                        ))
+                        TextField("価格", value: Binding(
+                            get: { receipt.items?[i].price ?? 0 },
+                            set: { receipt.items?[i].price = $0 }
+                        ), format: .currency(code: "USD"))
+                            .frame(width: 90)
+                            .multilineTextAlignment(.trailing)
+                        Button {
+                            receipt.items?.remove(at: i)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
                     }
                     .font(.callout)
                 }
                 HStack {
-                    Text("商品合計(税抜)").foregroundStyle(.secondary)
+                    Button {
+                        receipt.items?.append(ReceiptItem())
+                    } label: {
+                        Label("商品を追加", systemImage: "plus.circle")
+                    }
+                    .buttonStyle(.borderless)
                     Spacer()
+                    Text("商品合計(税抜)").foregroundStyle(.secondary)
                     Text(items.reduce(0) { $0 + $1.price },
                          format: .currency(code: "USD"))
                         .monospacedDigit()
@@ -417,6 +436,12 @@ struct ReceiptDetail: View {
                             analyzeItems()
                         }
                         .disabled(receipt.ocrText.isEmpty)
+                        Button {
+                            receipt.items = [ReceiptItem()]
+                        } label: {
+                            Label("手入力で追加", systemImage: "plus.circle")
+                        }
+                        .buttonStyle(.borderless)
                     }
                 }
             }
