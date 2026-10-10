@@ -17,11 +17,12 @@ struct Dashboard {
     }
     // メインタブの口座一覧のカテゴリ(表示順)。
     enum AccountCategory: Int, CaseIterable {
-        case bank, fidelity, card, mortgage
+        case bank, fidelity, schwab, card, mortgage
         var title: String {
             switch self {
-            case .bank: return "銀行・株"
+            case .bank: return "銀行"
             case .fidelity: return "Fidelity"
+            case .schwab: return "Schwab"
             case .card: return "クレジットカード"
             case .mortgage: return "モーゲージ"
             }
@@ -189,11 +190,12 @@ struct Dashboard {
         return words.isEmpty ? org : words
     }
 
-    // 口座のカテゴリ推定: モーゲージ → Fidelity → カード → それ以外は銀行。
+    // 口座のカテゴリ推定: モーゲージ → Fidelity → Schwab → カード → それ以外は銀行。
     static func category(_ a: AccountInfo) -> AccountCategory {
         let s = (a.org + " " + a.name).lowercased()
         if s.contains("mortgage") { return .mortgage }
         if a.org.localizedCaseInsensitiveContains("fidelity") { return .fidelity }
+        if a.org.localizedCaseInsensitiveContains("schwab") { return .schwab }
         if s.range(of: "visa|credit|card|カード", options: .regularExpression) != nil {
             return .card
         }

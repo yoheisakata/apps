@@ -196,7 +196,7 @@ struct NetWorthCard: View {
 
     var body: some View {
         let withMortgage = includeMortgage || !d.hasMortgage
-        Card(title: "総資産(純資産)") {
+        Card(title: "総資産") {
             HStack(alignment: .firstTextBaseline) {
                 Text(usd(withMortgage ? d.totalNow : d.totalNowExMortgage))
                     .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -868,8 +868,14 @@ struct DeltaChip: View {
 
 struct AccountsCard: View {
     var groups: [Dashboard.AccountGroup]
+    // 総資産カードの「モーゲージを含める」と連動させ、合計行が総資産と一致するようにする。
+    @AppStorage("includeMortgage") private var includeMortgage = true
 
     var body: some View {
+        let groups = includeMortgage ? self.groups : self.groups.filter { $0.category != .mortgage }
+        let total = groups.reduce(0) { $0 + $1.total }
+        let week = groups.reduce(0) { $0 + $1.week }
+        let month = groups.reduce(0) { $0 + $1.month }
         Card(title: "口座ごとの残高と増減") {
             Grid(alignment: .trailing, horizontalSpacing: 16, verticalSpacing: 7) {
                 GridRow {
@@ -912,6 +918,17 @@ struct AccountsCard: View {
                         }
                     }
                 }
+                Divider()
+                // 合計行(総資産カードの金額・今週・今月と一致する)
+                GridRow {
+                    Text("合計").gridColumnAlignment(.leading)
+                    Text(usd(total)).monospacedDigit()
+                    Text(usdSigned(week)).monospacedDigit()
+                        .foregroundStyle(deltaColor(week))
+                    Text(usdSigned(month)).monospacedDigit()
+                        .foregroundStyle(deltaColor(month))
+                }
+                .font(.callout.bold())
             }
         }
     }
