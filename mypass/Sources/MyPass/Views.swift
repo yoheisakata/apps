@@ -298,7 +298,12 @@ struct MainView: View {
                     Image(systemName: cat.icon)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(entry.title).font(.headline)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.title).font(.headline)
+                        Text("更新: \(entry.modifiedAt.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .tag(entry.id)
             }
@@ -388,7 +393,6 @@ struct ImportAlert: Identifiable {
 struct EntryDetailView: View {
     @EnvironmentObject var vault: VaultModel
     var entry: Entry
-    @State private var showPassword = false
     @State private var showingEdit = false
 
     var body: some View {
@@ -410,9 +414,8 @@ struct EntryDetailView: View {
                     Button("コピー") { ClipboardManager.copy(entry.username) }
                 }
                 HStack {
-                    LabeledContent("パスワード", value: showPassword ? entry.password : String(repeating: "•", count: max(entry.password.count, 8)))
+                    LabeledContent("パスワード", value: entry.password)
                     Spacer()
-                    Button(showPassword ? "隠す" : "表示") { showPassword.toggle() }
                     Button("コピー") { ClipboardManager.copy(entry.password, clearAfter: 30) }
                 }
                 if !entry.hint.isEmpty {
@@ -455,7 +458,6 @@ struct EntryEditView: View {
     @State private var note = ""
     @State private var hint = ""
     @State private var categoryID: UUID?
-    @State private var showPassword = false
 
     private var isNew: Bool { entry == nil }
 
@@ -471,20 +473,7 @@ struct EntryEditView: View {
                 }
             }
             TextField("ログイン名", text: $username).textFieldStyle(.roundedBorder)
-            HStack {
-                if showPassword {
-                    RomanTextField(placeholder: "パスワード", text: $password)
-                } else {
-                    RomanSecureField(placeholder: "パスワード", text: $password)
-                }
-                Button {
-                    showPassword.toggle()
-                } label: {
-                    Image(systemName: showPassword ? "eye.slash" : "eye")
-                }
-                .buttonStyle(.borderless)
-                .help(showPassword ? "パスワードを隠す" : "パスワードを表示")
-            }
+            RomanTextField(placeholder: "パスワード", text: $password)
             TextField("ヒント", text: $hint).textFieldStyle(.roundedBorder)
             TextField("URL", text: $url).textFieldStyle(.roundedBorder)
             TextField("メモ", text: $note, axis: .vertical)
