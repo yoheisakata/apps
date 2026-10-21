@@ -257,6 +257,10 @@ final class SlideshowControlsView: NSView {
                                    target: self, action: #selector(nextTapped))
         let exitButton = NSButton(image: NSImage(systemSymbolName: "xmark", accessibilityDescription: "終了")!,
                                    target: self, action: #selector(exitTapped))
+        prevButton.toolTip = "前へ"
+        nextButton.toolTip = "次へ"
+        exitButton.toolTip = "終了"
+        updatePauseIcon(isPaused: false)
         for b in [prevButton, pauseButton, nextButton, exitButton] {
             b.bezelStyle = .circular
             b.isBordered = false
@@ -311,6 +315,7 @@ final class SlideshowControlsView: NSView {
     func updatePauseIcon(isPaused: Bool) {
         pauseButton.image = NSImage(systemSymbolName: isPaused ? "play.fill" : "pause.fill",
                                      accessibilityDescription: isPaused ? "再開" : "一時停止")
+        pauseButton.toolTip = isPaused ? "再開" : "一時停止"
     }
 
     // MARK: mouse-move reveal / auto-hide

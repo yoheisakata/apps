@@ -3467,6 +3467,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private var viewerIndex = 0
     private var slider: NSSlider!
     private var duplicatesWC: DuplicatesWindowController?
+    /// `duplicatesWC`が検査対象にしている写真のパス集合(チェックが変わったかの判定用)。
+    private var duplicatesScopePaths: Set<String> = []
 
     /// サイドバーが「動画(OD)」/「画像(OD)」タブのとき true。ローカル専用機能(回転・ゴミ箱・
     /// 重複検出・Visionベースのフィルター・画質順ソート)はこの間すべて無効化する
@@ -4209,17 +4211,30 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     }
 
     @objc func findDuplicates(_ sender: Any?) {
-        guard store.rootURL != nil, !store.photos.isEmpty else { return }
+        guard store.rootURL != nil else { return }
+        // 検査対象はサイドバーでチェックしているフォルダの写真だけ(ルート全体ではない)。
+        // グリッド側の日付/人物/種類フィルターは掛けない ― 絞り込みはフォルダ単位のみ。
+        let scope = store.photos(checkedPaths: sidebarVC.checkedPaths, order: .name)
+        guard !scope.isEmpty else { NSSound.beep(); return }
+        let scopePaths = Set(scope.map(\.url.path))
         if let existing = duplicatesWC {
-            existing.window?.makeKeyAndOrderFront(nil)
-            return
+            if scopePaths == duplicatesScopePaths {
+                existing.window?.makeKeyAndOrderFront(nil)
+                return
+            }
+            // チェックを変えてから開き直した場合は、古い範囲の結果を残さず新しい範囲で検出し直す。
+            existing.close()
         }
-        let controller = DuplicatesWindowController(photos: store.photos) { [weak self] removed, failures in
+        let controller = DuplicatesWindowController(photos: scope) { [weak self] removed, failures in
             self?.syncAfterExternalTrash(removed)
             if !failures.isEmpty { self?.showTrashFailureAlert(failures) }
         }
-        controller.onClose = { [weak self] in self?.duplicatesWC = nil }
+        controller.onClose = { [weak self, weak controller] in
+            // 開き直しで先に新しいウインドウが登録されている場合は、それを消さない。
+            if self?.duplicatesWC === controller { self?.duplicatesWC = nil }
+        }
         duplicatesWC = controller
+        duplicatesScopePaths = scopePaths
         controller.showWindow(nil)
     }
 
@@ -4366,7 +4381,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             return isOneDriveMode || store.rootURL != nil
         case #selector(findDuplicates(_:)):
             // 重複検出はローカル専用(SHA-256/dHashでローカルファイルの内容を読む)。
-            return !isOneDriveMode && store.rootURL != nil
+            // 対象はチェック中のフォルダだけなので、何もチェックしていなければ無効。
+            return !isOneDriveMode && store.rootURL != nil && !sidebarVC.checkedPaths.isEmpty
         case #selector(changeSort(_:)):
             menuItem.state = (menuItem.tag == sortOrder.rawValue) ? .on : .off
             if isOneDriveMode {
@@ -4420,6 +4436,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                              target: self, action: #selector(sliderChanged(_:)))
             s.isContinuous = true
             s.widthAnchor.constraint(equalToConstant: 140).isActive = true
+            s.toolTip = item.label
             slider = s
             item.view = s
             return item
@@ -4433,6 +4450,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                                accessibilityDescription: "再読み込み") ?? NSImage(),
                 target: self, action: #selector(refresh(_:)))
             button.bezelStyle = .texturedRounded
+            // マウスを乗せたら機能名を出す(アイコンだけだと何のボタンか分からないため)。
+            button.toolTip = item.label
             item.view = button
             return item
         }
@@ -4445,6 +4464,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                                accessibilityDescription: "フィルター") ?? NSImage(),
                 target: self, action: #selector(toggleFilterPopover(_:)))
             button.bezelStyle = .texturedRounded
+            // マウスを乗せたら機能名を出す(アイコンだけだと何のボタンか分からないため)。
+            button.toolTip = item.label
             item.view = button
             return item
         }
@@ -4457,6 +4478,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                                accessibilityDescription: "並び替え") ?? NSImage(),
                 target: self, action: #selector(toggleSortPopover(_:)))
             button.bezelStyle = .texturedRounded
+            // マウスを乗せたら機能名を出す(アイコンだけだと何のボタンか分からないため)。
+            button.toolTip = item.label
             item.view = button
             return item
         }
@@ -4478,6 +4501,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             button.setButtonType(.pushOnPushOff)
             button.state = showDateBadge ? .on : .off
             dateBadgeButton = button
+            // マウスを乗せたら機能名を出す(アイコンだけだと何のボタンか分からないため)。
+            button.toolTip = item.label
             item.view = button
             return item
         }
@@ -4493,6 +4518,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             button.setButtonType(.pushOnPushOff)
             button.state = showSizeBadge ? .on : .off
             sizeBadgeButton = button
+            // マウスを乗せたら機能名を出す(アイコンだけだと何のボタンか分からないため)。
+            button.toolTip = item.label
             item.view = button
             return item
         }
@@ -4508,6 +4535,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             button.setButtonType(.pushOnPushOff)
             button.state = autoplayNextVideo ? .on : .off
             autoplayNextButton = button
+            // マウスを乗せたら機能名を出す(アイコンだけだと何のボタンか分からないため)。
+            button.toolTip = item.label
             item.view = button
             return item
         }
@@ -4520,6 +4549,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                                accessibilityDescription: "スライドショー") ?? NSImage(),
                 target: self, action: #selector(toggleSlideshowSettingsPopover(_:)))
             button.bezelStyle = .texturedRounded
+            // マウスを乗せたら機能名を出す(アイコンだけだと何のボタンか分からないため)。
+            button.toolTip = item.label
             item.view = button
             return item
         }
