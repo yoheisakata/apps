@@ -24,11 +24,16 @@ INSTALL_DIR="/Applications/MyApplications"
 INSTALLED="${INSTALL_DIR}/MyGallery.app"
 LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 VERSION="$(tr -d ' \n' < "$DIR/VERSION" 2>/dev/null || echo 1.0)"
+# Deployment target is pinned explicitly: on macOS 27 (Darwin 27) swiftc's default
+# triple is "macosx28.0" (it maps Darwin N -> macOS N+1), so an unpinned build gets
+# minos 28.0 and the OS refuses to launch it ("can't use this version … with this
+# version of macOS"). Pre-macOS-27 builds of this app were minos 26.0 (host default).
+MIN_MACOS="26.0"
 
 build() {
   mkdir -p "$DIR/build"
   echo "Building mygallery…"
-  swiftc -O -framework AppKit -framework Vision -framework AVFoundation -framework AVKit \
+  swiftc -O -target "arm64-apple-macosx${MIN_MACOS}" -framework AppKit -framework Vision -framework AVFoundation -framework AVKit \
     -o "$BIN" "$SRC" "$ONEDRIVE_SRC" "$ONEDRIVE_SIDEBAR_SRC" "$SLIDESHOW_SRC"
   echo "Built $BIN"
 }
@@ -83,7 +88,7 @@ build_app() {
   <key>CFBundlePackageType</key>     <string>APPL</string>
   <key>CFBundleExecutable</key>      <string>mygallery</string>
   <key>CFBundleIconFile</key>        <string>AppIcon</string>
-  <key>LSMinimumSystemVersion</key>  <string>11.0</string>
+  <key>LSMinimumSystemVersion</key>  <string>${MIN_MACOS}</string>
   <key>NSHighResolutionCapable</key> <true/>
   <key>NSPrincipalClass</key>        <string>NSApplication</string>
   <key>CFBundleDocumentTypes</key>

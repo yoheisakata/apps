@@ -40,6 +40,13 @@ myslideshow-ipadと同様、pure Foundationのため無変更で動く)。**別�
 (`needs_build`のタイムスタンプ比較が新ファイルを見ていないと`./build.sh`が
 再ビルドをスキップしてしまう)。
 
+**`build.sh`は`swiftc`に`-target arm64-apple-macosx${MIN_MACOS}`(現在26.0)を明示している
+(2026-10-15)** ― macOS 27(Darwin 27)に上げた後、無指定の`swiftc`の既定ターゲットが
+`macosx28.0`になり(Darwin N→macOS N+1と換算するため)、ビルドしたアプリが`minos 28.0`に
+なって「このバージョンのmacOSでは使えません」と起動を拒否された。SPMアプリは
+`Package.swift`の`platforms`で明示しているので影響しないが、`swiftc`直叩きのアプリ
+(このアプリと`mymarkdown/`)は同じ罠を踏む。この`-target`指定は外さないこと。
+
 ## OneDrive + スライドショー機能(2026-09-02、旧MySlideshowから機能統合)
 
 「MySlideshowの機能をMyGalleryに追加してほしい」というユーザー要望への対応。
