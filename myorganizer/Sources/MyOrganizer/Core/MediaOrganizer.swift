@@ -19,6 +19,9 @@ struct OrganizerConfig {
     let dateSources: [(URL) -> ResolvedDate?] // 一次日付ソース（EXIF/QuickTime等）。共有フォールバックはMediaDateResolver側で付与
     let convertHEICToJPG: Bool
     let dryRun: Bool
+    /// 整理先に同名ファイルがありMD5が違うとき、見た目で同じ写真か確かめて画質を比べる(写真整理のみ)。
+    /// 同じ写真でソースが高画質なら整理先を置き換え、画質がほぼ同じ/整理先が上ならスキップしてソースを削除する。
+    var compareImageQuality = false
 }
 
 struct OrganizerResult {
@@ -26,8 +29,9 @@ struct OrganizerResult {
     var skippedDuplicate = 0
     var renamed = 0
     var convertedHEIC = 0
+    var replaced = 0
     var failed = 0
-    var total: Int { moved + skippedDuplicate + renamed + convertedHEIC }
+    var total: Int { moved + skippedDuplicate + renamed + convertedHEIC + replaced }
 }
 
 /// backup-photos.sh / backup-videos.sh の「整理」ステップに相当する共通エンジン。
@@ -80,13 +84,14 @@ enum MediaOrganizer {
         }
 
         let heicPart = config.convertHEICToJPG ? "  HEIC→JPG\(config.dryRun ? "予定" : ""): \(result.convertedHEIC)件" : ""
+        let replacePart = config.compareImageQuality ? "  高画質で置換\(config.dryRun ? "予定" : ""): \(result.replaced)件" : ""
         progress("")
         if config.dryRun {
             progress("=============================== DRY RUN")
-            progress("  移動予定: \(result.moved)件\(heicPart)  スキップ予定(重複): \(result.skippedDuplicate)件  リネーム予定: \(result.renamed)件")
+            progress("  移動予定: \(result.moved)件\(heicPart)  スキップ予定(重複): \(result.skippedDuplicate)件  リネーム予定: \(result.renamed)件\(replacePart)")
         } else {
             progress("===============================")
-            progress("  移動: \(result.moved)件\(heicPart)  スキップ(重複): \(result.skippedDuplicate)件  リネーム: \(result.renamed)件")
+            progress("  移動: \(result.moved)件\(heicPart)  スキップ(重複): \(result.skippedDuplicate)件  リネーム: \(result.renamed)件\(replacePart)")
             if result.failed > 0 {
                 progress("  失敗: \(result.failed)件（詳細は上記の[ERROR]行を参照）")
             }
@@ -129,6 +134,40 @@ enum MediaOrganizer {
         }
     }
 
+    /// 整理先に同名ファイルが既にあるときの扱い
+    private enum Collision {
+        case duplicate(String)  // 同じ写真 → スキップしてソース削除
+        case replace(String)    // 同じ写真でソースが高画質 → 整理先を置き換える
+        case rename             // 別の写真 → _N を付けて追加
+    }
+
+    private static func decideCollision(source: URL, dest: URL, config: OrganizerConfig) -> Collision {
+        // 整理先がOneDriveのクラウド専用ファイルだと、ここでの読み込みがダウンロードを起こす。
+        // 読めなかった(オフライン・タイムアウト等)ときに nil == nil で「重複」扱いになりソースを
+        // 消してしまわないよう、両方読めたときだけ比較する。読めなければ安全側で _N 追加に倒す。
+        guard let srcHash = try? FileHasher.md5(of: source),
+              let destHash = try? FileHasher.md5(of: dest) else { return .rename }
+        if srcHash == destHash {
+            return .duplicate("完全一致")
+        }
+        guard config.compareImageQuality else { return .rename }
+        switch ImageQuality.compare(source: source, dest: dest) {
+        case .differentPhoto: return .rename
+        case .sourceBetter(let detail): return .replace(detail)
+        case .sameOrWorse(let detail): return .duplicate("同じ写真・画質同等以下: \(detail)")
+        }
+    }
+
+    private static func nextFreeName(in dir: URL, ts: String, ext: String, fm: FileManager) -> URL {
+        var n = 1
+        var candidate = dir.appendingPathComponent("\(ts)_\(n).\(ext)")
+        while fm.fileExists(atPath: candidate.path) {
+            n += 1
+            candidate = dir.appendingPathComponent("\(ts)_\(n).\(ext)")
+        }
+        return candidate
+    }
+
     private static func processOne(
         _ file: URL,
         config: OrganizerConfig,
@@ -165,17 +204,15 @@ enum MediaOrganizer {
         if config.dryRun {
             let tag = heicTemp != nil ? "HEIC→JPG " : ""
             if fm.fileExists(atPath: destFile.path) {
-                let same = (try? FileHasher.md5(of: actualFile)) == (try? FileHasher.md5(of: destFile))
-                if same {
+                switch decideCollision(source: actualFile, dest: destFile, config: config) {
+                case .duplicate(let why):
                     result.skippedDuplicate += 1
-                    progress("  SKIP予定 (重複のため): \(file.lastPathComponent)")
-                } else {
-                    var n = 1
-                    var candidate = destDir.appendingPathComponent("\(ts)_\(n).\(ext)")
-                    while fm.fileExists(atPath: candidate.path) {
-                        n += 1
-                        candidate = destDir.appendingPathComponent("\(ts)_\(n).\(ext)")
-                    }
+                    progress("  SKIP予定 (重複のため・\(why)): \(file.lastPathComponent)")
+                case .replace(let detail):
+                    result.replaced += 1
+                    progress("  REPLACE予定 (高画質で置換・\(detail)): \(tag)\(file.lastPathComponent) -> \(year)/\(month)/\(mmdd)/\(newName)")
+                case .rename:
+                    let candidate = nextFreeName(in: destDir, ts: ts, ext: ext, fm: fm)
                     result.renamed += 1
                     progress("  RENAME予定: \(tag)\(file.lastPathComponent) -> \(year)/\(month)/\(mmdd)/\(candidate.lastPathComponent)  [\(resolved.source)]")
                 }
@@ -192,18 +229,26 @@ enum MediaOrganizer {
         try fm.createDirectory(at: destDir, withIntermediateDirectories: true)
 
         if fm.fileExists(atPath: destFile.path) {
-            let same = (try? FileHasher.md5(of: actualFile)) == (try? FileHasher.md5(of: destFile))
-            if same {
+            switch decideCollision(source: actualFile, dest: destFile, config: config) {
+            case .duplicate(let why):
                 removeSource(file, reason: "重複", fm: fm, result: &result, progress: progress)
                 result.skippedDuplicate += 1
-                progress("  SKIP (重複のため): \(file.lastPathComponent)")
-            } else {
-                var n = 1
-                var candidate = destDir.appendingPathComponent("\(ts)_\(n).\(ext)")
-                while fm.fileExists(atPath: candidate.path) {
-                    n += 1
-                    candidate = destDir.appendingPathComponent("\(ts)_\(n).\(ext)")
+                progress("  SKIP (重複のため・\(why)): \(file.lastPathComponent)")
+            case .replace(let detail):
+                // 古い方は完全削除せずゴミ箱へ(復元できるように)
+                try fm.trashItem(at: destFile, resultingItemURL: nil)
+                if fm.fileExists(atPath: destFile.path) {
+                    result.failed += 1
+                    progress("  [ERROR] 整理先をゴミ箱へ移動できませんでした(使用中の可能性): \(destFile.lastPathComponent)")
+                    return
                 }
+                try fm.moveItem(at: actualFile, to: destFile)
+                if heicTemp != nil { removeSource(file, reason: "HEIC変換", fm: fm, result: &result, progress: progress) }
+                result.replaced += 1
+                progress("  REPLACED (高画質で置換・\(detail)): \(file.lastPathComponent) -> \(year)/\(month)/\(mmdd)/\(newName)  [旧ファイルはゴミ箱へ]")
+                await afterMove?(destFile)
+            case .rename:
+                let candidate = nextFreeName(in: destDir, ts: ts, ext: ext, fm: fm)
                 try fm.moveItem(at: actualFile, to: candidate)
                 if heicTemp != nil { removeSource(file, reason: "HEIC変換", fm: fm, result: &result, progress: progress) }
                 result.renamed += 1

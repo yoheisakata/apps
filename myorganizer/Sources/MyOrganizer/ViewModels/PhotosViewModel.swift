@@ -64,7 +64,8 @@ final class PhotosViewModel: ObservableObject {
             extensions: Self.photoExtensions,
             dateSources: [MediaDateResolver.fromSips],
             convertHEICToJPG: true,
-            dryRun: dryRun
+            dryRun: dryRun,
+            compareImageQuality: true
         )
 
         JobRunner.shared.run(kind: .photos, title: dryRun ? "写真整理 (DRY RUN)" : "写真整理") { handle in

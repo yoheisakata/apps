@@ -87,6 +87,19 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
     (`backup-photos.sh`/`backup-videos.sh`が重複実装していたロジックを統合)。
     `afterMove`フックで「移動直後のファイル」を受け取れる(動画整理がここにH.265エンコードを
     差し込み、移動とエンコードを1ファイルずつ交互に行う)。`async throws`。
+    **同名ファイルの画質比較(2026-10-16、写真整理のみ)**: `OrganizerConfig.compareImageQuality`
+    (既定false、`PhotosViewModel`だけがtrue)をONにすると、整理先に同名ファイルがありMD5が
+    違うとき`Core/ImageQuality.swift`の`ImageQuality.compare`で判定する。同じ秒の連写は
+    同名になるため、まず縦横比+dHash(距離`MatchLevel.strict`=2以内)で「同じ写真か」を確かめ、
+    別の写真なら従来どおり`_N`付きで追加。同じ写真なら画質を比べ、ソースの画素数が5%超多い
+    (または画素数がほぼ同じでファイルサイズが20%超大きい)ときだけ整理先をゴミ箱へ移して
+    ソースで置き換える(`replaced`件数)。画質がほぼ同じ/整理先の方が上ならMD5一致時と同じく
+    スキップしてソースを削除する。動画整理はfalseのまま(ImageIOで動画は比較できないため)。
+    整理先はOneDrive同期フォルダ(既定`~/Library/CloudStorage/OneDrive-Personal/s-leo/photo`)のため、
+    クラウド専用(未ダウンロード)ファイルはMD5/ImageIOで読んだ時点でFile Providerが
+    オンデマンドでダウンロードする(衝突したファイルだけ、1枚ずつ)。読めなかった場合
+    (オフライン・タイムアウト)は`decideCollision`が安全側の`.rename`を返す — 以前は
+    `try? md5 == try? md5`で両方nilだと「重複」と判定されソースを削除し得たため修正した。
   - `MediaDateResolver.swift` — 日付推定の5段階フォールバック。一次ソース(EXIF=sips /
     QuickTime=ffprobe)だけ呼び出し側が渡す。ファイル名フォールバック(`fromFileName`)のうち
     iOSが生成する`YYYYMMDD_HHmmssSSS_iOS`形式(例: `20210120_205244217_iOS.heic`)は、
