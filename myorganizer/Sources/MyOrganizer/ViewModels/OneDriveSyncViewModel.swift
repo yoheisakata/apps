@@ -218,8 +218,11 @@ final class OneDriveSyncViewModel: ObservableObject {
         JobRunner.shared.run(kind: .oneDriveSync, title: "OneDrive同期差分確認") { [weak self] handle in
             var collected: [FolderDiffResult] = []
             var changes: [FileChange] = []
-            for name in names {
+            for (index, name) in names.enumerated() {
                 try Task.checkCancellation()
+                handle.setOverallProgress(Double(index) / Double(names.count))
+                handle.setOverallDetail("\(index) / \(names.count)フォルダ確認済み")
+                handle.setDetail(name)
                 handle.appendLog("\n### \(name) ###")
                 let diff = try await RsyncSync.checkDiff(
                     source: source.appendingPathComponent(name),
@@ -284,20 +287,30 @@ final class OneDriveSyncViewModel: ObservableObject {
         let target = URL(fileURLWithPath: targetRoot)
         // 差分確認時に対象とした(=ユーザーが確認ダイアログで見た)サブフォルダのみを同期する。
         let names = results.map { $0.name }
+        let diffs = results.map { $0.diff }
         let sizeOnly = self.sizeOnly
 
         JobRunner.shared.run(kind: .oneDriveSync, title: "OneDrive同期実行") { [weak self] handle in
+            // 差分確認で出た転送予定ファイルのサイズから全体量を見積もる(ファイル数が多いと
+            // stat に時間がかかるためMainActorの外で行う)。
+            let items = zip(names, diffs).map { (folder: $0, source: source.appendingPathComponent($0), diff: $1) }
+            let tracker = await Task.detached { SyncProgressTracker(items: items) }.value
             var failedNames: [String] = []
             for name in names {
                 try Task.checkCancellation()
                 handle.appendLog("\n### \(name) ###")
+                tracker.beginFolder(name)
                 let exitCode = try await RsyncSync.sync(
                     source: source.appendingPathComponent(name),
                     target: target.appendingPathComponent(name),
                     sizeOnly: sizeOnly,
-                    progress: { handle.appendLog($0) },
+                    progress: { line in
+                        handle.appendLog(line)
+                        tracker.feed(line)?.report(to: handle)
+                    },
                     onCancel: { handle.onCancel($0) }
                 )
+                tracker.endFolder().report(to: handle)
                 // exitCode 0 は全ファイル転送成功。OneDriveのクラウド専用ファイルはrsyncが
                 // 読もうとした瞬間にダウンロードが走るため、ダウンロードが間に合わないと
                 // 「read errors mapping ... Operation timed out」で一部ファイルだけ転送失敗し、

@@ -29,7 +29,7 @@ struct StatusBarView: View {
                             .truncationMode(.middle)
                     }
                     if !jobRunner.overallDetail.isEmpty {
-                        Text("全体: \(jobRunner.overallDetail)")
+                        Text("全体: " + (jobRunner.overallProgress.map { "\(Int($0 * 100))% · " } ?? "") + jobRunner.overallDetail)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

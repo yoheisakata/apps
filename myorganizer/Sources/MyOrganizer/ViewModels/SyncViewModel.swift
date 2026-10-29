@@ -68,13 +68,22 @@ final class SyncViewModel: ObservableObject {
         showConfirm = false
         let source = URL(fileURLWithPath: sourcePath)
         let target = URL(fileURLWithPath: targetPath)
+        let diff = lastDiff ?? SyncDiff()
 
         JobRunner.shared.run(kind: .sync, title: "同期実行") { handle in
+            // 差分確認で出た転送予定ファイルのサイズから全体量を見積もる(MainActorの外で stat する)。
+            let tracker = await Task.detached {
+                SyncProgressTracker(items: [(folder: "", source: source, diff: diff)])
+            }.value
             _ = try await RsyncSync.sync(
                 source: source, target: target,
-                progress: { handle.appendLog($0) },
+                progress: { line in
+                    handle.appendLog(line)
+                    tracker.feed(line)?.report(to: handle)
+                },
                 onCancel: { handle.onCancel($0) }
             )
+            tracker.endFolder().report(to: handle)
         }
     }
 

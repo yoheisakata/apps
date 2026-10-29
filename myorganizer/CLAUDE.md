@@ -347,6 +347,21 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
     H.265が無ければ全体でサイズ最大を残す固定ルール(ユーザー選択式ではない)。
   - `RsyncSync.swift` — rsyncのdry-run差分パース・実同期・レポート生成。実削除を伴う
     ため呼び出し側(SyncViewModel)は必ず差分確認→ユーザー確認→実行の順を守ること。
+  - `SyncProgressTracker.swift` — 同期実行中の全体進捗・速度・残り時間の推定(2026-10-21)。
+    差分確認(dry-run)の`addedLines`+`modifiedLines`の各ファイルをソース側で`stat`して総バイト数とし
+    (OneDriveのクラウド専用ファイルも論理サイズが取れる)、`rsync --progress`の出力のうち
+    「ファイル名だけの行」(転送予定に含まれるものだけ拾う)と「` 30,000,000 100% ...`」形式の
+    進捗行(`xfr#`付きが1ファイル完了)から転送済みバイトを積み上げる。残り時間は
+    「開始からの平均速度」で残りバイトを割る単純な線形外挿で、開始3秒未満は出さない。
+    更新ファイルのrsync差分転送や差分確認後のファイル変化があるため推定値。`endFolder()`は
+    出力から拾えなかった残り(転送失敗・スキップ)も処理済み扱いにし、全体%が途中で止まらないように
+    する。`feed`は0.5秒間隔に間引いてSnapshotを返し、`Snapshot.report(to:)`が`JobRunner.Handle`の
+    overall/通常の進捗(現在のファイル%・ファイル名)へ流す。rsyncはパイプ出力でも約1秒ごとに
+    進捗行を出すことを実機で確認済み(大きい動画1本の転送中も%が進む)。汎用「同期」
+    (`SyncViewModel.confirmSync`、`lastDiff`を使う)とOneDrive同期(`confirmSync`、フォルダごとに
+    `beginFolder`/`endFolder`)の両方が使う。OneDrive同期の差分確認(`checkDiff`)はdry-runで量が
+    分からないため、確認済みフォルダ数/全フォルダ数だけを全体進捗に出す。`StatusBarView`の
+    「全体:」行にも全体%を前置するようにした。
   - `ShortClipFinder.swift` — 長さ解析・レポート/M3U生成。`play(_:)`はプレイリスト(.m3u)・
     単体動画ファイルどちらのURLも受け取れる共通の再生関数(iina/mpv/vlcのいずれかがあれば
     それで開き、無ければ`NSWorkspace.shared.open`でデフォルトアプリに委ねる)。
