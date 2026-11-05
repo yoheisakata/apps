@@ -65,7 +65,7 @@ h1{font-size:1.35rem;margin-bottom:2px;}
   <a class="back" href="../../">← ホームへ</a>
   <h1>🤖 GenAI Developer Pro クイズ</h1>
   <div class="sub">AWS Certified Generative AI Developer – Professional (AIP-C01) 対策</div>
-  <div class="app-version">v1.0.0</div>
+  <div class="app-version">v1.1.0</div>
 
   <button class="btn primary" onclick="startRandom(10)">ランダム 10問<small>全ドメインからランダムに出題</small></button>
   <button class="btn primary" onclick="startRandom(20)">ランダム 20問<small>しっかり腕試し</small></button>
@@ -239,7 +239,38 @@ var Q=[
  e:"代表的な入出力のゴールデンセットで継続的に評価(CI)することで、プロンプトやモデル変更の影響を定量的に把握できます。"},
 {d:4,q:"応答の事実誤り(ハルシネーション)を減らすための手段として適切でないものは？",
  c:["温度を最大にして創造性を上げる","RAG で根拠を与える","コンテキスト根拠チェックを使う","「根拠がなければ分からないと答える」よう指示する"],a:0,
- e:"温度を上げるとむしろ出力が不安定になります。根拠の提供、根拠チェック、回答拒否の指示、低めの温度などが有効です。"}
+ e:"温度を上げるとむしろ出力が不安定になります。根拠の提供、根拠チェック、回答拒否の指示、低めの温度などが有効です。"},
+// ---- 追加(v1.1.0): データ/AIガバナンス・試験対策 ----
+{d:2,q:"モデルの用途・想定リスク・学習データ・評価結果などを標準化して文書化し、監査や社内レビューで共有したい。SageMaker の機能で最も適切なのは？",
+ c:["SageMaker Model Cards","SageMaker Debugger","SageMaker Autopilot","SageMaker Ground Truth"],a:0,
+ e:"Model Cards はモデルの意図した用途、リスク評価、学習・評価の詳細を一元的に記録でき、ガバナンスや監査対応に使います。"},
+{d:2,q:"モデルのバージョンを管理し、「承認済み」になったものだけを本番へデプロイする承認ワークフローを組みたい。使う機能は？",
+ c:["SageMaker Model Registry","Amazon S3 のバージョニングのみ","AWS Config","Amazon Athena"],a:0,
+ e:"Model Registry でモデルバージョンをグループ管理し、承認ステータス(Approved/Rejected 等)を CI/CD のゲートに使えます。"},
+{d:2,q:"データサイエンティスト・MLOps エンジニアなどの職務ごとに、最小権限の IAM ロールを素早く作成したい。SageMaker の機能は？",
+ c:["SageMaker Role Manager","IAM Access Analyzer のみ","AWS Organizations の SCP のみ","Amazon Cognito"],a:0,
+ e:"Role Manager はペルソナ(職務)ごとの事前定義テンプレートから、ML 作業に必要な最小権限の IAM ロールを生成します。"},
+{d:2,q:"学習データやモデル予測のバイアスを検出し、予測の根拠(特徴量の寄与)を説明したい。使うサービス機能は？",
+ c:["SageMaker Clarify","SageMaker Pipelines","AWS Glue DataBrew","Amazon Rekognition"],a:0,
+ e:"SageMaker Clarify は学習前後のバイアス指標の算出と、SHAP 等による説明可能性(特徴量の重要度)を提供します。"},
+{d:4,q:"本番にデプロイしたモデルの入力データの分布が学習時から変化(ドリフト)していないか継続監視したい。適切なのは？",
+ c:["SageMaker Model Monitor","AWS CloudFormation ドリフト検出","Amazon Inspector","AWS Trusted Advisor"],a:0,
+ e:"Model Monitor はデータ品質・モデル品質・バイアス・特徴量寄与のドリフトを定期的に監視し、違反を CloudWatch へ通知できます。"},
+{d:2,q:"「どのデータセットとコードから、このモデルが作られたか」を後から追跡して説明できるようにしたい。必要な仕組みは？",
+ c:["ML リネージ(系統)トラッキング","CloudWatch アラーム","VPC フローログ","Route 53 ヘルスチェック"],a:0,
+ e:"SageMaker のリネージトラッキングで、データ・ジョブ・モデル・エンドポイント間の関係を記録し、再現性と監査性を確保します。"},
+{d:0,q:"組織内のデータ資産をカタログ化し、利用者が検索して申請→データオーナーが承認する形で共有するガバナンスを実現したい。適切なのは？",
+ c:["Amazon SageMaker Catalog(Amazon DataZone ベース)","Amazon Route 53","AWS Snapshot","Amazon SQS"],a:0,
+ e:"SageMaker Catalog / DataZone はデータの発見・サブスクリプション申請と承認・アクセス権付与を一元管理するデータガバナンス機能です。"},
+{d:2,q:"RAG の取り込み元となる S3 バケット内の個人情報(PII)を、取り込み前に自動で発見・分類したい。適切なサービスは？",
+ c:["Amazon Macie","AWS WAF","Amazon GuardDuty","AWS Shield"],a:0,
+ e:"Macie は S3 内の機密データ(PII など)を機械学習で検出・分類します。取り込み前の検査や除外に有効です。"},
+{d:3,q:"Bedrock の全リクエスト/レスポンス(プロンプトと生成結果)を監査・分析用に保存したい。有効化するものは？",
+ c:["モデル呼び出しログ(Model invocation logging)を S3/CloudWatch Logs へ出力","VPC のサブネットを増やす","IAM ユーザーを共有する","ログは取得できないので諦める"],a:0,
+ e:"Model invocation logging で入出力を S3 や CloudWatch Logs に記録できます。API 操作の監査には別途 CloudTrail を併用します。"},
+{d:3,q:"プロンプトテンプレートを一元管理し、バージョン管理して複数アプリから再利用したい。Bedrock の機能は？",
+ c:["Amazon Bedrock Prompt Management","Bedrock Guardrails","Bedrock Model Evaluation","Bedrock Provisioned Throughput"],a:0,
+ e:"Prompt Management でプロンプトを作成・バージョン管理し、アプリから参照できます。変更履歴の管理や比較にも役立ちます。"}
 ];
 
 var KEY="genaiquiz-v1";
