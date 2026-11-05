@@ -65,6 +65,12 @@ h1{font-size:1.35rem;margin-bottom:2px;}
 .dg th{background:var(--card2);color:var(--accent2);font-weight:600;}
 .dg th,.dg td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top;}
 .dg tr.hl td{background:rgba(34,197,94,.14);}
+.dg svg{width:100%;height:auto;display:block;}
+.dg .nl{font-size:10.5px;fill:var(--text);}
+.dg .el{font-size:9.5px;fill:var(--accent);paint-order:stroke;stroke:var(--card);stroke-width:3px;}
+.dg .gt{font-size:10px;font-weight:700;}
+.dg .gn{font-size:.7rem;color:var(--dim);margin-top:6px;}
+.st{background:linear-gradient(135deg,var(--card2),#22305a);box-shadow:0 1px 0 rgba(255,255,255,.04) inset;}
 </style>
 </head>
 <body>
@@ -75,7 +81,7 @@ h1{font-size:1.35rem;margin-bottom:2px;}
   <a class="back" href="../../">← ホームへ</a>
   <h1>🤖 GenAI Developer Pro クイズ</h1>
   <div class="sub">AWS Certified Generative AI Developer – Professional (AIP-C01) 対策</div>
-  <div class="app-version">v1.2.0</div>
+  <div class="app-version">v1.3.0</div>
 
   <button class="btn primary" onclick="startRandom(10)">ランダム 10問<small>全ドメインからランダムに出題</small></button>
   <button class="btn primary" onclick="startRandom(20)">ランダム 20問<small>しっかり腕試し</small></button>
@@ -440,6 +446,118 @@ var X=[
  g:[C("Bedrock 機能の役割",["機能","役割"],[["Prompt Management","プロンプトの管理 ✔"],["Guardrails","安全制御"],["Model Evaluation","品質評価"],["Provisioned Throughput","キャパシティ"]],0)]}
 ];
 
+// ---- SVG 図(アーキテクチャ図 A / シーケンス図 S / 棒グラフ B)。XA の指定した問題で、最初のフロー図 F を置き換える ----
+// A(見出し, 列数, 行数, ノード[[id,"1行目/2行目",絵文字,列,行,種類]], 矢印[[from,to,ラベル,"d"=破線 / "x"=NG]], グループ[[タイトル,列1,行1,列2,行2,種類]])
+// 種類: u=利用者 a=AWS m=モデル d=データ s=セキュリティ x=NG n=その他
+function A(h,cols,rows,nodes,edges,groups){return {t:"a",h:h,cols:cols,rows:rows,n:nodes,e:edges||[],gr:groups||[]};}
+function S(h,actors,msgs){return {t:"s",h:h,a:actors,m:msgs};}
+function B(h,rows,note){return {t:"b",h:h,r:rows,note:note};}
+var KC={u:"#38bdf8",a:"#ff9900",m:"#a78bfa",d:"#22c55e",s:"#f472b6",x:"#ef4444",n:"#8d9bc4"};
+function svgA(g){
+  var CW=g.cols>3?100:124,RH=88,NW=CW-(g.cols>3?22:32),NH=58,X0=6,Y0=36,P={};
+  var W=g.cols*CW+X0*2,H=g.rows*RH+Y0+4;
+  g.n.forEach(function(n){P[n[0]]={x:X0+n[3]*CW+CW/2,y:Y0+n[4]*RH+NH/2,n:n};});
+  var o='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img"><defs>'+
+   '<marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff9900"/></marker>'+
+   '<marker id="ax" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ef4444"/></marker></defs>';
+  g.gr.forEach(function(r){var c=KC[r[5]||"n"],x=X0+r[1]*CW+2,y=Y0+r[2]*RH-28,w=(r[3]-r[1]+1)*CW-4,hh=(r[4]-r[2])*RH+NH+36;
+    o+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+hh+'" rx="12" fill="'+c+'" fill-opacity=".07" stroke="'+c+'" stroke-opacity=".7" stroke-dasharray="5 4"/><text x="'+(x+8)+'" y="'+(y+12)+'" class="gt" fill="'+c+'">'+esc(r[0])+'</text>';});
+  g.e.forEach(function(e){
+    var a=P[e[0]],b=P[e[1]],bad=e[3]==="x",c=bad?"#ef4444":"#ff9900",d,mx,my;
+    if(Math.abs(a.y-b.y)<1){var dir=b.x>a.x?1:-1;var x1=a.x+dir*NW/2,x2=b.x-dir*NW/2;d="M"+x1+" "+a.y+"L"+x2+" "+b.y;mx=(x1+x2)/2;my=a.y-NH/2-4;}
+    else if(Math.abs(a.x-b.x)<1){var dv=b.y>a.y?1:-1;var y1=a.y+dv*NH/2,y2=b.y-dv*NH/2;d="M"+a.x+" "+y1+"L"+b.x+" "+y2;mx=a.x+4;my=(y1+y2)/2+4;}
+    else{var dv2=b.y>a.y?1:-1;var ys=a.y+dv2*NH/2,ye=b.y-dv2*NH/2,ym=(ys+ye)/2;d="M"+a.x+" "+ys+"L"+a.x+" "+ym+"L"+b.x+" "+ym+"L"+b.x+" "+ye;mx=(a.x+b.x)/2;my=ym-4;}
+    o+='<path d="'+d+'" fill="none" stroke="'+c+'" stroke-width="1.6"'+((e[3]==="d"||bad)?' stroke-dasharray="4 3"':'')+' marker-end="url(#'+(bad?'ax':'ah')+')"/>';
+    if(e[2])o+='<text x="'+mx+'" y="'+my+'" text-anchor="middle" class="el">'+esc(e[2])+'</text>';
+  });
+  g.n.forEach(function(n){var p=P[n[0]],c=KC[n[5]||"n"],ls=n[1].split("/");
+    o+='<rect x="'+(p.x-NW/2)+'" y="'+(p.y-NH/2)+'" width="'+NW+'" height="'+NH+'" rx="10" fill="'+c+'" fill-opacity=".16" stroke="'+c+'" stroke-width="1.4"/>'+
+     '<text x="'+p.x+'" y="'+(p.y-NH/2+19)+'" text-anchor="middle" font-size="16">'+n[2]+'</text>';
+    ls.forEach(function(l,i){var w=0;for(var ci=0;ci<l.length;ci++)w+=l.charCodeAt(ci)>255?1:.56;var fs=Math.min(10.5,(NW-8)/Math.max(w,1));o+='<text x="'+p.x+'" y="'+(p.y-NH/2+33+i*12)+'" text-anchor="middle" class="nl" style="font-size:'+fs.toFixed(1)+'px">'+esc(l)+'</text>';});});
+  return o+'</svg>';
+}
+function svgS(g){
+  var n=g.a.length,CW=340/n,X0=10,H=60+g.m.length*34+10,pos={};
+  var o='<svg viewBox="0 0 360 '+H+'" xmlns="http://www.w3.org/2000/svg" role="img"><defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ff9900"/></marker></defs>';
+  g.a.forEach(function(a,i){var x=X0+CW*i+CW/2;pos[a[0]]=x;
+    o+='<line x1="'+x+'" y1="40" x2="'+x+'" y2="'+(H-6)+'" stroke="#2a3a63" stroke-dasharray="3 4"/>'+
+     '<rect x="'+(x-CW/2+4)+'" y="4" width="'+(CW-8)+'" height="34" rx="9" fill="'+KC[a[3]||"n"]+'" fill-opacity=".18" stroke="'+KC[a[3]||"n"]+'"/>'+
+     '<text x="'+x+'" y="17" text-anchor="middle" font-size="12">'+a[2]+'</text><text x="'+x+'" y="31" text-anchor="middle" class="nl">'+esc(a[1])+'</text>';});
+  g.m.forEach(function(m,i){var y=64+i*34,x1=pos[m[0]],x2=pos[m[1]],self=m[0]===m[1];
+    if(self){o+='<path d="M'+x1+' '+y+'h22v16h-22" fill="none" stroke="#ff9900" stroke-width="1.5" marker-end="url(#ah)"/><text x="'+(x1+26)+'" y="'+(y+9)+'" class="el" text-anchor="start">'+esc(m[2])+'</text>';}
+    else{o+='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#ff9900" stroke-width="1.5"'+(m[3]==="d"?' stroke-dasharray="4 3"':'')+' marker-end="url(#ah)"/><text x="'+((x1+x2)/2)+'" y="'+(y-5)+'" text-anchor="middle" class="el">'+esc(m[2])+'</text>';}});
+  return o+'</svg>';
+}
+function svgB(g){
+  var mx=Math.max.apply(null,g.r.map(function(r){return r[1];})),H=g.r.length*34+8;
+  var o='<svg viewBox="0 0 360 '+H+'" xmlns="http://www.w3.org/2000/svg" role="img">';
+  g.r.forEach(function(r,i){var y=4+i*34,w=Math.max(6,r[1]/mx*190);
+    o+='<text x="4" y="'+(y+16)+'" class="nl" text-anchor="start">'+esc(r[0])+'</text><rect x="110" y="'+y+'" width="'+w+'" height="22" rx="6" fill="'+KC[r[3]||"a"]+'" fill-opacity=".75"/><text x="'+(116+w)+'" y="'+(y+16)+'" class="el" text-anchor="start">'+esc(r[2])+'</text>';});
+  return o+'</svg>'+(g.note?'<div class="gn">'+esc(g.note)+'</div>':'');
+}
+
+// ---- 図の差し替え(添字は Q と同じ) ----
+function XG(i,spec){var g=X[i].g,k=-1;for(var j=0;j<g.length;j++){if(g[j].t==="f"){k=j;break;}}if(k<0)g.unshift(spec);else g[k]=spec;}
+XG(0,A("Knowledge Bases の全体像",3,3,
+ [["s3","データソース/S3・Web","📁",0,0,"d"],["ch","チャンク分割/＋メタデータ","✂️",1,0,"a"],["em","埋め込み/Titan など","🧮",2,0,"m"],
+  ["vs","ベクトルストア/OpenSearch等","🗄️",2,1,"d"],["u","ユーザー/質問","🧑",0,2,"u"],["rt","検索/Retrieve","🔎",1,2,"a"],["fm","FM/回答生成","🤖",2,2,"m"]],
+ [["s3","ch"],["ch","em"],["em","vs","保存"],["u","rt","質問"],["rt","vs","類似検索","d"],["rt","fm","根拠＋質問"]],
+ [["① 取り込み(同期)",0,0,2,0,"a"],["② 質問時",0,2,2,2,"u"]]));
+XG(3,A("階層的チャンキングの検索",3,3,
+ [["doc","文書/全体","📄",0,0,"n"],["par","親チャンク/広い文脈","📚",1,0,"d"],["chi","子チャンク/検索対象","🔖",2,0,"a"],
+  ["q","質問/","🧑",2,2,"u"],["hit","ヒットした子/高精度","🎯",2,1,"a"],["llm","LLM/親を渡す","🤖",1,2,"m"]],
+ [["doc","par","分割"],["par","chi","さらに分割"],["q","hit","ベクトル検索"],["hit","par","親を引く","d"],["par","llm","広い文脈で回答"]]));
+XG(4,A("ハイブリッド検索",3,3,
+ [["q","質問/","🧑",0,1,"u"],["kw","キーワード/BM25","🔤",1,0,"a"],["vc","ベクトル/意味検索","🧮",1,2,"m"],["mg","結果を統合/＋リランク","⚖️",2,1,"d"]],
+ [["q","kw","型番・固有名詞"],["q","vc","言い換え・意味"],["kw","mg"],["vc","mg"]]));
+XG(5,A("クロスリージョン推論",3,3,
+ [["app","アプリ/プロファイルID","📱",0,1,"u"],["rt","推論プロファイル/自動ルーティング","🧭",1,1,"a"],["ra","リージョン A/","🅰️",2,0,"m"],["rb","リージョン B/","🅱️",2,1,"m"],["rc","リージョン C/","©️",2,2,"m"]],
+ [["app","rt"],["rt","ra","空き"],["rt","rb"],["rt","rc"]],[["Bedrock(複数リージョン)",2,0,2,2,"m"]]));
+XG(7,A("PrivateLink でインターネットを通さない",3,2,
+ [["app","アプリ/プライベート側","🖥️",0,0,"u"],["ep","VPCエンドポイント/PrivateLink","🔒",1,0,"s"],["br","Amazon Bedrock/","🤖",2,0,"m"],["ig","IGW/NAT","🌐",1,1,"x"]],
+ [["app","ep","プライベートIP"],["ep","br","AWS内部網"],["app","ig","通さない","x"]],[["VPC",0,0,1,1,"a"]]));
+XG(8,A("Bedrock Agents の実行フロー",3,3,
+ [["u","ユーザー/依頼","🧑",0,0,"u"],["ag","エージェント/FMが推論","🤖",1,0,"m"],["ag2","アクショングループ/OpenAPI","📋",2,0,"a"],
+  ["la","Lambda/処理を実行","λ",2,1,"a"],["api","外部API/DB","🗄️",2,2,"d"],["ans","最終回答/","💬",0,1,"u"]],
+ [["u","ag"],["ag","ag2","操作を選択"],["ag2","la"],["la","api"],["ag","ans","結果を受けて","d"]]));
+XG(11,S("ツール使用(Converse API)の往復",[["app","アプリ","📱","u"],["fm","モデル","🤖","m"],["tool","ツール/API","🛠️","d"]],
+ [["app","fm","質問＋ツール定義"],["fm","app","toolUse(関数名,引数)","d"],["app","tool","アプリが実行"],["tool","app","結果","d"],["app","fm","toolResult を返す"],["fm","app","最終回答","d"]]));
+XG(12,A("Bedrock Flows の例",3,3,
+ [["in","入力/","📥",0,0,"u"],["pr","プロンプト/質問を分類","📝",1,0,"m"],["cd","条件分岐/","🔀",2,0,"a"],["kb","ナレッジベース/検索","🗄️",1,1,"d"],["m2","別モデル/","🤖",2,1,"m"],["out","出力/","📤",1,2,"u"]],
+ [["in","pr"],["pr","cd"],["cd","kb","FAQ"],["cd","m2","その他"],["kb","out"],["m2","out","","d"]]));
+XG(14,A("Step Functions + Bedrock",3,3,
+ [["in","入力/","📥",0,0,"u"],["sum","Bedrock/要約(InvokeModel)","🤖",1,0,"m"],["ch","Choice/重要度は高い?","🔀",2,0,"a"],["hu","人手承認/待機","🙋",2,1,"s"],["no","通知/","📣",1,2,"u"],["er","Retry/Catch","♻️",0,1,"n"]],
+ [["in","sum"],["sum","ch"],["ch","hu","高"],["hu","no","承認"],["ch","no","低","d"],["sum","er","失敗","d"]]));
+XG(15,A("MCP の構成",3,2,
+ [["cl","LLMアプリ/MCPクライアント","🤖",0,0,"m"],["sv","MCPサーバー/ツールを公開","🔌",1,0,"a"],["t1","社内API/","🛠️",2,0,"d"],["t2","DB/SaaS","🗄️",2,1,"d"]],
+ [["cl","sv","MCP"],["sv","t1"],["sv","t2"]]));
+XG(16,A("Guardrails の適用位置",3,2,
+ [["u","ユーザー/入力","🧑",0,0,"u"],["gi","入力ガード/拒否トピック・PII","🛡️",1,0,"s"],["fm","FM/推論","🤖",2,0,"m"],["go","出力ガード/有害・根拠","🛡️",2,1,"s"],["res","応答/","💬",0,1,"u"]],
+ [["u","gi"],["gi","fm","通過"],["fm","go"],["go","res","安全な応答"]]));
+XG(18,A("ApplyGuardrail(FM 呼び出しなし)",3,2,
+ [["tx","任意のテキスト/他社モデル出力","📝",0,0,"n"],["ag","ApplyGuardrail/API","🛡️",1,0,"s"],["rs","判定/通過 or 介入","⚖️",2,0,"a"],["ap","アプリ/結果で処理","📱",2,1,"u"]],
+ [["tx","ag"],["ag","rs"],["rs","ap"]]));
+XG(25,A("バッチ推論",3,1,
+ [["in","S3 入力/JSONL","📥",0,0,"d"],["jb","バッチジョブ/非同期","⚙️",1,0,"a"],["out","S3 出力/JSONL","📤",2,0,"d"]],
+ [["in","jb","作成"],["jb","out","結果"]]));
+XG(27,A("Intelligent Prompt Routing",3,3,
+ [["p","プロンプト/","🧑",0,1,"u"],["rt","ルーター/複雑さを判定","🧭",1,1,"a"],["sm","小型モデル/安価・高速","🐇",2,0,"m"],["lg","大型モデル/高性能","🐘",2,2,"m"]],
+ [["p","rt"],["rt","sm","簡単"],["rt","lg","複雑"]]));
+XG(29,A("セマンティックキャッシュ",3,3,
+ [["q","質問/","🧑",0,1,"u"],["em","埋め込み/ベクトル化","🧮",1,0,"m"],["ca","キャッシュ/類似検索","⚡",1,1,"d"],["hit","保存済み応答/ヒット","✅",2,0,"d"],["fm","FM呼び出し/ミス→保存","🤖",2,2,"m"]],
+ [["q","em"],["em","ca"],["ca","hit","類似度 高"],["ca","fm","低","d"]]));
+XG(41,A("モデルの承認ワークフロー",3,2,
+ [["tr","学習ジョブ/","🏋️",0,0,"a"],["rg","Model Registry/Pending","📦",1,0,"d"],["ap","レビュー/Approved","✅",2,0,"s"],["ev","EventBridge/","📡",2,1,"a"],["dp","デプロイ/本番EP","🚀",1,1,"m"]],
+ [["tr","rg","登録"],["rg","ap","承認"],["ap","ev"],["ev","dp","CI/CD"]]));
+XG(44,A("Model Monitor によるドリフト監視",3,2,
+ [["bl","ベースライン/学習データ統計","📏",0,0,"d"],["ep","エンドポイント/入出力キャプチャ","🌐",1,0,"m"],["jb","監視ジョブ/定期比較","⚙️",2,0,"a"],["cw","CloudWatch/アラーム","🔔",2,1,"s"],["rt","再学習/検討","🔁",1,1,"u"]],
+ [["bl","jb","基準"],["ep","jb","実測"],["jb","cw","違反"],["cw","rt"]]));
+XG(45,A("ML リネージ(系統)",4,1,
+ [["ds","データ/セット","📊",0,0,"d"],["pj","処理/ジョブ","⚙️",1,0,"a"],["tj","学習/ジョブ","🏋️",2,0,"a"],["md","モデル/→EP","📦",3,0,"m"]],
+ [["ds","pj"],["pj","tj"],["tj","md"]]));
+X[0].g=X[0].g.filter(function(g){return g.t!=="f";});
+XG(34,B("指数バックオフの待ち時間(例)",[["1回目の失敗後",1,"約1秒"],["2回目",2,"約2秒"],["3回目",4,"約4秒"],["4回目",8,"約8秒"]],"各待ち時間にランダムなジッターを加え、再送の集中を避けます。"));
+
 var KEY="genaiquiz-v1";
 var S=load();
 function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.wrong)return s;}catch(e){}return {wrong:[],done:{}};}
@@ -507,7 +625,8 @@ function detail(k){
   var h='<div class="xt">'+esc(x.x).replace(/\n/g,"<br>")+'</div>';
   (x.g||[]).forEach(function(g){
     h+='<div class="dg"><h4>📊 '+esc(g.h)+'</h4>';
-    if(g.t==="f"){
+    if(g.t==="a")h+=svgA(g);else if(g.t==="s")h+=svgS(g);else if(g.t==="b")h+=svgB(g);
+    else if(g.t==="f"){
       h+=g.s.map(function(t){var p=t.split("|");return '<div class="st">'+esc(p[0])+(p[1]?'<small>'+esc(p[1])+'</small>':'')+'</div>';}).join('<div class="ar">▼</div>');
     }else{
       h+='<table><tr>'+g.c.map(function(c){return '<th>'+esc(c)+'</th>';}).join("")+'</tr>';
