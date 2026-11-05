@@ -81,7 +81,7 @@ h1{font-size:1.35rem;margin-bottom:2px;}
   <a class="back" href="../../">← ホームへ</a>
   <h1>🤖 GenAI Developer Pro クイズ</h1>
   <div class="sub">AWS Certified Generative AI Developer – Professional (AIP-C01) 対策</div>
-  <div class="app-version">v1.5.0</div>
+  <div class="app-version">v1.6.0</div>
 
   <button class="btn primary" onclick="startRandom(10)">ランダム 10問<small>全ドメインからランダムに出題</small></button>
   <button class="btn primary" onclick="startRandom(20)">ランダム 20問<small>しっかり腕試し</small></button>
@@ -117,6 +117,7 @@ h1{font-size:1.35rem;margin-bottom:2px;}
 
 </div>
 
+<script src="bank.js?v=1.6.0"></script>
 <script>
 var DOMAINS=[
  "1. FM統合・データ管理・コンプライアンス",
@@ -369,6 +370,7 @@ var Q=[
  e:"ツールの説明や戻り値が曖昧だとモデルが判断を誤ってループします。トレースで推論を確認し、説明の改善と反復回数・タイムアウトの上限を設けます。"}
 ];
 
+Q=Q.concat(BANK); // bank.js の追加問題(添字75〜。X には対応する要素なし)
 // ---- 詳しい解説・図 (Q と同じ添字。Q の順序を変えたらここも合わせること) ----
 // F(見出し, [ステップ "名前|補足", ...]) = 縦フロー図 / C(見出し, [列名], [[行]], 強調行) = 比較表
 function F(h,s){return {t:"f",h:h,s:s};}
@@ -817,12 +819,13 @@ function render(){
   var q=Q[cur[idx]];
   $("prog").textContent=(idx+1)+" / "+cur.length;
   $("barFill").style.width=(idx/cur.length*100)+"%";
-  $("qtag").textContent=DOMAINS[q.d];
+  $("qtag").textContent=DOMAINS[q.d]+(q.t?" ・ "+q.t:"");
   $("qtext").textContent=q.q;
   $("exp").style.display="none";$("next").style.display="none";
-  var order=shuffle(q.c.map(function(_,i){return i;}));
+  var order=q.c.map(function(_,i){return i;});
+  if(!q.o)order=shuffle(order);
   var h="";
-  order.forEach(function(o){h+='<button class="opt" data-o="'+o+'" onclick="pick(this,'+o+')">'+esc(q.c[o])+'</button>';});
+  order.forEach(function(o){h+='<button class="opt" data-o="'+o+'" onclick="pick(this,'+o+')">'+(q.o?"ABCD".charAt(o)+". ":"")+esc(q.c[o])+'</button>';});
   $("opts").innerHTML=h;
 }
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
@@ -840,11 +843,15 @@ function pick(el,o){
   if(ok){right++;per[q.d][0]++;S.done[k]="ok";var p=S.wrong.indexOf(k);if(p>=0)S.wrong.splice(p,1);}
   else{S.done[k]="ng";if(S.wrong.indexOf(k)<0)S.wrong.push(k);}
   save();
-  $("exp").innerHTML="<b>"+(ok?"⭕ 正解":"❌ 不正解")+"</b><br>"+esc(q.e)+detail(k);
+  $("exp").innerHTML="<b>"+(ok?"⭕ 正解":"❌ 不正解")+"</b><br>"+esc(q.e).replace(/\n/g,"<br>")+detail(k)+refLink(q);
   $("exp").style.display="block";
   $("next").textContent=(idx+1<cur.length)?"次へ":"結果を見る";
   $("next").style.display="block";
   $("next").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function refLink(q){
+  if(!q.r||q.r.indexOf("https://")!==0)return "";
+  return '<div class="gn" style="margin-top:10px">📖 参考: <a href="'+q.r.replace(/"/g,"%22").replace(/</g,"%3C")+'" target="_blank" rel="noopener noreferrer" style="color:var(--accent2);word-break:break-all">AWS ドキュメント</a></div>';
 }
 function detail(k){
   var x=X[k];if(!x)return "";
