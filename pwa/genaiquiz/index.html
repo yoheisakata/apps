@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b1220">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
+<title>GenAI Dev Pro クイズ</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0b1220;--card:#141d33;--card2:#1b2745;--line:#2a3a63;
+  --text:#e6ecff;--dim:#8d9bc4;--accent:#ff9900;--accent2:#38bdf8;
+  --ok:#22c55e;--ng:#ef4444;
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  background:radial-gradient(ellipse at 20% 0%,#1a2a55 0%,var(--bg) 55%) fixed;
+  color:var(--text);min-height:100vh;line-height:1.6;
+}
+.wrap{max-width:640px;margin:0 auto;padding:20px 16px 48px;}
+h1{font-size:1.35rem;margin-bottom:2px;}
+.sub{color:var(--dim);font-size:.8rem;}
+.app-version{font-size:.62rem;color:var(--dim);opacity:.7;margin:2px 0 18px;letter-spacing:.08em;}
+.back{display:inline-block;color:var(--dim);font-size:.8rem;text-decoration:none;margin-bottom:10px;}
+.screen{display:none;}.screen.on{display:block;}
+.btn{
+  display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);
+  color:var(--text);border-radius:14px;padding:14px 16px;font-size:.95rem;margin-bottom:10px;
+  cursor:pointer;font-family:inherit;
+}
+.btn:active{transform:scale(.98);}
+.btn small{display:block;color:var(--dim);font-size:.72rem;margin-top:2px;}
+.btn.primary{background:linear-gradient(135deg,#b45309,var(--accent));border:none;color:#1a1000;font-weight:700;}
+.btn.primary small{color:#3b2500;}
+.btn[disabled]{opacity:.4;pointer-events:none;}
+.h2{font-size:.78rem;color:var(--dim);margin:18px 0 8px;letter-spacing:.06em;}
+.bar{height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin-top:6px;}
+.bar i{display:block;height:100%;background:var(--accent2);}
+.top{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:var(--dim);margin-bottom:6px;}
+.tag{display:inline-block;font-size:.68rem;background:var(--card2);color:var(--accent2);padding:2px 8px;border-radius:99px;margin-bottom:10px;}
+.q{font-size:1.02rem;font-weight:600;margin-bottom:14px;white-space:pre-wrap;}
+.opt{
+  display:block;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--line);
+  color:var(--text);border-radius:12px;padding:12px 14px;font-size:.92rem;margin-bottom:9px;
+  cursor:pointer;font-family:inherit;line-height:1.5;
+}
+.opt.ok{border-color:var(--ok);background:rgba(34,197,94,.13);}
+.opt.ng{border-color:var(--ng);background:rgba(239,68,68,.13);}
+.opt.lock{pointer-events:none;}
+.exp{background:var(--card2);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;font-size:.86rem;margin:12px 0;display:none;}
+.exp b{color:var(--accent);}
+.score{font-size:3rem;font-weight:800;text-align:center;margin:10px 0 0;color:var(--accent);}
+.center{text-align:center;color:var(--dim);font-size:.85rem;margin-bottom:18px;}
+.row{display:flex;gap:8px;font-size:.8rem;}
+.row .btn{margin-bottom:0;text-align:center;}
+.note{font-size:.7rem;color:var(--dim);margin-top:26px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HOME -->
+<div class="screen on" id="home">
+  <a class="back" href="../../">← ホームへ</a>
+  <h1>🤖 GenAI Developer Pro クイズ</h1>
+  <div class="sub">AWS Certified Generative AI Developer – Professional (AIP-C01) 対策</div>
+  <div class="app-version">v1.0.0</div>
+
+  <button class="btn primary" onclick="startRandom(10)">ランダム 10問<small>全ドメインからランダムに出題</small></button>
+  <button class="btn primary" onclick="startRandom(20)">ランダム 20問<small>しっかり腕試し</small></button>
+  <button class="btn" id="reviewBtn" onclick="startReview()">間違えた問題だけ復習<small id="reviewCnt"></small></button>
+
+  <div class="h2">ドメイン別</div>
+  <div id="domains"></div>
+
+  <button class="btn" onclick="resetStats()" style="margin-top:18px;text-align:center;color:var(--dim);font-size:.8rem;">成績をリセット</button>
+  <div class="note">※ 非公式のオリジナル問題です。実際の出題内容・配点は必ず<a href="https://aws.amazon.com/certification/certified-generative-ai-developer-professional" style="color:var(--accent2)">AWS公式の試験ガイド</a>で確認してください。</div>
+</div>
+
+<!-- QUIZ -->
+<div class="screen" id="quiz">
+  <div class="top"><span id="prog"></span><span onclick="goHome()" style="cursor:pointer">✕ 終了</span></div>
+  <div class="bar"><i id="barFill" style="width:0"></i></div>
+  <div style="height:16px"></div>
+  <span class="tag" id="qtag"></span>
+  <div class="q" id="qtext"></div>
+  <div id="opts"></div>
+  <div class="exp" id="exp"></div>
+  <button class="btn primary" id="next" style="display:none;text-align:center" onclick="next()">次へ</button>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="result">
+  <h1 style="text-align:center;margin-top:20px">結果</h1>
+  <div class="score" id="rscore"></div>
+  <div class="center" id="rsub"></div>
+  <div id="rdom"></div>
+  <button class="btn primary" style="text-align:center;margin-top:16px" onclick="goHome()">ホームに戻る</button>
+</div>
+
+</div>
+
+<script>
+var DOMAINS=[
+ "1. FM統合・データ管理・コンプライアンス",
+ "2. 実装と統合",
+ "3. AI安全性・セキュリティ・ガバナンス",
+ "4. 運用効率と最適化",
+ "5. テスト・検証・トラブルシューティング"
+];
+// d: ドメイン番号, q: 問題, c: 選択肢, a: 正解index, e: 解説
+var Q=[
+// ---- 1. FM統合・データ管理 ----
+{d:0,q:"社内文書を使った RAG を、チャンク分割・埋め込み・ベクトルストア同期まで含めて運用負荷を抑えて構築したい。最も適切なのは？",
+ c:["Knowledge Bases for Amazon Bedrock","Amazon Kendra のみ","SageMaker で埋め込みモデルを自前ホスト","Lambda でチャンク処理を全て自作"],a:0,
+ e:"Knowledge Bases for Amazon Bedrock は、データ取り込み・チャンキング・埋め込み・ベクトルストアへの格納・検索までをマネージドで提供します。"},
+{d:0,q:"テキストを意味的に近いもの同士で検索できるようにするため、ドキュメントを数値ベクトルに変換するのに使うモデルは？",
+ c:["埋め込み(Embedding)モデル","画像生成モデル","リランキングなしのテキスト分類器のみ","音声認識モデル"],a:0,
+ e:"埋め込みモデル(例: Amazon Titan Text Embeddings、Cohere Embed)でテキストをベクトル化し、類似度検索に使います。"},
+{d:0,q:"既に Amazon Aurora PostgreSQL を使っているチームが、新しいデータストアを増やさずにベクトル検索を追加したい。使うべき拡張機能は？",
+ c:["pgvector","PostGIS","pg_cron","pg_stat_statements"],a:0,
+ e:"Aurora PostgreSQL は pgvector 拡張でベクトル検索に対応しており、Bedrock Knowledge Bases のベクトルストアとしても利用できます。"},
+{d:0,q:"長い文書で「検索は細かい子チャンク、LLM に渡すのは文脈の広い親チャンク」としたい。適切なチャンキング戦略は？",
+ c:["階層的(Hierarchical)チャンキング","固定サイズチャンキングのみ","チャンキングなし","1文字ずつ分割"],a:0,
+ e:"階層的チャンキングは親子のチャンクを持ち、子で精度の高い検索を行い、親で十分な文脈を LLM に渡せます。"},
+{d:0,q:"キーワード一致(型番・固有名詞)と意味的類似の両方を活かして検索精度を上げたい。どの検索方式？",
+ c:["ハイブリッド検索","セマンティック検索のみ","全文スキャン","ランダムサンプリング"],a:0,
+ e:"ハイブリッド検索はキーワード検索とベクトル検索を組み合わせ、固有名詞や型番に弱いセマンティック検索の弱点を補います。"},
+{d:0,q:"ピーク時に Bedrock のオンデマンド推論でスロットリングが起きる。コード変更を最小にして複数リージョンへ負荷分散したい。",
+ c:["クロスリージョン推論(inference profile)を使う","モデルを毎回切り替える","リクエストを全て Lambda に直列化する","Provisioned Throughput を0にする"],a:0,
+ e:"クロスリージョン推論プロファイルを指定すると、需要に応じて複数リージョンへ自動的にルーティングされ、スループットが向上します。"},
+{d:0,q:"自社ドメインの口調や出力形式を安定させたい。入力と理想出力のラベル付きペアが数千件ある。まず検討すべきカスタマイズは？",
+ c:["ファインチューニング","継続事前学習(ラベルなし)のみ","モデルを一から事前学習","何もしない"],a:0,
+ e:"ラベル付きデータ(入力→出力)がある場合は教師ありファインチューニング。ラベルなしの大量ドメインテキストなら継続事前学習が向きます。"},
+{d:0,q:"機密データを扱うため、Bedrock への通信をインターネットに出さず VPC 内に閉じたい。使うものは？",
+ c:["Bedrock 用の VPC インターフェースエンドポイント(AWS PrivateLink)","インターネットゲートウェイ","パブリック IP の EC2 経由","NAT ゲートウェイのみ"],a:0,
+ e:"PrivateLink の VPC エンドポイントで、VPC からプライベートに Bedrock API へ接続できます。"},
+
+// ---- 2. 実装と統合 ----
+{d:1,q:"Bedrock Agents が外部 API やデータベースを呼び出す仕組みを定義するのは？",
+ c:["アクショングループ(Lambda + OpenAPI スキーマ等)","ガードレール","モデル評価ジョブ","バッチ推論ジョブ"],a:0,
+ e:"アクショングループでエージェントが実行できる操作を定義し、通常は Lambda 関数と OpenAPI スキーマ(または関数詳細)で実装します。"},
+{d:1,q:"複数のモデルプロバイダを切り替えながら、同じ形式でメッセージ・ツール定義を扱いたい。使う API は？",
+ c:["Converse API","InvokeModel で各社の独自JSONを都度組み立てる","CreateModelCustomizationJob","ListFoundationModels"],a:0,
+ e:"Converse API はモデル間で統一されたメッセージ形式を提供し、モデル切替時のコード変更を最小化します。"},
+{d:1,q:"チャット UI で、生成完了を待たずトークンを順次表示して体感待ち時間を減らしたい。使うのは？",
+ c:["ConverseStream / InvokeModelWithResponseStream","バッチ推論","Provisioned Throughput","モデル蒸留"],a:0,
+ e:"ストリーミング API を使うと、生成されたトークンを逐次受信でき、最初の表示までの時間(TTFT)が短くなります。"},
+{d:1,q:"ツール使用(Function calling)で、モデルがツール呼び出しを要求したときの正しい流れは？",
+ c:["アプリがツールを実行し、結果を toolResult としてモデルに返す","モデルが直接 Lambda を実行する","ユーザーが手動で結果を入力する","ツール呼び出しは Converse API では不可"],a:0,
+ e:"モデルは「どのツールをどの引数で呼ぶか」を返すだけで、実行はアプリ側。結果を toolResult として返して最終回答を生成させます。"},
+{d:1,q:"プロンプト → ナレッジ検索 → 条件分岐 → 別モデル呼び出し、といったワークフローをビジュアルに組み立てたい。",
+ c:["Amazon Bedrock Flows","Amazon Lex のみ","AWS Config","Amazon Macie"],a:0,
+ e:"Bedrock Flows は、プロンプト・ナレッジベース・Lambda・条件分岐などをノードで接続して生成 AI ワークフローを構築できます。"},
+{d:1,q:"プロンプトをアプリのコードから切り離し、バージョン管理して複数チームで共有したい。",
+ c:["Bedrock Prompt Management","CloudTrail","AWS Artifact","Route 53"],a:0,
+ e:"Prompt Management でプロンプトを保存・バージョン管理・変数化でき、アプリから ARN で参照できます。"},
+{d:1,q:"複数の Bedrock 呼び出しと承認ステップ、リトライを含む長めの処理を、コード少なめでオーケストレーションしたい。",
+ c:["AWS Step Functions","Amazon SQS のみ","Amazon CloudFront","AWS Direct Connect"],a:0,
+ e:"Step Functions は Bedrock の InvokeModel を直接統合でき、分岐・リトライ・並列・人手承認を含むワークフローを構築できます。"},
+{d:1,q:"Model Context Protocol (MCP) の役割として正しいものは？",
+ c:["LLM アプリが外部ツールやデータソースに接続するための標準プロトコル","モデルの重みを圧縮する形式","ベクトルDBのインデックス方式","課金APIの名称"],a:0,
+ e:"MCP は LLM/エージェントとツール・データソースを標準化された方法でつなぐプロトコルで、ツールを再利用しやすくします。"},
+
+// ---- 3. 安全性・セキュリティ・ガバナンス ----
+{d:2,q:"禁止トピック、有害コンテンツ、PII のマスキングなどを、モデルに依存せず一元的に制御したい。",
+ c:["Amazon Bedrock Guardrails","AWS WAF のみ","Amazon Inspector","AWS Shield"],a:0,
+ e:"Guardrails は入力・出力に対し、拒否トピック・コンテンツフィルター・PIIフィルター・単語フィルターなどを適用できます。"},
+{d:2,q:"RAG の回答が、検索で得た根拠に基づいているか(ハルシネーションでないか)を検出するための Guardrails 機能は？",
+ c:["コンテキスト根拠チェック(Contextual grounding check)","単語フィルター","PII フィルター","拒否トピック"],a:0,
+ e:"コンテキスト根拠チェックは、回答が参照ソースに基づくか、およびクエリとの関連性をスコアで評価し、基準未満をブロックできます。"},
+{d:2,q:"Bedrock の FM を呼び出さず、任意のテキスト(他社モデルの出力など)にだけガードレールを適用したい。",
+ c:["ApplyGuardrail API","InvokeAgent","StartIngestionJob","CreateProvisionedModelThroughput"],a:0,
+ e:"ApplyGuardrail API は、モデル呼び出しと独立してガードレールの評価だけを実行でき、Bedrock 外のモデルにも使えます。"},
+{d:2,q:"アプリのロールに付与する IAM 権限として、最小権限の原則に最も合うのは？",
+ c:["bedrock:InvokeModel を、使用する特定モデルの ARN に限定して許可","bedrock:* を全リソースに許可","AdministratorAccess","Resource を * にした bedrock:InvokeModel"],a:0,
+ e:"必要なアクションと対象モデル ARN のみに絞ることで、想定外のモデル利用や権限昇格のリスクを下げられます。"},
+{d:2,q:"プロンプトインジェクション対策として適切でない(効果が薄い)ものは？",
+ c:["システムプロンプトに「悪いことはしない」と書くだけで十分とする","入出力に Guardrails を適用する","エージェントのツール権限を最小化する","ユーザー入力と指示を区切って扱う"],a:0,
+ e:"プロンプトだけでは防御として不十分です。入出力フィルタ、権限最小化、入力の分離など多層防御が必要です。"},
+{d:2,q:"誰がいつどのプロンプト・応答でモデルを使ったかを監査用に記録したい。",
+ c:["モデル呼び出しログ(Model invocation logging)を CloudWatch Logs / S3 に出力","VPC Flow Logs のみ","Cost Explorer","Trusted Advisor"],a:0,
+ e:"Model invocation logging で入力・出力・メタデータを CloudWatch Logs や S3 に保存でき、監査やデバッグに使えます。"},
+{d:2,q:"S3 に蓄積された学習用データに、個人情報が含まれていないかを自動検出したい。",
+ c:["Amazon Macie","Amazon GuardDuty","AWS Shield","Amazon Detective"],a:0,
+ e:"Macie は S3 内の機密データ(PII など)を機械学習で検出・分類するサービスです。"},
+{d:2,q:"カスタマイズ済みモデルや Knowledge Base のデータを、自社管理の鍵で暗号化したい。",
+ c:["AWS KMS のカスタマー管理キー(CMK)","パブリック鍵をコードに埋め込む","暗号化しない","Base64 エンコード"],a:0,
+ e:"Bedrock は KMS のカスタマー管理キーによる保存データの暗号化に対応し、鍵の権限やローテーションを自社で制御できます。"},
+
+// ---- 4. 運用効率と最適化 ----
+{d:3,q:"同じ長い社内規程をシステムプロンプトに毎回含めて質問している。コストとレイテンシを下げる方法は？",
+ c:["プロンプトキャッシュを使う","温度を上げる","出力トークンを増やす","モデルを大きいものに替える"],a:0,
+ e:"プロンプトキャッシュは、繰り返し使われるプレフィックスの処理結果を再利用し、入力コストとレイテンシを下げます。"},
+{d:3,q:"夜間に数十万件のドキュメント要約を行う。即時性は不要で、コストを抑えたい。",
+ c:["バッチ推論","オンデマンド推論を並列で大量に実行","Provisioned Throughput を常時確保","ストリーミング推論"],a:0,
+ e:"バッチ推論は非同期でまとめて処理でき、対応モデルではオンデマンドより低い料金で利用できます。"},
+{d:3,q:"カスタムモデルを本番で推論に使うために必要になるのは？",
+ c:["Provisioned Throughput","オンデマンド推論のみ","Guardrails","Flows"],a:0,
+ e:"Bedrock でファインチューニング等をしたカスタムモデルの推論には Provisioned Throughput の購入が必要です。安定した高スループットが必要な場合にも使います。"},
+{d:3,q:"簡単な質問は安価な小型モデル、複雑な質問は高性能モデルへ自動で振り分けたい。",
+ c:["Intelligent Prompt Routing","Provisioned Throughput","KMS","Model evaluation"],a:0,
+ e:"Intelligent Prompt Routing はプロンプトの複雑さに応じて同一ファミリー内のモデルを選び、品質を保ちつつコストを下げます。"},
+{d:3,q:"大きな教師モデルの出力を使って、特定タスクに特化した小型モデルを作りコストと遅延を下げたい。",
+ c:["モデル蒸留(Model distillation)","ガードレール","RAG","プロンプトキャッシュ"],a:0,
+ e:"モデル蒸留は大型モデルの応答を教師データとして小型モデルを学習させ、特定ユースケースでの性能を保ちながら低コスト化します。"},
+{d:3,q:"似た質問が頻繁に来る FAQ ボットで、毎回 FM を呼ばず応答を再利用したい。",
+ c:["質問をベクトル化し、類似度で応答を引くセマンティックキャッシュ","完全一致のキャッシュのみ","キャッシュは使わない","温度を0にするだけ"],a:0,
+ e:"セマンティックキャッシュ(例: ElastiCache のベクトル検索)は、言い回しが違う類似質問にも過去の応答を返せます。"},
+{d:3,q:"Bedrock のオンデマンド料金の課金単位として基本となるのは？",
+ c:["入力・出力のトークン数","リクエストの HTTP ヘッダ数","リージョン数","ユーザー数"],a:0,
+ e:"多くのテキストモデルは入力トークンと出力トークンで課金されます。max tokens や簡潔なプロンプトでコストを制御できます。"},
+{d:3,q:"アプリやチームごとの Bedrock 利用コストを可視化したい。",
+ c:["アプリケーション推論プロファイルにコスト配分タグを付ける","アカウントを分けずに集計しない","CloudFront ログを見る","Route 53 のヘルスチェック"],a:0,
+ e:"アプリケーション推論プロファイルにタグを付けると、Cost Explorer や CloudWatch でアプリ別の利用状況とコストを把握できます。"},
+
+// ---- 5. テスト・検証・トラブルシューティング ----
+{d:4,q:"複数モデルの出力品質を、別の LLM を審査員として自動採点して比較したい。",
+ c:["Bedrock Model Evaluation の LLM-as-a-judge","CloudTrail","VPC Flow Logs","AWS Config"],a:0,
+ e:"Bedrock の評価機能では、自動評価・人手評価に加え、LLM を審査員とする評価で正確性や有用性などを採点できます。"},
+{d:4,q:"RAG の品質が低い。原因が「検索」か「生成」か切り分けたい。",
+ c:["検索(取得したチャンク)と生成(回答)を別々に評価する","最終回答だけを見る","モデルを毎日替える","ログを無効にする"],a:0,
+ e:"RAG は検索品質(関連性・網羅性)と生成品質(根拠への忠実性)を分けて評価すると、改善箇所を特定できます。"},
+{d:4,q:"ThrottlingException が断続的に発生する。まず取るべき対応は？",
+ c:["指数バックオフ+ジッターでリトライし、クォータ引き上げやクロスリージョン推論も検討する","即座に無限ループで再送する","例外を握りつぶす","温度を下げる"],a:0,
+ e:"スロットリングには指数バックオフとジッター付きリトライが基本。恒常的ならクォータ増加、Provisioned Throughput、クロスリージョン推論を検討します。"},
+{d:4,q:"RAG の回答が質問と無関係。検索結果を確認すると関連の薄いチャンクが多い。改善策として適切なのは？",
+ c:["チャンクサイズの見直し、メタデータフィルタ、リランキングの導入","温度を最大にする","ガードレールを無効にする","埋め込みを使わずランダムに選ぶ"],a:0,
+ e:"検索精度の問題は、チャンキング戦略・topK・フィルタ・リランキングなどの検索側で改善します。"},
+{d:4,q:"入力が長すぎて ValidationException が発生した。適切な対処は？",
+ c:["入力を要約・分割する、またはコンテキスト長の大きいモデルを使う","リトライを繰り返す","温度を変える","リージョンを変えるだけ"],a:0,
+ e:"コンテキストウィンドウを超えた入力は再試行しても成功しません。入力削減(要約・検索絞り込み)や長コンテキストモデルへの変更が必要です。"},
+{d:4,q:"Bedrock Agent がなぜそのツールを選んだのか、推論の過程をデバッグしたい。",
+ c:["エージェントのトレースを有効にして確認する","ガードレールを外す","Provisioned Throughput を購入","KMS キーを再作成"],a:0,
+ e:"トレースを有効にすると、前処理・オーケストレーション・ツール呼び出し・後処理など、エージェントの推論ステップを確認できます。"},
+{d:4,q:"プロンプトを変更した際に、品質低下(リグレッション)を防ぐ最も適切な方法は？",
+ c:["正解付きのゴールデンデータセットで自動評価し、変更前後を比較する","本番でユーザーに試してもらう","変更せず放置する","最新モデルに変えるだけ"],a:0,
+ e:"代表的な入出力のゴールデンセットで継続的に評価(CI)することで、プロンプトやモデル変更の影響を定量的に把握できます。"},
+{d:4,q:"応答の事実誤り(ハルシネーション)を減らすための手段として適切でないものは？",
+ c:["温度を最大にして創造性を上げる","RAG で根拠を与える","コンテキスト根拠チェックを使う","「根拠がなければ分からないと答える」よう指示する"],a:0,
+ e:"温度を上げるとむしろ出力が不安定になります。根拠の提供、根拠チェック、回答拒否の指示、低めの温度などが有効です。"}
+];
+
+var KEY="genaiquiz-v1";
+var S=load();
+function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.wrong)return s;}catch(e){}return {wrong:[],done:{}};}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function $(id){return document.getElementById(id);}
+function show(id){["home","quiz","result"].forEach(function(s){$(s).classList.toggle("on",s===id);});window.scrollTo(0,0);}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+function renderHome(){
+  var h="";
+  DOMAINS.forEach(function(n,i){
+    var ids=[];Q.forEach(function(q,k){if(q.d===i)ids.push(k);});
+    var done=0;ids.forEach(function(k){if(S.done[k]==="ok")done++;});
+    var p=Math.round(done/ids.length*100);
+    h+='<button class="btn" onclick="startDomain('+i+')">'+n+'<small>'+ids.length+'問 ・ 正解済み '+done+'/'+ids.length+'</small><div class="bar"><i style="width:'+p+'%"></i></div></button>';
+  });
+  $("domains").innerHTML=h;
+  var n=S.wrong.length;
+  $("reviewCnt").textContent=n?n+"問":"間違えた問題はありません";
+  $("reviewBtn").disabled=!n;
+}
+
+var cur=[],idx=0,right=0,per={},answered=false;
+function startRandom(n){begin(shuffle(Q.map(function(_,i){return i;})).slice(0,n));}
+function startDomain(d){var ids=[];Q.forEach(function(q,k){if(q.d===d)ids.push(k);});begin(shuffle(ids));}
+function startReview(){begin(shuffle(S.wrong));}
+function begin(ids){if(!ids.length)return;cur=ids;idx=0;right=0;per={};show("quiz");render();}
+
+function render(){
+  answered=false;
+  var q=Q[cur[idx]];
+  $("prog").textContent=(idx+1)+" / "+cur.length;
+  $("barFill").style.width=(idx/cur.length*100)+"%";
+  $("qtag").textContent=DOMAINS[q.d];
+  $("qtext").textContent=q.q;
+  $("exp").style.display="none";$("next").style.display="none";
+  var order=shuffle(q.c.map(function(_,i){return i;}));
+  var h="";
+  order.forEach(function(o){h+='<button class="opt" data-o="'+o+'" onclick="pick(this,'+o+')">'+esc(q.c[o])+'</button>';});
+  $("opts").innerHTML=h;
+}
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+
+function pick(el,o){
+  if(answered)return;answered=true;
+  var k=cur[idx],q=Q[k],ok=(o===q.a);
+  [].forEach.call($("opts").children,function(b){
+    b.classList.add("lock");
+    var v=+b.getAttribute("data-o");
+    if(v===q.a)b.classList.add("ok");
+    else if(b===el)b.classList.add("ng");
+  });
+  per[q.d]=per[q.d]||[0,0];per[q.d][1]++;
+  if(ok){right++;per[q.d][0]++;S.done[k]="ok";var p=S.wrong.indexOf(k);if(p>=0)S.wrong.splice(p,1);}
+  else{S.done[k]="ng";if(S.wrong.indexOf(k)<0)S.wrong.push(k);}
+  save();
+  $("exp").innerHTML="<b>"+(ok?"⭕ 正解":"❌ 不正解")+"</b><br>"+esc(q.e);
+  $("exp").style.display="block";
+  $("next").textContent=(idx+1<cur.length)?"次へ":"結果を見る";
+  $("next").style.display="block";
+  $("next").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function next(){idx++;if(idx<cur.length)render();else finish();}
+
+function finish(){
+  show("result");
+  var pc=Math.round(right/cur.length*100);
+  $("rscore").textContent=pc+"%";
+  $("rsub").textContent=cur.length+"問中 "+right+"問正解"+(pc>=75?" 🎉 合格ライン超え!":"");
+  var h="";
+  Object.keys(per).forEach(function(d){h+='<div class="btn" style="cursor:default">'+DOMAINS[d]+'<small>'+per[d][0]+' / '+per[d][1]+' 正解</small></div>';});
+  $("rdom").innerHTML=h;
+}
+function goHome(){renderHome();show("home");}
+function resetStats(){if(confirm("成績と復習リストをリセットしますか？")){S={wrong:[],done:{}};save();renderHome();}}
+renderHome();
+</script>
+</body>
+</html>
