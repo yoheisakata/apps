@@ -8,4 +8,4 @@
 - ファイルを変更したら `.app-version`(画面上部の `v1.0.0`)を同じコミットで上げる。
 - v1.1.0 で末尾に473問追加(元データ: AIP-C01 Trainer の questions.json の `type:"single"` のみ。`d` は元の domain-1)。元データの複数選択(`multi`、132問)は UI が単一選択専用のため未取り込み。
 - v1.2.0 で末尾に66問追加(元データ: 学習ノート knowledge.zip の d1〜d5 の各 .md。ノートの「ひっかけ」「キーワード→答え」から作成)。
-- 動画(YouTube V9X5EA9dodE / fkUXPT0OJKs)は取得できず未反映。
+- v1.3.0 で動画ベースの問題191問を追加(ユーザーが貼った字幕から作成。YouTube は取得不可のため)。問題の `v`="jp"(日本語の約2時間の講座)/"en"(英語の約9時間の講座)、`t`=動画の該当秒。解説に「▶ 動画 H:MM:SS から見る」リンクが出る。`v` と YouTube ID の対応は `index.html` の `VIDEOS`(jp=V9X5EA9dodE, en=fkUXPT0OJKs は推定。違っていたらそこだけ直す)。
