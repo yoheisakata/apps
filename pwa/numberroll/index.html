@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1f2a24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📜</text></svg>">
+<title>すうじロール</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#1f2a24;--bg2:#141b17;--panel:#2a3830;--line:#3b4d42;
+  --text:#eef3ea;--dim:#a3b5a8;
+  --paper:#fbf6e6;--grid:#b9cfe0;--ink:#2b2b2b;
+  --u:#1f9d4c;--t:#1d5fd6;--h:#d42a2a;   /* モンテッソーリの色: 1の位=緑 10の位=青 100の位=赤 */
+  --accent:#f5b83d;--ng:#ef4444;
+}
+html,body{height:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+  background:linear-gradient(180deg,var(--bg),var(--bg2)) fixed;color:var(--text);
+  display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;
+  user-select:none;-webkit-user-select:none;
+}
+.top{flex:none;max-width:640px;width:100%;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 16px 6px;}
+.title-row{display:flex;align-items:center;gap:10px;}
+h1{font-size:1.2rem;flex:1;letter-spacing:.04em;}
+.app-version{font-size:.6rem;color:var(--dim);opacity:.7;letter-spacing:.08em;margin-top:1px;}
+.back{color:var(--dim);font-size:.8rem;text-decoration:none;}
+.icon-btn{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:10px;
+  width:38px;height:38px;font-size:1.1rem;cursor:pointer;}
+.status{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:.8rem;color:var(--dim);}
+.status b{color:var(--text);font-size:1rem;}
+.bar{flex:1;height:8px;background:var(--panel);border-radius:8px;overflow:hidden;}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--u),var(--accent));transition:width .3s;}
+.chips{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex:none;background:var(--panel);border:1px solid var(--line);color:var(--dim);border-radius:100px;
+  padding:5px 12px;font-size:.75rem;cursor:pointer;font-family:inherit;}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#2a1d00;font-weight:700;}
+.banner{min-height:1.2em;font-size:.75rem;color:var(--accent);margin-top:6px;text-align:center;}
+
+/* ロール */
+.roll-wrap{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px;}
+.roll{max-width:520px;margin:0 auto;padding-top:10px;}
+.paper{background:var(--paper);border-radius:4px 4px 0 0;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 8px 24px rgba(0,0,0,.35);
+  padding:8px 8px 0;position:relative;}
+.paper::before{content:'';position:absolute;left:0;right:0;top:-10px;height:14px;border-radius:7px;
+  background:linear-gradient(180deg,#a87a45,#6e4a24);box-shadow:0 2px 4px rgba(0,0,0,.4);}
+.row{display:grid;grid-template-columns:repeat(10,1fr);position:relative;}
+.row.hund{border-bottom:2px solid var(--h);}
+.row.hund::after{content:attr(data-h);position:absolute;right:2px;bottom:-8px;z-index:1;
+  font-size:.55rem;color:#fff;background:var(--h);border-radius:4px;padding:1px 4px;font-weight:700;}
+.cell{aspect-ratio:1/1.05;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);
+  display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--ink);
+  font-variant-numeric:tabular-nums;position:relative;cursor:pointer;transition:background .2s;}
+.row .cell:first-child{border-left:1px solid var(--grid);}
+.row:first-child .cell{border-top:1px solid var(--grid);}
+.cell.d1,.cell.d2{font-size:clamp(.85rem,4vw,1.15rem);}
+.cell.d3{font-size:clamp(.7rem,3.2vw,1rem);}
+.cell.d4{font-size:clamp(.56rem,2.6vw,.85rem);}
+.cell.d5{font-size:clamp(.46rem,2.1vw,.7rem);}
+.cell.cur{background:#fff3c4;box-shadow:inset 0 0 0 2px var(--accent);border-radius:3px;}
+.cell.cur .typed{color:var(--ink);}
+.cell.cur .ghost{color:rgba(0,0,0,.18);}
+.cell.cur.blink::after{content:'';position:absolute;bottom:18%;left:30%;right:30%;height:2px;background:var(--accent);
+  animation:blink 1s steps(1) infinite;}
+@keyframes blink{50%{opacity:0;}}
+.cell.wrong{animation:shake .35s;background:#ffd5d5;}
+@keyframes shake{20%{transform:translateX(-4px);}40%{transform:translateX(4px);}60%{transform:translateX(-3px);}80%{transform:translateX(3px);}}
+.cell.pop{animation:pop .3s;}
+@keyframes pop{0%{transform:scale(1.35);}100%{transform:scale(1);}}
+.cell.hl{background:#ffd75e;}
+.cell.ten{background:rgba(29,95,214,.06);}
+.cell.ten.hl{background:#ffd75e;}
+.c-u{color:var(--u);}.c-t{color:var(--t);}.c-h{color:var(--h);}
+.plain .c-u,.plain .c-t,.plain .c-h{color:var(--ink);}
+.blank .cell{cursor:default;}
+.spool{height:34px;margin:0 -6px;border-radius:17px;
+  background:linear-gradient(180deg,#e9e1c8 0%,#fffaf0 30%,#d8cfb2 70%,#b6ab8b 100%);
+  box-shadow:0 6px 14px rgba(0,0,0,.45),inset 0 -2px 3px rgba(0,0,0,.15);}
+.roll-end{height:40px;}
+
+/* キーパッド */
+.pad{flex:none;background:rgba(10,14,12,.6);border-top:1px solid var(--line);
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));}
+.pad-in{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.key{height:46px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);
+  font-size:1.3rem;font-weight:800;font-family:inherit;cursor:pointer;touch-action:manipulation;}
+.key:active{transform:scale(.94);background:#3a4c41;}
+.key.sm{font-size:.74rem;font-weight:700;white-space:nowrap;padding:0 2px;}
+.key.wide{grid-column:span 2;}
+.key.play.on{background:var(--accent);color:#2a1d00;border-color:var(--accent);}
+
+/* モーダル */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50;padding:16px;}
+.modal.on{display:flex;}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto;}
+.sheet h2{font-size:1.05rem;margin-bottom:12px;}
+.opt{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:.9rem;gap:10px;}
+.opt select{background:var(--bg2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:.9rem;}
+.tog{width:50px;height:28px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);position:relative;cursor:pointer;flex:none;}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--dim);transition:.2s;}
+.tog.on{background:var(--u);}
+.tog.on::after{left:25px;background:#fff;}
+.sheet .btn{display:block;width:100%;margin-top:12px;padding:12px;border-radius:12px;border:1px solid var(--line);
+  background:var(--bg2);color:var(--text);font-size:.9rem;font-family:inherit;cursor:pointer;}
+.sheet .btn.danger{color:#fca5a5;border-color:#7f1d1d;}
+.sheet .btn.primary{background:var(--accent);color:#2a1d00;border-color:var(--accent);font-weight:700;}
+.legend{font-size:.75rem;color:var(--dim);margin-top:12px;line-height:1.7;}
+.legend span{font-weight:800;}
+.big{font-size:3rem;text-align:center;margin:6px 0;}
+.center{text-align:center;}
+
+.toast{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;
+  background:var(--h);color:#fff;font-weight:800;font-size:1.3rem;padding:14px 24px;border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);transition:.25s;z-index:40;white-space:nowrap;}
+.toast.on{opacity:1;transform:translate(-50%,-50%) scale(1);}
+.confetti{position:fixed;top:-40px;font-size:1.6rem;pointer-events:none;z-index:60;animation:fall linear forwards;}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg);}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a class="back" href="../../">‹ My Apps</a>
+  <div class="title-row">
+    <div style="flex:1">
+      <h1>📜 すうじロール</h1>
+      <div class="app-version">v1.0.0</div>
+    </div>
+    <button class="icon-btn" id="btnInfo" aria-label="あそびかた">？</button>
+    <button class="icon-btn" id="btnSet" aria-label="せってい">⚙</button>
+  </div>
+  <div class="status">
+    <span>つぎ <b id="nextNum">1</b></span>
+    <div class="bar"><i id="barFill"></i></div>
+    <span id="goalLbl">/ 100</span>
+  </div>
+  <div class="chips" id="chips">
+    <button class="chip on" data-k="0">もようなし</button>
+    <button class="chip" data-k="2">2とび</button>
+    <button class="chip" data-k="3">3とび</button>
+    <button class="chip" data-k="5">5とび</button>
+    <button class="chip" data-k="10">10とび</button>
+    <button class="chip" data-k="11">ゾロめ</button>
+  </div>
+  <div class="banner" id="banner"></div>
+</div>
+
+<div class="roll-wrap" id="rollWrap">
+  <div class="roll">
+    <div class="paper" id="paper"></div>
+    <div class="spool"></div>
+    <div class="roll-end"></div>
+  </div>
+</div>
+
+<div class="pad">
+  <div class="pad-in" id="pad">
+    <button class="key" data-d="1">1</button><button class="key" data-d="2">2</button><button class="key" data-d="3">3</button><button class="key" data-d="4">4</button><button class="key" data-d="5">5</button>
+    <button class="key" data-d="6">6</button><button class="key" data-d="7">7</button><button class="key" data-d="8">8</button><button class="key" data-d="9">9</button><button class="key" data-d="0">0</button>
+    <button class="key sm" id="kDel">⌫ けす</button>
+    <button class="key sm" id="kHint">💡 ヒント</button>
+    <button class="key sm play" id="kPlay">▶ おてほん</button>
+    <button class="key sm wide" id="kUndo">↩ ひとつもどす</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal" id="mSet"><div class="sheet">
+  <h2>⚙ せってい</h2>
+  <div class="opt">ゴール
+    <select id="selGoal">
+      <option value="100">100 まで</option><option value="200">200 まで</option>
+      <option value="500">500 まで</option><option value="1000">1000 まで</option>
+      <option value="10000">10000 まで</option>
+    </select>
+  </div>
+  <div class="opt">くらいの いろわけ<div class="tog" id="tColors"></div></div>
+  <div class="opt">10のれつに いろ<div class="tog" id="tTen"></div></div>
+  <div class="opt">こたえの おと<div class="tog" id="tSound"></div></div>
+  <div class="opt">かずを よみあげる<div class="tog" id="tSpeak"></div></div>
+  <div class="opt">2かい まちがえたら ヒント<div class="tog" id="tAutoHint"></div></div>
+  <div class="legend">いろわけ: <span class="c-u">1のくらい=みどり</span> / <span class="c-t">10のくらい=あお</span> / <span class="c-h">100のくらい=あか</span>（1000のくらいは また みどり）</div>
+  <button class="btn danger" id="btnReset">🗑 さいしょから かきなおす</button>
+  <button class="btn primary" id="btnSetClose">とじる</button>
+</div></div>
+
+<div class="modal" id="mInfo"><div class="sheet">
+  <h2>📜 あそびかた</h2>
+  <div style="font-size:.88rem;line-height:1.8">
+    モンテッソーリの「ナンバーロール」を まねした あそびです。ながい かみに、1 から じゅんばんに かずを かいていきます。<br>
+    ・きいろい マスに つぎの かずを キーで いれよう。けたが そろうと じどうで まるつけ。<br>
+    ・1れつは 10こ。たてに ならべると、おなじ 1のくらいが そろうよ。<br>
+    ・かいた マスを タップすると、おなじ れつ（1のくらい）が ひかります。<br>
+    ・「2とび」「5とび」などで かずの もようを さがそう。<br>
+    ・100 ごとに あかい せんが ひかれます。<br>
+    ・「おてほん」で じどうで かいていくよ。もういちど おすと とまります。<br>
+    ・かいたところは じどうで ほぞんされます。
+  </div>
+  <button class="btn primary" id="btnInfoClose">とじる</button>
+</div></div>
+
+<div class="modal" id="mGoal"><div class="sheet center">
+  <div class="big">🎉</div>
+  <h2 id="goalMsg">100 まで かけたね！</h2>
+  <div style="font-size:.85rem;color:var(--dim)">すごい！ ながい ロールが できたよ。</div>
+  <button class="btn primary" id="btnGoalNext">つぎの ゴールへ つづける</button>
+  <button class="btn" id="btnGoalClose">ながめる</button>
+</div></div>
+
+<script>
+(function(){
+'use strict';
+var KEY = 'numberroll-v1';
+var GOALS = [100, 200, 500, 1000, 10000];
+var MAX = 10000;
+var S = { next: 1, goal: 100, colors: true, ten: false, sound: true, speak: false, autoHint: true };
+try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved) for (var k in S) if (k in saved) S[k] = saved[k]; } catch (e) {}
+if (!(S.next >= 1)) S.next = 1;
+if (S.next > MAX + 1) S.next = MAX + 1;
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+var $ = function(id){ return document.getElementById(id); };
+var paper = $('paper'), wrap = $('rollWrap');
+var cells = [null];          // cells[n] = n のマス
+var rowsBuilt = 0;           // 作った行の数（行 r は r*10+1 〜 r*10+10）
+var buf = '';                // いま入力中の数字
+var miss = 0;                // いまのマスでの間違い回数
+var showHint = false;
+var pattern = { k: 0, col: -1 };
+var playTimer = null;
+
+/* ---------- 描画 ---------- */
+function digitsHTML(n){
+  var s = String(n), out = '', cls = ['c-u','c-t','c-h'];
+  for (var i = 0; i < s.length; i++) {
+    var place = s.length - 1 - i;
+    out += '<span class="' + cls[place % 3] + '">' + s[i] + '</span>';
+  }
+  return out;
+}
+function buildRow(){
+  var r = rowsBuilt, row = document.createElement('div');
+  row.className = 'row';
+  for (var c = 1; c <= 10; c++) {
+    var n = r * 10 + c, el = document.createElement('div');
+    el.className = 'cell d' + String(n).length + (c === 10 ? ' tencol' : '');
+    el.dataset.n = n;
+    cells[n] = el; row.appendChild(el);
+  }
+  if ((r + 1) % 10 === 0) { row.classList.add('hund'); row.dataset.h = (r + 1) * 10; }
+  paper.appendChild(row);
+  rowsBuilt++;
+}
+function ensureRows(){
+  var need = Math.min(Math.ceil(Math.min(S.next, MAX) / 10) + 1, MAX / 10);
+  while (rowsBuilt < need) buildRow();
+}
+function fillCell(n, anim){
+  var el = cells[n]; if (!el) return;
+  el.innerHTML = digitsHTML(n);
+  el.classList.add('done');
+  el.classList.remove('cur', 'blink');
+  if (anim) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  applyPatternTo(el, n);
+}
+function clearCell(n){
+  var el = cells[n]; if (!el) return;
+  el.innerHTML = ''; el.classList.remove('done', 'hl', 'pop');
+}
+function renderCur(){
+  var n = S.next; if (n > MAX) return;
+  var el = cells[n]; if (!el) return;
+  el.classList.add('cur', 'blink');
+  var target = String(n), html = '';
+  if (buf) html = '<span class="typed">' + buf + '</span>';
+  if (showHint) html += '<span class="ghost">' + target.slice(buf.length) + '</span>';
+  el.innerHTML = html;
+  if (buf) el.classList.remove('blink');
+}
+function scrollToCur(smooth){
+  var el = cells[Math.min(S.next, MAX)]; if (!el) return;
+  var wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect();
+  var y = wrap.scrollTop + (er.top - wr.top) - wr.height * 0.6;
+  wrap.scrollTo({ top: Math.max(0, y), behavior: smooth ? 'smooth' : 'auto' });
+}
+function renderStatus(){
+  var written = S.next - 1;
+  $('nextNum').textContent = S.next > MAX ? '—' : S.next;
+  $('goalLbl').textContent = '/ ' + S.goal;
+  $('barFill').style.width = Math.min(100, written / S.goal * 100) + '%';
+  paper.classList.toggle('plain', !S.colors);
+  document.body.classList.toggle('show-ten', S.ten);
+  for (var n = 10; n < cells.length; n += 10) if (cells[n]) cells[n].classList.toggle('ten', S.ten);
+}
+function renderAll(){
+  paper.innerHTML = ''; cells = [null]; rowsBuilt = 0;
+  ensureRows();
+  for (var n = 1; n < S.next && n <= MAX; n++) fillCell(n, false);
+  renderCur(); renderStatus(); setBanner();
+}
+
+/* ---------- もよう ---------- */
+function isHL(n){
+  if (pattern.col >= 0) return n % 10 === pattern.col;
+  var k = pattern.k;
+  if (!k) return false;
+  if (k === 11) { var s = String(n); return s.length > 1 && /^(\d)\1+$/.test(s); }
+  return n % k === 0;
+}
+function applyPatternTo(el, n){ el.classList.toggle('hl', el.classList.contains('done') && isHL(n)); }
+function applyPattern(){
+  for (var n = 1; n < cells.length; n++) if (cells[n]) applyPatternTo(cells[n], n);
+  [].forEach.call(document.querySelectorAll('.chip'), function(c){
+    c.classList.toggle('on', pattern.col < 0 && +c.dataset.k === pattern.k);
+  });
+  setBanner();
+}
+function setBanner(msg){
+  var b = $('banner');
+  if (msg) { b.textContent = msg; return; }
+  if (pattern.col >= 0) b.textContent = '1のくらいが「' + pattern.col + '」の かず — たてに そろっているね';
+  else if (pattern.k === 11) b.textContent = 'おなじ すうじが ならぶ かず（11, 22, 33…）';
+  else if (pattern.k) b.textContent = pattern.k + ' ずつ ふえる かず（' + pattern.k + ', ' + pattern.k * 2 + ', ' + pattern.k * 3 + ' …）';
+  else b.textContent = '';
+}
+
+/* ---------- おと・よみあげ ---------- */
+var actx = null;
+function tone(freq, t0, dur, vol){
+  if (!S.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    var o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + (t0 || 0);
+    o.type = 'triangle'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + (dur || 0.15));
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + (dur || 0.15));
+  } catch (e) {}
+}
+function soundOk(n){
+  if (n % 100 === 0) { [523,659,784,1047].forEach(function(f,i){ tone(f, i*0.09, 0.25); }); }
+  else if (n % 10 === 0) { tone(659, 0, 0.12); tone(880, 0.08, 0.18); }
+  else tone(520 + (n % 10) * 30, 0, 0.1, 0.1);
+}
+function speak(n){
+  if (!S.speak || !window.speechSynthesis) return;
+  try { speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(String(n)); u.lang = 'ja-JP'; u.rate = 1.1; speechSynthesis.speak(u); } catch (e) {}
+}
+
+/* ---------- すすめる ---------- */
+function toast(msg){
+  var t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, 1300);
+}
+function confetti(){
+  var em = ['🎉','⭐','🎈','✨','🌟','🎊'];
+  for (var i = 0; i < 30; i++) {
+    var d = document.createElement('div'); d.className = 'confetti';
+    d.textContent = em[i % em.length];
+    d.style.left = Math.random() * 100 + 'vw';
+    d.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+    d.style.animationDelay = Math.random() * 0.6 + 's';
+    document.body.appendChild(d);
+    setTimeout(function(x){ return function(){ x.remove(); }; }(d), 4200);
+  }
+}
+function advance(){
+  var n = S.next;
+  fillCell(n, true); soundOk(n); speak(n);
+  S.next++; buf = ''; miss = 0; showHint = false;
+  ensureRows(); renderCur(); renderStatus(); save();
+  if (n % 100 === 0 && n !== S.goal) toast(n + ' まで かけたね！');
+  if (n === S.goal) {
+    stopPlay(); confetti();
+    $('goalMsg').textContent = n + ' まで かけたね！';
+    var nextGoal = GOALS.filter(function(g){ return g > n; })[0];
+    $('btnGoalNext').style.display = nextGoal ? '' : 'none';
+    $('btnGoalNext').textContent = nextGoal ? nextGoal + ' まで つづける' : '';
+    setTimeout(function(){ $('mGoal').classList.add('on'); }, 500);
+  }
+  if (S.next > MAX) stopPlay();
+  scrollToCur(true);
+}
+function finishedGoal(){ return S.next > S.goal; }
+function press(d){
+  if (S.next > MAX) return;
+  if (finishedGoal()) { $('mGoal').classList.add('on'); return; }
+  var target = String(S.next);
+  buf += d;
+  if (target.indexOf(buf) === 0 && buf.length === target.length) { advance(); return; }
+  if (buf.length >= target.length) {
+    miss++;
+    var el = cells[S.next];
+    el.classList.remove('wrong'); void el.offsetWidth; el.classList.add('wrong');
+    setTimeout(function(){ el.classList.remove('wrong'); }, 400);
+    tone(180, 0, 0.2, 0.12);
+    buf = '';
+    if (S.autoHint && miss >= 2) showHint = true;
+    setBanner(showHint ? 'うすい すうじを なぞって みよう' : 'ちがうみたい。まえの かずを みてみよう');
+  }
+  renderCur();
+}
+function del(){ buf = buf.slice(0, -1); renderCur(); }
+function undo(){
+  stopPlay();
+  if (S.next <= 1) return;
+  var el = cells[S.next]; if (el) { el.classList.remove('cur', 'blink'); el.innerHTML = ''; }
+  S.next--; buf = ''; miss = 0; showHint = false;
+  clearCell(S.next); renderCur(); renderStatus(); save(); scrollToCur(true);
+}
+function stepPlay(){
+  if (S.next > MAX || finishedGoal()) { stopPlay(); return; }
+  advance();
+}
+function startPlay(){
+  if (finishedGoal()) { $('mGoal').classList.add('on'); return; }
+  buf = ''; $('kPlay').classList.add('on'); $('kPlay').textContent = '■ とめる';
+  playTimer = setInterval(stepPlay, 450);
+}
+function stopPlay(){
+  if (playTimer) clearInterval(playTimer); playTimer = null;
+  $('kPlay').classList.remove('on'); $('kPlay').textContent = '▶ おてほん';
+}
+
+/* ---------- イベント ---------- */
+$('pad').addEventListener('click', function(e){
+  var b = e.target.closest('.key'); if (!b) return;
+  if (b.dataset.d != null) { if (playTimer) stopPlay(); press(b.dataset.d); }
+});
+$('kDel').onclick = del;
+$('kHint').onclick = function(){ showHint = !showHint; renderCur(); };
+$('kPlay').onclick = function(){ playTimer ? stopPlay() : startPlay(); };
+$('kUndo').onclick = undo;
+document.addEventListener('keydown', function(e){
+  if (document.querySelector('.modal.on')) return;
+  if (/^[0-9]$/.test(e.key)) { press(e.key); e.preventDefault(); }
+  else if (e.key === 'Backspace') { del(); e.preventDefault(); }
+});
+paper.addEventListener('click', function(e){
+  var c = e.target.closest('.cell.done'); if (!c) return;
+  var d = (+c.dataset.n) % 10;
+  pattern = pattern.col === d ? { k: 0, col: -1 } : { k: 0, col: d };
+  applyPattern(); speak(+c.dataset.n);
+});
+$('chips').addEventListener('click', function(e){
+  var c = e.target.closest('.chip'); if (!c) return;
+  pattern = { k: +c.dataset.k, col: -1 }; applyPattern();
+});
+
+function bindTog(id, key){
+  var t = $(id);
+  t.classList.toggle('on', !!S[key]);
+  t.onclick = function(){ S[key] = !S[key]; t.classList.toggle('on', S[key]); save(); renderStatus(); };
+}
+bindTog('tColors', 'colors'); bindTog('tTen', 'ten'); bindTog('tSound', 'sound'); bindTog('tSpeak', 'speak'); bindTog('tAutoHint', 'autoHint');
+$('selGoal').value = String(S.goal);
+$('selGoal').onchange = function(){ S.goal = +this.value; save(); renderStatus(); };
+$('btnSet').onclick = function(){ stopPlay(); $('mSet').classList.add('on'); };
+$('btnSetClose').onclick = function(){ $('mSet').classList.remove('on'); };
+$('btnInfo').onclick = function(){ $('mInfo').classList.add('on'); };
+$('btnInfoClose').onclick = function(){ $('mInfo').classList.remove('on'); };
+$('btnReset').onclick = function(){
+  if (!confirm('かいた かずを ぜんぶ けして、1 から かきなおしますか？')) return;
+  S.next = 1; buf = ''; miss = 0; showHint = false; pattern = { k: 0, col: -1 };
+  save(); renderAll(); applyPattern(); $('mSet').classList.remove('on'); wrap.scrollTop = 0;
+};
+$('btnGoalNext').onclick = function(){
+  var g = GOALS.filter(function(x){ return x > S.goal; })[0];
+  if (g) { S.goal = g; $('selGoal').value = String(g); save(); renderStatus(); }
+  $('mGoal').classList.remove('on'); scrollToCur(true);
+};
+$('btnGoalClose').onclick = function(){ $('mGoal').classList.remove('on'); };
+[].forEach.call(document.querySelectorAll('.modal'), function(m){
+  m.addEventListener('click', function(e){ if (e.target === m) m.classList.remove('on'); });
+});
+
+renderAll();
+requestAnimationFrame(function(){ scrollToCur(false); });
+})();
+</script>
+</body>
+</html>
