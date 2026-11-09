@@ -2810,7 +2810,10 @@ struct PhotoFilter {
     var dateRange: DateRangeFilter = .all
     var personFilter: PersonFilter = .all
     var illustrationFilter: IllustrationFilter = .all
-    var isActive: Bool { dateRange != .all || personFilter != .all || illustrationFilter != .all }
+    var rioFilter: RioFilter = .all
+    /// 璃央判定の距離閾値(大きいほどゆるい)。`RioMatcher.swift`参照。
+    var rioThreshold: Float = 0.5
+    var isActive: Bool { dateRange != .all || personFilter != .all || illustrationFilter != .all || rioFilter != .all }
 }
 
 /// Vision の顔検出結果を (パス, mtime) キーでキャッシュする。ファイルが変われば
@@ -3200,7 +3203,16 @@ final class FilterPopoverViewController: NSViewController {
     private let customStack = NSStackView()
     private let personControl = NSSegmentedControl()
     private let illustrationControl = NSSegmentedControl()
+    private let rioLabel = NSTextField(labelWithString: "璃央")
+    private let rioControl = NSSegmentedControl()
+    private let rioSlider = NSSlider(value: 0.5, minValue: 0.2, maxValue: 1.0, target: nil, action: nil)
+    private let rioHint = NSTextField(labelWithString: "判定のゆるさ: 左=厳しい / 右=ゆるい")
     private let statusLabel = NSTextField(labelWithString: "")
+
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        rioLabel.stringValue = "璃央(登録 \(RioReferenceStore.shared.count) 枚)"
+    }
 
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 280))
@@ -3266,6 +3278,23 @@ final class FilterPopoverViewController: NSViewController {
         illustrationControl.target = self
         illustrationControl.action = #selector(illustrationControlChanged)
 
+        rioLabel.font = .boldSystemFont(ofSize: 11)
+        rioControl.segmentStyle = .automatic
+        rioControl.segmentCount = 3
+        for (i, l) in ["すべて", "璃央", "璃央以外"].enumerated() {
+            rioControl.setLabel(l, forSegment: i)
+            rioControl.setWidth(72, forSegment: i)
+        }
+        rioControl.selectedSegment = 0
+        rioControl.target = self
+        rioControl.action = #selector(rioControlChanged)
+        rioSlider.isContinuous = false
+        rioSlider.floatValue = filter.rioThreshold
+        rioSlider.target = self
+        rioSlider.action = #selector(rioSliderChanged)
+        rioHint.font = .systemFont(ofSize: 10)
+        rioHint.textColor = .secondaryLabelColor
+
         statusLabel.font = .systemFont(ofSize: 10)
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.lineBreakMode = .byTruncatingTail
@@ -3274,7 +3303,7 @@ final class FilterPopoverViewController: NSViewController {
         resetButton.bezelStyle = .rounded
 
         for v in [dateLabel, dateControl, customStack, personLabel, personControl,
-                  illustLabel, illustrationControl, statusLabel, resetButton] {
+                  illustLabel, illustrationControl, rioLabel, rioControl, rioSlider, rioHint, statusLabel, resetButton] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -3294,7 +3323,16 @@ final class FilterPopoverViewController: NSViewController {
             illustLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
             illustrationControl.topAnchor.constraint(equalTo: illustLabel.bottomAnchor, constant: 6),
             illustrationControl.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
-            statusLabel.topAnchor.constraint(equalTo: illustrationControl.bottomAnchor, constant: 10),
+            rioLabel.topAnchor.constraint(equalTo: illustrationControl.bottomAnchor, constant: 12),
+            rioLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            rioControl.topAnchor.constraint(equalTo: rioLabel.bottomAnchor, constant: 6),
+            rioControl.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            rioSlider.topAnchor.constraint(equalTo: rioControl.bottomAnchor, constant: 8),
+            rioSlider.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            rioSlider.widthAnchor.constraint(equalToConstant: 216),
+            rioHint.topAnchor.constraint(equalTo: rioSlider.bottomAnchor, constant: 2),
+            rioHint.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            statusLabel.topAnchor.constraint(equalTo: rioHint.bottomAnchor, constant: 10),
             statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
             statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -14),
             resetButton.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 8),
@@ -3337,8 +3375,20 @@ final class FilterPopoverViewController: NSViewController {
         onChange?(filter)
     }
 
+    @objc private func rioControlChanged() {
+        filter.rioFilter = RioFilter(rawValue: rioControl.selectedSegment) ?? .all
+        onChange?(filter)
+    }
+
+    @objc private func rioSliderChanged() {
+        filter.rioThreshold = rioSlider.floatValue
+        if filter.rioFilter != .all { onChange?(filter) }
+    }
+
     @objc private func resetTapped() {
         filter = PhotoFilter()
+        rioControl.selectedSegment = 0
+        rioSlider.floatValue = filter.rioThreshold
         dateControl.selectedSegment = 0
         personControl.selectedSegment = 0
         illustrationControl.selectedSegment = 0
@@ -3553,6 +3603,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private var filterGeneration = 0
     private let faceCache = FaceCache()
     private let illustrationCache = IllustrationCache()
+    private let rioCache = RioCache()
     private let qualityCache = QualityCache()
     private var filterPopover: NSPopover?
 
@@ -3560,6 +3611,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     func cancelBackgroundWork() {
         faceCache.cancelCurrent()
         illustrationCache.cancelCurrent()
+        rioCache.cancelCurrent()
         qualityCache.cancelCurrent()
     }
     private var filterPopoverVC: FilterPopoverViewController?
@@ -3681,6 +3733,8 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         menu.addItem(withTitle: "コピー", action: #selector(copy(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "回転して保存",
                      action: #selector(rotateAndSave(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "璃央として登録",
+                     action: #selector(registerRio(_:)), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "ゴミ箱に入れる",
                      action: #selector(trashSelection(_:)), keyEquivalent: "")
@@ -3913,7 +3967,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         var dateFiltered = currentFilter.dateRange.apply(to: base)
         // 人物/イラスト種類フィルターと画質順ソートは静止画専用(Vision解析・ブレ判定は
         // 動画に適用できない)。これらが有効な間は動画をグリッドから除外する。
-        if currentFilter.personFilter != .all || currentFilter.illustrationFilter != .all || sortOrder.showsQuality {
+        if currentFilter.personFilter != .all || currentFilter.illustrationFilter != .all || currentFilter.rioFilter != .all || sortOrder.showsQuality {
             dateFiltered = dateFiltered.filter { !$0.isVideo }
         }
         applyPersonFilter(to: dateFiltered, gen: gen, baseCount: base.count)
@@ -3955,14 +4009,14 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private func applyIllustrationFilter(to items: [PhotoItem], gen: Int, baseCount: Int) {
         guard currentFilter.illustrationFilter != .all else {
             filterPopoverVC?.setStatus("")
-            applyQualitySort(to: items, gen: gen, baseCount: baseCount)
+            applyRioFilter(to: items, gen: gen, baseCount: baseCount)
             return
         }
 
         let missing = items.filter { illustrationCache.result(for: $0) == nil }
         guard !missing.isEmpty else {
             filterPopoverVC?.setStatus("")
-            applyQualitySort(to: illustrationFiltered(items), gen: gen, baseCount: baseCount)
+            applyRioFilter(to: illustrationFiltered(items), gen: gen, baseCount: baseCount)
             return
         }
 
@@ -3973,8 +4027,43 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }, completion: { [weak self] in
             guard let self = self, self.filterGeneration == gen else { return }
             self.filterPopoverVC?.setStatus("")
-            self.applyQualitySort(to: self.illustrationFiltered(items), gen: gen, baseCount: baseCount)
+            self.applyRioFilter(to: self.illustrationFiltered(items), gen: gen, baseCount: baseCount)
         })
+    }
+
+    private func applyRioFilter(to items: [PhotoItem], gen: Int, baseCount: Int) {
+        guard currentFilter.rioFilter != .all else {
+            applyQualitySort(to: items, gen: gen, baseCount: baseCount)
+            return
+        }
+        guard RioReferenceStore.shared.count > 0 else {
+            filterPopoverVC?.setStatus("先に「表示 > 選択中の写真を璃央として登録」で写真を登録してください")
+            applyQualitySort(to: items, gen: gen, baseCount: baseCount)
+            return
+        }
+        let missing = items.filter { rioCache.distance(for: $0) == nil }
+        guard !missing.isEmpty else {
+            filterPopoverVC?.setStatus("")
+            applyQualitySort(to: rioFiltered(items), gen: gen, baseCount: baseCount)
+            return
+        }
+        filterPopoverVC?.setStatus("璃央を判定中… 0 / \(missing.count)")
+        rioCache.analyze(missing, progress: { [weak self] done, total in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.filterPopoverVC?.setStatus("璃央を判定中… \(done) / \(total)")
+        }, completion: { [weak self] in
+            guard let self = self, self.filterGeneration == gen else { return }
+            self.filterPopoverVC?.setStatus("")
+            self.applyQualitySort(to: self.rioFiltered(items), gen: gen, baseCount: baseCount)
+        })
+    }
+
+    private func rioFiltered(_ items: [PhotoItem]) -> [PhotoItem] {
+        let th = currentFilter.rioThreshold
+        return items.filter { item in
+            let isRio = (rioCache.distance(for: item) ?? .infinity) <= th
+            return currentFilter.rioFilter == .rio ? isRio : !isRio
+        }
     }
 
     private func illustrationFiltered(_ items: [PhotoItem]) -> [PhotoItem] {
@@ -4290,6 +4379,40 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         showSizeBadge.toggle()
     }
 
+    /// 選択中の写真(璃央が主役で写っているもの)から最大の顔を参照として登録する(`RioMatcher.swift`)。
+    @objc func registerRio(_ sender: Any?) {
+        let photos = targetPhotos().filter { !$0.isVideo }
+        guard !photos.isEmpty else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            var found: [(key: String, print: VNFeaturePrintObservation)] = []
+            for p in photos {
+                if let best = RioFaceAnalyzer.facePrints(url: p.url).max(by: { $0.area < $1.area }) {
+                    found.append((p.cacheKey, best.print))
+                }
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let added = RioReferenceStore.shared.add(found)
+                if added > 0 {
+                    self.rioCache.reset()
+                    if self.currentFilter.rioFilter != .all { self.reloadGrid() }
+                }
+                let alert = NSAlert()
+                alert.messageText = "\(added) 枚を新しく登録しました"
+                var info = "選択 \(photos.count) 枚のうち、顔なし \(photos.count - found.count) 枚、登録済みのためスキップ \(found.count - added) 枚。"
+                info += "登録済み合計: \(RioReferenceStore.shared.count) 枚。複数人が写っている写真では最も大きい顔が使われます。"
+                alert.informativeText = info
+                alert.runModal()
+            }
+        }
+    }
+
+    @objc func resetRioRegistrations(_ sender: Any?) {
+        RioReferenceStore.shared.clear()
+        rioCache.reset()
+        if currentFilter.rioFilter != .all { reloadGrid() }
+    }
+
     /// 通常視聴ビューアでの動画自動連続再生のオン/オフ(2026-09-07追加)。
     @objc func toggleAutoplayNext(_ sender: Any?) {
         autoplayNextVideo.toggle()
@@ -4398,6 +4521,10 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         case #selector(toggleSizeBadge(_:)):
             menuItem.state = showSizeBadge ? .on : .off
             return true
+        case #selector(registerRio(_:)):
+            return !isOneDriveMode && !targetPhotos().isEmpty
+        case #selector(resetRioRegistrations(_:)):
+            return RioReferenceStore.shared.count > 0
         case #selector(toggleAutoplayNext(_:)):
             menuItem.state = autoplayNextVideo ? .on : .off
             return true
@@ -4766,6 +4893,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          action: #selector(MainWindowController.toggleSizeBadge(_:)), keyEquivalent: "")
         viewMenu.addItem(withTitle: "動画を自動再生",
                          action: #selector(MainWindowController.toggleAutoplayNext(_:)), keyEquivalent: "")
+        viewMenu.addItem(NSMenuItem.separator())
+        viewMenu.addItem(withTitle: "選択中の写真を璃央として登録",
+                         action: #selector(MainWindowController.registerRio(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "璃央の登録をリセット",
+                         action: #selector(MainWindowController.resetRioRegistrations(_:)), keyEquivalent: "")
         viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "スライドショー開始",
                          action: #selector(MainWindowController.startSlideshow(_:)), keyEquivalent: "")

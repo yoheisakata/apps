@@ -19,6 +19,7 @@ SRC="$DIR/Sources/main.swift"
 ONEDRIVE_SRC="$DIR/Sources/OneDriveMediaClient.swift"
 ONEDRIVE_SIDEBAR_SRC="$DIR/Sources/OneDriveSidebarViewController.swift"
 SLIDESHOW_SRC="$DIR/Sources/SlideshowController.swift"
+RIO_SRC="$DIR/Sources/RioMatcher.swift"
 APP="$DIR/build/MyGallery.app"
 INSTALL_DIR="/Applications/MyApplications"
 INSTALLED="${INSTALL_DIR}/MyGallery.app"
@@ -34,13 +35,13 @@ build() {
   mkdir -p "$DIR/build"
   echo "Building mygallery…"
   swiftc -O -target "arm64-apple-macosx${MIN_MACOS}" -framework AppKit -framework Vision -framework AVFoundation -framework AVKit \
-    -o "$BIN" "$SRC" "$ONEDRIVE_SRC" "$ONEDRIVE_SIDEBAR_SRC" "$SLIDESHOW_SRC"
+    -o "$BIN" "$SRC" "$ONEDRIVE_SRC" "$ONEDRIVE_SIDEBAR_SRC" "$SLIDESHOW_SRC" "$RIO_SRC"
   echo "Built $BIN"
 }
 
 needs_build() {
   [ ! -x "$BIN" ] || [ "$SRC" -nt "$BIN" ] || [ "$ONEDRIVE_SRC" -nt "$BIN" ] \
-    || [ "$ONEDRIVE_SIDEBAR_SRC" -nt "$BIN" ] || [ "$SLIDESHOW_SRC" -nt "$BIN" ]
+    || [ "$ONEDRIVE_SIDEBAR_SRC" -nt "$BIN" ] || [ "$SLIDESHOW_SRC" -nt "$BIN" ] || [ "$RIO_SRC" -nt "$BIN" ]
 }
 
 # Build the .icns from the master Resources/AppIcon.png if one exists.
