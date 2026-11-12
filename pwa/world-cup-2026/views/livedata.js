@@ -164,13 +164,6 @@ function matchScorerPlayer(players, scorer) {
   return exact || initialHit || surnameHit || firstNameHit || null;
 }
 
-// Resolve a short scorer name to a player's full name, falling back to the
-// scorer name itself when no squad match is found.
-export function resolveFullName(squads, code, scorer) {
-  const p = matchScorerPlayer(squads?.byCode?.[code], scorer);
-  return p ? p.name : scorer;
-}
-
 // Resolve a short scorer name to the matching squad player object (with full
 // name + Wikipedia article title), or null when no squad match is found.
 export function resolvePlayer(squads, code, scorer) {
