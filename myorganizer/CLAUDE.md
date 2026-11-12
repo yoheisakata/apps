@@ -862,7 +862,13 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
   ごとに1本ずつ選ぶ ― 結果はファイル順(昇順)を保ったまま、フォルダ全体
   (先頭〜末尾)から均等にサンプリングされる。
 - `ViewModels/DownloaderViewModel.swift` + `Views/DownloaderView.swift` — 「ダウンロード」
-  ペイン(旧`mydownloader/`アプリの移植、上記「設計上の方針」参照)。他ペインの
+  ペイン(旧`mydownloader/`アプリの移植、上記「設計上の方針」参照)。**yt-dlpの子プロセスには
+  必ず`ytdlpEnvironment()`を`proc.environment`に設定すること**: GUIアプリはlaunchdの最小PATH
+  (`/usr/bin:/bin`)で起動されるため、yt-dlpがJSランタイムの`deno`(Homebrew配下)を
+  見つけられず「No supported JavaScript runtime」警告になり、YouTubeの一部フォーマットが
+  403 Forbiddenになる(2026-11-12に発覚、`/opt/homebrew/bin`をPATH先頭に足して解消)。
+  yt-dlp自体も古いとYouTube側の仕様変更で403になるため、定期的に`brew upgrade yt-dlp`が必要。
+  他ペインの
   `XxxViewModel`と違い`DownloaderViewModel`は`.shared`シングルトン(`JobRunner.shared`と
   同じ理由)で、`DownloaderView`は`@StateObject`で受け取るのではなく
   `@StateObject private var manager = DownloaderViewModel.shared`という形でこの

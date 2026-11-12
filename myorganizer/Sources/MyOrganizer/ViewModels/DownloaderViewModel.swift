@@ -27,6 +27,18 @@ final class DownloaderViewModel: ObservableObject {
 
     var toolsReady: Bool { ytdlpPath != nil && ffmpegPath != nil }
 
+    /// yt-dlp の子プロセス用の環境変数。yt-dlp は JS ランタイム(deno)を PATH から探すが、
+    /// GUI アプリは launchd の最小 PATH(/usr/bin:/bin 等)で起動されるため Homebrew 配下の
+    /// deno が見えず「No supported JavaScript runtime」→ YouTube の一部フォーマットが
+    /// 取得できず 403 になる。Homebrew の bin を PATH の先頭に足して解消する。
+    nonisolated static func ytdlpEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        let extra = ["/opt/homebrew/bin", "/usr/local/bin"]
+        let current = (env["PATH"] ?? "").split(separator: ":").map(String.init)
+        env["PATH"] = (extra + current.filter { !extra.contains($0) }).joined(separator: ":")
+        return env
+    }
+
     private var process: Process?
     /// プレイリストダウンロード中の "(3/23) " のような接頭辞。単発動画では空文字のまま。
     private var playlistItemLabel = ""
@@ -83,6 +95,7 @@ final class DownloaderViewModel: ObservableObject {
         return await Task.detached(priority: .userInitiated) {
             let proc = Process()
             proc.executableURL = URL(fileURLWithPath: ytdlp)
+            proc.environment = DownloaderViewModel.ytdlpEnvironment()
             // プレイリストは`--playlist-end 1`で1件目の列挙だけに留め、全項目を舐めずに
             // プレイリスト自体のタイトルだけを高速に取得する(実測1秒前後)。
             proc.arguments = isPlaylist
@@ -120,6 +133,7 @@ final class DownloaderViewModel: ObservableObject {
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: ytdlp)
+        proc.environment = Self.ytdlpEnvironment()
         proc.arguments = buildArguments(url: url, kind: kind, videoHeight: videoHeight, outputDir: outputDir,
                                         isPlaylist: isPlaylist, customName: customName)
 
