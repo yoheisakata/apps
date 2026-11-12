@@ -96,20 +96,45 @@ enum RioFaceAnalyzer {
         guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return [] }
         let faceReq = VNDetectFaceRectanglesRequest()
         try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([faceReq])
-        let W = CGFloat(cg.width), H = CGFloat(cg.height)
         var out: [(VNFeaturePrintObservation, CGFloat)] = []
         for face in faceReq.results ?? [] {
             let b = face.boundingBox
             guard b.width > 0.04 else { continue }
-            // 正規化(左下原点) → ピクセル(左上原点)、周囲に余白を足して切り出す
-            var r = CGRect(x: b.minX * W, y: (1 - b.maxY) * H, width: b.width * W, height: b.height * H)
-            r = r.insetBy(dx: -r.width * 0.25, dy: -r.height * 0.25).intersection(CGRect(x: 0, y: 0, width: W, height: H))
-            guard !r.isEmpty, let crop = cg.cropping(to: r) else { continue }
-            let fpReq = VNGenerateImageFeaturePrintRequest()
-            try? VNImageRequestHandler(cgImage: crop, options: [:]).perform([fpReq])
-            if let fp = fpReq.results?.first { out.append((fp, b.width * b.height)) }
+            if let fp = facePrint(b, in: cg) { out.append((fp, b.width * b.height)) }
         }
         return out
+    }
+
+    /// 顔の正規化矩形(Vision座標=左下原点)を、周囲に25%の余白を足して切り出し特徴量化する。
+    static func facePrint(_ b: CGRect, in cg: CGImage) -> VNFeaturePrintObservation? {
+        let W = CGFloat(cg.width), H = CGFloat(cg.height)
+        var r = CGRect(x: b.minX * W, y: (1 - b.maxY) * H, width: b.width * W, height: b.height * H)
+        r = r.insetBy(dx: -r.width * 0.25, dy: -r.height * 0.25).intersection(CGRect(x: 0, y: 0, width: W, height: H))
+        guard !r.isEmpty, let crop = cg.cropping(to: r) else { return nil }
+        return featurePrint(of: crop)
+    }
+
+    static func featurePrint(of cg: CGImage) -> VNFeaturePrintObservation? {
+        let req = VNGenerateImageFeaturePrintRequest()
+        try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
+        return req.results?.first
+    }
+
+    /// ユーザーが写真上で範囲選択した領域(ピクセル座標・左上原点)から参照特徴量を作る。
+    /// 範囲内に顔が検出できれば最大の顔を通常の登録と同じ切り出し方で使い(選択が
+    /// ゆるくても揃う)、検出できなければ選択範囲そのものを特徴量化する。
+    static func regionPrint(cg: CGImage, pixelRect: CGRect) -> VNFeaturePrintObservation? {
+        let full = CGRect(x: 0, y: 0, width: CGFloat(cg.width), height: CGFloat(cg.height))
+        let r = pixelRect.intersection(full)
+        guard r.width >= 8, r.height >= 8, let region = cg.cropping(to: r) else { return nil }
+        let faceReq = VNDetectFaceRectanglesRequest()
+        try? VNImageRequestHandler(cgImage: region, options: [:]).perform([faceReq])
+        if let face = faceReq.results?.max(by: {
+            $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height
+        }), let fp = facePrint(face.boundingBox, in: region) {
+            return fp
+        }
+        return featurePrint(of: region)
     }
 
     /// 参照との最小距離(顔が無い・参照が無い場合は`.infinity`)。
@@ -162,6 +187,7 @@ final class RioCache {
                 queue.addOperation {
                     if flag.isCancelled { return }
                     let d = RioFaceAnalyzer.minDistance(url: item.url, refs: refs)
+                    if flag.isCancelled { return }   // reset()/再解析後に古い参照での結果を書き込まない
                     self.lock.lock(); self.results[self.key(for: item)] = d; self.lock.unlock()
                     lock.lock(); done += 1; let n = done; lock.unlock()
                     if !flag.isCancelled, n == total || n % 10 == 0 {

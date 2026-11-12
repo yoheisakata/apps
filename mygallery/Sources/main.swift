@@ -70,62 +70,25 @@ let sortMenuEntries: [(title: String, order: SortOrder)] = [
 
 // MARK: - Model
 
-/// 写真・動画の取得元。ローカルフォルダブラウズと OneDrive ブラウズは同時に混在せず、
-/// サイドバーのモード切替(`MainWindowController.isOneDriveMode`)で排他的に切り替わる。
-enum PhotoSource: Equatable {
-    case local
-    case oneDrive(linkID: String)
-}
-
 struct PhotoItem: Equatable {
-    /// ローカルファイルURL、またはOneDriveの署名付きダウンロードURL(`@content.downloadUrl`)。
-    /// どちらも `CGImageSourceCreateWithURL`/`AVPlayer` にそのまま渡せる。
+    /// ローカルファイルURL。`CGImageSourceCreateWithURL`/`AVPlayer`にそのまま渡せる。
     let url: URL
     let mtime: Date
     let fileSize: Int64
-    let source: PhotoSource
-    /// OneDriveアイテムの安定識別子(`MediaItem.remoteID`)。ローカルは nil。
-    let remoteID: String?
-    /// OneDrive共有フォルダのルートから見た、このファイルを含むフォルダのパスコンポーネント。
-    /// ローカルは常に空。
-    let folderPath: [String]
-    /// **拡張子判定は呼び出し側(`PhotoStore.rescan`/OneDrive変換)が行い、結果をそのまま
-    /// 格納する** — ローカルの`videoExtensions`(mp4/mov/m4vのみ、AVFoundationが確実に
-    /// 再生・フレーム抽出できるコンテナに絞ってある)と、OneDrive側の`OneDriveMediaClient`
-    /// が対応する動画拡張子(mkv/webm等も含む、より広い)は範囲が異なるため、単一のグローバル
-    /// 拡張子セットで両方を判定することはできない。
     let isVideo: Bool
-    /// 元のファイル名。ローカルは`url.lastPathComponent`(実ファイルパスなので常に正しい)。
-    /// OneDriveは`url`が署名付きダウンロードURL(`@content.downloadUrl`)でファイル名を
-    /// 反映しないため、`MediaItem.name`(API応答の実ファイル名)を`init`で明示的に渡す
-    /// 必要がある(2026-09-07追加 ― ビューアの動画再生中にファイル名から日付を抽出して
-    /// 表示する`FilenameDateParser`が正しいファイル名を必要とするようになったのを機に、
-    /// それまで欠けていたOneDriveアイテムの元ファイル名の保持先として追加した)。
+    /// 元のファイル名(`url.lastPathComponent`)。
     let name: String
-    /// OneDriveがサーバー側で生成済みの小さいサムネイル画像のURL(`MediaItem.thumbnailURL`
-    /// をそのまま保持、ローカルは常に`nil`)。`ThumbnailLoader`はこれがあればグリッド用
-    /// サムネイルの生成元として`url`(元ファイル、数MB〜数十MB)の代わりに使う ―
-    /// 数百px・数十KB程度のJPEGなので、フル画像を毎回ダウンロードせずに済む
-    /// (2026-09-07追加、詳細は`CLAUDE.md`参照)。
-    let thumbnailURL: URL?
 
-    init(url: URL, mtime: Date, fileSize: Int64, isVideo: Bool, source: PhotoSource = .local,
-         remoteID: String? = nil, folderPath: [String] = [], name: String? = nil, thumbnailURL: URL? = nil) {
+    init(url: URL, mtime: Date, fileSize: Int64, isVideo: Bool) {
         self.url = url
         self.mtime = mtime
         self.fileSize = fileSize
         self.isVideo = isVideo
-        self.source = source
-        self.remoteID = remoteID
-        self.folderPath = folderPath
-        self.name = name ?? url.lastPathComponent
-        self.thumbnailURL = thumbnailURL
+        self.name = url.lastPathComponent
     }
 
-    /// サムネイル/フルサイズキャッシュ・識別用の安定キー。OneDriveの署名付きURLは
-    /// 再スキャンのたびにクエリトークンが変わるため、`url.path`ではなく`remoteID`
-    /// (無ければ`url.path`、ローカルの場合)をキーにする。
-    var cacheKey: String { remoteID ?? url.path }
+    /// サムネイル/フルサイズキャッシュ・識別用の安定キー(ローカルファイルのパス)。
+    var cacheKey: String { url.path }
 
     /// 「新しい順/古い順」で実際に使う日時。ファイル名から`FilenameDateParser`で
     /// 撮影日時(`YYYYMMDD[_HHMMSS]`パターン)を拾えればそちらを、拾えなければ
@@ -342,21 +305,11 @@ final class ThumbnailLoader {
     }
 
     /// mtime も鍵に含めるので、ファイルが更新されればディスクキャッシュは自動的に無効化される。
-    /// キャッシュキーは`item.cacheKey`(OneDriveはremoteID、ローカルはurl.path) — 実際の
-    /// フェッチ先である`item.url`(OneDriveの署名付きURLは再スキャンごとに変わる)とは別。
     func request(_ item: PhotoItem, completion: @escaping (String, NSImage?) -> Void) {
         let key = item.cacheKey
         let mtime = item.mtime
-        // OneDriveがサーバー側で生成済みのサムネイル(`thumbnailURL`、数百px・数十KBの
-        // JPEG)があればそちらを使う ― 元ファイル(`item.url`、数MB〜数十MB)を毎回
-        // グリッド用に丸ごとダウンロードしなくて済む(2026-09-07、詳細は`CLAUDE.md`
-        // 参照)。サムネイルは動画でも常に静止画(ポスターフレーム)のJPEGとして返って
-        // くるため、`isVideo`もこのときは`false`扱いにして写真と同じ経路
-        // (`CGImageSourceCreateThumbnailAtIndex`)へ流す ― `AVAssetImageGenerator`で
-        // 動画そのものをストリーミングし直す必要が無くなる。取得できなかった場合
-        // (`thumbnailURL`が`nil`)は従来通り`item.url`から本来の方法で生成する。
-        let url = item.thumbnailURL ?? item.url
-        let isVideo = item.thumbnailURL == nil && item.isVideo
+        let url = item.url
+        let isVideo = item.isVideo
         if let img = cache.object(forKey: key as NSString) { completion(key, img); return }
         if waiters[key] != nil {
             waiters[key]!.append { completion(key, $0) }
@@ -386,11 +339,6 @@ final class ThumbnailLoader {
         return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 
-    /// `isVideo`は呼び出し側(`PhotoItem.isVideo`)から渡す — `url.pathExtension`では
-    /// 判定しない。OneDriveアイテムの`url`は署名付きダウンロードURL(`@content.downloadUrl`)
-    /// で拡張子を含まないため、ローカルの`videoExtensions`判定はOneDriveの動画を
-    /// 「写真」経路(`CGImageSourceCreateThumbnailAtIndex`)に誤って流してしまい、
-    /// サムネイルが一切生成されなくなる。
     private static func generateCG(url: URL, isVideo: Bool, maxPixel: CGFloat) -> CGImage? {
         if isVideo {
             return generateVideoCG(url: url, maxPixel: maxPixel)
@@ -1313,10 +1261,8 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         view = scroll
     }
 
-    /// カラム幅をサイドバーの実サイズへ追従させる ― `OneDriveSidebarViewController.swift`の
-    /// `NSOutlineView.syncSingleColumnWidthToBounds()`のコメント参照(そちらの年/月フォルダ
-    /// ツリーで実機確認して見つかった不具合の修正を、同じ`NSOutlineView`パターンのこちらにも
-    /// 予防的に適用してある)。
+    /// カラム幅をサイドバーの実サイズへ追従させる ― `GallerySettings.swift`の
+    /// `NSOutlineView.syncSingleColumnWidthToBounds()`参照。
     override func viewDidLayout() {
         super.viewDidLayout()
         outline.syncSingleColumnWidthToBounds()
@@ -1465,6 +1411,16 @@ final class ViewerOverlay: NSView {
     /// スライドショー側は一時停止状態やタイマーも絡むため、単純な「次へ進む」だけの
     /// 通常視聴とは呼び出し元の扱いが異なる)。
     var onAutoAdvance: (() -> Void)?
+    /// 写真上でドラッグ選択した範囲を「璃央」として登録する(特徴量, 重複判定キー)。
+    var onRegisterRio: ((VNFeaturePrintObservation, String) -> Void)?
+
+    // 範囲選択(璃央登録)。ビューア座標(左下原点)。静止画のみ。
+    private let selectionBox = NSView()
+    private let registerButton = NSButton(title: "この範囲を璃央として登録", target: nil, action: nil)
+    private var dragStart: NSPoint?
+    private var selectionRect: NSRect?
+    private var baseInfo = ""
+    private var currentPhotoKey = ""
 
     private let imageView = FillImageView(gravity: .resizeAspect)
     private let playerView: AVPlayerView = {
@@ -1509,6 +1465,19 @@ final class ViewerOverlay: NSView {
         infoLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(infoLabel)
 
+        selectionBox.wantsLayer = true
+        selectionBox.layer?.borderColor = NSColor.systemYellow.cgColor
+        selectionBox.layer?.borderWidth = 2
+        selectionBox.layer?.backgroundColor = NSColor.systemYellow.withAlphaComponent(0.12).cgColor
+        selectionBox.isHidden = true
+        addSubview(selectionBox)
+        registerButton.bezelStyle = .rounded
+        registerButton.target = self
+        registerButton.action = #selector(registerSelection)
+        registerButton.keyEquivalent = ""
+        registerButton.isHidden = true
+        addSubview(registerButton)
+
         NSLayoutConstraint.activate([
             imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
             imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -1544,6 +1513,10 @@ final class ViewerOverlay: NSView {
         if photo.isVideo, let date = FilenameDateParser.date(from: photo.name) {
             info = "  \(photo.name) — \(index + 1) / \(total) — \(Self.dateFormatter.string(from: date))  "
         }
+        if !photo.isVideo { info += "— ドラッグで璃央を範囲選択  " }
+        baseInfo = info
+        currentPhotoKey = photo.cacheKey
+        clearSelection()
         infoLabel.stringValue = info
         playerView.player?.pause()
         if let observer = videoEndObserver {
@@ -1669,8 +1642,10 @@ final class ViewerOverlay: NSView {
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 53:   // Esc
-            onClose?()
+        case 53:   // Esc — 範囲選択中はまず選択を解除
+            if selectionRect != nil { clearSelection() } else { onClose?() }
+        case 36 where selectionRect != nil:   // Return — 選択範囲を登録
+            registerSelection()
         case 49:   // Space — スライドショー中は一時停止/再開、通常時は動画は誤操作で
                    // 閉じないよう無視(再生/一時停止はプレイヤーのコントロールで)。
             if slideshowMode {
@@ -1688,7 +1663,85 @@ final class ViewerOverlay: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        if event.clickCount == 2 { onClose?() }
+        if event.clickCount == 2 { onClose?(); return }
+        clearSelection()
+        guard !currentIsVideo, let disp = displayedImageRect() else { return }
+        let p = convert(event.locationInWindow, from: nil)
+        if disp.contains(p) { dragStart = p }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let start = dragStart, let disp = displayedImageRect() else { return }
+        var p = convert(event.locationInWindow, from: nil)
+        p.x = min(max(p.x, disp.minX), disp.maxX)
+        p.y = min(max(p.y, disp.minY), disp.maxY)
+        let r = NSRect(x: min(start.x, p.x), y: min(start.y, p.y),
+                       width: abs(start.x - p.x), height: abs(start.y - p.y))
+        selectionBox.frame = r
+        selectionBox.isHidden = false
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer { dragStart = nil }
+        guard dragStart != nil, !selectionBox.isHidden else { return }
+        let r = selectionBox.frame
+        guard r.width >= 16, r.height >= 16 else { clearSelection(); return }
+        selectionRect = r
+        registerButton.sizeToFit()
+        var origin = NSPoint(x: r.midX - registerButton.frame.width / 2, y: r.minY - registerButton.frame.height - 8)
+        if origin.y < 8 { origin.y = r.maxY + 8 }
+        origin.x = min(max(origin.x, 8), bounds.width - registerButton.frame.width - 8)
+        registerButton.setFrameOrigin(origin)
+        registerButton.isHidden = false
+    }
+
+    private func clearSelection() {
+        dragStart = nil
+        selectionRect = nil
+        selectionBox.isHidden = true
+        registerButton.isHidden = true
+    }
+
+    /// 画像がアスペクトフィットで実際に描画されている領域(ビューア座標)。
+    private func displayedImageRect() -> NSRect? {
+        guard let img = imageView.image, img.size.width > 0, img.size.height > 0 else { return nil }
+        let b = bounds
+        let sc = min(b.width / img.size.width, b.height / img.size.height)
+        let w = img.size.width * sc, h = img.size.height * sc
+        return NSRect(x: (b.width - w) / 2, y: (b.height - h) / 2, width: w, height: h)
+    }
+
+    @objc private func registerSelection() {
+        guard let r = selectionRect, let disp = displayedImageRect(), let img = imageView.image,
+              let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        let W = CGFloat(cg.width), H = CGFloat(cg.height)
+        let px = CGRect(x: (r.minX - disp.minX) / disp.width * W,
+                        y: (disp.maxY - r.maxY) / disp.height * H,
+                        width: r.width / disp.width * W,
+                        height: r.height / disp.height * H)
+        let key = "\(currentPhotoKey)#\(Int(px.minX)),\(Int(px.minY)),\(Int(px.width)),\(Int(px.height))"
+        clearSelection()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let fp = RioFaceAnalyzer.regionPrint(cg: cg, pixelRect: px)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let fp = fp {
+                    self.onRegisterRio?(fp, key)
+                } else {
+                    self.showToast("この範囲から特徴を取得できませんでした")
+                }
+            }
+        }
+    }
+
+    /// infoLabelに一時メッセージを出し、2秒後に元の表示へ戻す。
+    func showToast(_ text: String) {
+        infoLabel.stringValue = "  \(text)  "
+        let base = baseInfo
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self = self, self.baseInfo == base else { return }
+            self.infoLabel.stringValue = base
+        }
     }
 }
 
@@ -2811,9 +2864,11 @@ struct PhotoFilter {
     var personFilter: PersonFilter = .all
     var illustrationFilter: IllustrationFilter = .all
     var rioFilter: RioFilter = .all
+    /// 手動仕分け(`SortMode.swift`)による絞り込み。
+    var manualFilter: ManualFilter = .all
     /// 璃央判定の距離閾値(大きいほどゆるい)。`RioMatcher.swift`参照。
     var rioThreshold: Float = 0.5
-    var isActive: Bool { dateRange != .all || personFilter != .all || illustrationFilter != .all || rioFilter != .all }
+    var isActive: Bool { dateRange != .all || personFilter != .all || illustrationFilter != .all || rioFilter != .all || manualFilter != .all }
 }
 
 /// Vision の顔検出結果を (パス, mtime) キーでキャッシュする。ファイルが変われば
@@ -3207,11 +3262,15 @@ final class FilterPopoverViewController: NSViewController {
     private let rioControl = NSSegmentedControl()
     private let rioSlider = NSSlider(value: 0.5, minValue: 0.2, maxValue: 1.0, target: nil, action: nil)
     private let rioHint = NSTextField(labelWithString: "判定のゆるさ: 左=厳しい / 右=ゆるい")
+    private let manualLabel = NSTextField(labelWithString: "仕分け(手動)")
+    private let manualControl = NSSegmentedControl()
     private let statusLabel = NSTextField(labelWithString: "")
 
     override func viewWillAppear() {
         super.viewWillAppear()
         rioLabel.stringValue = "璃央(登録 \(RioReferenceStore.shared.count) 枚)"
+        let c = ManualLabelStore.shared.counts
+        manualLabel.stringValue = "仕分け(手動) 璃央 \(c.rio) / 璃央以外 \(c.other)"
     }
 
     override func loadView() {
@@ -3295,6 +3354,17 @@ final class FilterPopoverViewController: NSViewController {
         rioHint.font = .systemFont(ofSize: 10)
         rioHint.textColor = .secondaryLabelColor
 
+        manualLabel.font = .boldSystemFont(ofSize: 11)
+        manualControl.segmentStyle = .automatic
+        manualControl.segmentCount = 4
+        for (i, l) in ["すべて", "璃央", "璃央以外", "未仕分け"].enumerated() {
+            manualControl.setLabel(l, forSegment: i)
+            manualControl.setWidth(54, forSegment: i)
+        }
+        manualControl.selectedSegment = 0
+        manualControl.target = self
+        manualControl.action = #selector(manualControlChanged)
+
         statusLabel.font = .systemFont(ofSize: 10)
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.lineBreakMode = .byTruncatingTail
@@ -3303,7 +3373,7 @@ final class FilterPopoverViewController: NSViewController {
         resetButton.bezelStyle = .rounded
 
         for v in [dateLabel, dateControl, customStack, personLabel, personControl,
-                  illustLabel, illustrationControl, rioLabel, rioControl, rioSlider, rioHint, statusLabel, resetButton] {
+                  illustLabel, illustrationControl, rioLabel, rioControl, rioSlider, rioHint, manualLabel, manualControl, statusLabel, resetButton] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -3332,13 +3402,24 @@ final class FilterPopoverViewController: NSViewController {
             rioSlider.widthAnchor.constraint(equalToConstant: 216),
             rioHint.topAnchor.constraint(equalTo: rioSlider.bottomAnchor, constant: 2),
             rioHint.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
-            statusLabel.topAnchor.constraint(equalTo: rioHint.bottomAnchor, constant: 10),
+            manualLabel.topAnchor.constraint(equalTo: rioHint.bottomAnchor, constant: 12),
+            manualLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            manualControl.topAnchor.constraint(equalTo: manualLabel.bottomAnchor, constant: 6),
+            manualControl.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+            statusLabel.topAnchor.constraint(equalTo: manualControl.bottomAnchor, constant: 10),
             statusLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
             statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -14),
             resetButton.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 8),
             resetButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
             resetButton.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -14),
         ])
+
+        // 項目が増えて(璃央フィルター追加)初期フレームの高さ(280)を超えたため、下の方
+        // (璃央のスライダー・状態表示・「フィルターを解除」)がポップオーバーからはみ出して
+        // 操作できなくなっていた。実際に必要な高さへ合わせる。
+        root.layoutSubtreeIfNeeded()
+        root.setFrameSize(NSSize(width: 320, height: max(280, root.fittingSize.height)))
+        preferredContentSize = root.frame.size
 
         view = root
     }
@@ -3380,6 +3461,11 @@ final class FilterPopoverViewController: NSViewController {
         onChange?(filter)
     }
 
+    @objc private func manualControlChanged() {
+        filter.manualFilter = ManualFilter(rawValue: manualControl.selectedSegment) ?? .all
+        onChange?(filter)
+    }
+
     @objc private func rioSliderChanged() {
         filter.rioThreshold = rioSlider.floatValue
         if filter.rioFilter != .all { onChange?(filter) }
@@ -3388,6 +3474,7 @@ final class FilterPopoverViewController: NSViewController {
     @objc private func resetTapped() {
         filter = PhotoFilter()
         rioControl.selectedSegment = 0
+        manualControl.selectedSegment = 0
         rioSlider.floatValue = filter.rioThreshold
         dateControl.selectedSegment = 0
         personControl.selectedSegment = 0
@@ -3510,7 +3597,6 @@ final class SlideshowSettingsPopoverViewController: NSViewController {
 final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuItemValidation {
     private let store = PhotoStore()
     private let sidebarVC = SidebarViewController()
-    private lazy var sidebarContainerVC = SidebarModeContainerViewController(localVC: sidebarVC)
     private let gridVC = GridViewController()
     private let splitVC = NSSplitViewController()
     private var viewer: ViewerOverlay?
@@ -3520,17 +3606,6 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     /// `duplicatesWC`が検査対象にしている写真のパス集合(チェックが変わったかの判定用)。
     private var duplicatesScopePaths: Set<String> = []
 
-    /// サイドバーが「動画(OD)」/「画像(OD)」タブのとき true。ローカル専用機能(回転・ゴミ箱・
-    /// 重複検出・Visionベースのフィルター・画質順ソート)はこの間すべて無効化する
-    /// (`validateMenuItem`参照)。
-    private var isOneDriveMode = false
-    private var oneDriveLoadGeneration = 0
-    /// 読み込み済みのOneDriveリンクの全件(年/月フォルダによる絞り込み前)を
-    /// `OneDriveLink.id`ごとにキャッシュする ― タブを切り替えるたびに毎回
-    /// ネットワークへスキャンし直さないため(セッション中は一度読み込めば使い回す)。
-    /// フォルダツリーのチェック状態が変わったときは、ここから再フィルタするだけで
-    /// `gridVC.items`を更新する。
-    private var oneDriveCache: [String: [PhotoItem]] = [:]
     private let slideshow = SlideshowController()
     private var slideshowSettingsPopover: NSPopover?
     private var slideshowSettingsVC: SlideshowSettingsPopoverViewController?
@@ -3622,6 +3697,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     private static let sortItemID = NSToolbarItem.Identifier("sort")
     private static let filterItemID = NSToolbarItem.Identifier("filter")
     private static let slideshowItemID = NSToolbarItem.Identifier("slideshow")
+    private static let rioSortItemID = NSToolbarItem.Identifier("rioSort")
     private static let reloadItemID = NSToolbarItem.Identifier("reload")
     private static let dateBadgeItemID = NSToolbarItem.Identifier("dateBadge")
     private static let sizeBadgeItemID = NSToolbarItem.Identifier("sizeBadge")
@@ -3670,7 +3746,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     }
 
     private func setupSplitView() {
-        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarContainerVC)
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarVC)
         sidebarItem.minimumThickness = 170
         sidebarItem.maximumThickness = 340
         splitVC.addSplitViewItem(sidebarItem)
@@ -3695,33 +3771,6 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
 
         sidebarVC.onCheckedChanged = { [weak self] in self?.reloadGrid() }
 
-        sidebarContainerVC.onModeChanged = { [weak self] mode in
-            guard let self else { return }
-            self.isOneDriveMode = mode != .local
-            self.closeViewer()
-            switch mode {
-            case .local:
-                self.window?.title = self.store.rootURL?.lastPathComponent ?? "MyGallery"
-                self.reloadGrid()
-            case .video:
-                self.activateOneDriveTab(self.sidebarContainerVC.videoVC)
-            case .photo:
-                self.activateOneDriveTab(self.sidebarContainerVC.photoVC)
-            }
-            self.updateSubtitle()
-        }
-        // 年/月フォルダのチェックが変わるたびに、すでに読み込み済みの分をローカル側で
-        // 絞り込み直しつつ、新しくチェックされて未取得のフォルダがあればフェーズ2で追加取得する
-        // (`oneDriveCheckedChanged`参照)。
-        sidebarContainerVC.videoVC.onCheckedChanged = { [weak self] in
-            guard let self else { return }
-            self.oneDriveCheckedChanged(self.sidebarContainerVC.videoVC)
-        }
-        sidebarContainerVC.photoVC.onCheckedChanged = { [weak self] in
-            guard let self else { return }
-            self.oneDriveCheckedChanged(self.sidebarContainerVC.photoVC)
-        }
-
         gridVC.collectionView.onOpen = { [weak self] index in self?.openViewer(at: index) }
         gridVC.collectionView.onDropFolder = { [weak self] url in self?.setRoot(url) }
         gridVC.collectionView.onSelectionChanged = { [weak self] in self?.updateSubtitle() }
@@ -3735,6 +3784,14 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
                      action: #selector(rotateAndSave(_:)), keyEquivalent: "")
         menu.addItem(withTitle: "璃央として登録",
                      action: #selector(registerRio(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "ここから璃央の仕分けを始める",
+                     action: #selector(startRioSortingFromSelection(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "選択した写真を「璃央」に仕分ける",
+                     action: #selector(labelSelectionRio(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "選択した写真を「璃央以外」に仕分ける",
+                     action: #selector(labelSelectionOther(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "選択した写真の仕分けを解除",
+                     action: #selector(labelSelectionClear(_:)), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "ゴミ箱に入れる",
                      action: #selector(trashSelection(_:)), keyEquivalent: "")
@@ -3744,7 +3801,6 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     // MARK: root / reload
 
     func setRoot(_ url: URL) {
-        sidebarContainerVC.switchToLocal()   // OneDriveモード中の⌘O等はローカルモードへ強制的に戻す
         closeViewer()
         window?.title = url.lastPathComponent
         gridVC.items = []
@@ -3757,202 +3813,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         reloadGrid()
     }
 
-    /// 「動画(OD)」/「画像(OD)」タブに切り替わったときに呼ぶ。すでにこのセッションで
-    /// 読み込み済み(`oneDriveCache`にある)ならネットワークへは行かず、フォルダツリーの
-    /// 前回のチェック状態(`OneDriveFolderTreeViewController.setRoot`が
-    /// `GallerySettings.folderTreeSelections`から復元済み)でそのままグリッドへ反映する。
-    /// 未読み込みならここで初めてスキャンする ― タブを開いただけで自動的に読み込まれる、
-    /// という挙動(以前あった「リンクを選んで読み込みボタンを押す」手順は廃止した)。
-    private func activateOneDriveTab(_ vc: OneDriveFolderTreeViewController) {
-        window?.title = vc.link.name
-        if oneDriveCache[vc.link.id] != nil {
-            refreshOneDriveGrid(vc)
-            // 別タブへの切り替え中にこのタブのフェーズ2が世代カウンタで打ち切られていた
-            // 場合の「取りこぼし」を、戻ってきたタイミングで自己修復する ―
-            // `uncachedCheckedLeaves()`が空なら何もしない安全な呼び出し。
-            loadOneDriveLeaves(vc: vc, generation: oneDriveLoadGeneration)
-        } else {
-            loadOneDriveFolderStructure(vc: vc)
-        }
-    }
-
-    /// `vc`(ビデオ/写真タブ)が今まさにサイドバーに表示されているタブかどうか。
-    /// 2026-09-07に発覚した不具合の修正で追加: `oneDriveLoadGeneration`は「新しく
-    /// タブを開いてフェーズ1をやり直す」ときだけ増分される(意図的、上のコメント参照)
-    /// ため、**すでにキャッシュ済みのタブへ切り替えたとき**(`activateOneDriveTab`が
-    /// gen を増分せずそのまま`loadOneDriveLeaves`を呼ぶケース)は、直前まで表示していた
-    /// タブのフェーズ2がまだ実行中でも同じ世代番号のまま生き続ける。そのタスクが
-    /// 後から結果を届けたとき、`oneDriveLoadGeneration == gen`のガードだけでは
-    /// 「タブは切り替わったが世代は変わっていない」ケースを弾けず、非表示になった
-    /// はずのタブの写真で`gridVC.items`を上書きしてしまっていた(「動画タブを押した
-    /// のに写真タブの内容に戻る」という形で表面化した)。`refreshOneDriveGrid`が
-    /// 実際に`gridVC`(全タブ共有の1つのグリッド)へ書き込む直前に、`vc`が今も
-    /// アクティブなタブ本人かどうかを見て弾く。
-    private func isActiveOneDriveVC(_ vc: OneDriveFolderTreeViewController) -> Bool {
-        switch sidebarContainerVC.currentMode {
-        case .video: return vc === sidebarContainerVC.videoVC
-        case .photo: return vc === sidebarContainerVC.photoVC
-        case .local: return false
-        }
-    }
-
-    private func refreshOneDriveGrid(_ vc: OneDriveFolderTreeViewController?, allItems: [PhotoItem]? = nil) {
-        guard let vc, isActiveOneDriveVC(vc) else { return }
-        guard let items = allItems ?? oneDriveCache[vc.link.id] else { return }
-        // `sortOrder`(ローカルと共通のツールバー/メニューの並び替え設定)にそのまま
-        // 従う ― 以前は`folderPath`(月フォルダ単位でグループ化)→`mtime`という
-        // ハードコードされた順序で、ユーザーが選んだ`sortOrder`を無視していた
-        // (2026-09-07修正、詳細は`sortedForOneDrive(_:)`のコメント参照)。フェーズ2は
-        // フォルダが完了した順に届く(ネットワークの応答順であって日付順ではない)ため、
-        // 届くたびに並べ直す必要がある。
-        let filtered = sortedForOneDrive(vc.filteredItems(from: items))
-        gridVC.items = filtered
-        // `vc.link.name`は「ビデオ」/「写真」(`OneDriveLinks.video`/`.photo`の
-        // 表示名、サイドバーのタブ名と同じ) ― ビデオタブで「写真が見つかりません」と
-        // 出るのはおかしいというユーザー指摘への対応(2026-09-07)。
-        gridVC.setEmptyState(filtered.isEmpty ? "\(vc.link.name)が見つかりません" : nil)
-        updateSubtitle()
-    }
-
-    /// フェーズ1: フォルダ階層(年/月)だけを高速に取得してサイドバーのツリーへ即座に表示する
-    /// (中の写真・動画はまだ取得しない)。ユーザー要望「ディレクトリだけ先に取得して表示し、
-    /// チェックされているフォルダのサムネイルを後から適宜表示する」への対応。
-    /// 決め打ちの2リンクなのでスキャン対象は毎回`link.availableFolders`全件
-    /// (以前あった「読み込み前にどの年フォルダを対象にするか選ぶ」UIは廃止した)。
-    private func loadOneDriveFolderStructure(vc: OneDriveFolderTreeViewController) {
-        let link = vc.link
-        closeViewer()
-        oneDriveLoadGeneration += 1
-        let gen = oneDriveLoadGeneration
-        oneDriveCache[link.id] = []
-        gridVC.items = []
-        gridVC.setEmptyState("フォルダを確認中…")
-        vc.setStatus("フォルダを確認中…")
-        var started = false
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let stream = OneDriveMediaClient.scanFolderStructureStream(
-                    shareURL: link.url, onlyTopLevelFolders: Set(link.availableFolders))
-                // 年フォルダが1つ解決するたびに随時サイドバーへ追加していく ―
-                // 「フォルダを確認中…」のまま全年フォルダぶん待たせず、レイヤーごとに
-                // 徐々に表示する(2026-09-06、ユーザー要望)。
-                for try await (rootName, yearFolder) in stream {
-                    await MainActor.run {
-                        guard self.oneDriveLoadGeneration == gen else { return }
-                        if !started {
-                            started = true
-                            vc.beginIncrementalLoad(rootName: rootName)
-                            // `vc`のサイドバー内部状態(上の`beginIncrementalLoad`)は
-                            // タブが非表示でも構築を続けてよいが、`gridVC`は全タブ共有
-                            // なので、今`vc`がアクティブなタブでなければ触らない
-                            // (`isActiveOneDriveVC`参照 ― 例えば写真タブの読み込みが
-                            // 終わる前に動画タブへ切り替えた場合、写真タブのこの続きが
-                            // 動画タブのグリッドを巻き込んで空表示に戻してしまうのを防ぐ)。
-                            if self.isActiveOneDriveVC(vc) { self.gridVC.setEmptyState(nil) }
-                        }
-                        vc.addTopLevelFolder(yearFolder)
-                    }
-                }
-                await MainActor.run {
-                    guard self.oneDriveLoadGeneration == gen else { return }
-                    if !started {
-                        // トップフォルダが1つも見つからなかった(空の共有フォルダ等)。
-                        vc.beginIncrementalLoad(rootName: link.name)
-                        if self.isActiveOneDriveVC(vc) { self.gridVC.setEmptyState(nil) }
-                    }
-                    vc.finishIncrementalLoad()
-                    // フェーズ2はここで1回だけ起動する ― 年フォルダが届くたびに都度
-                    // 呼ぶと、`uncachedCheckedLeaves()`は「取得中」を追跡していないため
-                    // 同じ葉フォルダに対して複数のフェーズ2タスクが並行して走り、
-                    // `oneDriveCache`に同じ写真が重複して積まれてしまう(2026-09-06、
-                    // レイヤーごとの随時表示を実装した際に踏みかけた不具合)。
-                    self.loadOneDriveLeaves(vc: vc, generation: gen)
-                }
-            } catch {
-                await MainActor.run {
-                    guard self.oneDriveLoadGeneration == gen else { return }
-                    vc.setStatus("")
-                    if self.isActiveOneDriveVC(vc) { self.gridVC.setEmptyState("読み込みに失敗しました") }
-                    let a = NSAlert()
-                    a.messageText = "OneDriveから読み込めませんでした"
-                    a.informativeText = error.localizedDescription
-                    a.runModal()
-                }
-            }
-        }
-    }
-
-    /// フェーズ2: フォルダツリーで現在チェックされている葉フォルダのうち、まだ取得して
-    /// いないものだけを並列に取得する。1フォルダぶん届くたびに`oneDriveCache`へ追加して
-    /// グリッドを再描画する(全フォルダぶん揃うまで待たせない ― 「サムネイルを適宜表示」)。
-    /// チェックボックスをトグルして新しく追加されたフォルダに対しても同じ関数を再利用する
-    /// (`oneDriveCheckedChanged`参照)。
-    private func loadOneDriveLeaves(vc: OneDriveFolderTreeViewController, generation gen: Int) {
-        let link = vc.link
-        let refs: [OneDriveMediaClient.OneDriveFolderRef] = vc.uncachedCheckedLeaves().compactMap { node in
-            guard let driveId = node.driveId, let itemId = node.itemId else { return nil }
-            return OneDriveMediaClient.OneDriveFolderRef(
-                driveId: driveId, itemId: itemId, name: node.name,
-                pathComponents: node.pathComponents, children: [])
-        }
-        guard !refs.isEmpty else {
-            vc.setStatus("")
-            refreshOneDriveGrid(vc)
-            return
-        }
-        vc.setStatus("読み込み中…")
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                for try await (folder, items) in OneDriveMediaClient.scanLeafFolders(shareURL: link.url, folders: refs) {
-                    guard self.oneDriveLoadGeneration == gen else { return }
-                    let filtered = items.filter { link.kindFilter == nil || $0.kind == link.kindFilter }
-                    let photoItems: [PhotoItem] = filtered.map { media in
-                        PhotoItem(url: media.downloadURL,
-                                  mtime: media.modifiedDate ?? .distantPast,
-                                  fileSize: media.size,
-                                  isVideo: media.kind == .video,
-                                  source: .oneDrive(linkID: link.id),
-                                  remoteID: media.remoteID,
-                                  folderPath: media.folderPath,
-                                  name: media.name,
-                                  thumbnailURL: media.thumbnailURL)
-                    }
-                    await MainActor.run {
-                        guard self.oneDriveLoadGeneration == gen else { return }
-                        self.oneDriveCache[link.id, default: []].append(contentsOf: photoItems)
-                        vc.recordLoadedItems(count: photoItems.count, at: folder.pathComponents)
-                        self.refreshOneDriveGrid(vc)
-                    }
-                }
-                await MainActor.run {
-                    guard self.oneDriveLoadGeneration == gen else { return }
-                    vc.setStatus("")
-                }
-            } catch {
-                await MainActor.run {
-                    guard self.oneDriveLoadGeneration == gen else { return }
-                    vc.setStatus("")
-                    let a = NSAlert()
-                    a.messageText = "OneDriveから読み込めませんでした"
-                    a.informativeText = error.localizedDescription
-                    a.runModal()
-                }
-            }
-        }
-    }
-
-    /// フォルダツリーのチェック状態が変わるたびに呼ばれる。すでに取得済みの分はすぐ
-    /// フィルタし直して見せつつ、新しくチェックされて未取得のフォルダがあれば
-    /// フェーズ2を追加で走らせる(チェックした瞬間は「…」表示で、届き次第サムネイルが出る)。
-    private func oneDriveCheckedChanged(_ vc: OneDriveFolderTreeViewController) {
-        refreshOneDriveGrid(vc)
-        loadOneDriveLeaves(vc: vc, generation: oneDriveLoadGeneration)
-    }
-
     private func reloadGrid() {
-        guard !isOneDriveMode else { return }
         applyFilter(to: store.photos(checkedPaths: sidebarVC.checkedPaths, order: sortOrder))
     }
 
@@ -3965,6 +3826,20 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         filterGeneration += 1
         let gen = filterGeneration
         var dateFiltered = currentFilter.dateRange.apply(to: base)
+        // 手動仕分けでの絞り込み(静止画のみ・メモリ上の照合だけなので同期で済む)
+        if currentFilter.manualFilter != .all {
+            let mf = currentFilter.manualFilter
+            dateFiltered = dateFiltered.filter { item in
+                guard !item.isVideo else { return false }
+                let l = ManualLabelStore.shared.label(for: item)
+                switch mf {
+                case .all: return true
+                case .rio: return l == .rio
+                case .other: return l == .other
+                case .unlabeled: return l == nil
+                }
+            }
+        }
         // 人物/イラスト種類フィルターと画質順ソートは静止画専用(Vision解析・ブレ判定は
         // 動画に適用できない)。これらが有効な間は動画をグリッドから除外する。
         if currentFilter.personFilter != .all || currentFilter.illustrationFilter != .all || currentFilter.rioFilter != .all || sortOrder.showsQuality {
@@ -4145,12 +4020,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
         let n = gridVC.items.count
         let sel = gridVC.collectionView.selectionIndexPaths.count
-        // 単位: 「ビデオ」タブは`OneDriveLinks.video.kindFilter == .video`により
-        // 表示アイテムが常に動画のみなので「本」、それ以外(ローカル・「写真」タブ)は
-        // 従来通り「枚」(ローカルは写真・動画混在があり得るが、元々「枚」表記だった
-        // ものを崩さない)。2026-09-07、ユーザー指摘「ビデオタブで枚と表示されている」
-        // への対応。
-        let unit = sidebarContainerVC.currentMode == .video ? "本" : "枚"
+        let unit = "枚"
         let countText = currentFilter.isActive ? "\(n) / \(currentBaseCount) \(unit)" : "\(n) \(unit)"
         window.subtitle = sel > 0 ? "\(countText)(\(sel) \(unit)選択)" : countText
     }
@@ -4167,6 +4037,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             v.onStep = { [weak self] d in self?.stepViewer(d) }
             v.onAutoAdvance = { [weak self] in self?.stepViewer(1) }
             v.autoplayNext = autoplayNextVideo
+            v.onRegisterRio = { [weak self] fp, key in self?.registerRioPrint(fp, key: key) }
             viewer = v
         }
         viewerIndex = index
@@ -4206,22 +4077,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
     }
 
-    /// ローカルは全体再スキャン、OneDriveは現在表示中のタブ(ビデオ/写真)を
-    /// フェーズ1からやり直す(2026-09-07追加 ― 「ネットワーク切れでサムネが取得
-    /// されないときがある」というユーザー要望への対応)。`loadOneDriveFolderStructure`
-    /// は`oneDriveCache[link.id]`を空にしてから読み直すので、フォルダ一覧・
-    /// サムネイルどちらも取得し直しになる(一部のサムネイルだけが個別に欠けている
-    /// 場合は、フォルダ構成自体は変わっていないのでフェーズ1はすぐ終わり、
-    /// フェーズ2の再取得だけで直る)。
     @objc func refresh(_ sender: Any?) {
-        if isOneDriveMode {
-            switch sidebarContainerVC.currentMode {
-            case .video: loadOneDriveFolderStructure(vc: sidebarContainerVC.videoVC)
-            case .photo: loadOneDriveFolderStructure(vc: sidebarContainerVC.photoVC)
-            case .local: break
-            }
-            return
-        }
         guard store.rootURL != nil else { return }
         closeViewer()
         store.rescan()
@@ -4356,11 +4212,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     @objc func changeSort(_ sender: NSMenuItem) {
         guard let order = SortOrder(rawValue: sender.tag) else { return }
         sortOrder = order
-        if isOneDriveMode {
-            resortOneDriveGrid()
-        } else {
-            reloadGrid()
-        }
+        reloadGrid()
     }
 
     /// サムネイルの月日バッジ(左上)のオン/オフ(ローカル・OneDriveどちらでも使える
@@ -4407,6 +4259,119 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         }
     }
 
+    // MARK: 手動仕分け(`SortMode.swift`)
+
+    private var sortOverlay: SortOverlay?
+
+    /// 現在グリッドに出ている静止画のうち未仕分けのものを、Tinder風に1枚ずつ仕分ける。
+    /// 先にフィルター(日付・人物あり等)で絞ってから始めると効率的。
+    /// 選択中の写真の手動仕分けを後から直す(間違えて仕分けた場合の修正用)。
+    private func applyManualLabel(_ label: ManualLabel?) {
+        let targets = gridVC.selectedItems.filter { !$0.isVideo }
+        guard !targets.isEmpty else { return }
+        for t in targets { ManualLabelStore.shared.set(label, for: t) }
+        // 仕分けフィルター中は、変更した写真が一覧から外れる/入るので再フィルターする
+        if currentFilter.manualFilter != .all { reloadGrid() }
+        let name = label == .rio ? "璃央" : (label == .other ? "璃央以外" : "未仕分け")
+        window?.subtitle = "\(targets.count) 枚を「\(name)」にしました"
+    }
+
+    @objc func labelSelectionRio(_ sender: Any?) { applyManualLabel(.rio) }
+    @objc func labelSelectionOther(_ sender: Any?) { applyManualLabel(.other) }
+    @objc func labelSelectionClear(_ sender: Any?) { applyManualLabel(nil) }
+
+    @objc func startRioSortingFromSelection(_ sender: Any?) {
+        startRioSorting(sender, from: gridVC.selectedItems.first)
+    }
+
+    @objc func startRioSorting(_ sender: Any?) {
+        startRioSorting(sender, from: nil)
+    }
+
+    private func startRioSorting(_ sender: Any?, from start: PhotoItem?) {
+        guard let cv = window?.contentView, store.rootURL != nil else { return }
+        closeViewer()
+        var items = gridVC.items.filter { !$0.isVideo && ManualLabelStore.shared.label(for: $0) == nil }
+        // 「ここから」: 選択した写真(以降)から始める。選択写真自体が仕分け済みでも、
+        // グリッド上でそれ以降にある未仕分けの写真から始まる。
+        if let start, let pos = gridVC.items.firstIndex(of: start) {
+            let after = Set(gridVC.items[pos...].map { $0.cacheKey })
+            items = items.filter { after.contains($0.cacheKey) }
+        }
+        guard !items.isEmpty else {
+            let a = NSAlert()
+            a.messageText = "仕分けする写真がありません"
+            a.informativeText = "表示中の写真はすべて仕分け済み(または動画のみ)です。"
+            a.runModal()
+            return
+        }
+        let o = SortOverlay(frame: cv.bounds, items: items)
+        o.autoresizingMask = [.width, .height]
+        o.onExit = { [weak self] in self?.endRioSorting() }
+        cv.addSubview(o)
+        sortOverlay = o
+        window?.makeFirstResponder(o)
+    }
+
+    private func endRioSorting() {
+        sortOverlay?.removeFromSuperview()
+        sortOverlay = nil
+        if currentFilter.manualFilter != .all { reloadGrid() }
+        window?.makeFirstResponder(gridVC.collectionView)
+    }
+
+    /// チェック中のフォルダ内で「璃央以外」に仕分けた写真を、確認の上ゴミ箱へ入れる。
+    @objc func trashManualOthers(_ sender: Any?) {
+        let targets = store.photos(checkedPaths: sidebarVC.checkedPaths, order: .name)
+            .filter { !$0.isVideo && ManualLabelStore.shared.label(for: $0) == .other }
+        let a = NSAlert()
+        guard !targets.isEmpty else {
+            a.messageText = "「璃央以外」に仕分けた写真はありません"
+            a.runModal()
+            return
+        }
+        a.messageText = "\(targets.count) 枚の「璃央以外」の写真をゴミ箱に入れますか?"
+        a.informativeText = "チェック中のフォルダ内が対象です。ゴミ箱からは元に戻せます。"
+        a.addButton(withTitle: "ゴミ箱に入れる")
+        a.addButton(withTitle: "キャンセル")
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        var removed = Set<String>()
+        var failures: [String] = []
+        for p in targets {
+            do {
+                try FileManager.default.trashItem(at: p.url, resultingItemURL: nil)
+                removed.insert(p.url.path)
+            } catch { failures.append(p.url.lastPathComponent) }
+        }
+        ManualLabelStore.shared.remove(paths: Array(removed))
+        syncAfterExternalTrash(removed)
+        if !failures.isEmpty { showTrashFailureAlert(failures) }
+    }
+
+    @objc func resetManualLabels(_ sender: Any?) {
+        let c = ManualLabelStore.shared.counts
+        let a = NSAlert()
+        a.messageText = "手動仕分けの結果(璃央 \(c.rio) / 璃央以外 \(c.other))をすべて消去しますか?"
+        a.informativeText = "写真自体は変更されません。"
+        a.addButton(withTitle: "消去")
+        a.addButton(withTitle: "キャンセル")
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        ManualLabelStore.shared.clear()
+        if currentFilter.manualFilter != .all { reloadGrid() }
+    }
+
+    /// ビューアで範囲選択した領域の特徴量を登録する(結果はビューアのトーストで知らせる)。
+    private func registerRioPrint(_ fp: VNFeaturePrintObservation, key: String) {
+        let added = RioReferenceStore.shared.add([(key: key, print: fp)])
+        if added > 0 {
+            rioCache.reset()
+            if currentFilter.rioFilter != .all { reloadGrid() }
+            viewer?.showToast("璃央として登録しました(合計 \(RioReferenceStore.shared.count) 枚)")
+        } else {
+            viewer?.showToast("登録済みの範囲のためスキップしました")
+        }
+    }
+
     @objc func resetRioRegistrations(_ sender: Any?) {
         RioReferenceStore.shared.clear()
         rioCache.reset()
@@ -4416,54 +4381,6 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     /// 通常視聴ビューアでの動画自動連続再生のオン/オフ(2026-09-07追加)。
     @objc func toggleAutoplayNext(_ sender: Any?) {
         autoplayNextVideo.toggle()
-    }
-
-    /// OneDriveモード用の簡易な並び替え(`reloadGrid()`のフィルター/画質順ソート
-    /// パイプラインは通さない — Vision解析はローカル専用のため、画質順だけ意味を
-    /// 持たない。`validateMenuItem`が画質順メニューをこのモードでは無効化している
-    /// のでここには来ない)。サイズ順はOneDriveの`children`レスポンスに含まれる
-    /// `size`をそのまま`PhotoItem.fileSize`へ渡しているので、ローカルと同じ意味で使える
-    /// (2026-09-07、以前はOneDriveアイテムの`fileSize`を常に0にしていたため未対応だった)。
-    /// `refreshOneDriveGrid`(フェーズ2のたびに呼ばれる)とロジックを共通化してある
-    /// ― 以前は別々に実装されていて、フェーズ2の再描画が`resortOneDriveGrid`で
-    /// 選んだ並び順を上書きしてしまう不具合があった(下記参照)。
-    private func sortedForOneDrive(_ items: [PhotoItem]) -> [PhotoItem] {
-        switch sortOrder {
-        case .dateDesc: return items.sorted { $0.sortDate > $1.sortDate }
-        case .dateAsc: return items.sorted { $0.sortDate < $1.sortDate }
-        case .name:
-            // `photo.name`(元ファイル名)を使う ― OneDriveの`url`は署名付き
-            // ダウンロードURLでファイル名を反映しないため、以前は`url.lastPathComponent`
-            // でソートしており実質意味を持たない順序になっていた(2026-09-07修正、
-            // `PhotoItem.name`追加を機に発覚)。
-            return items.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        case .sizeDesc: return items.sorted { $0.fileSize > $1.fileSize }
-        case .sizeAsc: return items.sorted { $0.fileSize < $1.fileSize }
-        case .qualityDesc, .qualityAsc:
-            // 画質順はVision解析(ローカル専用)が前提のため、OneDriveでは意味を持たない
-            // (`validateMenuItem`がこのモードでは選べなくしている ― 万一来ても
-            // 元の順序のまま返す、安全なフォールバック)。
-            return items
-        }
-    }
-
-    /// ユーザーが並び替えを変更した直後に呼ぶ(ツールバー/メニューどちらの並び替え
-    /// UIからも)。**現在キャッシュ済みの全件から絞り込み直す**(`refreshOneDriveGrid`
-    /// と同じ経路) ― 以前は`gridVC.items`(今表示中の配列)をその場でin-place
-    /// ソートするだけの別実装だったが、その直後にフェーズ2の続きが届いて
-    /// `refreshOneDriveGrid`が呼ばれると、そちらが独自の(`sortOrder`を無視した)
-    /// 順序で`gridVC.items`を丸ごと上書きしてしまい、選んだばかりの並び替えが
-    /// 元に戻る不具合があった(2026-09-07修正 ― ユーザー要望「再生モードで次/前に
-    /// 行けるようにしたい、その時にソートされた並び順で」の裏で見つかった)。
-    private func resortOneDriveGrid() {
-        let vc: OneDriveFolderTreeViewController?
-        switch sidebarContainerVC.currentMode {
-        case .video: vc = sidebarContainerVC.videoVC
-        case .photo: vc = sidebarContainerVC.photoVC
-        case .local: vc = nil
-        }
-        guard let vc else { return }
-        refreshOneDriveGrid(vc)
     }
 
     @objc func zoomIn(_ sender: Any?)  { setCellSize(gridVC.cellSize + 32) }
@@ -4495,25 +4412,14 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         switch menuItem.action {
         case #selector(revealInFinder(_:)), #selector(copy(_:)), #selector(trashSelection(_:)),
              #selector(rotateAndSave(_:)):
-            // 回転・ゴミ箱・Finder表示・コピーはローカルファイル前提(OneDriveアイテムは
-            // リモートURLで、ローカルファイル操作が成立しない)。
-            return !isOneDriveMode && !targetPhotos().isEmpty
+            return !targetPhotos().isEmpty
         case #selector(refresh(_:)):
-            // 再読み込みはローカル・OneDriveどちらでも使える(OneDriveはネットワーク
-            // 切れでサムネイルが欠けたときの再取得用、2026-09-07)。
-            return isOneDriveMode || store.rootURL != nil
+            return store.rootURL != nil
         case #selector(findDuplicates(_:)):
-            // 重複検出はローカル専用(SHA-256/dHashでローカルファイルの内容を読む)。
             // 対象はチェック中のフォルダだけなので、何もチェックしていなければ無効。
-            return !isOneDriveMode && store.rootURL != nil && !sidebarVC.checkedPaths.isEmpty
+            return store.rootURL != nil && !sidebarVC.checkedPaths.isEmpty
         case #selector(changeSort(_:)):
             menuItem.state = (menuItem.tag == sortOrder.rawValue) ? .on : .off
-            if isOneDriveMode {
-                // 画質順ソート(Vision解析)はOneDriveでは意味を持たないため無効化する。
-                // 名前順・日付順・サイズ順は許可(サイズはAPIレスポンスの実値を使う)。
-                guard let order = SortOrder(rawValue: menuItem.tag) else { return false }
-                return !order.showsQuality && !gridVC.items.isEmpty
-            }
             return store.rootURL != nil
         case #selector(toggleDateBadge(_:)):
             menuItem.state = showDateBadge ? .on : .off
@@ -4521,8 +4427,18 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         case #selector(toggleSizeBadge(_:)):
             menuItem.state = showSizeBadge ? .on : .off
             return true
+        case #selector(labelSelectionRio(_:)), #selector(labelSelectionOther(_:)),
+             #selector(labelSelectionClear(_:)):
+            return gridVC.selectedItems.contains { !$0.isVideo }
+        case #selector(startRioSorting(_:)), #selector(startRioSortingFromSelection(_:)):
+            return store.rootURL != nil && !gridVC.items.isEmpty
+        case #selector(trashManualOthers(_:)):
+            return store.rootURL != nil && ManualLabelStore.shared.counts.other > 0
+        case #selector(resetManualLabels(_:)):
+            let c = ManualLabelStore.shared.counts
+            return c.rio + c.other > 0
         case #selector(registerRio(_:)):
-            return !isOneDriveMode && !targetPhotos().isEmpty
+            return !targetPhotos().isEmpty
         case #selector(resetRioRegistrations(_:)):
             return RioReferenceStore.shared.count > 0
         case #selector(toggleAutoplayNext(_:)):
@@ -4544,7 +4460,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [.toggleSidebar, Self.reloadItemID, Self.sortItemID, Self.filterItemID,
          Self.dateBadgeItemID, Self.sizeBadgeItemID, Self.autoplayNextItemID,
-         Self.slideshowItemID, .flexibleSpace, Self.thumbSliderItemID]
+         Self.slideshowItemID, Self.rioSortItemID, .flexibleSpace, Self.thumbSliderItemID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -4667,6 +4583,21 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             item.view = button
             return item
         }
+        if itemIdentifier == Self.rioSortItemID {
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "璃央仕分け"
+            item.paletteLabel = "璃央仕分け"
+            let button = NSButton(
+                image: NSImage(systemSymbolName: "rectangle.stack.badge.person.crop",
+                               accessibilityDescription: "璃央仕分け")
+                    ?? NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: "璃央仕分け")
+                    ?? NSImage(),
+                target: self, action: #selector(startRioSorting(_:)))
+            button.bezelStyle = .texturedRounded
+            button.toolTip = "璃央仕分け(→ 璃央 / ← 璃央以外)を始める"
+            item.view = button
+            return item
+        }
         if itemIdentifier == Self.slideshowItemID {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "スライドショー"
@@ -4694,16 +4625,7 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
             vc.onSelect = { [weak self] order in
                 guard let self = self else { return }
                 self.sortOrder = order
-                // `reloadGrid()`はOneDriveタブ中はno-opのため(`isOneDriveMode`の間、
-                // ローカルの`PhotoStore`を再フィルタする経路を素通りさせている)、
-                // `changeSort(_:)`(メニュー経由の並び替え)と同じ分岐が必要 ―
-                // ここが分岐していなかったため、OneDriveタブでツールバーの並び替え
-                // ポップオーバーからサイズ順等を選んでも何も起きなかった(2026-09-07)。
-                if self.isOneDriveMode {
-                    self.resortOneDriveGrid()
-                } else {
-                    self.reloadGrid()
-                }
+                self.reloadGrid()
                 self.sortPopover?.performClose(nil)
             }
             sortPopoverVC = vc
@@ -4725,8 +4647,9 @@ final class MainWindowController: NSWindowController, NSToolbarDelegate, NSMenuI
         let vc = filterPopoverVC ?? {
             let vc = FilterPopoverViewController()
             vc.onChange = { [weak self] filter in
-                self?.currentFilter = filter
-                self?.reloadGrid()
+                guard let self = self else { return }
+                self.currentFilter = filter
+                self.reloadGrid()
             }
             filterPopoverVC = vc
             return vc
@@ -4898,6 +4821,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          action: #selector(MainWindowController.registerRio(_:)), keyEquivalent: "")
         viewMenu.addItem(withTitle: "璃央の登録をリセット",
                          action: #selector(MainWindowController.resetRioRegistrations(_:)), keyEquivalent: "")
+        viewMenu.addItem(NSMenuItem.separator())
+        viewMenu.addItem(withTitle: "璃央の仕分けを始める(→璃央 / ←璃央以外)",
+                         action: #selector(MainWindowController.startRioSorting(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "「璃央以外」に仕分けた写真をゴミ箱へ…",
+                         action: #selector(MainWindowController.trashManualOthers(_:)), keyEquivalent: "")
+        viewMenu.addItem(withTitle: "手動仕分けの結果をリセット",
+                         action: #selector(MainWindowController.resetManualLabels(_:)), keyEquivalent: "")
         viewMenu.addItem(NSMenuItem.separator())
         viewMenu.addItem(withTitle: "スライドショー開始",
                          action: #selector(MainWindowController.startSlideshow(_:)), keyEquivalent: "")
