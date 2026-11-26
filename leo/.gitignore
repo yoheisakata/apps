@@ -1,0 +1,8 @@
+# 個人データ（子どもの絵・動画リスト・検索結果・ダウンロード）は公開リポジトリに載せない
+*.jpeg
+*.jpg
+*.png
+channel_video_list.json
+*_results/
+downloads_tmp/
+__pycache__/
