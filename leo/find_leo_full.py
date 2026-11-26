@@ -10,7 +10,7 @@ Leo（りお）検索 — DL→OCR→ギャラリー→削除 を20本バッチ�
     0. 動画リストを増分更新（新着のみ・channel_list.py）
     1. 対象期間（2026年9月1日〜実行日まで。実行のたびに自動で伸びる）の未処理動画を抽出
     2. 20本ずつバッチ処理:
-       a. お絵描き紹介動画 → 全体DL / その他 → 最後10分だけDL（1080p）
+       a. お絵描き紹介動画 → 全体DL / その他 → 最後10分だけDL（480p・OCR_MAX_HEIGHT）
        b. 1秒間隔フレーム抽出 → manga-ocr で「りお」検索
        c. ヒットフレームを保存 + ギャラリー更新
        d. DL済み動画を削除（ストレージ節約）
@@ -65,6 +65,8 @@ KEYWORD = "りお"
 FRAME_INTERVAL = 1
 CROP_TOP_RATIO = 0.70
 TAIL_MINUTES = 10
+# OCR 用の DL 解像度の上限。テロップの文字を読むには 480p で十分で、1080p より大幅に軽い
+OCR_MAX_HEIGHT = 480
 OEKAKI_TITLE_KEYWORDS = ["お絵描き", "お絵かき", "紹介"]
 BATCH_SIZE = 20
 OUTPUT_DIR = Path("leo_results")
@@ -92,7 +94,7 @@ def download_video(video, dl_dir):
 
     if is_oekaki_video(video):
         cmd = ["yt-dlp", *YT_DLP_EXTRA,
-               "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]",
+               "-f", f"bestvideo[height<={OCR_MAX_HEIGHT}][ext=mp4]+bestaudio[ext=m4a]/best[height<={OCR_MAX_HEIGHT}]",
                "--merge-output-format", "mp4",
                "--no-warnings", "--quiet",
                "-o", str(output_path), video["url"]]
@@ -100,7 +102,7 @@ def download_video(video, dl_dir):
         duration = video.get("duration", 0)
         start_time = max(0, duration - TAIL_MINUTES * 60) if duration > 0 else 0
         cmd = ["yt-dlp", *YT_DLP_EXTRA,
-               "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]",
+               "-f", f"bestvideo[height<={OCR_MAX_HEIGHT}][ext=mp4]+bestaudio[ext=m4a]/best[height<={OCR_MAX_HEIGHT}]",
                "--merge-output-format", "mp4",
                "--download-sections", f"*{start_time}-inf",
                "--no-warnings", "--quiet",
@@ -109,7 +111,7 @@ def download_video(video, dl_dir):
     result = run_cmd(cmd)
 
     if result.returncode != 0 or not output_path.exists():
-        cmd2 = ["yt-dlp", *YT_DLP_EXTRA, "-f", "best[height<=1080]",
+        cmd2 = ["yt-dlp", *YT_DLP_EXTRA, "-f", f"best[height<={OCR_MAX_HEIGHT}]",
                 "--no-warnings", "--quiet", "-o", str(output_path), video["url"]]
         run_cmd(cmd2)
 
