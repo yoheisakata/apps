@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# build.sh — build the MyMarkdown GUI app (native Swift macOS markdown
+# build.sh — build the MyTextViewer GUI app (native Swift macOS markdown
 # viewer + plain-text editor).
 #
 # Usage:
 #   ./build.sh install   build + copy to /Applications/MyApplications (launch from Spotlight/Launchpad)
-#   ./build.sh app       build a double-clickable MyMarkdown.app in build/
+#   ./build.sh app       build a double-clickable MyTextViewer.app in build/
 #   ./build.sh build     compile the raw binary only
 #   ./build.sh clean     remove build artifacts
 #
@@ -17,12 +17,35 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_NAME="mymarkdown"
-APP_DISPLAY_NAME="MyMarkdown"
-BUNDLE_ID="com.yosakata.mymarkdown"
-INSTALL_NOTES='Right-click a file → Open With → MyMarkdown (markdown renders; other files open in the editor).'
+BIN_NAME="mytextviewer"
+APP_DISPLAY_NAME="MyTextViewer"
+BUNDLE_ID="com.yosakata.mytextviewer"
+INSTALL_NOTES='Right-click a file → Open With → MyTextViewer (markdown renders; JSON/XML/YAML are highlighted; other files open in the editor).'
 PLIST_EXTRA='  <key>CFBundleDocumentTypes</key>
   <array>
+    <dict>
+      <key>CFBundleTypeName</key>    <string>Structured Text Document</string>
+      <key>CFBundleTypeRole</key>    <string>Viewer</string>
+      <key>LSHandlerRank</key>       <string>Alternate</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>json</string>
+        <string>xml</string>
+        <string>svg</string>
+        <string>xsd</string>
+        <string>xsl</string>
+        <string>yaml</string>
+        <string>yml</string>
+        <string>toml</string>
+        <string>ini</string>
+      </array>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>public.json</string>
+        <string>public.xml</string>
+        <string>public.yaml</string>
+      </array>
+    </dict>
     <dict>
       <key>CFBundleTypeName</key>    <string>Markdown Document</string>
       <key>CFBundleTypeRole</key>    <string>Viewer</string>
@@ -58,10 +81,15 @@ LSREG="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServic
 # App version, single source of truth (bumped each commit).
 VERSION="$(tr -d ' \n' < "$DIR/VERSION" 2>/dev/null || echo 1.0)"
 
+# Deployment target is pinned explicitly: on macOS 27 swiftc's default triple is
+# macosx28.0, so an unpinned build gets minos 28.0 and the OS refuses to launch it
+# ("can't use this version … with this version of macOS"). Keep this pin (same as mygallery).
+MIN_MACOS="26.0"
+
 build() {
   mkdir -p "$DIR/build"
   echo "Building ${BIN_NAME}…"
-  swiftc -O -framework AppKit -framework WebKit -o "$BIN" "${SRCS[@]}"
+  swiftc -O -target "arm64-apple-macosx${MIN_MACOS}" -framework AppKit -framework WebKit -o "$BIN" "${SRCS[@]}"
   echo "Built $BIN"
 }
 

@@ -1,6 +1,6 @@
 import AppKit
 
-// AppShared.swift — small AppKit utilities compiled into mymarkdown alongside
+// AppShared.swift — small AppKit utilities compiled into mytextviewer alongside
 // Sources/main.swift: FileWatcher (debounced file-change watching for live
 // reload), resourcesDirectory(projectDir:), and jsStringLiteral.
 

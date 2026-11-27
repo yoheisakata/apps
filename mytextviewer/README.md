@@ -1,11 +1,17 @@
-# MyMarkdown
+# MyTextViewer
 
-A native macOS markdown viewer **and plain-text editor** with **live reload**.
-Files are routed by extension:
+A native macOS **text viewer** (markdown preview, syntax-highlighted structured
+text, and a plain-text editor) with **live reload**. Files are routed by extension:
 
 - **`.md` / `.markdown` / `.mdown` / `.mkd`** → rendered markdown **preview**.
   Edit the file in any editor; when you save, the preview updates automatically —
   keeping your scroll position.
+- **`.json` / `.xml` / `.svg` / `.xsd` / `.xsl` / `.yaml` / `.yml` / `.toml` / `.ini`**
+  → **syntax-highlighted viewer** in the same window. JSON is pretty-printed
+  (2-space indent) and XML is indented; YAML, TOML and INI are highlighted as-is.
+  Raw mode (`⌘U`) shows the exact file contents, which you can edit and save
+  like markdown. Display formatting never changes the file on disk.
+  A malformed file is shown unformatted, so nothing is hidden.
 - **Everything else** → the built-in **text editor** (the former standalone
   "mini editor", merged in here): Save / Save As / Revert, the system Find bar,
   Find & Replace (`⌥⌘F`), fonts, zoom, word wrap, a line/word/char status bar,
@@ -28,18 +34,18 @@ Common features across both:
 Build once and install into `/Applications/MyApplications`:
 
 ```bash
-cd mymarkdown
+cd mytextviewer
 ./build.sh           # = ./build.sh install — build + copy to /Applications/MyApplications
 ```
 
-Then launch from **Spotlight** (⌘Space → "MyMarkdown"), **Launchpad**, or
+Then launch from **Spotlight** (⌘Space → "MyTextViewer"), **Launchpad**, or
 the **Applications** folder. You only re-run this when the **source changes**;
 the app is ad-hoc codesigned for local use.
 
 Other `build.sh` commands:
 
 ```bash
-./build.sh app       # build + open build/MyMarkdown.app in place (no install)
+./build.sh app       # build + open build/MyTextViewer.app in place (no install)
 ./build.sh build     # compile the raw binary only
 ./build.sh clean     # remove build/
 ```
@@ -51,7 +57,7 @@ Once the app is open:
 - **Drag & drop** any file onto the window (folders are ignored).
 - **⌘O** (or File → Open…) to pick one or more files of any type.
 - **⌘N** for a new, empty text document.
-- Right-click a file in Finder → **Open With → MyMarkdown**.
+- Right-click a file in Finder → **Open With → MyTextViewer**.
 
 Markdown files open as a live-reloading preview; other files open in the text
 editor. Multiple files open as tabs. For a markdown file, edit it in your editor
@@ -75,7 +81,7 @@ even when the document length changes.
 ## Layout
 
 ```
-mymarkdown/
+mytextviewer/
 ├── build.sh                   # build / install the GUI app
 ├── Sources/
 │   ├── main.swift             # app, windows, menus, editor + preview controllers

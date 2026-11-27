@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 // MARK: - Overview
 //
-// MyMarkdown — a live-reloading markdown viewer that doubles as a plain-text
+// MyTextViewer — a live-reloading markdown viewer that doubles as a plain-text
 // editor. Files are routed by extension:
 //
 //   .md / .markdown / .mdown / .mkd  → rendered markdown preview (WKWebView).
@@ -41,10 +41,25 @@ func loadTemplate(resources: URL) -> String {
     return html
 }
 
-// Markdown extensions get the rendered preview; everything else opens in the editor.
+// Markdown extensions get the rendered preview; structured text gets the
+// highlighted code viewer (same window, see PreviewWindowController); everything
+// else opens in the editor.
 let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd"]
 func isMarkdownURL(_ url: URL) -> Bool {
     markdownExtensions.contains(url.pathExtension.lowercased())
+}
+
+// Extension → highlight.js language for the code viewer. Pretty-printed in the
+// viewer (JSON / XML); raw source is shown in Raw mode.
+let codeExtensions: [String: String] = [
+    "json": "json",
+    "xml": "xml", "svg": "xml", "xsd": "xml", "xsl": "xml",
+    "yaml": "yaml", "yml": "yaml",
+    "toml": "toml",
+    "ini": "ini",
+]
+func codeLanguage(for url: URL) -> String? {
+    codeExtensions[url.pathExtension.lowercased()]
 }
 
 // MARK: - FileWindow
@@ -172,6 +187,8 @@ final class PreviewWindowController: NSObject, FileWindow, WKScriptMessageHandle
     var templateLoaded = false
     var pendingMarkdown: String?
     var pendingIsWelcome = false
+    // Language for the code viewer (JSON/XML/…); nil renders as markdown.
+    var codeLang: String?
     var rawMode = false
     var dirty = false
     // Set briefly when we write the file ourselves, so the watcher's change
@@ -205,7 +222,7 @@ final class PreviewWindowController: NSObject, FileWindow, WKScriptMessageHandle
         window.isReleasedWhenClosed = false
         window.tabbingMode = .preferred
         window.contentView = webView
-        window.title = "MyMarkdown"
+        window.title = "MyTextViewer"
 
         super.init()
 
@@ -226,7 +243,7 @@ final class PreviewWindowController: NSObject, FileWindow, WKScriptMessageHandle
 
     func showWelcome() {
         let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "dev"
-        pendingMarkdown = "# MyMarkdown v\(version)\n\n**Drag one or more files onto this window** (multiple files open as tabs), or press **⌘O**.\n\n`.md` files open as a live-reloading preview; any other file opens in the built-in text editor. Press **⌘N** for a new empty document."
+        pendingMarkdown = "# MyTextViewer v\(version)\n\n**Drag one or more files onto this window** (multiple files open as tabs), or press **⌘O**.\n\n`.md` files open as a live-reloading preview; `.json` / `.xml` / `.yaml` / `.toml` / `.ini` open in the syntax-highlighted viewer; any other file opens in the built-in text editor. Press **⌘N** for a new empty document."
         pendingIsWelcome = true
         if templateLoaded { flushPending() }
     }
@@ -244,6 +261,8 @@ final class PreviewWindowController: NSObject, FileWindow, WKScriptMessageHandle
     func openFile(_ url: URL) {
         let resolved = url.resolvingSymlinksInPath()
         fileURL = resolved
+        // nil = markdown preview; non-nil = highlighted code viewer (JSON/XML/…).
+        codeLang = codeLanguage(for: resolved)
         window.title = resolved.lastPathComponent
         window.representedURL = resolved
         watcher?.stop()
@@ -277,17 +296,20 @@ final class PreviewWindowController: NSObject, FileWindow, WKScriptMessageHandle
             pendingIsWelcome = welcome
             return
         }
+        // renderMarkdown(md, lang): lang = null shows markdown; a language name shows the code viewer.
+        let lang = welcome ? nil : codeLang
         let fn = welcome ? "renderWelcome" : "renderMarkdown"
         if #available(macOS 11.0, *) {
             webView.callAsyncJavaScript(
-                "window.\(fn)(md);",
-                arguments: ["md": md],
+                "window.\(fn)(md, lang);",
+                arguments: ["md": md, "lang": lang ?? NSNull()],
                 in: nil,
                 in: .page,
                 completionHandler: nil
             )
         } else {
-            let js = "window.\(fn)(\(jsStringLiteral(md)));"
+            let langLit = lang.map { jsStringLiteral($0) } ?? "null"
+            let js = "window.\(fn)(\(jsStringLiteral(md)), \(langLit));"
             webView.evaluateJavaScript(js, completionHandler: nil)
         }
     }
@@ -1356,7 +1378,7 @@ final class EditorWindowController: NSObject, FileWindow, NSWindowDelegate {
 // MARK: - App
 
 final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation {
-    let resources = resourcesDirectory(projectDir: "mymarkdown")
+    let resources = resourcesDirectory(projectDir: "mytextviewer")
     var shellURL: URL!
     var launched = false
     var pendingOpen: [URL] = []
@@ -1392,7 +1414,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         // Assemble the preview template shell once and reuse it for every preview tab.
         let html = loadTemplate(resources: resources)
         shellURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mymarkdown-shell.html")
+            .appendingPathComponent("mytextviewer-shell.html")
         try? html.write(to: shellURL, atomically: true, encoding: .utf8)
 
         // Stage mermaid.min.js next to the shell so the page can lazy-load it.
@@ -1457,18 +1479,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         guard !valid.isEmpty else { NSSound.beep(); return }
 
         for url in valid {
-            let wantMarkdown = isMarkdownURL(url)
+            // Markdown and structured text both use the preview window; the rest use the editor.
+            let wantPreview = isMarkdownURL(url) || codeLanguage(for: url) != nil
             // Reuse a blank window of the matching kind (e.g. the launch welcome).
             if let empty = controllers.first(where: {
                 $0.fileURL == nil && !$0.isAuxiliary && !$0.dirty &&
-                ((wantMarkdown && $0 is PreviewWindowController) ||
-                 (!wantMarkdown && $0 is EditorWindowController))
+                ((wantPreview && $0 is PreviewWindowController) ||
+                 (!wantPreview && $0 is EditorWindowController))
             }) {
                 empty.openFile(url)
                 empty.window.makeKeyAndOrderFront(nil)
                 continue
             }
-            let wc: FileWindow = wantMarkdown ? makePreview() : makeEditor()
+            let wc: FileWindow = wantPreview ? makePreview() : makeEditor()
             wc.openFile(url)
             place(wc.window)
             wc.window.makeKeyAndOrderFront(nil)
@@ -1618,14 +1641,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         for wc in controllers.reversed() { wc.window.close() }
     }
 
-    // Help → MyMarkdown Help. Reuses the open help window if present.
+    // Help → MyTextViewer Help. Reuses the open help window if present.
     @objc func openHelp(_ sender: Any?) {
         if let existing = controllers.first(where: { $0.isAuxiliary }) as? PreviewWindowController {
             existing.window.makeKeyAndOrderFront(nil)
             return
         }
         let wc = makePreview()
-        wc.showContent(title: "MyMarkdown Help", markdown: helpMarkdown)
+        wc.showContent(title: "MyTextViewer Help", markdown: helpMarkdown)
         wc.window.center()
         wc.window.makeKeyAndOrderFront(nil)
     }
@@ -1636,7 +1659,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
 
     var helpMarkdown: String {
         return """
-        # MyMarkdown — Help
+        # MyTextViewer — Help
 
         A lightweight, live-reloading Markdown viewer and plain-text editor for macOS.
 
@@ -1646,7 +1669,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         - **File ▸ Open…** (`⌘O`) — pick one or more files of any type.
         - **File ▸ New** (`⌘N`) — a new, empty text document.
         - **File ▸ Open Recent** — jump back to a recently opened file.
-        - **Double-click** a file in Finder, or right-click ▸ **Open With ▸ MyMarkdown**.
+        - **Double-click** a file in Finder, or right-click ▸ **Open With ▸ MyTextViewer**.
 
         `.md` / `.markdown` / `.mdown` / `.mkd` files open as a **rendered preview**;
         every other file opens in the built-in **text editor**.
@@ -1655,7 +1678,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
 
         - **Live reload**: edit the file in any editor and save — the preview updates
           automatically, keeping your scroll position.
-        - **View ▸ Show Raw Markdown** (`⌘U`) toggles between the rendered preview and
+        - **View ▸ Show Raw Text** (`⌘U`) toggles between the rendered preview and
           the editable raw source. In raw mode, **File ▸ Save** (`⌘S`) writes back.
         - **View ▸ Show Line Numbers** (`⌘L`) toggles a gutter in the raw source view.
         - GitHub-flavored Markdown, syntax-highlighted code, and **Mermaid** diagrams
@@ -1692,7 +1715,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         | `⌘S` | Save |
         | `⇧⌘S` | Save As… |
         | `⌘R` | Reload / Revert current tab |
-        | `⌘U` | Toggle raw Markdown (preview) |
+        | `⌘U` | Toggle raw source (preview) |
         | `⌘L` | Toggle line numbers (preview) |
         | `⌘F` / `⌥⌘F` | Find / Find and Replace |
         | `⌘G` / `⇧⌘G` | Find next / previous |
@@ -1704,7 +1727,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
 
         ---
 
-        *MyMarkdown v\(appVersion)*
+        *MyTextViewer v\(appVersion)*
         """
     }
 
@@ -1826,11 +1849,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         let appMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About MyMarkdown",
+        appMenu.addItem(withTitle: "About MyTextViewer",
                         action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
                         keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Hide MyMarkdown",
+        appMenu.addItem(withTitle: "Hide MyTextViewer",
                         action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = NSMenuItem(title: "Hide Others",
                                     action: #selector(NSApplication.hideOtherApplications(_:)),
@@ -1840,7 +1863,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         appMenu.addItem(withTitle: "Show All",
                         action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit MyMarkdown",
+        appMenu.addItem(withTitle: "Quit MyTextViewer",
                         action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
 
@@ -1954,7 +1977,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         let viewMenuItem = NSMenuItem()
         mainMenu.addItem(viewMenuItem)
         let viewMenu = NSMenu(title: "View")
-        let rawToggle = NSMenuItem(title: "Show Raw Markdown",
+        let rawToggle = NSMenuItem(title: "Show Raw Text",
                                    action: #selector(toggleRawFromMenu(_:)), keyEquivalent: "u")
         rawToggle.target = self
         viewMenu.addItem(rawToggle)
@@ -2009,7 +2032,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuItemValidation
         let helpMenuItem = NSMenuItem()
         mainMenu.addItem(helpMenuItem)
         let helpMenu = NSMenu(title: "Help")
-        let help = NSMenuItem(title: "MyMarkdown Help",
+        let help = NSMenuItem(title: "MyTextViewer Help",
                               action: #selector(openHelp(_:)), keyEquivalent: "?")
         help.target = self
         helpMenu.addItem(help)

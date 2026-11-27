@@ -20,6 +20,21 @@
   @media (prefers-color-scheme: dark) {
     body { background: #0d1117; }
   }
+  /* Code viewer (JSON / XML / YAML / TOML / INI): scrolls horizontally, keeps indentation. */
+  body.code-mode, body.code-mode .markdown-body, body.code-mode .code-view {
+    background: #ffffff !important;
+    color: #24292f;
+  }
+  .code-view {
+    white-space: pre;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 16px;
+    border-radius: 6px;
+  }
   /* Raw markdown source view (toggle). */
   .raw-source {
     white-space: pre-wrap;
@@ -300,6 +315,7 @@
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
   let currentTheme = 'auto';
   function isDarkEffective() {
+    if (codeLang) return false;   // code viewer: always white background
     if (currentTheme === 'dark' || currentTheme === 'dim') return true;
     if (currentTheme === 'light' || currentTheme === 'sepia') return false;
     return mq.matches;   // auto → follow the system
@@ -455,6 +471,8 @@
   let currentMarkdown = '';
   let rawMode = false;
   let lineNumbers = false;   // View ▸ Show Line Numbers (raw mode only)
+  // Highlight.js language for the code viewer (JSON/XML/…); null = markdown.
+  let codeLang = null;
 
   // ---------------------------------------------------------------------------
   // Raw-mode line numbers.
@@ -560,9 +578,15 @@
 
   // Called from Swift with the raw markdown string.
   // Preserves the vertical scroll *ratio* so position survives content length changes.
-  window.renderMarkdown = function (md) {
+  // lang: set by Swift on file open (null = markdown, else a highlight.js name);
+  // omitted on re-renders (raw toggle, line numbers, theme), which keep codeLang.
+  window.renderMarkdown = function (md, lang) {
+    if (lang !== undefined) codeLang = lang || null;
     currentMarkdown = md;
     document.body.classList.remove('welcome');
+    // Code viewer is always white with the light highlight theme; markdown follows the app theme.
+    document.body.classList.toggle('code-mode', !!codeLang);
+    applyTheme();
     const doc = document.documentElement;
     const prevMax = Math.max(1, doc.scrollHeight - doc.clientHeight);
     const ratio = doc.scrollTop / prevMax;
@@ -603,6 +627,26 @@
       return;
     }
 
+    if (codeLang) {
+      // Structured text: pretty-print (JSON/XML), then highlight in the same
+      // time-sliced pass code blocks use. Raw mode shows the exact source.
+      const code = document.createElement('code');
+      code.className = 'hljs language-' + codeLang;
+      code.setAttribute('data-hl', codeLang);
+      code.textContent = formatForViewer(md, codeLang);
+      const pre = document.createElement('pre');
+      pre.className = 'code-view';
+      pre.appendChild(code);
+      el.innerHTML = '';
+      el.appendChild(pre);
+      restore();
+      highlightAsync(function () {
+        restore();
+        if (window.__mdvAfterRender) window.__mdvAfterRender();
+      });
+      return;
+    }
+
     el.innerHTML = marked.parse(md);
 
     // Paint the text immediately, then fill in visuals in priority order:
@@ -638,6 +682,57 @@
   };
 
   // Welcome splash — same renderer, but centered in the window (body.welcome).
+  // Pretty-print for the code viewer. Returns the source unchanged if it doesn't parse.
+  function formatForViewer(src, lang) {
+    try {
+      if (lang === 'json') return JSON.stringify(JSON.parse(src), null, 2);
+      if (lang === 'xml') { const out = prettyXml(src); return out == null ? src : out; }
+    } catch (e) {}
+    return src;
+  }
+
+  // Indent an XML document (2 spaces per level). Elements that contain text stay on one line
+  // so their content is not altered; the XML declaration is kept. null = not well-formed.
+  function prettyXml(src) {
+    const doc = new DOMParser().parseFromString(src, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) return null;
+    const esc = function (s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+    const escAttr = function (s) { return esc(s).replace(/"/g, '&quot;'); };
+    const attrsOf = function (n) {
+      return Array.prototype.map.call(n.attributes, function (a) { return ' ' + a.name + '="' + escAttr(a.value) + '"'; }).join('');
+    };
+    const isBlank = function (n) { return n.nodeType === 3 && !n.nodeValue.trim(); };
+    function inline(n) {
+      switch (n.nodeType) {
+        case 1: {
+          const kids = Array.prototype.map.call(n.childNodes, inline).join('');
+          return kids ? '<' + n.tagName + attrsOf(n) + '>' + kids + '</' + n.tagName + '>'
+                      : '<' + n.tagName + attrsOf(n) + '/>';
+        }
+        case 3: return esc(n.nodeValue);
+        case 4: return '<![CDATA[' + n.nodeValue + ']]>';
+        case 7: return '<?' + n.target + (n.data ? ' ' + n.data : '') + '?>';
+        case 8: return '<!--' + n.nodeValue + '-->';
+        case 10: return '<!DOCTYPE ' + n.name + '>';
+        default: return '';
+      }
+    }
+    function block(n, d) {
+      const pad = '  '.repeat(d);
+      if (n.nodeType !== 1) return pad + inline(n);
+      const kids = Array.prototype.filter.call(n.childNodes, function (k) { return !isBlank(k); });
+      if (!kids.length) return pad + '<' + n.tagName + attrsOf(n) + '/>';
+      const hasText = kids.some(function (k) { return k.nodeType === 3 || k.nodeType === 4; });
+      if (hasText) return pad + inline(n);
+      return pad + '<' + n.tagName + attrsOf(n) + '>\n' +
+             kids.map(function (k) { return block(k, d + 1); }).join('\n') +
+             '\n' + pad + '</' + n.tagName + '>';
+    }
+    const decl = /^\s*(<\?xml[^>]*\?>)/.exec(src);
+    const top = Array.prototype.filter.call(doc.childNodes, function (k) { return !isBlank(k); });
+    return (decl ? decl[1] + '\n' : '') + top.map(function (k) { return block(k, 0); }).join('\n');
+  }
+
   window.renderWelcome = function (md) {
     currentMarkdown = md;   // remembered so a theme switch can re-render it
     el.innerHTML = marked.parse(md);
