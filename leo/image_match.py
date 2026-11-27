@@ -110,9 +110,8 @@ def match_frame(frame_path, templates, threshold):
             best_scale = scale
             best_loc = max_loc
 
-    if best_score >= threshold:
-        return {"score": best_score, "scale": best_scale, "location": best_loc}
-    return None
+    # しきい値未満でも最良スコアを返す（動画ごとの最高スコアを記録するため）
+    return {"score": best_score, "scale": best_scale, "location": best_loc}
 
 
 def download_video(video, dl_dir):
@@ -155,7 +154,7 @@ def process_video(video, dl_dir, hit_dir, templates):
     # DL
     dl_path = download_video(video, dl_dir)
     if not dl_path or not dl_path.exists():
-        return None, []
+        return None, [], None
 
     size_mb = dl_path.stat().st_size / (1024 * 1024)
     print(f"DL {size_mb:.0f}MB → ", end="", flush=True)
@@ -167,9 +166,14 @@ def process_video(video, dl_dir, hit_dir, templates):
 
     # マッチング
     hits = []
+    best = {"score": 0.0, "scale": 0, "sec": 0}
     for i, fp in enumerate(frames):
         result = match_frame(fp, templates, MATCH_THRESHOLD)
-        if result:
+        if result is None:
+            continue
+        if result["score"] > best["score"]:
+            best = {"score": result["score"], "scale": result["scale"], "sec": i * FRAME_INTERVAL}
+        if result["score"] >= MATCH_THRESHOLD:
             frame_sec = i * FRAME_INTERVAL
             time_str = f"{frame_sec // 60}:{frame_sec % 60:02d}"
 
@@ -191,7 +195,7 @@ def process_video(video, dl_dir, hit_dir, templates):
     # フレーム削除
     shutil.rmtree(frames_dir, ignore_errors=True)
 
-    return dl_path, hits
+    return dl_path, hits, best
 
 
 def generate_gallery(all_hits, output_dir):
@@ -266,6 +270,8 @@ def main():
     print()
 
     done_file = OUTPUT_DIR / "processed_ids.txt"
+    # 動画ごとの最高スコア（しきい値調整の材料）。1 行 = 1 動画
+    max_scores_file = OUTPUT_DIR / "max_scores.tsv"
     processed_ids = read_processed_ids(done_file)
     videos = select_targets(all_videos, set(), date_from, date_to)
     remaining = select_targets(all_videos, processed_ids, date_from, date_to)
@@ -309,12 +315,17 @@ def main():
             print(f"  [{batch_start+i+1}/{len(remaining)}] ", end="", flush=True)
 
             try:
-                dl_path, hits = process_video(video, DL_DIR, hit_dir, templates)
+                dl_path, hits, best = process_video(video, DL_DIR, hit_dir, templates)
                 all_hits.extend(hits)
+                if best:
+                    with open(max_scores_file, "a", encoding="utf-8") as f:
+                        f.write(f"{video['id']}\t{video.get('upload_date','')}\t"
+                                f"{best['score']:.3f}\t{best['scale']}\t{best['sec']}\t{video['title']}\n")
+                best_txt = f"最高 {best['score']:.3f} @ {best['sec'] // 60}:{best['sec'] % 60:02d}" if best else ""
                 if hits:
-                    print(f"✅ {len(hits)}件! {video['title'][:25]}")
+                    print(f"✅ {len(hits)}件! {best_txt} {video['title'][:25]}")
                 else:
-                    print(f"- {video['title'][:30]}")
+                    print(f"- {best_txt} {video['title'][:30]}")
                 if dl_path:
                     dl_paths.append(dl_path)
             except KeyboardInterrupt:
