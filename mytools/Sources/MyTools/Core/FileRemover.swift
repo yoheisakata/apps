@@ -36,7 +36,7 @@ enum FileRemover {
     /// trashItem で失敗した分を Finder 経由（AppleScript）で再試行する。
     /// Finder は root 所有のアプリ（App Store 製など）でも管理者認証を出して
     /// ゴミ箱へ移動でき、他アプリのコンテナも扱える。
-    /// 初回は「MyOrganizer が Finder を制御しようとしています」の許可ダイアログが出る。
+    /// 初回は「MyTools が Finder を制御しようとしています」の許可ダイアログが出る。
     /// NSAppleScript を使うためメインスレッドで呼ぶこと。
     static func retryWithFinder(_ result: Result) -> Result {
         guard !result.failures.isEmpty else { return result }
@@ -80,7 +80,7 @@ enum FileRemover {
             if number == -1743 {
                 return "Finder の制御が許可されていません。"
                     + "システム設定 › プライバシーとセキュリティ › オートメーション で"
-                    + " Organizer → Finder をオンにしてください。"
+                    + " MyTools → Finder をオンにしてください。"
             }
             return errorInfo[NSAppleScript.errorMessage] as? String ?? "Finder での削除に失敗しました"
         }

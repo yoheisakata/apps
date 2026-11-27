@@ -1,14 +1,10 @@
 #!/usr/bin/env swift
-// 薄い青グラデーション背景（downloader/mygallery/mytubeと共通）に白いSF Symbol
-// "tray.2.fill"（重なるトレイ、仕分け・整理のイメージ）のシルエットを描いたアプリアイコンを生成する。
-// 旧版は絵文字🗂️をテキスト描画して白抜きしていたため輪郭がギザギザでシルエットが
-// 判別しづらかった。他の兄弟アプリ（mygalleryの"photo"等）と同じSF Symbolベースの
-// 描画に変更し、エッジをシャープにした。
+// 白背景に単色（ダークスレート）の SF Symbol "wrench.and.screwdriver.fill"（レンチ＋ドライバー、
+// ツールのイメージ）を描いたアプリアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let blueTop = NSColor(srgbRed: 0.365, green: 0.663, blue: 0.878, alpha: 1) // #5DA9E0（downloader/mygalleryと共通）
-let blueBottom = NSColor(srgbRed: 0.106, green: 0.369, blue: 0.620, alpha: 1) // #1B5E9E（downloader/mygalleryと共通）
+let glyphColor = NSColor(srgbRed: 0.227, green: 0.267, blue: 0.314, alpha: 1) // #3A4450 ダークスレート
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
@@ -27,15 +23,16 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    let gradient = NSGradient(colors: [blueTop, blueBottom])!
-    gradient.draw(in: path, angle: -90)
+    // 白背景
+    NSColor.white.setFill()
+    path.fill()
 
-    // 中央に白いSF Symbol "tray.2.fill"(重なるトレイ)のシルエット
-    let glyphSize = s * 0.44
-    let config = NSImage.SymbolConfiguration(pointSize: glyphSize, weight: .regular)
-    guard let symbol = NSImage(systemSymbolName: "tray.2.fill", accessibilityDescription: nil)?
+    // 中央にツールのシルエット（単色）
+    let glyphSize = s * 0.56
+    let config = NSImage.SymbolConfiguration(pointSize: glyphSize, weight: .medium)
+    guard let symbol = NSImage(systemSymbolName: "wrench.and.screwdriver.fill", accessibilityDescription: nil)?
         .withSymbolConfiguration(config) else {
-        fatalError("SF Symbol 'tray.2.fill' not found")
+        fatalError("SF Symbol 'wrench.and.screwdriver.fill' not found")
     }
     let symbolSize = symbol.size
     let origin = NSPoint(x: (s - symbolSize.width) / 2, y: (s - symbolSize.height) / 2)
@@ -45,7 +42,7 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     cg.beginTransparencyLayer(auxiliaryInfo: nil)
     symbol.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1.0)
     cg.setBlendMode(.sourceIn)
-    cg.setFillColor(NSColor.white.cgColor)
+    cg.setFillColor(glyphColor.cgColor)
     cg.fill(CGRect(x: 0, y: 0, width: s, height: s))
     cg.endTransparencyLayer()
     cg.restoreGState()

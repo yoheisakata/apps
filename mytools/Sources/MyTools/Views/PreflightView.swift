@@ -27,7 +27,7 @@ struct PreflightView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("依存チェック")
                 .font(.title2).bold()
-            Text("MyOrganizerはこれらの外部コマンドをそのまま呼び出します（同梱しません）。見つからない場合はHomebrewでインストールしてください。")
+            Text("MyToolsはこれらの外部コマンドをそのまま呼び出します（同梱しません）。見つからない場合はHomebrewでインストールしてください。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 

@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "MyOrganizer",
+    name: "MyTools",
     platforms: [
         .macOS(.v14)
     ],
     targets: [
         .executableTarget(
-            name: "MyOrganizer",
-            path: "Sources/MyOrganizer"
+            name: "MyTools",
+            path: "Sources/MyTools"
         )
     ]
 )

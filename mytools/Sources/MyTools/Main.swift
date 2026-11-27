@@ -3,7 +3,7 @@ import SwiftUI
 let appVersion = "1.4.0"
 
 @main
-struct MyOrganizerApp: App {
+struct MyToolsApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

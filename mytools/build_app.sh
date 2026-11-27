@@ -1,13 +1,13 @@
 #!/bin/bash
-# MyOrganizer を .app バンドルとしてビルドする。
-#   ./build_app.sh          → release ビルドして MyOrganizer.app を生成
-#   open MyOrganizer.app     → 起動
+# MyTools を .app バンドルとしてビルドする。
+#   ./build_app.sh          → release ビルドして MyTools.app を生成
+#   open MyTools.app     → 起動
 set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG=release
-APP_NAME=MyOrganizer         # SPM のターゲット名 = 実行ファイル名
-DISPLAY_NAME=MyOrganizer
+APP_NAME=MyTools         # SPM のターゲット名 = 実行ファイル名
+DISPLAY_NAME=MyTools
 APP_BUNDLE="${DISPLAY_NAME}.app"
 
 # アイコンがなければ生成する。
@@ -32,7 +32,7 @@ cp "${BIN_PATH}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 cp Info.plist "${APP_BUNDLE}/Contents/Info.plist"
 
 # バージョンは Main.swift の appVersion が唯一の定義。Info.plist に反映する。
-VERSION=$(sed -n 's/^let appVersion = "\(.*\)"$/\1/p' Sources/MyOrganizer/Main.swift)
+VERSION=$(sed -n 's/^let appVersion = "\(.*\)"$/\1/p' Sources/MyTools/Main.swift)
 if [[ -n "${VERSION}" ]]; then
     plutil -replace CFBundleShortVersionString -string "${VERSION}" \
         "${APP_BUNDLE}/Contents/Info.plist"

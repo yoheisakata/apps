@@ -1,4 +1,4 @@
-# MyOrganizer 🗂️ — `myorganizer/`
+# MyTools 🗂️ — `mytools/`
 
 `utilities/` の写真・動画バックアップパイプライン(6スクリプト)と、旧`renamer/`アプリの
 一括リネーム機能、旧`cleanmac/`アプリのキャッシュ掃除・アプリのアンインストール機能、
@@ -34,7 +34,7 @@
 
 ```bash
 swift run                        # 開発ビルド（ウィンドウ起動）
-./build_app.sh                   # release ビルド → MyOrganizer.app
+./build_app.sh                   # release ビルド → MyTools.app
 ./install.sh                     # ビルド → /Applications/MyApplications へインストール
 ```
 
@@ -65,7 +65,7 @@ brew install ffmpeg yt-dlp
   （`/System`等のシステム領域は対象外）。実行前に必ずスキャン→サイズ表示→選択→
   確認ダイアログを挟みます。
 - 「アプリ削除」でApp Store製など通常の方法で削除できないアプリを扱う場合、Finder経由
-  （AppleScript）で再試行します。初回は「MyOrganizerがFinderを制御しようとしています」
+  （AppleScript）で再試行します。初回は「MyToolsがFinderを制御しようとしています」
   という許可ダイアログが出ます（システム設定 › プライバシーとセキュリティ ›
   オートメーション で確認・変更可）。
 - 一部のキャッシュフォルダのスキャンには**フルディスクアクセス**が必要な場合があります。

@@ -85,7 +85,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("MyOrganizer")
+            .navigationTitle("MyTools")
             .navigationSplitViewColumnWidth(min: 170, ideal: 190)
         } detail: {
             Group {

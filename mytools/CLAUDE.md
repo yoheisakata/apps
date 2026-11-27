@@ -1,4 +1,4 @@
-# CLAUDE.md — MyOrganizer (myorganizer/)
+# CLAUDE.md — MyTools (mytools/)
 
 `utilities/` の写真・動画パイプライン用スクリプト6本のロジックをSwiftネイティブで
 再実装し、旧`renamer/`アプリの一括リネーム機能、旧`cleanmac/`アプリのキャッシュ掃除・
@@ -10,11 +10,11 @@
 
 ```bash
 swift build                      # コンパイル確認のみ(GUI 起動・目視確認は禁止 — ルート CLAUDE.md 参照)
-./build_app.sh                   # release ビルド → MyOrganizer.app
+./build_app.sh                   # release ビルド → MyTools.app
 ./install.sh                     # ビルド → /Applications/MyApplications へインストール
 ```
 
-- **バージョンは `Sources/MyOrganizer/Main.swift` の `appVersion` が唯一の定義**。
+- **バージョンは `Sources/MyTools/Main.swift` の `appVersion` が唯一の定義**。
   `build_app.sh` が Info.plist の `CFBundleShortVersionString` に反映する。
 
 ## 設計上の方針
@@ -26,7 +26,7 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
 - 旧`renamer/`アプリ(単一ファイル`main.swift`・swiftc直接ビルド)はロジック・UIとも
   無変更でこのアプリに移植し、`renamer/`ディレクトリ自体は削除済み。データ保存先も
   `~/Library/Application Support/Renamer/` から `~/Library/Application Support/
-  MyOrganizer/Renamer/` に変更した(presets.json・history.log)。
+  MyTools/Renamer/` に変更した(presets.json・history.log)。
 - 旧`cleanmac/`アプリ(キャッシュ掃除・アプリのアンインストール・重複写真検出)も
   ロジック・UIとも無変更でこのアプリに移植し、`cleanmac/`ディレクトリ自体は削除済み。
   cleanmacは状態を持たない(プリセットや履歴の永続化なし)ため、データ移行は不要だった。
@@ -52,7 +52,7 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
   `yt-dlp`/`ffmpeg`を同梱しない前提は引き継ぎ、「依存チェック」ペインにも`yt-dlp`の
   項目を追加した。mydownloaderは「ウィンドウを閉じてもダウンロード継続」のために
   `AppDelegate`+`NSApplication.shared.run()`直接呼び出し(SwiftUIの`WindowGroup`を
-  使わない構成)でDockアプリのライフサイクルを自前管理していたが、MyOrganizerは
+  使わない構成)でDockアプリのライフサイクルを自前管理していたが、MyToolsは
   元々`WindowGroup`1枚構成でこの問題設定自体が存在しない(アプリを終了しない限り
   ウィンドウは開いたまま、サイドバーで別ペインへ切り替えるだけ)ため、この部分は
   移植していない — 上記①のシングルトン化だけで「ペインを離れてもダウンロードは
@@ -67,7 +67,7 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
   (誤配置修正で年を1つだけ選べば同じ操作ができる)。`PhotoVerifier`/`VerifyMode`自体は
   誤配置修正が使うため引き続き`Core/`に残る。
 
-## 構成 (`Sources/MyOrganizer/`)
+## 構成 (`Sources/MyTools/`)
 
 - `Main.swift` — エントリポイント + `appVersion`。`WindowGroup`1本のみ(メイン画面)。
   実行状況・実行ログは別ウィンドウではなく各ペイン内に埋め込む方式(下記)。
@@ -908,7 +908,7 @@ swift build                      # コンパイル確認のみ(GUI 起動・目�
   - リネームは必ずプレビュー → 衝突チェック(赤色警告 + 実行ブロック) → 実行の順。
     衝突検出を迂回するパスを作らない。
   - 実行したリネームはUndoスタック(バッチ単位・複数回)と
-    `~/Library/Application Support/MyOrganizer/Renamer/history.log` の両方に記録する。
+    `~/Library/Application Support/MyTools/Renamer/history.log` の両方に記録する。
   - ルールは拡張子を除いた名前部分に適用する(拡張子を触るのは「拡張子を変更」ルールのみ)。
 - 「クリーン」/「アプリ削除」ペイン固有の不変条件(旧cleanmacから継承):
   - 削除は必ず`FileManager.trashItem`(ゴミ箱へ移動)。完全削除のコードを書かない。
