@@ -5,7 +5,7 @@ macOS 用のシンプルなパスワード管理アプリ（SwiftUI 製ネイテ
 まとめて暗号化・管理できます。
 
 > ⚠️ ネイティブ macOS アプリのため GitHub Pages では動きません
-> （mynetworth / myorganizer などと同じローカルビルドのツール群です）。
+> （mynetworth / mytools などと同じローカルビルドのツール群です）。
 
 ---
 
@@ -180,7 +180,7 @@ swift run           # 開発ビルド（ウィンドウ起動）
 ./install.sh        # ビルド → /Applications/MyApplications へコピー → 起動
 ```
 
-アイコンは `swift make-icon.swift` で再生成（mynetworth と同じ紫グラデ背景 + 白い鍵穴シルエット）。
+アイコンは `swift make-icon.swift` で再生成（白背景 + 紫のドル袋シルエット。中央の白い「$」）。
 
 ## 初回の使い方
 

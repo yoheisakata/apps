@@ -1,9 +1,8 @@
 #!/usr/bin/env swift
-// mynetworth と同じ紫グラデーション背景に鍵穴シルエットを描いたアイコンを生成する。
+// 白背景に紫のドル袋（口をひもで結んだ袋＋中央の白い「$」）を描いたアイコンを生成する。
 //   実行: swift make-icon.swift   →  AppIcon.icns と AppIcon.iconset/ を出力
 import AppKit
 
-let purpleTop = NSColor(srgbRed: 0.55, green: 0.36, blue: 0.96, alpha: 1)
 let purpleBottom = NSColor(srgbRed: 0.36, green: 0.20, blue: 0.70, alpha: 1)
 
 func renderIcon(pixels: Int) -> NSBitmapImageRep {
@@ -24,41 +23,64 @@ func renderIcon(pixels: Int) -> NSBitmapImageRep {
     let radius = rect.width * 0.225
     let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-    let gradient = NSGradient(colors: [purpleTop, purpleBottom])!
-    gradient.draw(in: path, angle: -90)
+    // 白背景（シンボルは紫）
+    NSColor.white.setFill()
+    path.fill()
 
-    // 鍵穴（keyhole）シルエット: 上部の円 + 下部の台形
     let cx = s / 2
-    let cy = s / 2
 
-    // 円部分（鍵穴の上）
-    let circleRadius = s * 0.16
-    let circleCenter = CGPoint(x: cx, y: cy + s * 0.06)
+    // ── 袋の本体: 上がすぼまり（口の下のくびれ）、下がふくらんだ形。
+    // 上端 0.66s（口）→ 下端 0.17s（底）。
+    let bag = CGMutablePath()
+    bag.move(to: CGPoint(x: cx - s * 0.13, y: s * 0.66))
+    bag.addCurve(to: CGPoint(x: cx - s * 0.31, y: s * 0.17),
+                 control1: CGPoint(x: cx - s * 0.20, y: s * 0.58),
+                 control2: CGPoint(x: cx - s * 0.36, y: s * 0.38))
+    bag.addQuadCurve(to: CGPoint(x: cx + s * 0.31, y: s * 0.17),
+                     control: CGPoint(x: cx, y: s * 0.13))
+    bag.addCurve(to: CGPoint(x: cx + s * 0.13, y: s * 0.66),
+                 control1: CGPoint(x: cx + s * 0.36, y: s * 0.38),
+                 control2: CGPoint(x: cx + s * 0.20, y: s * 0.58))
+    bag.closeSubpath()
 
-    // 台形部分（鍵穴の下）
-    let trapTopWidth = s * 0.10
-    let trapBottomWidth = s * 0.16
-    let trapHeight = s * 0.22
-    let trapTop = circleCenter.y - circleRadius * 0.3
-    let trapBottom = trapTop - trapHeight
+    cg.setFillColor(purpleBottom.cgColor)
+    cg.addPath(bag)
+    cg.fillPath()
 
-    let keyhole = CGMutablePath()
-    // 円を描く
-    keyhole.addEllipse(in: CGRect(
-        x: circleCenter.x - circleRadius,
-        y: circleCenter.y - circleRadius,
-        width: circleRadius * 2,
-        height: circleRadius * 2))
-    // 台形を描く
-    keyhole.move(to: CGPoint(x: cx - trapTopWidth, y: trapTop))
-    keyhole.addLine(to: CGPoint(x: cx - trapBottomWidth, y: trapBottom))
-    keyhole.addLine(to: CGPoint(x: cx + trapBottomWidth, y: trapBottom))
-    keyhole.addLine(to: CGPoint(x: cx + trapTopWidth, y: trapTop))
-    keyhole.closeSubpath()
+    // ── 口のひも: 袋の口に巻いた帯（白い縁取りで袋との境目を見せる）
+    let bandRect = CGRect(x: cx - s * 0.17, y: s * 0.625, width: s * 0.34, height: s * 0.07)
+    let bandPath = CGPath(roundedRect: bandRect, cornerWidth: s * 0.02, cornerHeight: s * 0.02, transform: nil)
+    cg.setStrokeColor(NSColor.white.cgColor)
+    cg.setLineWidth(s * 0.02)
+    cg.addPath(bandPath)
+    cg.strokePath()
+    cg.setFillColor(purpleBottom.cgColor)
+    cg.addPath(bandPath)
+    cg.fillPath()
 
-    cg.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.95))
-    cg.addPath(keyhole)
-    cg.fillPath(using: .winding)
+    // ── 結び目のリボン: 左右の輪（ひねった楕円）と中央の結び目
+    let loopSize = CGSize(width: s * 0.11, height: s * 0.065)
+    for (dx, angle) in [(-0.065, CGFloat.pi / 7), (0.065, -CGFloat.pi / 7)] {
+        cg.saveGState()
+        cg.translateBy(x: cx + s * CGFloat(dx), y: s * 0.745)
+        cg.rotate(by: angle)
+        cg.setFillColor(purpleBottom.cgColor)
+        cg.fillEllipse(in: CGRect(x: -loopSize.width / 2, y: -loopSize.height / 2,
+                                  width: loopSize.width, height: loopSize.height))
+        cg.restoreGState()
+    }
+    cg.setFillColor(purpleBottom.cgColor)
+    cg.fillEllipse(in: CGRect(x: cx - s * 0.035, y: s * 0.70, width: s * 0.07, height: s * 0.07))
+
+    // ── 中央の「$」（白）
+    let dollar = "$" as NSString
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: s * 0.42, weight: .heavy),
+        .foregroundColor: NSColor.white,
+    ]
+    let size = dollar.size(withAttributes: attrs)
+    dollar.draw(at: NSPoint(x: cx - size.width / 2, y: s * 0.40 - size.height / 2),
+                withAttributes: attrs)
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
